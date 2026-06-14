@@ -107,6 +107,7 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
 const FLAG_ALIVE = 1 << 0;
 const FLAG_KICK = 1 << 1;
 const FLAG_WALLPASS = 1 << 2;
+const FLAG_INVULN = 1 << 3;
 
 export function encodeWelcome(playerId: number, gridW: number, gridH: number): Uint8Array {
   const buf = new Uint8Array(4);
@@ -118,8 +119,8 @@ export function encodeWelcome(playerId: number, gridW: number, gridH: number): U
   return buf;
 }
 
-// Per-player record: id(1) x(2) y(2) bombsMax(1) power(1) speed(1) flags(1) = 9 bytes.
-const PLAYER_RECORD_BYTES = 9;
+// Per-player record: id(1) x(2) y(2) bombsMax(1) power(1) speed(1) flags(1) lives(1) = 10 bytes.
+const PLAYER_RECORD_BYTES = 10;
 const BOMB_RECORD_BYTES = 6;
 
 export function encodeSnapshot(
@@ -148,7 +149,9 @@ export function encodeSnapshot(
     if (p.alive) flags |= FLAG_ALIVE;
     if (p.kick) flags |= FLAG_KICK;
     if (p.wallPass) flags |= FLAG_WALLPASS;
+    if (p.invuln) flags |= FLAG_INVULN;
     dv.setUint8(o, flags); o += 1;
+    dv.setUint8(o, p.lives & 0xff); o += 1;
   }
   dv.setUint8(o, bombs.length); o += 1;
   for (const b of bombs) {
@@ -279,11 +282,13 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
         const power = dv.getUint8(o); o += 1;
         const speed = dv.getUint8(o) / SPEED_SCALE; o += 1;
         const flags = dv.getUint8(o); o += 1;
+        const lives = dv.getUint8(o); o += 1;
         players.push({
-          id, x, y, bombsMax, power, speed,
+          id, x, y, bombsMax, power, speed, lives,
           alive: (flags & FLAG_ALIVE) !== 0,
           kick: (flags & FLAG_KICK) !== 0,
           wallPass: (flags & FLAG_WALLPASS) !== 0,
+          invuln: (flags & FLAG_INVULN) !== 0,
         });
       }
       const bombCount = dv.getUint8(o); o += 1;

@@ -16,6 +16,8 @@ import {
   IDLE_KICK_MS,
   KICK_SPEED,
   PLAYER_HITBOX_RADIUS,
+  CORNER_ASSIST,
+  RESPAWN_INVULN_MS,
   DRAW_WINNER_ID,
   Direction,
   MatchPhase,
@@ -309,7 +311,7 @@ export class Room {
       if (!p.alive) continue;
       const i = this.world.idx(p.cellX, p.cellY);
       if (fire[i] > 0) {
-        this.killPlayer(p);
+        this.hit(p);
         continue;
       }
       const pu = powerupOfTile(this.world.tile(p.cellX, p.cellY));
@@ -329,7 +331,7 @@ export class Room {
 
     const now = Date.now();
     for (const p of this.players.values()) {
-      if (p.alive && now - p.lastMoveAtMs > IDLE_KICK_MS) this.killPlayer(p);
+      if (p.alive && now - p.lastMoveAtMs > IDLE_KICK_MS) this.hit(p, true);
     }
 
     if (this.matchElapsedMs >= SUDDEN_DEATH_AT_MS) {
@@ -349,14 +351,15 @@ export class Room {
   private movePlayer(p: Player, dt: number): void {
     if (p.dir === Direction.NONE) return;
     const dist = (p.speed * dt) / 1000;
+    const snap = dist * CORNER_ASSIST; // align to the lane faster than walking
     const { dx, dy } = dirVector(p.dir);
     if (dx !== 0) {
       const cy = Math.floor(p.y) + 0.5;
-      p.y += clampToward(cy - p.y, dist);
+      p.y += clampToward(cy - p.y, snap);
       this.moveX(p, dx * dist);
     } else if (dy !== 0) {
       const cx = Math.floor(p.x) + 0.5;
-      p.x += clampToward(cx - p.x, dist);
+      p.x += clampToward(cx - p.x, snap);
       this.moveY(p, dy * dist);
     }
   }
@@ -483,16 +486,48 @@ export class Room {
       this.world.set(cell.x, cell.y, TileType.HARD);
       this.bombs = this.bombs.filter((b) => !(b.x === cell.x && b.y === cell.y));
       for (const p of this.players.values()) {
-        if (p.alive && p.cellX === cell.x && p.cellY === cell.y) this.killPlayer(p);
+        if (p.alive && p.cellX === cell.x && p.cellY === cell.y) this.hit(p, true);
       }
     }
   }
 
-  private killPlayer(p: Player): void {
+  /** Take a hit: lose a life and respawn, or get eliminated. `eliminate`
+   *  forces a full kill (idle-kick, sudden-death wall) ignoring lives/invuln. */
+  private hit(p: Player, eliminate = false): void {
     if (!p.alive) return;
-    p.alive = false;
+    const now = Date.now();
+    if (!eliminate && now < p.invulnUntilMs) return; // protected after respawn
+    p.lives = eliminate ? 0 : p.lives - 1;
+    this.broadcast(encodeDeath(p.id)); // VFX/sound on every hit
+    if (p.lives <= 0) {
+      p.alive = false;
+      p.dir = Direction.NONE;
+    } else {
+      this.respawn(p, now);
+    }
+  }
+
+  private respawn(p: Player, now: number): void {
+    const cell = this.findSafeCell();
+    p.x = cell.x + 0.5;
+    p.y = cell.y + 0.5;
     p.dir = Direction.NONE;
-    this.broadcast(encodeDeath(p.id));
+    p.invulnUntilMs = now + RESPAWN_INVULN_MS;
+    p.lastMoveAtMs = now;
+  }
+
+  private findSafeCell(): { x: number; y: number } {
+    const ok = (x: number, y: number) =>
+      this.world.tile(x, y) === TileType.EMPTY &&
+      this.world.fire[this.world.idx(x, y)] === 0 &&
+      !this.bombs.some((b) => !b.exploded && b.x === x && b.y === y);
+    for (const s of SPAWNS) if (ok(s.x, s.y)) return s;
+    for (let y = 1; y < GRID_H - 1; y++) {
+      for (let x = 1; x < GRID_W - 1; x++) {
+        if (ok(x, y)) return { x, y };
+      }
+    }
+    return SPAWNS[0];
   }
 
   private checkWin(timeUp = false): void {
@@ -525,6 +560,7 @@ export class Room {
   }
 
   private broadcastSnapshot(): void {
+    const now = Date.now();
     const players: PlayerSnapshot[] = [];
     for (const p of this.players.values()) {
       players.push({
@@ -537,6 +573,8 @@ export class Room {
         alive: p.alive,
         kick: p.kick,
         wallPass: p.wallPass,
+        lives: p.lives,
+        invuln: now < p.invulnUntilMs,
       });
     }
     const bombs: BombSnapshot[] = this.bombs

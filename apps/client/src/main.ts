@@ -20,6 +20,7 @@ let keepAlive: ReturnType<typeof setInterval> | null = null;
 let lastFrame = performance.now();
 let currentTrack: "lobby" | "battle" = "lobby";
 let lastCountSec = -1;
+let goUntil = 0;
 let prevSoftCount = -1;
 let prevPlayerCount = 0;
 
@@ -92,6 +93,7 @@ net.onMessage = (msg) => {
         lastCountSec = -1;
       } else if (msg.phase === MatchPhase.PLAYING) {
         assets.play("go");
+        goUntil = performance.now() + 800;
       } else if (msg.phase === MatchPhase.SUDDEN_DEATH) {
         assets.play("sudden_death");
       } else if (msg.phase === MatchPhase.LOBBY) {
@@ -201,11 +203,38 @@ function updateHud(): void {
     dot.className = "pdot";
     dot.style.background = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
     card.appendChild(dot);
+    const hearts = p.lives > 0 ? "❤️".repeat(p.lives) : "💀";
     const txt = document.createElement("span");
     txt.textContent =
-      `${state.nameOf(p.id)} 💣${p.bombsMax} 🔥${p.power}${p.kick ? " 🦵" : ""}${p.wallPass ? " 👻" : ""}`;
+      `${state.nameOf(p.id)} ${hearts} 💣${p.bombsMax} 🔥${p.power}${p.kick ? " 🦵" : ""}${p.wallPass ? " 👻" : ""}`;
     card.appendChild(txt);
     playersEl.appendChild(card);
+  }
+}
+
+const cdEl = document.getElementById("countdown-overlay")!;
+let lastCdText = "";
+function updateCountdown(): void {
+  let text = "";
+  let go = false;
+  if (state.phase === MatchPhase.COUNTDOWN) {
+    const n = Math.ceil(state.phaseTimeLeft() / 1000);
+    text = n > 0 ? String(n) : "GO!";
+  } else if (performance.now() < goUntil) {
+    text = "GO!";
+    go = true;
+  }
+  if (text !== lastCdText) {
+    lastCdText = text;
+    cdEl.textContent = text;
+    cdEl.classList.toggle("hidden", text === "");
+    cdEl.classList.toggle("go", go);
+    if (text) {
+      // restart the pop animation
+      cdEl.style.animation = "none";
+      void cdEl.offsetWidth;
+      cdEl.style.animation = "";
+    }
   }
 }
 
@@ -228,6 +257,7 @@ function frame(): void {
     }
     renderer.render(view, state.myId);
     updateHud();
+    updateCountdown();
   } else if (state.phase === MatchPhase.LOBBY && !document.getElementById("room")!.classList.contains("hidden")) {
     renderRoom(state);
   }

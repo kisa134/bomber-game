@@ -1,18 +1,27 @@
 // Client-side prediction for the local player only. We integrate the held input
-// locally every frame using the same movement model as the server (grid-only
-// collision; bombs are ignored here and self-correct on reconciliation), so the
-// player reacts to the keyboard instantly instead of waiting a network round-trip.
+// locally every frame using the same movement model as the server, then gently
+// correct toward the authoritative position with a dead zone so it never jitters.
 
-import { GRID_W, GRID_H, TileType, PLAYER_HITBOX_RADIUS, Direction } from "../net/protocol.js";
+import {
+  GRID_W,
+  GRID_H,
+  TileType,
+  PLAYER_HITBOX_RADIUS,
+  CORNER_ASSIST,
+  Direction,
+} from "../net/protocol.js";
 
 const R = PLAYER_HITBOX_RADIUS;
 const EPS = 1e-4;
-const SNAP_DIST = 1.2; // cells; beyond this, hard-snap to the server position
-const RECONCILE = 0.25; // fraction pulled toward server position per snapshot
+const SNAP_DIST = 1.5; // beyond this, hard-snap to the server position
+const DEAD_ZONE = 0.05; // ignore tiny errors -> no micro jitter
+const CORRECT_PER_SEC = 12; // how fast we ease toward the server position
 
 export class Predictor {
   x = 0;
   y = 0;
+  private tx = 0; // authoritative target
+  private ty = 0;
   private has = false;
   private grid: Uint8Array | null = null;
   private speed = 3.2;
@@ -28,8 +37,10 @@ export class Predictor {
     this.grid = null;
   }
 
-  /** Fold in an authoritative snapshot of the local player. */
+  /** Record the latest authoritative state (correction happens in step()). */
   reconcile(x: number, y: number, speed: number, alive: boolean, grid: Uint8Array, wallPass = false): void {
+    this.tx = x;
+    this.ty = y;
     this.speed = speed;
     this.alive = alive;
     this.grid = grid;
@@ -38,30 +49,38 @@ export class Predictor {
       this.x = x;
       this.y = y;
       this.has = true;
-      return;
-    }
-    const d = Math.hypot(x - this.x, y - this.y);
-    if (d > SNAP_DIST) {
-      this.x = x;
-      this.y = y;
-    } else {
-      this.x += (x - this.x) * RECONCILE;
-      this.y += (y - this.y) * RECONCILE;
     }
   }
 
-  /** Advance the predicted position by dt(ms) given the held direction. */
+  /** Advance prediction by dt(ms) for the held direction, then ease to server. */
   step(dt: number, dir: Direction): void {
-    if (!this.has || !this.alive || !this.grid || dir === Direction.NONE) return;
-    const dist = (this.speed * dt) / 1000;
-    if (dir === Direction.LEFT || dir === Direction.RIGHT) {
-      const cy = Math.floor(this.y) + 0.5;
-      this.y += clampToward(cy - this.y, dist);
-      this.moveX(dir === Direction.RIGHT ? dist : -dist);
-    } else {
-      const cx = Math.floor(this.x) + 0.5;
-      this.x += clampToward(cx - this.x, dist);
-      this.moveY(dir === Direction.DOWN ? dist : -dist);
+    if (!this.has || !this.grid) return;
+
+    if (this.alive && dir !== Direction.NONE) {
+      const dist = (this.speed * dt) / 1000;
+      const snap = dist * CORNER_ASSIST;
+      if (dir === Direction.LEFT || dir === Direction.RIGHT) {
+        const cy = Math.floor(this.y) + 0.5;
+        this.y += clampToward(cy - this.y, snap);
+        this.moveX(dir === Direction.RIGHT ? dist : -dist);
+      } else {
+        const cx = Math.floor(this.x) + 0.5;
+        this.x += clampToward(cx - this.x, snap);
+        this.moveY(dir === Direction.DOWN ? dist : -dist);
+      }
+    }
+
+    // Ease toward the authoritative position.
+    const ex = this.tx - this.x;
+    const ey = this.ty - this.y;
+    const d = Math.hypot(ex, ey);
+    if (!this.alive || d > SNAP_DIST) {
+      this.x = this.tx;
+      this.y = this.ty;
+    } else if (d > DEAD_ZONE) {
+      const k = Math.min(1, (CORRECT_PER_SEC * dt) / 1000);
+      this.x += ex * k;
+      this.y += ey * k;
     }
   }
 

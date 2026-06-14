@@ -3,6 +3,7 @@ import {
   START_BOMBS,
   START_POWER,
   START_SPEED,
+  START_LIVES,
   MAX_BOMBS,
   MAX_POWER,
   MAX_SPEED,
@@ -30,6 +31,8 @@ export class Player {
   kick: boolean = false;
   wallPass: boolean = false;
 
+  lives: number = START_LIVES;
+  invulnUntilMs: number = 0;
   alive: boolean = true;
   lastInputSeq: number = 0;
   lastMoveAtMs: number = 0; // for idle-kick detection
@@ -65,6 +68,8 @@ export class Player {
     this.speed = START_SPEED;
     this.kick = false;
     this.wallPass = false;
+    this.lives = START_LIVES;
+    this.invulnUntilMs = 0;
     this.alive = true;
   }
 

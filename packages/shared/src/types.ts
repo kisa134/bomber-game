@@ -75,6 +75,8 @@ export interface PlayerSnapshot {
   alive: boolean;
   kick: boolean;
   wallPass: boolean;
+  lives: number;
+  invuln: boolean;
 }
 
 export interface BombSnapshot {

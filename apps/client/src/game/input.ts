@@ -89,6 +89,7 @@ export class Input {
     joy?.classList.toggle("hidden", scheme !== "joystick");
     // Reset any held touch direction when switching.
     this.setJoy(Direction.NONE);
+    if (scheme === "joystick") this.showJoyHome();
   }
 
   private attachBombButton(): void {
@@ -118,35 +119,45 @@ export class Input {
     });
   }
 
-  /** Floating virtual joystick: touch anywhere in the zone to anchor it. */
+  private base: HTMLElement | null = null;
+  private thumb: HTMLElement | null = null;
+
+  /** Resting position of the stick (bottom-left), shown faintly when idle. */
+  private homeXY(): { x: number; y: number } {
+    return { x: 120, y: window.innerHeight - 150 };
+  }
+
+  private showJoyHome(): void {
+    if (!this.base || !this.thumb) return;
+    const h = this.homeXY();
+    this.base.style.left = this.thumb.style.left = `${h.x}px`;
+    this.base.style.top = this.thumb.style.top = `${h.y}px`;
+    this.base.style.opacity = "0.4";
+    this.thumb.style.opacity = "0.5";
+  }
+
+  /** Floating virtual joystick: touch anywhere in the left zone to grab it. */
   private attachJoystick(): void {
     const zone = document.getElementById("joystick");
     const base = document.getElementById("joy-base");
     const thumb = document.getElementById("joy-thumb");
     if (!zone || !base || !thumb) return;
+    this.base = base;
+    this.thumb = thumb;
 
+    const MAX_TRAVEL = 56;
     let active = false;
     let ox = 0;
     let oy = 0;
-
-    const show = (x: number, y: number) => {
-      base.style.left = `${x}px`;
-      base.style.top = `${y}px`;
-      thumb.style.left = `${x}px`;
-      thumb.style.top = `${y}px`;
-      base.style.opacity = "1";
-      thumb.style.opacity = "1";
-    };
-    const hide = () => {
-      base.style.opacity = "0";
-      thumb.style.opacity = "0";
-    };
 
     zone.addEventListener("pointerdown", (e) => {
       active = true;
       ox = e.clientX;
       oy = e.clientY;
-      show(ox, oy);
+      base.style.left = thumb.style.left = `${ox}px`;
+      base.style.top = thumb.style.top = `${oy}px`;
+      base.style.opacity = "0.9";
+      thumb.style.opacity = "1";
       zone.setPointerCapture(e.pointerId);
       e.preventDefault();
     });
@@ -154,9 +165,8 @@ export class Input {
       if (!active) return;
       const dx = e.clientX - ox;
       const dy = e.clientY - oy;
-      // Move the thumb (clamped) for feedback.
       const mag = Math.hypot(dx, dy);
-      const clamp = Math.min(mag, 44);
+      const clamp = Math.min(mag, MAX_TRAVEL);
       const ang = Math.atan2(dy, dx);
       thumb.style.left = `${ox + Math.cos(ang) * clamp}px`;
       thumb.style.top = `${oy + Math.sin(ang) * clamp}px`;
@@ -164,24 +174,25 @@ export class Input {
         this.setJoy(Direction.NONE);
         return;
       }
-      const dir =
+      this.setJoy(
         Math.abs(dx) > Math.abs(dy)
           ? dx > 0
             ? Direction.RIGHT
             : Direction.LEFT
           : dy > 0
             ? Direction.DOWN
-            : Direction.UP;
-      this.setJoy(dir);
+            : Direction.UP,
+      );
     });
     const end = (e: Event) => {
       active = false;
       this.setJoy(Direction.NONE);
-      hide();
+      this.showJoyHome();
       e.preventDefault();
     };
     zone.addEventListener("pointerup", end);
     zone.addEventListener("pointercancel", end);
+    this.showJoyHome();
   }
 
   reset(): void {

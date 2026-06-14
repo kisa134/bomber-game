@@ -14,6 +14,9 @@ export const EXPLOSION_LIFETIME_MS = 400;
 export const PLAYER_BASE_SPEED = 3.2; // cells per second
 export const SPEED_UP_DELTA = 0.6;
 export const PLAYER_HITBOX_RADIUS = 0.35; // ~0.7 cell wide
+// How much faster than walking a player slides onto the lane center when turning
+// (forgiving corner navigation). Same value on server + client prediction.
+export const CORNER_ASSIST = 2.2;
 
 export const MAX_PLAYERS_PER_ROOM = 4;
 export const MIN_PLAYERS_TO_START = 2;
@@ -27,7 +30,11 @@ export const END_SCREEN_MS = 5_000;
 export const ROOM_LINGER_MS = 10_000;
 
 export const SOFT_BLOCK_DENSITY = 0.7; // share of free cells filled with soft blocks
-export const POWERUP_DROP_CHANCE = 0.35;
+export const POWERUP_DROP_CHANCE = 0.3;
+
+// Lives: each player has a few, respawning with brief invulnerability until out.
+export const START_LIVES = 2;
+export const RESPAWN_INVULN_MS = 2500;
 
 // Lobby / matchmaking (no bots — matches need real players)
 export const LOBBY_COUNTDOWN_MS = 15_000; // auto-start once >= MIN players present

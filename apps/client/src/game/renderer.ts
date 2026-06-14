@@ -192,6 +192,9 @@ export class Renderer {
         const k = age / DEATH_MS;
         scale = 1 - k;
         alpha = 1 - k;
+      } else if (p.invuln) {
+        // Flash while protected after a respawn.
+        alpha = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(now / 70));
       }
 
       // Walk bob when moving.
