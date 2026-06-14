@@ -27,29 +27,48 @@ export const SPRITE_FILES: Record<string, string> = {
   skin3: "/sprites/skin_3.webp",
 };
 
-// One-shot sound effects.
-export const SOUND_FILES: Record<string, string> = {
-  place: "/sounds/place.mp3",
-  explode: "/sounds/explode.mp3",
-  pickup: "/sounds/pickup.mp3",
-  death: "/sounds/death.mp3",
-  block_break: "/sounds/block_break.mp3",
-  kick: "/sounds/kick.mp3",
-  countdown: "/sounds/countdown.mp3",
-  go: "/sounds/go.mp3",
-  victory: "/sounds/victory.mp3",
-  defeat: "/sounds/defeat.mp3",
-  draw: "/sounds/draw.mp3",
-  sudden_death: "/sounds/sudden_death.mp3",
-  ui: "/sounds/ui_click.mp3",
-  join: "/sounds/join.mp3",
+// One-shot sound effects (extension-agnostic: .mp3/.ogg/.wav all work).
+export const SOUND_KEYS = [
+  "place",
+  "explode",
+  "pickup",
+  "death",
+  "block_break",
+  "kick",
+  "countdown",
+  "go",
+  "victory",
+  "defeat",
+  "draw",
+  "sudden_death",
+  "ui",
+  "join",
+] as const;
+
+// Map sfx key -> base filename (no extension).
+const SOUND_BASE: Record<string, string> = {
+  place: "place",
+  explode: "explode",
+  pickup: "pickup",
+  death: "death",
+  block_break: "block_break",
+  kick: "kick",
+  countdown: "countdown",
+  go: "go",
+  victory: "victory",
+  defeat: "defeat",
+  draw: "draw",
+  sudden_death: "sudden_death",
+  ui: "ui_click",
+  join: "join",
 };
 
-// Looping background music.
-export const MUSIC_FILES: Record<string, string> = {
-  lobby: "/sounds/music_lobby.mp3",
-  battle: "/sounds/music_battle.mp3",
+const MUSIC_BASE: Record<string, string> = {
+  lobby: "music_lobby",
+  battle: "music_battle",
 };
+
+const AUDIO_EXTS = [".mp3", ".ogg", ".wav"];
 
 export class Assets {
   private images = new Map<string, HTMLImageElement>();
@@ -63,8 +82,8 @@ export class Assets {
   async preload(): Promise<void> {
     await Promise.all([
       ...Object.entries(SPRITE_FILES).map(([k, url]) => this.tryImage(k, url)),
-      ...Object.entries(SOUND_FILES).map(([k, url]) => this.trySound(k, url)),
-      ...Object.entries(MUSIC_FILES).map(([k, url]) => this.tryMusic(k, url)),
+      ...Object.entries(SOUND_BASE).map(([k, base]) => this.trySound(k, base)),
+      ...Object.entries(MUSIC_BASE).map(([k, base]) => this.tryMusic(k, base)),
     ]);
   }
 
@@ -167,13 +186,25 @@ export class Assets {
     });
   }
 
-  private async trySound(key: string, url: string): Promise<void> {
-    const a = await this.loadAudio(url, false);
-    if (a) this.sounds.set(key, url);
+  private async trySound(key: string, base: string): Promise<void> {
+    for (const ext of AUDIO_EXTS) {
+      const url = `/sounds/${base}${ext}`;
+      const a = await this.loadAudio(url, false);
+      if (a) {
+        this.sounds.set(key, url);
+        return;
+      }
+    }
   }
 
-  private async tryMusic(key: string, url: string): Promise<void> {
-    const a = await this.loadAudio(url, true);
-    if (a) this.music.set(key, a);
+  private async tryMusic(key: string, base: string): Promise<void> {
+    for (const ext of AUDIO_EXTS) {
+      const url = `/sounds/${base}${ext}`;
+      const a = await this.loadAudio(url, true);
+      if (a) {
+        this.music.set(key, a);
+        return;
+      }
+    }
   }
 }

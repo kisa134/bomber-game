@@ -126,6 +126,12 @@ app.post("/create", async (res) => {
   sendJson(res, mm.createPrivate(name, skin));
 });
 
+app.post("/practice", async (res) => {
+  res.onAborted(() => {});
+  const { name, skin } = await parseBody(res);
+  sendJson(res, mm.practice(name, skin));
+});
+
 app.post("/join", async (res) => {
   res.onAborted(() => {});
   const { name, code, skin } = await parseBody(res);

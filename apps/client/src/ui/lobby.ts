@@ -18,6 +18,7 @@ export interface Choice {
 
 export interface MenuHandlers {
   quickplay: (c: Choice) => void;
+  practice: (c: Choice) => void;
   create: (c: Choice) => void;
   join: (c: Choice, code: string) => void;
 }
@@ -50,6 +51,7 @@ export function setupMenu(h: MenuHandlers): void {
   };
 
   document.getElementById("quickplay")!.addEventListener("click", () => h.quickplay(choice()));
+  document.getElementById("practice")!.addEventListener("click", () => h.practice(choice()));
   document.getElementById("create-room")!.addEventListener("click", () => h.create(choice()));
   document.getElementById("join-room")!.addEventListener("click", () => {
     const code = joinCode.value.trim().toUpperCase();

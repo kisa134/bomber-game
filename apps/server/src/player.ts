@@ -16,6 +16,7 @@ export class Player {
   readonly id: number;
   name: string;
   skin: number;
+  isBot: boolean;
 
   // Position in cell coordinates (center of a cell is integer + 0.5).
   x: number;
@@ -35,13 +36,22 @@ export class Player {
 
   send: SendFn;
 
-  constructor(id: number, name: string, skin: number, spawnX: number, spawnY: number, send: SendFn) {
+  constructor(
+    id: number,
+    name: string,
+    skin: number,
+    spawnX: number,
+    spawnY: number,
+    send: SendFn,
+    isBot = false,
+  ) {
     this.id = id;
     this.name = name;
     this.skin = skin;
     this.x = spawnX + 0.5;
     this.y = spawnY + 0.5;
     this.send = send;
+    this.isBot = isBot;
   }
 
   /** Reset per-match state before a (re)start. */

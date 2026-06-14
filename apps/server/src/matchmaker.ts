@@ -38,6 +38,12 @@ export class Matchmaker {
     return this.reserve(room, name, skin);
   }
 
+  /** Solo practice room: fills with bots and auto-starts. */
+  practice(name: string, skin: number): { code: string; token: string } {
+    const room = this.newRoom(false, true);
+    return this.reserve(room, name, skin);
+  }
+
   /** Join a specific room by its code. Returns null if missing/closed/full. */
   joinByCode(code: string, name: string, skin: number): { code: string; token: string } | null {
     const room = this.rooms.get(code.toUpperCase());
@@ -51,10 +57,10 @@ export class Matchmaker {
     return { code: room.id, token };
   }
 
-  private newRoom(isPublic: boolean): Room {
+  private newRoom(isPublic: boolean, practice = false): Room {
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
-    const room = new Room(code, isPublic);
+    const room = new Room(code, isPublic, practice);
     this.rooms.set(code, room);
     return room;
   }

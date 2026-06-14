@@ -35,6 +35,9 @@ import {
 import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
+import { BotController } from "./bot.js";
+
+const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 
 const R = PLAYER_HITBOX_RADIUS;
 const EPS = 1e-4;
@@ -42,8 +45,10 @@ const EPS = 1e-4;
 export class Room {
   readonly id: string; // also used as the shareable room code
   readonly isPublic: boolean;
+  readonly practice: boolean; // fill with bots and auto-start
   readonly world = new World();
   readonly players = new Map<number, Player>();
+  private readonly bots = new Map<number, BotController>();
   bombs: Bomb[] = [];
 
   phase: MatchPhase = MatchPhase.LOBBY;
@@ -63,9 +68,10 @@ export class Room {
 
   dead = false;
 
-  constructor(id: string, isPublic: boolean) {
+  constructor(id: string, isPublic: boolean, practice = false) {
     this.id = id;
     this.isPublic = isPublic;
+    this.practice = practice;
     this.spiral = buildSpiral();
   }
 
@@ -73,6 +79,21 @@ export class Room {
 
   acceptsPlayers(): boolean {
     return this.phase === MatchPhase.LOBBY && this.players.size < MAX_PLAYERS_PER_ROOM;
+  }
+
+  get humanCount(): number {
+    let n = 0;
+    for (const p of this.players.values()) if (!p.isBot) n++;
+    return n;
+  }
+
+  private addBot(): void {
+    const id = this.nextPlayerId++;
+    const spawn = SPAWNS[this.players.size % SPAWNS.length];
+    const name = BOT_NAMES[id % BOT_NAMES.length];
+    const p = new Player(id, name, id % 4, spawn.x, spawn.y, () => {}, true);
+    this.players.set(id, p);
+    this.bots.set(id, new BotController());
   }
 
   addPlayer(name: string, skin: number, send: SendFn): Player {
@@ -90,11 +111,14 @@ export class Room {
   removePlayer(id: number): void {
     const existed = this.players.delete(id);
     if (!existed) return;
+    this.bots.delete(id);
     if (this.hostId === id) {
-      const next = this.players.keys().next();
-      this.hostId = next.done ? -1 : next.value;
+      let next = -1;
+      for (const p of this.players.values()) if (!p.isBot) { next = p.id; break; }
+      this.hostId = next;
     }
-    if (this.players.size === 0) {
+    // Empty, or a practice room whose only human left -> close it.
+    if (this.players.size === 0 || this.humanCount === 0) {
       this.dead = true;
       return;
     }
@@ -177,6 +201,12 @@ export class Room {
   }
 
   private tickLobby(dt: number): void {
+    // Practice room: fill with bots and start as soon as a human is present.
+    if (this.practice && this.humanCount >= 1) {
+      while (this.players.size < MAX_PLAYERS_PER_ROOM) this.addBot();
+      this.start();
+      return;
+    }
     if (this.players.size >= MAX_PLAYERS_PER_ROOM) {
       this.start();
       return;
@@ -248,6 +278,12 @@ export class Room {
 
   private simulate(dt: number): void {
     this.matchElapsedMs += dt;
+
+    // Bots decide their inputs first.
+    for (const [id, ctrl] of this.bots) {
+      const bot = this.players.get(id);
+      if (bot && bot.alive) ctrl.update(this, bot, dt);
+    }
 
     for (const p of this.players.values()) {
       if (p.alive) this.movePlayer(p, dt);

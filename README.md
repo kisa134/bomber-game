@@ -7,7 +7,9 @@ cell math.
 
 - 13×11 grid, chain explosions, 4 powerups (BOMB / FIRE / SPEED / KICK)
 - Rooms: Quickplay (public) · create a private room with a share code · join by code
-- 2–4 real players (no bots). Host can start, or it auto-starts ~15s after 2+ join
+- Practice vs bots (solo) with BFS bomb-dodging AI
+- 2–4 players. Host can start, or it auto-starts ~15s after 2+ join
+- Procedurally generated, symmetric (fair) map each match
 - 5-minute rounds; sudden death in the final minute (walls spiral inward)
 - Client-side prediction for instant local movement
 - Desktop (WASD/arrows + space) and mobile (d-pad + bomb) controls

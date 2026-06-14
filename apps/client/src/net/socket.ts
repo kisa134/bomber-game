@@ -34,6 +34,12 @@ export async function createRoom(name: string, skin: number): Promise<JoinRespon
   return res.json();
 }
 
+export async function practiceRoom(name: string, skin: number): Promise<JoinResponse> {
+  const res = await post("/practice", { name, skin });
+  if (!res.ok) throw new Error(`practice failed: ${res.status}`);
+  return res.json();
+}
+
 export async function joinRoom(name: string, code: string, skin: number): Promise<JoinResponse> {
   const res = await post("/join", { name, code, skin });
   if (res.status === 404) throw new Error("Room not found");

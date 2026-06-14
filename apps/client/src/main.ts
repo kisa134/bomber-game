@@ -1,5 +1,5 @@
 import { ServerMsg, MatchPhase, TileType, DRAW_WINNER_ID } from "./net/protocol.js";
-import { Net, quickplay, createRoom, joinRoom, type JoinResponse } from "./net/socket.js";
+import { Net, quickplay, createRoom, joinRoom, practiceRoom, type JoinResponse } from "./net/socket.js";
 import { GameState } from "./game/state.js";
 import { Renderer, PLAYER_COLORS } from "./game/renderer.js";
 import { Input } from "./game/input.js";
@@ -297,6 +297,7 @@ setupBackground();
 
 setupMenu({
   quickplay: (c) => connect(() => quickplay(c.name, c.skin)),
+  practice: (c) => connect(() => practiceRoom(c.name, c.skin)),
   create: (c) => connect(() => createRoom(c.name, c.skin)),
   join: (c, code) => connect(() => joinRoom(c.name, code, c.skin)),
 });

@@ -2,7 +2,6 @@ import {
   GRID_W,
   GRID_H,
   GRID_SIZE,
-  SOFT_BLOCK_DENSITY,
   POWERUP_DROP_CHANCE,
   POWERUP_COUNT,
   TileType,
@@ -102,13 +101,26 @@ export class World {
       for (const [cx, cy] of cells) safe.add(this.idx(cx, cy));
     }
 
-    // Fill soft blocks on remaining empty, non-safe cells.
-    for (let y = 0; y < GRID_H; y++) {
-      for (let x = 0; x < GRID_W; x++) {
+    // Procedural soft-block layout: randomized each match but 4-fold symmetric,
+    // so every corner is equally fair. Density varies per match for variety.
+    const density = 0.55 + rng() * 0.3; // 0.55 .. 0.85
+    const midX = Math.floor(GRID_W / 2);
+    const midY = Math.floor(GRID_H / 2);
+    const placeSoftMirrored = (x: number, y: number) => {
+      const xs = x === GRID_W - 1 - x ? [x] : [x, GRID_W - 1 - x];
+      const ys = y === GRID_H - 1 - y ? [y] : [y, GRID_H - 1 - y];
+      for (const ax of xs) {
+        for (const ay of ys) {
+          const i = this.idx(ax, ay);
+          if (this.grid[i] === TileType.EMPTY && !safe.has(i)) this.grid[i] = TileType.SOFT;
+        }
+      }
+    };
+    for (let y = 1; y <= midY; y++) {
+      for (let x = 1; x <= midX; x++) {
         const i = this.idx(x, y);
-        if (this.grid[i] !== TileType.EMPTY) continue;
-        if (safe.has(i)) continue;
-        if (rng() < SOFT_BLOCK_DENSITY) this.grid[i] = TileType.SOFT;
+        if (this.grid[i] !== TileType.EMPTY || safe.has(i)) continue;
+        if (rng() < density) placeSoftMirrored(x, y);
       }
     }
   }
