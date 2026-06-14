@@ -1,4 +1,5 @@
 import { Direction } from "../net/protocol.js";
+import type { ControlScheme } from "../settings.js";
 
 const KEY_DIR: Record<string, Direction> = {
   ArrowUp: Direction.UP,
@@ -11,30 +12,47 @@ const KEY_DIR: Record<string, Direction> = {
   KeyD: Direction.RIGHT,
 };
 
-/** Tracks held directions (last-pressed wins) and emits bomb presses. */
+const JOY_DEADZONE = 14; // px
+
+/** Tracks the effective movement direction (keyboard or virtual stick). */
 export class Input {
-  private held: Direction[] = [];
+  private held: Direction[] = []; // keyboard
+  private joyDir: Direction = Direction.NONE; // touch joystick / dpad
+  private lastEffective: Direction = Direction.NONE;
+
   onBomb: () => void = () => {};
-  /** Fired the instant the active direction changes, for zero-delay sending. */
   onChange: (dir: Direction) => void = () => {};
 
   get dir(): Direction {
+    if (this.joyDir !== Direction.NONE) return this.joyDir;
     return this.held.length ? this.held[this.held.length - 1] : Direction.NONE;
+  }
+
+  private notify(): void {
+    const d = this.dir;
+    if (d !== this.lastEffective) {
+      this.lastEffective = d;
+      this.onChange(d);
+    }
   }
 
   private press(dir: Direction): void {
     if (dir === Direction.NONE) return;
-    const before = this.dir;
-    this.release(dir);
+    const i = this.held.indexOf(dir);
+    if (i >= 0) this.held.splice(i, 1);
     this.held.push(dir);
-    if (this.dir !== before) this.onChange(this.dir);
+    this.notify();
   }
 
   private release(dir: Direction): void {
-    const before = this.dir;
     const i = this.held.indexOf(dir);
     if (i >= 0) this.held.splice(i, 1);
-    if (this.dir !== before) this.onChange(this.dir);
+    this.notify();
+  }
+
+  private setJoy(dir: Direction): void {
+    this.joyDir = dir;
+    this.notify();
   }
 
   attach(): void {
@@ -44,7 +62,7 @@ export class Input {
       if (dir !== undefined) {
         this.press(dir);
         e.preventDefault();
-      } else if (e.code === "Space") {
+      } else if (e.code === "Space" || e.code === "Enter") {
         this.onBomb();
         e.preventDefault();
       }
@@ -54,40 +72,120 @@ export class Input {
       if (dir !== undefined) this.release(dir);
     });
 
-    this.attachTouch();
+    this.attachDpad();
+    this.attachJoystick();
+    this.attachBombButton();
   }
 
-  private attachTouch(): void {
+  /** Show the chosen touch control scheme (only relevant on touch devices). */
+  setControlScheme(scheme: ControlScheme): void {
     const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
     const controls = document.getElementById("touch-controls");
-    if (!isTouch || !controls) return;
-    controls.classList.remove("hidden");
+    const dpad = document.getElementById("dpad");
+    const joy = document.getElementById("joystick");
+    if (!controls) return;
+    controls.classList.toggle("hidden", !isTouch);
+    dpad?.classList.toggle("hidden", scheme !== "dpad");
+    joy?.classList.toggle("hidden", scheme !== "joystick");
+    // Reset any held touch direction when switching.
+    this.setJoy(Direction.NONE);
+  }
 
-    const dpad = controls.querySelectorAll<HTMLButtonElement>(".dbtn");
+  private attachBombButton(): void {
+    const bomb = document.getElementById("bomb-btn");
+    bomb?.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
+      this.onBomb();
+    });
+  }
+
+  private attachDpad(): void {
+    const dpad = document.querySelectorAll<HTMLButtonElement>("#dpad .dbtn");
     dpad.forEach((btn) => {
       const dir = Direction[btn.dataset.dir as keyof typeof Direction] as unknown as Direction;
       const start = (e: Event) => {
         e.preventDefault();
-        this.press(dir);
+        this.setJoy(dir);
       };
       const end = (e: Event) => {
         e.preventDefault();
-        this.release(dir);
+        if (this.joyDir === dir) this.setJoy(Direction.NONE);
       };
       btn.addEventListener("pointerdown", start);
       btn.addEventListener("pointerup", end);
       btn.addEventListener("pointerleave", end);
       btn.addEventListener("pointercancel", end);
     });
+  }
 
-    const bombBtn = document.getElementById("bomb-btn");
-    bombBtn?.addEventListener("pointerdown", (e) => {
+  /** Floating virtual joystick: touch anywhere in the zone to anchor it. */
+  private attachJoystick(): void {
+    const zone = document.getElementById("joystick");
+    const base = document.getElementById("joy-base");
+    const thumb = document.getElementById("joy-thumb");
+    if (!zone || !base || !thumb) return;
+
+    let active = false;
+    let ox = 0;
+    let oy = 0;
+
+    const show = (x: number, y: number) => {
+      base.style.left = `${x}px`;
+      base.style.top = `${y}px`;
+      thumb.style.left = `${x}px`;
+      thumb.style.top = `${y}px`;
+      base.style.opacity = "1";
+      thumb.style.opacity = "1";
+    };
+    const hide = () => {
+      base.style.opacity = "0";
+      thumb.style.opacity = "0";
+    };
+
+    zone.addEventListener("pointerdown", (e) => {
+      active = true;
+      ox = e.clientX;
+      oy = e.clientY;
+      show(ox, oy);
+      zone.setPointerCapture(e.pointerId);
       e.preventDefault();
-      this.onBomb();
     });
+    zone.addEventListener("pointermove", (e) => {
+      if (!active) return;
+      const dx = e.clientX - ox;
+      const dy = e.clientY - oy;
+      // Move the thumb (clamped) for feedback.
+      const mag = Math.hypot(dx, dy);
+      const clamp = Math.min(mag, 44);
+      const ang = Math.atan2(dy, dx);
+      thumb.style.left = `${ox + Math.cos(ang) * clamp}px`;
+      thumb.style.top = `${oy + Math.sin(ang) * clamp}px`;
+      if (mag < JOY_DEADZONE) {
+        this.setJoy(Direction.NONE);
+        return;
+      }
+      const dir =
+        Math.abs(dx) > Math.abs(dy)
+          ? dx > 0
+            ? Direction.RIGHT
+            : Direction.LEFT
+          : dy > 0
+            ? Direction.DOWN
+            : Direction.UP;
+      this.setJoy(dir);
+    });
+    const end = (e: Event) => {
+      active = false;
+      this.setJoy(Direction.NONE);
+      hide();
+      e.preventDefault();
+    };
+    zone.addEventListener("pointerup", end);
+    zone.addEventListener("pointercancel", end);
   }
 
   reset(): void {
     this.held = [];
+    this.setJoy(Direction.NONE);
   }
 }

@@ -1,6 +1,6 @@
 // Optional art/sound loader. Everything here is best-effort: if a file is
-// missing the game falls back to the built-in canvas drawing, so the build and
-// deploy never depend on these assets existing.
+// missing the game falls back to the built-in canvas drawing / silence, so the
+// build and deploy never depend on these assets existing.
 //
 // Drop files into apps/client/public/sprites and apps/client/public/sounds with
 // the exact names below (see those folders' README.md).
@@ -26,22 +26,44 @@ export const SPRITE_FILES: Record<string, string> = {
   skin3: "/sprites/skin_3.webp",
 };
 
+// One-shot sound effects.
 export const SOUND_FILES: Record<string, string> = {
   place: "/sounds/place.mp3",
   explode: "/sounds/explode.mp3",
   pickup: "/sounds/pickup.mp3",
   death: "/sounds/death.mp3",
+  block_break: "/sounds/block_break.mp3",
+  kick: "/sounds/kick.mp3",
+  countdown: "/sounds/countdown.mp3",
+  go: "/sounds/go.mp3",
+  victory: "/sounds/victory.mp3",
+  defeat: "/sounds/defeat.mp3",
+  draw: "/sounds/draw.mp3",
+  sudden_death: "/sounds/sudden_death.mp3",
+  ui: "/sounds/ui_click.mp3",
+  join: "/sounds/join.mp3",
+};
+
+// Looping background music.
+export const MUSIC_FILES: Record<string, string> = {
+  lobby: "/sounds/music_lobby.mp3",
+  battle: "/sounds/music_battle.mp3",
 };
 
 export class Assets {
   private images = new Map<string, HTMLImageElement>();
   private sounds = new Map<string, string>();
+  private music = new Map<string, HTMLAudioElement>();
 
-  /** Try to load every known asset; missing ones are silently skipped. */
+  private sfxEnabled = true;
+  private musicEnabled = true;
+  private desiredMusic: string | null = null;
+
   async preload(): Promise<void> {
     await Promise.all([
       ...Object.entries(SPRITE_FILES).map(([k, url]) => this.tryImage(k, url)),
       ...Object.entries(SOUND_FILES).map(([k, url]) => this.trySound(k, url)),
+      ...Object.entries(MUSIC_FILES).map(([k, url]) => this.tryMusic(k, url)),
     ]);
   }
 
@@ -49,13 +71,61 @@ export class Assets {
     return this.images.get(key) ?? null;
   }
 
+  // -- sfx ------------------------------------------------------------------
+
+  setSfxEnabled(on: boolean): void {
+    this.sfxEnabled = on;
+  }
+
   play(key: string, volume = 0.5): void {
+    if (!this.sfxEnabled) return;
     const url = this.sounds.get(key);
     if (!url) return;
     const a = new Audio(url);
     a.volume = volume;
     void a.play().catch(() => {});
   }
+
+  // -- music ----------------------------------------------------------------
+
+  setMusicEnabled(on: boolean): void {
+    this.musicEnabled = on;
+    if (on) {
+      this.startDesired();
+    } else {
+      for (const a of this.music.values()) a.pause();
+    }
+  }
+
+  /** Switch the looping track (no-op if it's already playing). */
+  playMusic(key: string, volume = 0.35): void {
+    if (this.desiredMusic === key) {
+      // already selected; ensure it's actually playing if enabled
+      if (this.musicEnabled) this.startDesired(volume);
+      return;
+    }
+    this.desiredMusic = key;
+    for (const [k, a] of this.music) {
+      if (k !== key) a.pause();
+    }
+    if (this.musicEnabled) this.startDesired(volume);
+  }
+
+  stopMusic(): void {
+    this.desiredMusic = null;
+    for (const a of this.music.values()) a.pause();
+  }
+
+  private startDesired(volume = 0.35): void {
+    if (!this.desiredMusic) return;
+    const a = this.music.get(this.desiredMusic);
+    if (!a) return;
+    a.volume = volume;
+    a.loop = true;
+    void a.play().catch(() => {});
+  }
+
+  // -- loading --------------------------------------------------------------
 
   private tryImage(key: string, url: string): Promise<void> {
     return new Promise((resolve) => {
@@ -69,12 +139,40 @@ export class Assets {
     });
   }
 
+  // We probe by loading the media element (not HTTP HEAD): the single-origin
+  // server answers missing paths with index.html, which fails to decode as
+  // audio and resolves to "absent" — exactly what we want.
+  private loadAudio(url: string, loop: boolean): Promise<HTMLAudioElement | null> {
+    return new Promise((resolve) => {
+      const a = new Audio();
+      a.loop = loop;
+      a.preload = "auto";
+      let done = false;
+      const ok = () => finish(a);
+      const fail = () => finish(null);
+      const finish = (val: HTMLAudioElement | null) => {
+        if (done) return;
+        done = true;
+        a.removeEventListener("canplaythrough", ok);
+        a.removeEventListener("loadeddata", ok);
+        a.removeEventListener("error", fail);
+        resolve(val);
+      };
+      a.addEventListener("canplaythrough", ok);
+      a.addEventListener("loadeddata", ok);
+      a.addEventListener("error", fail);
+      a.src = url;
+      setTimeout(() => finish(a.readyState >= 2 ? a : null), 4000);
+    });
+  }
+
   private async trySound(key: string, url: string): Promise<void> {
-    try {
-      const res = await fetch(url, { method: "HEAD" });
-      if (res.ok) this.sounds.set(key, url);
-    } catch {
-      // no sound file; ignore
-    }
+    const a = await this.loadAudio(url, false);
+    if (a) this.sounds.set(key, url);
+  }
+
+  private async tryMusic(key: string, url: string): Promise<void> {
+    const a = await this.loadAudio(url, true);
+    if (a) this.music.set(key, a);
   }
 }
