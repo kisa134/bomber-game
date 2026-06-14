@@ -64,7 +64,7 @@ net.onMessage = (msg) => {
       break;
     case ServerMsg.ROOM_INFO: {
       const count = msg.players.length;
-      if (count > prevPlayerCount && prevPlayerCount > 0) assets.play("join", 0.4);
+      if (count > prevPlayerCount && prevPlayerCount > 0) assets.play("join");
       prevPlayerCount = count;
       state.setRoomInfo(msg);
       if (!inGame(state.phase)) {
@@ -91,9 +91,9 @@ net.onMessage = (msg) => {
         enterGame();
         lastCountSec = -1;
       } else if (msg.phase === MatchPhase.PLAYING) {
-        assets.play("go", 0.5);
+        assets.play("go");
       } else if (msg.phase === MatchPhase.SUDDEN_DEATH) {
-        assets.play("sudden_death", 0.5);
+        assets.play("sudden_death");
       } else if (msg.phase === MatchPhase.LOBBY) {
         prevSoftCount = -1;
         showScreen("room");
@@ -109,7 +109,7 @@ net.onMessage = (msg) => {
       state.pingMs = Math.round(performance.now() - msg.timestamp);
       break;
     case ServerMsg.EVENT_EXPLOSION:
-      assets.play("explode", 0.4);
+      assets.play("explode");
       renderer?.onExplosion(msg.cells);
       break;
     case ServerMsg.EVENT_PICKUP: {
@@ -152,13 +152,13 @@ function announceResult(winnerId: number): void {
   let title: string;
   if (winnerId === DRAW_WINNER_ID) {
     title = "🤝 Draw!";
-    assets.play("draw", 0.6);
+    assets.play("draw");
   } else if (winnerId === state.myId) {
     title = "🏆 You win!";
-    assets.play("victory", 0.6);
+    assets.play("victory");
   } else {
     title = `${state.nameOf(winnerId)} wins`;
-    assets.play("defeat", 0.6);
+    assets.play("defeat");
   }
   music("lobby");
   setTimeout(() => showResult(title), 1000);
@@ -182,7 +182,7 @@ function updateHud(): void {
     const n = Math.ceil(state.phaseTimeLeft() / 1000);
     timerEl.textContent = n > 0 ? String(n) : "GO";
     if (n !== lastCountSec && n > 0 && n <= 3) {
-      assets.play("countdown", 0.5);
+      assets.play("countdown");
       lastCountSec = n;
     }
   } else {
@@ -320,7 +320,7 @@ document.getElementById("result-leave")!.addEventListener("click", leaveToMenu);
 // UI click sound + kick music off the first user gesture (autoplay policy).
 document.addEventListener("pointerdown", (e) => {
   const el = e.target as HTMLElement;
-  if (el.closest("button") && !el.closest("#touch-controls")) assets.play("ui", 0.3);
+  if (el.closest("button") && !el.closest("#touch-controls")) assets.play("ui");
 });
 document.addEventListener("pointerdown", () => assets.playMusic(currentTrack), { once: true });
 

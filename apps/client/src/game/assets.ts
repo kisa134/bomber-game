@@ -28,23 +28,6 @@ export const SPRITE_FILES: Record<string, string> = {
 };
 
 // One-shot sound effects (extension-agnostic: .mp3/.ogg/.wav all work).
-export const SOUND_KEYS = [
-  "place",
-  "explode",
-  "pickup",
-  "death",
-  "block_break",
-  "kick",
-  "countdown",
-  "go",
-  "victory",
-  "defeat",
-  "draw",
-  "sudden_death",
-  "ui",
-  "join",
-] as const;
-
 // Map sfx key -> base filename (no extension).
 const SOUND_BASE: Record<string, string> = {
   place: "place",
@@ -69,6 +52,27 @@ const MUSIC_BASE: Record<string, string> = {
 };
 
 const AUDIO_EXTS = [".mp3", ".ogg", ".wav"];
+
+// Relative playback mix (0..1). Single source of truth for SFX balance —
+// loudest = explode; music sits clearly under all SFX. Tweak here, no DAW needed.
+const SFX_GAIN: Record<string, number> = {
+  explode: 0.75,
+  sudden_death: 0.62,
+  go: 0.62,
+  death: 0.55,
+  victory: 0.55,
+  defeat: 0.55,
+  draw: 0.55,
+  block_break: 0.45,
+  place: 0.45,
+  kick: 0.45,
+  pickup: 0.38,
+  countdown: 0.38,
+  join: 0.38,
+  ui: 0.28,
+};
+const DEFAULT_SFX_GAIN = 0.5;
+const MUSIC_GAIN = 0.24;
 
 export class Assets {
   private images = new Map<string, HTMLImageElement>();
@@ -97,12 +101,12 @@ export class Assets {
     this.sfxEnabled = on;
   }
 
-  play(key: string, volume = 0.5): void {
+  play(key: string, volume?: number): void {
     if (!this.sfxEnabled) return;
     const url = this.sounds.get(key);
     if (!url) return;
     const a = new Audio(url);
-    a.volume = volume;
+    a.volume = volume ?? SFX_GAIN[key] ?? DEFAULT_SFX_GAIN;
     void a.play().catch(() => {});
   }
 
@@ -118,7 +122,7 @@ export class Assets {
   }
 
   /** Switch the looping track (no-op if it's already playing). */
-  playMusic(key: string, volume = 0.35): void {
+  playMusic(key: string, volume = MUSIC_GAIN): void {
     if (this.desiredMusic === key) {
       // already selected; ensure it's actually playing if enabled
       if (this.musicEnabled) this.startDesired(volume);
@@ -136,7 +140,7 @@ export class Assets {
     for (const a of this.music.values()) a.pause();
   }
 
-  private startDesired(volume = 0.35): void {
+  private startDesired(volume = MUSIC_GAIN): void {
     if (!this.desiredMusic) return;
     const a = this.music.get(this.desiredMusic);
     if (!a) return;
