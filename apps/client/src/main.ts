@@ -276,7 +276,7 @@ function wireSettings(): void {
 
 function setupBackground(): void {
   const v = document.getElementById("bg-video") as HTMLVideoElement;
-  const sources = ["/bg/menu.webm", "/bg/menu.mp4"];
+  const sources = ["/bg/menu.mp4", "/bg/menu.webm"];
   let i = 0;
   const tryNext = () => {
     if (i >= sources.length) return; // no bg; gradient stays

@@ -53,7 +53,13 @@ body {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(8, 10, 16, 0.62); /* darken for text readability */
+  /* Light vignette only — the menu content sits in its own panel, so we can
+     let the background art show through. */
+  background: radial-gradient(
+    120% 120% at 50% 50%,
+    rgba(8, 10, 16, 0.15) 0%,
+    rgba(8, 10, 16, 0.55) 100%
+  );
 }
 #bg-video {
   width: 100%;
@@ -69,6 +75,27 @@ body {
 .screen {
   position: relative;
   z-index: 1;
+}
+
+/* Console panel that holds menu/settings/room/result content over the art. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: min(360px, calc(100% - 28px));
+  max-height: calc(100% - 28px);
+  overflow-y: auto;
+  padding: 24px 22px;
+  background: rgba(13, 16, 26, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+.panel::-webkit-scrollbar {
+  width: 0;
 }
 
 .screen {

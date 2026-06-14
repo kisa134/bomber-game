@@ -9,6 +9,15 @@ export function showScreen(name: ScreenName): void {
   for (const id of SCREENS) {
     document.getElementById(id)?.classList.toggle("hidden", id !== name);
   }
+  // Background video runs everywhere except in-game (saves CPU/battery).
+  const bg = document.getElementById("bg");
+  const video = document.getElementById("bg-video") as HTMLVideoElement | null;
+  const showBg = name !== "game";
+  if (bg) bg.style.display = showBg ? "" : "none";
+  if (video) {
+    if (showBg) void video.play().catch(() => {});
+    else video.pause();
+  }
 }
 
 export interface Choice {
