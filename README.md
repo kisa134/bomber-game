@@ -38,10 +38,29 @@ See [`STRUCTURE.md`](./STRUCTURE.md) and [`docs/match-state.md`](./docs/match-st
 
 ## Deployment
 
-- **Client** → Vercel (`apps/client`). Set `VITE_SERVER_URL` to the server's
-  public https URL at build time.
-- **Server** → Fly.io / Railway. Container listens on `$PORT` (default 8787).
-  See [`apps/server/Dockerfile`](./apps/server/Dockerfile) and `fly.toml`.
+The simplest setup is **one box**: the server builds and serves the client from
+the same origin (WebSocket + static files), so there's nothing else to host and
+no CORS/URL wiring. The Docker image does this automatically.
+
+### Railway (easiest — git push, no CLI)
+
+1. railway.app → New Project → Deploy from GitHub repo → pick this repo/branch.
+2. It detects `apps/server/Dockerfile`. Set the build/Dockerfile path to
+   `apps/server/Dockerfile` if asked, with build context = repo root.
+3. Deploy. Railway gives you a public URL — open it and both of you hit Quickplay.
+
+### Fly.io (CLI)
+
+```bash
+fly launch --no-deploy   # uses fly.toml (Dockerfile = apps/server/Dockerfile)
+fly deploy
+```
+
+### Split hosting (optional)
+
+You can still host the client on Vercel and the API on Fly/Railway separately:
+build the client with `VITE_SERVER_URL=https://your-server` and deploy `apps/client`
+(`vercel.json` included). Note Vercel cannot host the WebSocket server itself.
 
 ## Roadmap (post-MVP)
 

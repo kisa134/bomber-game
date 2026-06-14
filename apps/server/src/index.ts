@@ -1,9 +1,14 @@
+import { readFileSync, existsSync, statSync } from "node:fs";
+import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
 import { ClientMsg, decodeClient, encodePong } from "@bomberpump/shared";
 import { Matchmaker } from "./matchmaker.js";
 import type { SendFn } from "./player.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
+// Optional: serve the built client from the same origin (single-box deploy).
+const CLIENT_DIST = process.env.CLIENT_DIST ?? join(import.meta.dirname, "../../client/dist");
+const SERVE_STATIC = existsSync(join(CLIENT_DIST, "index.html"));
 const mm = new Matchmaker();
 mm.start();
 
@@ -32,6 +37,37 @@ function readBody(res: uWS.HttpResponse): Promise<string> {
       if (isLast) resolve(buf);
     });
     res.onAborted(() => resolve(""));
+  });
+}
+
+const MIME: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json",
+  ".map": "application/json",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".ico": "image/x-icon",
+  ".woff2": "font/woff2",
+};
+
+function serveStatic(res: uWS.HttpResponse, urlPath: string): void {
+  res.onAborted(() => {});
+  let rel = decodeURIComponent(urlPath.split("?")[0]);
+  if (rel === "/" || rel === "") rel = "/index.html";
+  const full = normalize(join(CLIENT_DIST, rel));
+  // SPA fallback + path-traversal guard.
+  const safe = full.startsWith(CLIENT_DIST) && existsSync(full) && statSync(full).isFile()
+    ? full
+    : join(CLIENT_DIST, "index.html");
+  const dot = safe.lastIndexOf(".");
+  const type = MIME[safe.slice(dot)] ?? "application/octet-stream";
+  const body = readFileSync(safe);
+  res.cork(() => {
+    res.writeHeader("Content-Type", type);
+    res.end(body);
   });
 }
 
@@ -119,9 +155,17 @@ app.ws<SocketData>("/ws", {
   },
 });
 
+// Static client (only when a build is present alongside the server).
+if (SERVE_STATIC) {
+  app.get("/*", (res, req) => serveStatic(res, req.getUrl()));
+}
+
 app.listen(PORT, (listenSocket) => {
   if (listenSocket) {
-    console.log(`[bomberpump] server listening on :${PORT}`);
+    console.log(
+      `[bomberpump] server listening on :${PORT}` +
+        (SERVE_STATIC ? ` (serving client from ${CLIENT_DIST})` : " (api only)"),
+    );
   } else {
     console.error(`[bomberpump] failed to listen on :${PORT}`);
     process.exit(1);
