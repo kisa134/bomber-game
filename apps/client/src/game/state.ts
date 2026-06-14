@@ -37,7 +37,7 @@ export class GameState {
   roomCode = "";
   hostId = -1;
   isHost = false;
-  roomPlayers: Array<{ id: number; name: string }> = [];
+  roomPlayers: Array<{ id: number; name: string; skin: number }> = [];
   private lobbyCountdownMs = 0;
   private lobbySetAt = 0;
 
@@ -60,6 +60,10 @@ export class GameState {
 
   nameOf(id: number): string {
     return this.roomPlayers.find((p) => p.id === id)?.name ?? `P${id}`;
+  }
+
+  skinOf(id: number): number {
+    return this.roomPlayers.find((p) => p.id === id)?.skin ?? id % 4;
   }
 
   addSnapshot(snap: Snapshot): void {

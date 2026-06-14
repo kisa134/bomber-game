@@ -77,7 +77,7 @@ net.onMessage = (msg) => {
     case ServerMsg.STATE_SNAPSHOT: {
       state.addSnapshot(msg);
       const me = msg.players.find((p) => p.id === state.myId);
-      if (me) predictor.reconcile(me.x, me.y, me.speed, me.alive, msg.grid);
+      if (me) predictor.reconcile(me.x, me.y, me.speed, me.alive, msg.grid, me.wallPass);
       // Soft-block break sound (derived from the grid diff).
       let soft = 0;
       for (let i = 0; i < msg.grid.length; i++) if (msg.grid[i] === TileType.SOFT) soft++;
@@ -110,13 +110,22 @@ net.onMessage = (msg) => {
       break;
     case ServerMsg.EVENT_EXPLOSION:
       assets.play("explode", 0.4);
+      renderer?.onExplosion(msg.cells);
       break;
-    case ServerMsg.EVENT_PICKUP:
+    case ServerMsg.EVENT_PICKUP: {
       assets.play("pickup");
+      const snap = state.latest();
+      const pp = snap?.players.find((p) => p.id === msg.playerId);
+      if (pp) renderer?.burst(Math.floor(pp.x), Math.floor(pp.y), "#7CFC00", 10, 3);
       break;
-    case ServerMsg.EVENT_PLAYER_DEATH:
+    }
+    case ServerMsg.EVENT_PLAYER_DEATH: {
       assets.play("death");
+      const snap = state.latest();
+      const dp = snap?.players.find((p) => p.id === msg.playerId);
+      if (dp) renderer?.onDeath(Math.floor(dp.x), Math.floor(dp.y), PLAYER_COLORS[dp.id % PLAYER_COLORS.length]);
       break;
+    }
     default:
       break;
   }
@@ -129,6 +138,7 @@ function enterGame(): void {
   if (!renderer) {
     renderer = new Renderer(canvas);
     renderer.setAssets(assets);
+    renderer.skinOf = (id) => state.skinOf(id);
   }
   renderer.resize();
   predictor.reset();
@@ -192,7 +202,8 @@ function updateHud(): void {
     dot.style.background = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
     card.appendChild(dot);
     const txt = document.createElement("span");
-    txt.textContent = `${state.nameOf(p.id)} 💣${p.bombsMax} 🔥${p.power}${p.kick ? " 🦵" : ""}`;
+    txt.textContent =
+      `${state.nameOf(p.id)} 💣${p.bombsMax} 🔥${p.power}${p.kick ? " 🦵" : ""}${p.wallPass ? " 👻" : ""}`;
     card.appendChild(txt);
     playersEl.appendChild(card);
   }
@@ -285,9 +296,9 @@ wireSettings();
 setupBackground();
 
 setupMenu({
-  quickplay: (c) => connect(() => quickplay(c.name)),
-  create: (c) => connect(() => createRoom(c.name)),
-  join: (c, code) => connect(() => joinRoom(c.name, code)),
+  quickplay: (c) => connect(() => quickplay(c.name, c.skin)),
+  create: (c) => connect(() => createRoom(c.name, c.skin)),
+  join: (c, code) => connect(() => joinRoom(c.name, code, c.skin)),
 });
 
 document.getElementById("start-now")!.addEventListener("click", () => net.sendStart());

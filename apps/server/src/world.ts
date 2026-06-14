@@ -4,6 +4,7 @@ import {
   GRID_SIZE,
   SOFT_BLOCK_DENSITY,
   POWERUP_DROP_CHANCE,
+  POWERUP_COUNT,
   TileType,
   PowerUpType,
 } from "@bomberpump/shared";
@@ -26,6 +27,7 @@ const PU_TILE: Record<PowerUpType, TileType> = {
   [PowerUpType.FIRE_UP]: TileType.PU_FIRE,
   [PowerUpType.SPEED_UP]: TileType.PU_SPEED,
   [PowerUpType.KICK]: TileType.PU_KICK,
+  [PowerUpType.WALL_PASS]: TileType.PU_WALL,
 };
 
 export function powerupOfTile(t: TileType): PowerUpType | null {
@@ -34,6 +36,7 @@ export function powerupOfTile(t: TileType): PowerUpType | null {
     case TileType.PU_FIRE: return PowerUpType.FIRE_UP;
     case TileType.PU_SPEED: return PowerUpType.SPEED_UP;
     case TileType.PU_KICK: return PowerUpType.KICK;
+    case TileType.PU_WALL: return PowerUpType.WALL_PASS;
     default: return null;
   }
 }
@@ -117,7 +120,7 @@ export class World {
   destroySoft(x: number, y: number, rng: () => number = Math.random): PowerUpType | null {
     if (!this.isSoft(x, y)) return null;
     if (rng() < POWERUP_DROP_CHANCE) {
-      const pu = Math.floor(rng() * 4) as PowerUpType;
+      const pu = Math.floor(rng() * POWERUP_COUNT) as PowerUpType;
       this.set(x, y, PU_TILE[pu]);
       return pu;
     }

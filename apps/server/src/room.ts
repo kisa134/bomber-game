@@ -75,10 +75,10 @@ export class Room {
     return this.phase === MatchPhase.LOBBY && this.players.size < MAX_PLAYERS_PER_ROOM;
   }
 
-  addPlayer(name: string, send: SendFn): Player {
+  addPlayer(name: string, skin: number, send: SendFn): Player {
     const id = this.nextPlayerId++;
     const spawn = SPAWNS[this.players.size % SPAWNS.length];
-    const p = new Player(id, name, spawn.x, spawn.y, send);
+    const p = new Player(id, name, skin, spawn.x, spawn.y, send);
     this.players.set(id, p);
     if (this.hostId < 0) this.hostId = id;
     send(encodeWelcome(id, GRID_W, GRID_H));
@@ -122,6 +122,7 @@ export class Room {
     if (p.bombsActive >= p.bombsMax) return;
     const cx = p.cellX;
     const cy = p.cellY;
+    if (this.world.isSolid(cx, cy)) return; // e.g. standing inside a soft block with wall-pass
     if (this.bombs.some((b) => !b.exploded && b.x === cx && b.y === cy)) return;
     this.bombs.push({
       id: this.nextBombId++ & 0xff,
@@ -355,7 +356,9 @@ export class Room {
   }
 
   private blockedFor(cx: number, cy: number, p: Player, dir: Direction): boolean {
-    if (this.world.isSolid(cx, cy)) return true;
+    if (!this.world.inBounds(cx, cy)) return true;
+    if (this.world.isHard(cx, cy)) return true;
+    if (this.world.isSoft(cx, cy)) return !p.wallPass; // wall-pass walks through soft
     const bomb = this.bombs.find((b) => !b.exploded && b.x === cx && b.y === cy);
     if (!bomb) return false;
     if (bomb.passThrough.has(p.id)) return false;
@@ -477,6 +480,7 @@ export class Room {
     const list: RoomPlayerInfo[] = [...this.players.values()].map((p) => ({
       id: p.id,
       name: p.name,
+      skin: p.skin,
     }));
     const countdown = this.lobbyCounting ? this.lobbyCountdownMs : 0;
     for (const p of this.players.values()) {
@@ -496,6 +500,7 @@ export class Room {
         speed: p.speed,
         alive: p.alive,
         kick: p.kick,
+        wallPass: p.wallPass,
       });
     }
     const bombs: BombSnapshot[] = this.bombs

@@ -16,6 +16,7 @@ export class Predictor {
   private has = false;
   private grid: Uint8Array | null = null;
   private speed = 3.2;
+  private wallPass = false;
   alive = true;
 
   get ready(): boolean {
@@ -28,10 +29,11 @@ export class Predictor {
   }
 
   /** Fold in an authoritative snapshot of the local player. */
-  reconcile(x: number, y: number, speed: number, alive: boolean, grid: Uint8Array): void {
+  reconcile(x: number, y: number, speed: number, alive: boolean, grid: Uint8Array, wallPass = false): void {
     this.speed = speed;
     this.alive = alive;
     this.grid = grid;
+    this.wallPass = wallPass;
     if (!this.has) {
       this.x = x;
       this.y = y;
@@ -66,7 +68,9 @@ export class Predictor {
   private solid(cx: number, cy: number): boolean {
     if (cx < 0 || cy < 0 || cx >= GRID_W || cy >= GRID_H) return true;
     const t = this.grid![cy * GRID_W + cx] as TileType;
-    return t === TileType.HARD || t === TileType.SOFT;
+    if (t === TileType.HARD) return true;
+    if (t === TileType.SOFT) return !this.wallPass;
+    return false;
   }
 
   private moveX(step: number): void {

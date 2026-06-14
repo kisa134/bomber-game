@@ -6,6 +6,7 @@ import type { SendFn } from "./player.js";
 interface Pending {
   roomId: string;
   name: string;
+  skin: number;
   createdAt: number;
 }
 
@@ -19,7 +20,7 @@ export class Matchmaker {
   private loop: ReturnType<typeof setInterval> | null = null;
 
   /** Join (or open) a public room. */
-  quickplay(name: string): { code: string; token: string } {
+  quickplay(name: string, skin: number): { code: string; token: string } {
     let room: Room | undefined;
     for (const r of this.rooms.values()) {
       if (r.isPublic && r.acceptsPlayers()) {
@@ -28,25 +29,25 @@ export class Matchmaker {
       }
     }
     if (!room) room = this.newRoom(true);
-    return this.reserve(room, name);
+    return this.reserve(room, name, skin);
   }
 
   /** Open a fresh private room with a shareable code. */
-  createPrivate(name: string): { code: string; token: string } {
+  createPrivate(name: string, skin: number): { code: string; token: string } {
     const room = this.newRoom(false);
-    return this.reserve(room, name);
+    return this.reserve(room, name, skin);
   }
 
   /** Join a specific room by its code. Returns null if missing/closed/full. */
-  joinByCode(code: string, name: string): { code: string; token: string } | null {
+  joinByCode(code: string, name: string, skin: number): { code: string; token: string } | null {
     const room = this.rooms.get(code.toUpperCase());
     if (!room || !room.acceptsPlayers()) return null;
-    return this.reserve(room, name);
+    return this.reserve(room, name, skin);
   }
 
-  private reserve(room: Room, name: string): { code: string; token: string } {
+  private reserve(room: Room, name: string, skin: number): { code: string; token: string } {
     const token = randomUUID();
-    this.pending.set(token, { roomId: room.id, name, createdAt: Date.now() });
+    this.pending.set(token, { roomId: room.id, name, skin, createdAt: Date.now() });
     return { code: room.id, token };
   }
 
@@ -81,7 +82,7 @@ export class Matchmaker {
       }
       if (!room) room = this.newRoom(true);
     }
-    const player = room.addPlayer(p.name, send);
+    const player = room.addPlayer(p.name, p.skin, send);
     return { roomId: room.id, playerId: player.id };
   }
 

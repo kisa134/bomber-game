@@ -106,6 +106,7 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
 // Player flag bits.
 const FLAG_ALIVE = 1 << 0;
 const FLAG_KICK = 1 << 1;
+const FLAG_WALLPASS = 1 << 2;
 
 export function encodeWelcome(playerId: number, gridW: number, gridH: number): Uint8Array {
   const buf = new Uint8Array(4);
@@ -146,6 +147,7 @@ export function encodeSnapshot(
     let flags = 0;
     if (p.alive) flags |= FLAG_ALIVE;
     if (p.kick) flags |= FLAG_KICK;
+    if (p.wallPass) flags |= FLAG_WALLPASS;
     dv.setUint8(o, flags); o += 1;
   }
   dv.setUint8(o, bombs.length); o += 1;
@@ -225,7 +227,7 @@ export function encodeRoomInfo(
   const codeBytes = textEncoder.encode(code);
   const nameBytes = players.map((p) => textEncoder.encode(p.name.slice(0, 24)));
   let size = 1 + 1 + 1 + 2 + 1 + codeBytes.length + 1;
-  for (const nb of nameBytes) size += 1 + 1 + nb.length;
+  for (const nb of nameBytes) size += 1 + 1 + 1 + nb.length; // id + skin + nameLen + name
   const buf = new Uint8Array(size);
   const dv = new DataView(buf.buffer);
   let o = 0;
@@ -238,6 +240,7 @@ export function encodeRoomInfo(
   dv.setUint8(o, players.length); o += 1;
   for (let i = 0; i < players.length; i++) {
     dv.setUint8(o, players[i].id); o += 1;
+    dv.setUint8(o, players[i].skin & 0xff); o += 1;
     dv.setUint8(o, nameBytes[i].length); o += 1;
     buf.set(nameBytes[i], o); o += nameBytes[i].length;
   }
@@ -280,6 +283,7 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
           id, x, y, bombsMax, power, speed,
           alive: (flags & FLAG_ALIVE) !== 0,
           kick: (flags & FLAG_KICK) !== 0,
+          wallPass: (flags & FLAG_WALLPASS) !== 0,
         });
       }
       const bombCount = dv.getUint8(o); o += 1;
@@ -346,9 +350,10 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
       const players: RoomPlayerInfo[] = [];
       for (let i = 0; i < count; i++) {
         const id = dv.getUint8(o); o += 1;
+        const skin = dv.getUint8(o); o += 1;
         const nameLen = dv.getUint8(o); o += 1;
         const name = textDecoder.decode(bytes.subarray(o, o + nameLen)); o += nameLen;
-        players.push({ id, name });
+        players.push({ id, name, skin });
       }
       const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, players };
       return msg;

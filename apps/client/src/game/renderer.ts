@@ -10,6 +10,7 @@ const PU_ICON: Partial<Record<TileType, string>> = {
   [TileType.PU_FIRE]: "🔥",
   [TileType.PU_SPEED]: "👟",
   [TileType.PU_KICK]: "🦵",
+  [TileType.PU_WALL]: "👻",
 };
 
 const PU_SPRITE: Partial<Record<TileType, string>> = {
@@ -17,15 +18,38 @@ const PU_SPRITE: Partial<Record<TileType, string>> = {
   [TileType.PU_FIRE]: "pu_fire",
   [TileType.PU_SPEED]: "pu_speed",
   [TileType.PU_KICK]: "pu_kick",
+  [TileType.PU_WALL]: "pu_wall",
 };
+
+const DEATH_MS = 650;
+
+interface Particle {
+  x: number; // cell coords
+  y: number;
+  vx: number;
+  vy: number;
+  life: number; // seconds remaining
+  max: number;
+  size: number; // px
+  color: string;
+}
 
 export class Renderer {
   private ctx: CanvasRenderingContext2D;
   private tile = 32;
   private dpr = 1;
   private assets: Assets | null = null;
-  /** Per-cell timestamp when fire started, to drive the explosion animation. */
+
+  /** Maps a player id to a skin index. Overridden by main. */
+  skinOf: (id: number) => number = (id) => id % PLAYER_COLORS.length;
+
   private fireStart = new Map<number, number>();
+  private lastPos = new Map<number, { x: number; y: number }>();
+  private deadAt = new Map<number, number>();
+  private particles: Particle[] = [];
+  private shakeUntil = 0;
+  private shakeMag = 0;
+  private lastTime = performance.now();
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -41,31 +65,80 @@ export class Renderer {
 
   resize(): void {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const maxW = window.innerWidth;
-    const maxH = window.innerHeight;
-    this.tile = Math.floor(Math.min(maxW / GRID_W, maxH / GRID_H));
-    const logicalW = this.tile * GRID_W;
-    const logicalH = this.tile * GRID_H;
-    this.canvas.width = logicalW * this.dpr;
-    this.canvas.height = logicalH * this.dpr;
-    this.canvas.style.width = `${logicalW}px`;
-    this.canvas.style.height = `${logicalH}px`;
+    this.tile = Math.floor(Math.min(window.innerWidth / GRID_W, window.innerHeight / GRID_H));
+    const w = this.tile * GRID_W;
+    const h = this.tile * GRID_H;
+    this.canvas.width = w * this.dpr;
+    this.canvas.height = h * this.dpr;
+    this.canvas.style.width = `${w}px`;
+    this.canvas.style.height = `${h}px`;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.ctx.imageSmoothingEnabled = true; // AI art looks better smoothed
+    this.ctx.imageSmoothingEnabled = true;
   }
+
+  // -- VFX API ---------------------------------------------------------------
+
+  shake(mag: number, ms = 220): void {
+    this.shakeUntil = Math.max(this.shakeUntil, performance.now() + ms);
+    this.shakeMag = Math.max(this.shakeMag, mag);
+  }
+
+  burst(cx: number, cy: number, color: string, count: number, speed = 3): void {
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = speed * (0.3 + Math.random() * 0.7);
+      this.particles.push({
+        x: cx + 0.5,
+        y: cy + 0.5,
+        vx: Math.cos(a) * s,
+        vy: Math.sin(a) * s,
+        life: 0.35 + Math.random() * 0.35,
+        max: 0.7,
+        size: this.tile * (0.06 + Math.random() * 0.08),
+        color,
+      });
+    }
+  }
+
+  onExplosion(cells: Array<{ x: number; y: number }>): void {
+    for (const c of cells) {
+      this.burst(c.x, c.y, Math.random() < 0.5 ? "#ffce54" : "#ff7043", 5, 4);
+    }
+    this.shake(Math.min(10, 3 + cells.length * 0.6));
+  }
+
+  onDeath(cx: number, cy: number, color: string): void {
+    this.burst(cx, cy, color, 22, 5);
+    this.burst(cx, cy, "#ffffff", 8, 3);
+    this.shake(8, 260);
+  }
+
+  // -- main draw -------------------------------------------------------------
 
   render(view: RenderView, myId: number): void {
     const ctx = this.ctx;
     const t = this.tile;
     const now = performance.now();
+    const dt = Math.min(0.05, (now - this.lastTime) / 1000);
+    this.lastTime = now;
+
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    // Screen shake.
+    ctx.save();
+    if (now < this.shakeUntil) {
+      const k = (this.shakeUntil - now) / 220;
+      const m = this.shakeMag * Math.min(1, k);
+      ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
+    } else {
+      this.shakeMag = 0;
+    }
 
     if (view.grid) {
       for (let y = 0; y < GRID_H; y++) {
         for (let x = 0; x < GRID_W; x++) {
           const i = y * GRID_W + x;
           const tile = view.grid[i] as TileType;
-          // Track when each cell started burning for frame selection.
           if (tile === TileType.EXPLOSION) {
             if (!this.fireStart.has(i)) this.fireStart.set(i, now);
           } else if (this.fireStart.has(i)) {
@@ -76,17 +149,16 @@ export class Renderer {
       }
     }
 
-    // Bombs.
     for (const b of view.bombs) {
       const pulse = 1 - (b.fuseLeftMs / BOMB_TIMER_MS) * 0.25;
       const cx = (b.x + 0.5) * t;
       const cy = (b.y + 0.5) * t;
-      const bombImg = this.assets?.img("bomb");
-      if (bombImg) {
-        const s = t * 0.9 * (0.95 + 0.05 * Math.sin(performance.now() / 80)) * pulse;
-        ctx.drawImage(bombImg, cx - s / 2, cy - s / 2, s, s);
+      const img = this.assets?.img("bomb");
+      if (img) {
+        const s = t * 0.9 * (0.95 + 0.05 * Math.sin(now / 80)) * pulse;
+        ctx.drawImage(img, cx - s / 2, cy - s / 2, s, s);
       } else {
-        const r = t * 0.34 * (0.9 + 0.1 * Math.sin(performance.now() / 80)) * pulse;
+        const r = t * 0.34 * (0.9 + 0.1 * Math.sin(now / 80)) * pulse;
         ctx.fillStyle = "#15151a";
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -96,35 +168,103 @@ export class Renderer {
       }
     }
 
-    // Players.
+    this.drawPlayers(view, myId, now);
+    this.updateParticles(dt);
+    ctx.restore();
+  }
+
+  private drawPlayers(view: RenderView, myId: number, now: number): void {
+    const ctx = this.ctx;
+    const t = this.tile;
+    const seen = new Set<number>();
+
     for (const p of view.players) {
-      if (!p.alive) continue;
+      seen.add(p.id);
+      // Death bookkeeping.
+      if (p.alive) this.deadAt.delete(p.id);
+      else if (!this.deadAt.has(p.id)) this.deadAt.set(p.id, now);
+
+      let scale = 1;
+      let alpha = 1;
+      if (!p.alive) {
+        const age = now - (this.deadAt.get(p.id) ?? now);
+        if (age > DEATH_MS) continue;
+        const k = age / DEATH_MS;
+        scale = 1 - k;
+        alpha = 1 - k;
+      }
+
+      // Walk bob when moving.
+      const last = this.lastPos.get(p.id);
+      const moving = !!last && Math.hypot(p.x - last.x, p.y - last.y) > 0.01;
+      this.lastPos.set(p.id, { x: p.x, y: p.y });
+      const bob = moving && p.alive ? -Math.abs(Math.sin(now / 70)) * t * 0.1 : 0;
+
       const cx = p.x * t;
-      const cy = p.y * t;
-      const r = t * 0.36;
-      const skin = this.assets?.img(`skin${p.id % PLAYER_COLORS.length}`);
+      const cy = p.y * t + bob;
+      const r = t * 0.36 * scale;
+
+      ctx.globalAlpha = alpha;
+      const skin = this.assets?.img(`skin${this.skinOf(p.id)}`);
       if (skin) {
-        const s = t * 0.92;
-        ctx.drawImage(skin, cx - s / 2, cy - s / 2, s, s);
+        const s = t * 0.92 * scale;
+        if (!p.alive) {
+          ctx.save();
+          ctx.translate(cx, cy);
+          ctx.rotate((1 - scale) * 1.2);
+          ctx.drawImage(skin, -s / 2, -s / 2, s, s);
+          ctx.restore();
+        } else {
+          ctx.drawImage(skin, cx - s / 2, cy - s / 2, s, s);
+        }
       } else {
         ctx.fillStyle = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.font = `${Math.floor(t * 0.5)}px system-ui`;
+        ctx.font = `${Math.floor(t * 0.5 * scale)}px system-ui`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(SKIN_EMOJI[p.id % SKIN_EMOJI.length], cx, cy + 1);
+        ctx.fillText(SKIN_EMOJI[this.skinOf(p.id) % SKIN_EMOJI.length], cx, cy + 1);
       }
-      if (p.id === myId) {
+      if (p.id === myId && p.alive) {
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
         ctx.stroke();
       }
+      ctx.globalAlpha = 1;
     }
+
+    // Clean up stale entries.
+    for (const id of [...this.lastPos.keys()]) if (!seen.has(id)) this.lastPos.delete(id);
   }
+
+  private updateParticles(dt: number): void {
+    const ctx = this.ctx;
+    const t = this.tile;
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life -= dt;
+      if (p.life <= 0) {
+        this.particles.splice(i, 1);
+        continue;
+      }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.92;
+      p.vy *= 0.92;
+      ctx.globalAlpha = Math.max(0, p.life / p.max);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x * t, p.y * t, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // -- tiles -----------------------------------------------------------------
 
   private drawTile(x: number, y: number, tile: TileType, index: number, now: number): void {
     const ctx = this.ctx;
@@ -132,11 +272,9 @@ export class Renderer {
     const px = x * t;
     const py = y * t;
 
-    // Floor base: sprite if provided, else a subtle checker.
     const floor = this.assets?.img("floor");
-    if (floor) {
-      ctx.drawImage(floor, px, py, t, t);
-    } else {
+    if (floor) ctx.drawImage(floor, px, py, t, t);
+    else {
       ctx.fillStyle = (x + y) % 2 === 0 ? "#1a2030" : "#161b29";
       ctx.fillRect(px, py, t, t);
     }
@@ -157,8 +295,8 @@ export class Renderer {
         break;
       }
       default: {
-        const spriteKey = PU_SPRITE[tile];
-        if (spriteKey && this.drawTileSprite(spriteKey, px, py)) break;
+        const key = PU_SPRITE[tile];
+        if (key && this.drawTileSprite(key, px, py)) break;
         const icon = PU_ICON[tile];
         if (icon) {
           ctx.font = `${Math.floor(t * 0.6)}px system-ui`;
@@ -170,7 +308,6 @@ export class Renderer {
     }
   }
 
-  /** Returns true if a sprite was drawn for this key. */
   private drawTileSprite(key: string, px: number, py: number): boolean {
     const img = this.assets?.img(key);
     if (!img) return false;

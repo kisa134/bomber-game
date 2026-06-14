@@ -11,6 +11,7 @@ export enum TileType {
   PU_FIRE = 11,
   PU_SPEED = 12,
   PU_KICK = 13,
+  PU_WALL = 14,
 }
 
 export enum PowerUpType {
@@ -18,7 +19,9 @@ export enum PowerUpType {
   FIRE_UP = 1,
   SPEED_UP = 2,
   KICK = 3,
+  WALL_PASS = 4, // walk through destructible (soft) blocks
 }
+export const POWERUP_COUNT = 5;
 
 /** Direction sent by the client. 0 = no movement. */
 export enum Direction {
@@ -71,6 +74,7 @@ export interface PlayerSnapshot {
   speed: number;
   alive: boolean;
   kick: boolean;
+  wallPass: boolean;
 }
 
 export interface BombSnapshot {
@@ -132,6 +136,7 @@ export interface PongMsg {
 export interface RoomPlayerInfo {
   id: number;
   name: string;
+  skin: number;
 }
 
 export interface RoomInfoMsg {

@@ -90,18 +90,20 @@ app.get("/health", (res) => {
   res.end(JSON.stringify({ ok: true, ...mm.stats }));
 });
 
-async function parseBody(res: uWS.HttpResponse): Promise<{ name: string; code: string }> {
+async function parseBody(res: uWS.HttpResponse): Promise<{ name: string; code: string; skin: number }> {
   const body = await readBody(res);
   let name = "Player";
   let code = "";
+  let skin = 0;
   try {
     const parsed = JSON.parse(body || "{}");
     if (typeof parsed.name === "string" && parsed.name.trim()) name = parsed.name.trim().slice(0, 16);
     if (typeof parsed.code === "string") code = parsed.code.trim().toUpperCase().slice(0, 8);
+    if (Number.isFinite(parsed.skin)) skin = Math.max(0, Math.min(3, Math.floor(parsed.skin)));
   } catch {
     // ignore malformed body
   }
-  return { name, code };
+  return { name, code, skin };
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
@@ -114,20 +116,20 @@ function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
 
 app.post("/quickplay", async (res) => {
   res.onAborted(() => {});
-  const { name } = await parseBody(res);
-  sendJson(res, mm.quickplay(name));
+  const { name, skin } = await parseBody(res);
+  sendJson(res, mm.quickplay(name, skin));
 });
 
 app.post("/create", async (res) => {
   res.onAborted(() => {});
-  const { name } = await parseBody(res);
-  sendJson(res, mm.createPrivate(name));
+  const { name, skin } = await parseBody(res);
+  sendJson(res, mm.createPrivate(name, skin));
 });
 
 app.post("/join", async (res) => {
   res.onAborted(() => {});
-  const { name, code } = await parseBody(res);
-  const result = mm.joinByCode(code, name);
+  const { name, code, skin } = await parseBody(res);
+  const result = mm.joinByCode(code, name, skin);
   if (!result) {
     sendJson(res, { error: "room_not_found" }, "404 Not Found");
     return;

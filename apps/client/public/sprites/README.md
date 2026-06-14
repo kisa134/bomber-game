@@ -29,6 +29,7 @@ to the built-in canvas drawing, so you can add them one at a time.
 | `powerup_fire.png` | +1 blast range pickup — **still missing**, falls back to 🔥 emoji |
 | `powerup_speed.png` | +speed pickup |
 | `powerup_kick.png` | kick ability pickup |
+| `powerup_wall.png` | wall-pass (walk through blocks) pickup — falls back to 👻 emoji |
 
 ## Player skins (transparent background, top-down token)
 

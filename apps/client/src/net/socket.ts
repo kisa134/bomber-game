@@ -22,20 +22,20 @@ async function post(path: string, body: Record<string, unknown>): Promise<Respon
   });
 }
 
-export async function quickplay(name: string): Promise<JoinResponse> {
-  const res = await post("/quickplay", { name });
+export async function quickplay(name: string, skin: number): Promise<JoinResponse> {
+  const res = await post("/quickplay", { name, skin });
   if (!res.ok) throw new Error(`quickplay failed: ${res.status}`);
   return res.json();
 }
 
-export async function createRoom(name: string): Promise<JoinResponse> {
-  const res = await post("/create", { name });
+export async function createRoom(name: string, skin: number): Promise<JoinResponse> {
+  const res = await post("/create", { name, skin });
   if (!res.ok) throw new Error(`create failed: ${res.status}`);
   return res.json();
 }
 
-export async function joinRoom(name: string, code: string): Promise<JoinResponse> {
-  const res = await post("/join", { name, code });
+export async function joinRoom(name: string, code: string, skin: number): Promise<JoinResponse> {
+  const res = await post("/join", { name, code, skin });
   if (res.status === 404) throw new Error("Room not found");
   if (!res.ok) throw new Error(`join failed: ${res.status}`);
   return res.json();

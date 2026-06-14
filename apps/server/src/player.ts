@@ -15,6 +15,7 @@ export type SendFn = (bytes: Uint8Array) => void;
 export class Player {
   readonly id: number;
   name: string;
+  skin: number;
 
   // Position in cell coordinates (center of a cell is integer + 0.5).
   x: number;
@@ -26,6 +27,7 @@ export class Player {
   power: number = START_POWER;
   speed: number = START_SPEED;
   kick: boolean = false;
+  wallPass: boolean = false;
 
   alive: boolean = true;
   lastInputSeq: number = 0;
@@ -33,9 +35,10 @@ export class Player {
 
   send: SendFn;
 
-  constructor(id: number, name: string, spawnX: number, spawnY: number, send: SendFn) {
+  constructor(id: number, name: string, skin: number, spawnX: number, spawnY: number, send: SendFn) {
     this.id = id;
     this.name = name;
+    this.skin = skin;
     this.x = spawnX + 0.5;
     this.y = spawnY + 0.5;
     this.send = send;
@@ -51,6 +54,7 @@ export class Player {
     this.power = START_POWER;
     this.speed = START_SPEED;
     this.kick = false;
+    this.wallPass = false;
     this.alive = true;
   }
 
@@ -75,6 +79,9 @@ export class Player {
         break;
       case PowerUpType.KICK:
         this.kick = true;
+        break;
+      case PowerUpType.WALL_PASS:
+        this.wallPass = true;
         break;
     }
   }
