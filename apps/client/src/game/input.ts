@@ -15,6 +15,8 @@ const KEY_DIR: Record<string, Direction> = {
 export class Input {
   private held: Direction[] = [];
   onBomb: () => void = () => {};
+  /** Fired the instant the active direction changes, for zero-delay sending. */
+  onChange: (dir: Direction) => void = () => {};
 
   get dir(): Direction {
     return this.held.length ? this.held[this.held.length - 1] : Direction.NONE;
@@ -22,13 +24,17 @@ export class Input {
 
   private press(dir: Direction): void {
     if (dir === Direction.NONE) return;
+    const before = this.dir;
     this.release(dir);
     this.held.push(dir);
+    if (this.dir !== before) this.onChange(this.dir);
   }
 
   private release(dir: Direction): void {
+    const before = this.dir;
     const i = this.held.indexOf(dir);
     if (i >= 0) this.held.splice(i, 1);
+    if (this.dir !== before) this.onChange(this.dir);
   }
 
   attach(): void {

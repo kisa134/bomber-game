@@ -10,8 +10,9 @@ import {
   SUDDEN_DEATH_STEP_MS,
   END_SCREEN_MS,
   ROOM_LINGER_MS,
+  LOBBY_COUNTDOWN_MS,
   MAX_PLAYERS_PER_ROOM,
-  FILL_WITH_BOTS_AFTER_MS,
+  MIN_PLAYERS_TO_START,
   IDLE_KICK_MS,
   KICK_SPEED,
   PLAYER_HITBOX_RADIUS,
@@ -26,84 +27,81 @@ import {
   encodePickup,
   encodeMatchEnd,
   encodeWelcome,
+  encodeRoomInfo,
   type PlayerSnapshot,
   type BombSnapshot,
+  type RoomPlayerInfo,
 } from "@bomberpump/shared";
 import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
-import { BotController } from "./bot.js";
 
 const R = PLAYER_HITBOX_RADIUS;
 const EPS = 1e-4;
 
 export class Room {
-  readonly id: string;
+  readonly id: string; // also used as the shareable room code
+  readonly isPublic: boolean;
   readonly world = new World();
   readonly players = new Map<number, Player>();
   bombs: Bomb[] = [];
 
   phase: MatchPhase = MatchPhase.LOBBY;
-  private phaseTimerMs = 0; // counts down for COUNTDOWN / END
+  private phaseTimerMs = 0; // counts down for COUNTDOWN
   private matchElapsedMs = 0;
+  private endElapsedMs = 0;
   private suddenDeathTimerMs = 0;
   private suddenDeathIdx = 0;
   private spiral: Array<{ x: number; y: number }> = [];
 
   private nextPlayerId = 0;
   private nextBombId = 0;
-  private nextBotN = 1;
-  private firstHumanAtMs = 0;
-  private tickCount = 0;
+  hostId = -1;
+  private lobbyCounting = false;
+  private lobbyCountdownMs = 0;
   private winnerId = DRAW_WINNER_ID;
-  private readonly bots = new Map<number, BotController>();
 
   dead = false;
 
-  constructor(id: string) {
+  constructor(id: string, isPublic: boolean) {
     this.id = id;
+    this.isPublic = isPublic;
     this.spiral = buildSpiral();
   }
 
   // -- membership -----------------------------------------------------------
 
-  get humanCount(): number {
-    let n = 0;
-    for (const p of this.players.values()) if (!p.isBot) n++;
-    return n;
-  }
-
-  /** Can a new human still be slotted into this room? */
   acceptsPlayers(): boolean {
     return this.phase === MatchPhase.LOBBY && this.players.size < MAX_PLAYERS_PER_ROOM;
   }
 
-  addPlayer(name: string, send: SendFn, isBot = false): Player {
+  addPlayer(name: string, send: SendFn): Player {
     const id = this.nextPlayerId++;
     const spawn = SPAWNS[this.players.size % SPAWNS.length];
-    const p = new Player(id, name, isBot, spawn.x, spawn.y, send);
+    const p = new Player(id, name, spawn.x, spawn.y, send);
     this.players.set(id, p);
-    if (!isBot) {
-      if (this.firstHumanAtMs === 0) this.firstHumanAtMs = Date.now();
-      // Welcome + current phase so a late joiner renders the lobby correctly.
-      send(encodeWelcome(id, GRID_W, GRID_H));
-      send(encodePhase(this.phase, this.phaseTimerMs));
-    } else {
-      this.bots.set(id, new BotController());
-    }
+    if (this.hostId < 0) this.hostId = id;
+    send(encodeWelcome(id, GRID_W, GRID_H));
+    send(encodePhase(this.phase, this.phaseTimer()));
+    this.broadcastRoomInfo();
     return p;
   }
 
   removePlayer(id: number): void {
-    const p = this.players.get(id);
-    if (!p) return;
-    this.players.delete(id);
-    this.bots.delete(id);
-    // Their live bombs keep ticking; just drop the active counter ownership.
+    const existed = this.players.delete(id);
+    if (!existed) return;
+    if (this.hostId === id) {
+      const next = this.players.keys().next();
+      this.hostId = next.done ? -1 : next.value;
+    }
+    if (this.players.size === 0) {
+      this.dead = true;
+      return;
+    }
     if (this.phase === MatchPhase.PLAYING || this.phase === MatchPhase.SUDDEN_DEATH) {
       this.checkWin();
     }
-    if (this.players.size === 0) this.dead = true;
+    this.broadcastRoomInfo();
   }
 
   // -- input ----------------------------------------------------------------
@@ -117,12 +115,9 @@ export class Room {
     if (dir !== Direction.NONE) p.lastMoveAtMs = Date.now();
   }
 
-  placeBomb(id: number, seq: number): void {
+  placeBomb(id: number): void {
     const p = this.players.get(id);
     if (!p || !p.alive) return;
-    if (seq <= p.lastInputSeq) {
-      // bombs share the seq space loosely; accept if not strictly older
-    }
     if (this.phase !== MatchPhase.PLAYING && this.phase !== MatchPhase.SUDDEN_DEATH) return;
     if (p.bombsActive >= p.bombsMax) return;
     const cx = p.cellX;
@@ -143,15 +138,22 @@ export class Room {
     p.bombsActive++;
   }
 
+  /** Host pressed "Start now". */
+  requestStart(id: number): void {
+    if (id !== this.hostId) return;
+    if (this.phase !== MatchPhase.LOBBY) return;
+    if (this.players.size < MIN_PLAYERS_TO_START) return;
+    this.start();
+  }
+
   // -- main loop ------------------------------------------------------------
 
   tick(): void {
     const dt = TICK_MS;
-    this.tickCount++;
 
     switch (this.phase) {
       case MatchPhase.LOBBY:
-        this.maybeStart();
+        this.tickLobby(dt);
         break;
       case MatchPhase.COUNTDOWN:
         this.phaseTimerMs -= dt;
@@ -162,17 +164,41 @@ export class Room {
         this.simulate(dt);
         break;
       case MatchPhase.END:
-        this.phaseTimerMs -= dt;
-        if (this.phaseTimerMs <= -ROOM_LINGER_MS) this.dead = true;
+        this.endElapsedMs += dt;
+        if (this.endElapsedMs >= END_SCREEN_MS + ROOM_LINGER_MS) {
+          if (this.players.size > 0) this.resetToLobby();
+          else this.dead = true;
+        }
         break;
     }
 
-    this.broadcastSnapshot();
+    if (this.phase !== MatchPhase.LOBBY) this.broadcastSnapshot();
   }
 
-  private setPhase(phase: MatchPhase, timerMs = 0): void {
+  private tickLobby(dt: number): void {
+    if (this.players.size >= MAX_PLAYERS_PER_ROOM) {
+      this.start();
+      return;
+    }
+    if (this.players.size >= MIN_PLAYERS_TO_START) {
+      if (!this.lobbyCounting) {
+        this.lobbyCounting = true;
+        this.lobbyCountdownMs = LOBBY_COUNTDOWN_MS;
+        this.broadcastRoomInfo();
+      }
+      this.lobbyCountdownMs -= dt;
+      if (this.lobbyCountdownMs <= 0) this.start();
+    } else if (this.lobbyCounting) {
+      this.lobbyCounting = false;
+      this.lobbyCountdownMs = 0;
+      this.broadcastRoomInfo();
+    }
+  }
+
+  private setPhase(phase: MatchPhase): void {
     this.phase = phase;
-    this.phaseTimerMs = timerMs;
+    if (phase === MatchPhase.COUNTDOWN) this.phaseTimerMs = COUNTDOWN_MS;
+    if (phase === MatchPhase.END) this.endElapsedMs = 0;
     this.broadcast(encodePhase(phase, this.phaseTimer()));
   }
 
@@ -184,39 +210,20 @@ export class Room {
       case MatchPhase.SUDDEN_DEATH:
         return Math.max(0, MATCH_LENGTH_MS - this.matchElapsedMs);
       case MatchPhase.END:
-        return Math.max(0, END_SCREEN_MS + this.phaseTimerMs);
+        return Math.max(0, END_SCREEN_MS - this.endElapsedMs);
       default:
         return 0;
     }
   }
 
-  private maybeStart(): void {
-    const humans = this.humanCount;
-    if (humans === 0) {
-      this.firstHumanAtMs = 0;
-      return;
-    }
-    const full = this.players.size >= MAX_PLAYERS_PER_ROOM;
-    const timedOut = Date.now() - this.firstHumanAtMs >= FILL_WITH_BOTS_AFTER_MS;
-    if (full || timedOut) {
-      this.start();
-    }
-  }
-
   private start(): void {
-    // Fill remaining slots with bots so quickplay always produces a match.
-    while (this.players.size < MAX_PLAYERS_PER_ROOM) {
-      this.addPlayer(`Bot-${this.nextBotN++}`, () => {}, true);
-    }
+    this.lobbyCounting = false;
+    this.lobbyCountdownMs = 0;
     this.world.generate();
-    // Assign spawn corners deterministically.
     let i = 0;
     for (const p of this.players.values()) {
       const s = SPAWNS[i % SPAWNS.length];
-      p.x = s.x + 0.5;
-      p.y = s.y + 0.5;
-      p.alive = true;
-      p.dir = Direction.NONE;
+      p.resetForMatch(s.x, s.y);
       p.lastMoveAtMs = Date.now();
       i++;
     }
@@ -224,27 +231,28 @@ export class Room {
     this.matchElapsedMs = 0;
     this.suddenDeathTimerMs = 0;
     this.suddenDeathIdx = 0;
-    this.setPhase(MatchPhase.COUNTDOWN, COUNTDOWN_MS);
+    this.setPhase(MatchPhase.COUNTDOWN);
+  }
+
+  private resetToLobby(): void {
+    this.phase = MatchPhase.LOBBY;
+    this.bombs = [];
+    this.world.fire.fill(0);
+    this.lobbyCounting = false;
+    this.lobbyCountdownMs = 0;
+    this.winnerId = DRAW_WINNER_ID;
+    this.broadcast(encodePhase(MatchPhase.LOBBY, 0));
+    this.broadcastRoomInfo();
   }
 
   private simulate(dt: number): void {
     this.matchElapsedMs += dt;
 
-    // 1. Bots decide their inputs.
-    for (const [id, ctrl] of this.bots) {
-      const bot = this.players.get(id);
-      if (bot && bot.alive) ctrl.update(this, bot, dt);
-    }
-
-    // 2. Movement.
     for (const p of this.players.values()) {
       if (p.alive) this.movePlayer(p, dt);
     }
-
-    // 3. Slide kicked bombs.
     for (const b of this.bombs) this.slideBomb(b, dt);
 
-    // 4. Fuses + detonations.
     for (const b of this.bombs) {
       if (b.exploded) continue;
       b.fuseLeftMs -= dt;
@@ -252,7 +260,6 @@ export class Room {
     }
     this.bombs = this.bombs.filter((b) => !b.exploded);
 
-    // 5. Decay fire.
     const fire = this.world.fire;
     for (let i = 0; i < fire.length; i++) {
       if (fire[i] > 0) {
@@ -261,7 +268,6 @@ export class Room {
       }
     }
 
-    // 6. Deaths (standing in fire) + pickups.
     for (const p of this.players.values()) {
       if (!p.alive) continue;
       const i = this.world.idx(p.cellX, p.cellY);
@@ -277,7 +283,6 @@ export class Room {
       }
     }
 
-    // 7. Pass-through bookkeeping: a player loses bomb pass-through once off it.
     for (const b of this.bombs) {
       for (const pid of [...b.passThrough]) {
         const pl = this.players.get(pid);
@@ -285,21 +290,20 @@ export class Room {
       }
     }
 
-    // 8. Idle kick.
     const now = Date.now();
     for (const p of this.players.values()) {
-      if (!p.isBot && p.alive && now - p.lastMoveAtMs > IDLE_KICK_MS) {
-        this.killPlayer(p);
-      }
+      if (p.alive && now - p.lastMoveAtMs > IDLE_KICK_MS) this.killPlayer(p);
     }
 
-    // 9. Sudden death.
     if (this.matchElapsedMs >= SUDDEN_DEATH_AT_MS) {
       if (this.phase !== MatchPhase.SUDDEN_DEATH) this.setPhase(MatchPhase.SUDDEN_DEATH);
       this.suddenDeath(dt);
     }
 
-    // 10. Win check.
+    if (this.matchElapsedMs >= MATCH_LENGTH_MS) {
+      this.checkWin(true);
+      return;
+    }
     this.checkWin();
   }
 
@@ -309,9 +313,7 @@ export class Room {
     if (p.dir === Direction.NONE) return;
     const dist = (p.speed * dt) / 1000;
     const { dx, dy } = dirVector(p.dir);
-
     if (dx !== 0) {
-      // Snap toward the row lane so cornering feels right.
       const cy = Math.floor(p.y) + 0.5;
       p.y += clampToward(cy - p.y, dist);
       this.moveX(p, dx * dist);
@@ -329,8 +331,7 @@ export class Room {
     const rowTop = Math.floor(p.y - R + EPS);
     const rowBot = Math.floor(p.y + R - EPS);
     for (let row = rowTop; row <= rowBot; row++) {
-      const block = this.blockedFor(cellX, row, p, step > 0 ? Direction.RIGHT : Direction.LEFT);
-      if (block) {
+      if (this.blockedFor(cellX, row, p, step > 0 ? Direction.RIGHT : Direction.LEFT)) {
         p.x = step > 0 ? cellX - R - EPS : cellX + 1 + R + EPS;
         return;
       }
@@ -345,8 +346,7 @@ export class Room {
     const colL = Math.floor(p.x - R + EPS);
     const colR = Math.floor(p.x + R - EPS);
     for (let col = colL; col <= colR; col++) {
-      const block = this.blockedFor(col, cellY, p, step > 0 ? Direction.DOWN : Direction.UP);
-      if (block) {
+      if (this.blockedFor(col, cellY, p, step > 0 ? Direction.DOWN : Direction.UP)) {
         p.y = step > 0 ? cellY - R - EPS : cellY + 1 + R + EPS;
         return;
       }
@@ -354,13 +354,11 @@ export class Room {
     p.y = newY;
   }
 
-  /** Is (cx,cy) blocking for this player, considering bomb pass-through and kick. */
   private blockedFor(cx: number, cy: number, p: Player, dir: Direction): boolean {
     if (this.world.isSolid(cx, cy)) return true;
     const bomb = this.bombs.find((b) => !b.exploded && b.x === cx && b.y === cy);
     if (!bomb) return false;
     if (bomb.passThrough.has(p.id)) return false;
-    // Hitting a bomb you can't pass: kick it if able.
     if (p.kick && bomb.kickDir === Direction.NONE) {
       bomb.kickDir = dir;
       bomb.kickProgressMs = 0;
@@ -421,15 +419,12 @@ export class Room {
         if (this.world.isSoft(nx, ny)) {
           this.world.destroySoft(nx, ny);
           ignite(nx, ny);
-          break; // ray stops at the soft block it destroys
+          break;
         }
-        // empty or powerup-on-ground
         ignite(nx, ny);
-        // explosion destroys uncollected powerups
         if (powerupOfTile(this.world.tile(nx, ny)) !== null) {
           this.world.set(nx, ny, TileType.EMPTY);
         }
-        // chain reaction
         const other = this.bombs.find((o) => !o.exploded && o.x === nx && o.y === ny);
         if (other) this.detonate(other);
       }
@@ -440,11 +435,13 @@ export class Room {
 
   private suddenDeath(dt: number): void {
     this.suddenDeathTimerMs += dt;
-    while (this.suddenDeathTimerMs >= SUDDEN_DEATH_STEP_MS && this.suddenDeathIdx < this.spiral.length) {
+    while (
+      this.suddenDeathTimerMs >= SUDDEN_DEATH_STEP_MS &&
+      this.suddenDeathIdx < this.spiral.length
+    ) {
       this.suddenDeathTimerMs -= SUDDEN_DEATH_STEP_MS;
       const cell = this.spiral[this.suddenDeathIdx++];
       this.world.set(cell.x, cell.y, TileType.HARD);
-      // Crush bombs and players caught under the wall.
       this.bombs = this.bombs.filter((b) => !(b.x === cell.x && b.y === cell.y));
       for (const p of this.players.values()) {
         if (p.alive && p.cellX === cell.x && p.cellY === cell.y) this.killPlayer(p);
@@ -459,13 +456,13 @@ export class Room {
     this.broadcast(encodeDeath(p.id));
   }
 
-  private checkWin(): void {
+  private checkWin(timeUp = false): void {
     if (this.phase !== MatchPhase.PLAYING && this.phase !== MatchPhase.SUDDEN_DEATH) return;
     const aliveIds: number[] = [];
     for (const p of this.players.values()) if (p.alive) aliveIds.push(p.id);
-    if (aliveIds.length <= 1) {
+    if (aliveIds.length <= 1 || timeUp) {
       this.winnerId = aliveIds.length === 1 ? aliveIds[0] : DRAW_WINNER_ID;
-      this.setPhase(MatchPhase.END, 0);
+      this.setPhase(MatchPhase.END);
       this.broadcast(encodeMatchEnd(this.winnerId));
     }
   }
@@ -473,8 +470,17 @@ export class Room {
   // -- networking -----------------------------------------------------------
 
   private broadcast(bytes: Uint8Array): void {
+    for (const p of this.players.values()) p.send(bytes);
+  }
+
+  private broadcastRoomInfo(): void {
+    const list: RoomPlayerInfo[] = [...this.players.values()].map((p) => ({
+      id: p.id,
+      name: p.name,
+    }));
+    const countdown = this.lobbyCounting ? this.lobbyCountdownMs : 0;
     for (const p of this.players.values()) {
-      if (!p.isBot) p.send(bytes);
+      p.send(encodeRoomInfo(this.id, this.hostId, p.id === this.hostId, countdown, list));
     }
   }
 
@@ -501,7 +507,7 @@ export class Room {
         power: b.power,
         fuseLeftMs: Math.max(0, Math.round(b.fuseLeftMs)),
       }));
-    this.broadcast(encodeSnapshot(this.tickCount, players, bombs, this.world.snapshotGrid()));
+    this.broadcast(encodeSnapshot(Math.floor(this.matchElapsedMs / TICK_MS), players, bombs, this.world.snapshotGrid()));
   }
 }
 
@@ -510,7 +516,6 @@ function clampToward(diff: number, max: number): number {
   return Math.sign(diff) * max;
 }
 
-/** Inward clockwise spiral over the interior play area (excludes the hard border). */
 function buildSpiral(): Array<{ x: number; y: number }> {
   const cells: Array<{ x: number; y: number }> = [];
   let top = 1;

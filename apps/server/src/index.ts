@@ -84,20 +84,49 @@ app.get("/health", (res) => {
   res.end(JSON.stringify({ ok: true, ...mm.stats }));
 });
 
-app.post("/quickplay", async (res) => {
-  res.onAborted(() => {});
+async function parseBody(res: uWS.HttpResponse): Promise<{ name: string; code: string }> {
   const body = await readBody(res);
   let name = "Player";
+  let code = "";
   try {
     const parsed = JSON.parse(body || "{}");
     if (typeof parsed.name === "string" && parsed.name.trim()) name = parsed.name.trim().slice(0, 16);
+    if (typeof parsed.code === "string") code = parsed.code.trim().toUpperCase().slice(0, 8);
   } catch {
-    // ignore malformed body, use default name
+    // ignore malformed body
   }
-  const { roomId, token } = mm.quickplay(name);
+  return { name, code };
+}
+
+function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
+  // uWS requires writeStatus() before any writeHeader().
+  if (status) res.writeStatus(status);
   writeCors(res);
   res.writeHeader("Content-Type", "application/json");
-  res.end(JSON.stringify({ roomId, token }));
+  res.end(JSON.stringify(obj));
+}
+
+app.post("/quickplay", async (res) => {
+  res.onAborted(() => {});
+  const { name } = await parseBody(res);
+  sendJson(res, mm.quickplay(name));
+});
+
+app.post("/create", async (res) => {
+  res.onAborted(() => {});
+  const { name } = await parseBody(res);
+  sendJson(res, mm.createPrivate(name));
+});
+
+app.post("/join", async (res) => {
+  res.onAborted(() => {});
+  const { name, code } = await parseBody(res);
+  const result = mm.joinByCode(code, name);
+  if (!result) {
+    sendJson(res, { error: "room_not_found" }, "404 Not Found");
+    return;
+  }
+  sendJson(res, result);
 });
 
 app.ws<SocketData>("/ws", {
@@ -146,7 +175,9 @@ app.ws<SocketData>("/ws", {
     if (msg.type === ClientMsg.INPUT_MOVE) {
       room.setMove(ud.playerId, msg.dir, msg.seq);
     } else if (msg.type === ClientMsg.INPUT_PLACE_BOMB) {
-      room.placeBomb(ud.playerId, msg.seq);
+      room.placeBomb(ud.playerId);
+    } else if (msg.type === ClientMsg.REQUEST_START) {
+      room.requestStart(ud.playerId);
     }
   },
   close: (ws) => {

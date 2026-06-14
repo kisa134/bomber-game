@@ -3,6 +3,7 @@ import {
   type Snapshot,
   type PlayerSnapshot,
   type BombSnapshot,
+  type RoomInfoMsg,
 } from "../net/protocol.js";
 import { INTERP_DELAY_MS } from "../config.js";
 
@@ -32,7 +33,34 @@ export class GameState {
   winnerId = -1;
   pingMs = 0;
 
+  // Room / lobby info
+  roomCode = "";
+  hostId = -1;
+  isHost = false;
+  roomPlayers: Array<{ id: number; name: string }> = [];
+  private lobbyCountdownMs = 0;
+  private lobbySetAt = 0;
+
   private buffer: TimedSnapshot[] = [];
+
+  setRoomInfo(msg: RoomInfoMsg): void {
+    this.roomCode = msg.code;
+    this.hostId = msg.hostId;
+    this.isHost = msg.isHost;
+    this.roomPlayers = msg.players;
+    this.lobbyCountdownMs = msg.lobbyCountdownMs;
+    this.lobbySetAt = performance.now();
+  }
+
+  /** Seconds left in the lobby auto-start countdown, or 0 if not counting. */
+  lobbyCountdownLeft(): number {
+    if (this.lobbyCountdownMs <= 0) return 0;
+    return Math.max(0, this.lobbyCountdownMs - (performance.now() - this.lobbySetAt));
+  }
+
+  nameOf(id: number): string {
+    return this.roomPlayers.find((p) => p.id === id)?.name ?? `P${id}`;
+  }
 
   addSnapshot(snap: Snapshot): void {
     this.buffer.push({ recvAt: performance.now(), snap });

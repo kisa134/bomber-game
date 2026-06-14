@@ -6,24 +6,24 @@
 // the exact names below (see those folders' README.md).
 
 export const SPRITE_FILES: Record<string, string> = {
-  floor: "/sprites/floor.png",
-  hard: "/sprites/hard.png",
-  soft: "/sprites/soft.png",
-  bomb: "/sprites/bomb.png",
+  floor: "/sprites/floor.webp",
+  hard: "/sprites/hard.webp",
+  soft: "/sprites/soft.webp",
+  bomb: "/sprites/bomb.webp",
   // Explosion animation frames (flash -> expanding core -> max). A single
-  // explosion.png is used as a fallback if frames are absent.
-  explosion0: "/sprites/explosion_0.png",
-  explosion1: "/sprites/explosion_1.png",
-  explosion2: "/sprites/explosion_2.png",
-  explosion: "/sprites/explosion.png",
-  pu_bomb: "/sprites/powerup_bomb.png",
-  pu_fire: "/sprites/powerup_fire.png",
-  pu_speed: "/sprites/powerup_speed.png",
-  pu_kick: "/sprites/powerup_kick.png",
-  skin0: "/sprites/skin_0.png",
-  skin1: "/sprites/skin_1.png",
-  skin2: "/sprites/skin_2.png",
-  skin3: "/sprites/skin_3.png",
+  // explosion.webp is used as a fallback if frames are absent.
+  explosion0: "/sprites/explosion_0.webp",
+  explosion1: "/sprites/explosion_1.webp",
+  explosion2: "/sprites/explosion_2.webp",
+  explosion: "/sprites/explosion.webp",
+  pu_bomb: "/sprites/powerup_bomb.webp",
+  pu_fire: "/sprites/powerup_fire.webp",
+  pu_speed: "/sprites/powerup_speed.webp",
+  pu_kick: "/sprites/powerup_kick.webp",
+  skin0: "/sprites/skin_0.webp",
+  skin1: "/sprites/skin_1.webp",
+  skin2: "/sprites/skin_2.webp",
+  skin3: "/sprites/skin_3.webp",
 };
 
 export const SOUND_FILES: Record<string, string> = {

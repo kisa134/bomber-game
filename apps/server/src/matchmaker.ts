@@ -9,41 +9,77 @@ interface Pending {
   createdAt: number;
 }
 
-const TOKEN_TTL_MS = 30_000;
+const TOKEN_TTL_MS = 60_000;
+// No ambiguous chars (0/O, 1/I).
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 export class Matchmaker {
   private readonly rooms = new Map<string, Room>();
   private readonly pending = new Map<string, Pending>();
   private loop: ReturnType<typeof setInterval> | null = null;
 
-  /** Reserve a slot in an open room (creating one if needed). */
-  quickplay(name: string): { roomId: string; token: string } {
-    const room = this.findOpenRoom();
-    const token = randomUUID();
-    this.pending.set(token, { roomId: room.id, name, createdAt: Date.now() });
-    return { roomId: room.id, token };
+  /** Join (or open) a public room. */
+  quickplay(name: string): { code: string; token: string } {
+    let room: Room | undefined;
+    for (const r of this.rooms.values()) {
+      if (r.isPublic && r.acceptsPlayers()) {
+        room = r;
+        break;
+      }
+    }
+    if (!room) room = this.newRoom(true);
+    return this.reserve(room, name);
   }
 
-  private findOpenRoom(): Room {
-    for (const room of this.rooms.values()) {
-      if (room.acceptsPlayers()) return room;
-    }
-    const room = new Room(randomUUID().slice(0, 8));
-    this.rooms.set(room.id, room);
+  /** Open a fresh private room with a shareable code. */
+  createPrivate(name: string): { code: string; token: string } {
+    const room = this.newRoom(false);
+    return this.reserve(room, name);
+  }
+
+  /** Join a specific room by its code. Returns null if missing/closed/full. */
+  joinByCode(code: string, name: string): { code: string; token: string } | null {
+    const room = this.rooms.get(code.toUpperCase());
+    if (!room || !room.acceptsPlayers()) return null;
+    return this.reserve(room, name);
+  }
+
+  private reserve(room: Room, name: string): { code: string; token: string } {
+    const token = randomUUID();
+    this.pending.set(token, { roomId: room.id, name, createdAt: Date.now() });
+    return { code: room.id, token };
+  }
+
+  private newRoom(isPublic: boolean): Room {
+    let code = this.genCode();
+    while (this.rooms.has(code)) code = this.genCode();
+    const room = new Room(code, isPublic);
+    this.rooms.set(code, room);
     return room;
   }
 
-  /** Attach a freshly opened socket to its reserved room. Returns ids or null. */
+  private genCode(): string {
+    let s = "";
+    for (let i = 0; i < 4; i++) s += CODE_ALPHABET[(Math.random() * CODE_ALPHABET.length) | 0];
+    return s;
+  }
+
+  /** Attach a freshly opened socket to its reserved room. */
   bindSocket(token: string, send: SendFn): { roomId: string; playerId: number } | null {
     const p = this.pending.get(token);
     if (!p) return null;
     this.pending.delete(token);
-    const room = this.rooms.get(p.roomId);
+    let room = this.rooms.get(p.roomId);
     if (!room || !room.acceptsPlayers()) {
-      // Room filled/closed while connecting: drop into any open room instead.
-      const fallback = this.findOpenRoom();
-      const player = fallback.addPlayer(p.name, send);
-      return { roomId: fallback.id, playerId: player.id };
+      // Room filled/closed while connecting: drop into any open public room.
+      room = undefined;
+      for (const r of this.rooms.values()) {
+        if (r.isPublic && r.acceptsPlayers()) {
+          room = r;
+          break;
+        }
+      }
+      if (!room) room = this.newRoom(true);
     }
     const player = room.addPlayer(p.name, send);
     return { roomId: room.id, playerId: player.id };

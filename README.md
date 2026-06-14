@@ -6,8 +6,10 @@ protocol over WebSocket. No 3D, no physics engine — just a grid, sprites and
 cell math.
 
 - 13×11 grid, chain explosions, 4 powerups (BOMB / FIRE / SPEED / KICK)
-- Quickplay matchmaking, 2–4 players, bots fill empty slots after 15s
-- Sudden death at 60s (walls spiral inward)
+- Rooms: Quickplay (public) · create a private room with a share code · join by code
+- 2–4 real players (no bots). Host can start, or it auto-starts ~15s after 2+ join
+- 5-minute rounds; sudden death in the final minute (walls spiral inward)
+- Client-side prediction for instant local movement
 - Desktop (WASD/arrows + space) and mobile (d-pad + bomb) controls
 
 ## Quick start
@@ -22,9 +24,9 @@ pnpm dev:server
 pnpm dev:client
 ```
 
-Open http://localhost:5173, pick a skin, hit **Quickplay**. Open a second tab
-to play against yourself; bots fill the rest after 15s (or instantly if you wait
-out the timer with one human).
+Open http://localhost:5173, pick a skin, hit **Quickplay** (or create/join a
+room by code). Open a second tab as a second player — the match auto-starts ~15s
+after the second player joins, or the host can press **Start now**.
 
 ## Typecheck
 

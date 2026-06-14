@@ -15,7 +15,6 @@ export type SendFn = (bytes: Uint8Array) => void;
 export class Player {
   readonly id: number;
   name: string;
-  isBot: boolean;
 
   // Position in cell coordinates (center of a cell is integer + 0.5).
   x: number;
@@ -32,16 +31,27 @@ export class Player {
   lastInputSeq: number = 0;
   lastMoveAtMs: number = 0; // for idle-kick detection
 
-  /** Transport. Bots use a no-op. */
   send: SendFn;
 
-  constructor(id: number, name: string, isBot: boolean, spawnX: number, spawnY: number, send: SendFn) {
+  constructor(id: number, name: string, spawnX: number, spawnY: number, send: SendFn) {
     this.id = id;
     this.name = name;
-    this.isBot = isBot;
     this.x = spawnX + 0.5;
     this.y = spawnY + 0.5;
     this.send = send;
+  }
+
+  /** Reset per-match state before a (re)start. */
+  resetForMatch(spawnX: number, spawnY: number): void {
+    this.x = spawnX + 0.5;
+    this.y = spawnY + 0.5;
+    this.dir = Direction.NONE;
+    this.bombsMax = START_BOMBS;
+    this.bombsActive = 0;
+    this.power = START_POWER;
+    this.speed = START_SPEED;
+    this.kick = false;
+    this.alive = true;
   }
 
   get cellX(): number {

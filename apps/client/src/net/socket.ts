@@ -4,22 +4,40 @@ import {
   encodeMove,
   encodePlaceBomb,
   encodePing,
+  encodeRequestStart,
   type ServerMessage,
 } from "./protocol.js";
 import { SERVER_HTTP, SERVER_WS } from "../config.js";
 
-export interface QuickplayResponse {
-  roomId: string;
+export interface JoinResponse {
+  code: string;
   token: string;
 }
 
-export async function quickplay(name: string): Promise<QuickplayResponse> {
-  const res = await fetch(`${SERVER_HTTP}/quickplay`, {
+async function post(path: string, body: Record<string, unknown>): Promise<Response> {
+  return fetch(`${SERVER_HTTP}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
   });
+}
+
+export async function quickplay(name: string): Promise<JoinResponse> {
+  const res = await post("/quickplay", { name });
   if (!res.ok) throw new Error(`quickplay failed: ${res.status}`);
+  return res.json();
+}
+
+export async function createRoom(name: string): Promise<JoinResponse> {
+  const res = await post("/create", { name });
+  if (!res.ok) throw new Error(`create failed: ${res.status}`);
+  return res.json();
+}
+
+export async function joinRoom(name: string, code: string): Promise<JoinResponse> {
+  const res = await post("/join", { name, code });
+  if (res.status === 404) throw new Error("Room not found");
+  if (!res.ok) throw new Error(`join failed: ${res.status}`);
   return res.json();
 }
 
@@ -56,16 +74,16 @@ export class Net {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(bytes);
   }
 
-  nextSeq(): number {
-    return ++this.seq;
-  }
-
   sendMove(dir: Direction): void {
-    this.send(encodeMove(dir, this.nextSeq()));
+    this.send(encodeMove(dir, ++this.seq));
   }
 
   sendBomb(): void {
-    this.send(encodePlaceBomb(this.nextSeq()));
+    this.send(encodePlaceBomb(++this.seq));
+  }
+
+  sendStart(): void {
+    this.send(encodeRequestStart());
   }
 
   sendPing(): void {
@@ -79,7 +97,10 @@ export class Net {
 
   close(): void {
     this.cleanup();
-    this.ws?.close();
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.close();
+    }
     this.ws = null;
   }
 }

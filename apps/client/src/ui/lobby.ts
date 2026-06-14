@@ -1,55 +1,112 @@
-import { SKIN_EMOJI } from "../game/renderer.js";
+import { PLAYER_COLORS, SKIN_EMOJI } from "../game/renderer.js";
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM } from "../net/protocol.js";
+import type { GameState } from "../game/state.js";
 
-export type ScreenName = "lobby" | "game" | "result";
+export type ScreenName = "loading" | "menu" | "room" | "game" | "result";
+const SCREENS: ScreenName[] = ["loading", "menu", "room", "game", "result"];
 
 export function showScreen(name: ScreenName): void {
-  for (const id of ["lobby", "game", "result"] as ScreenName[]) {
+  for (const id of SCREENS) {
     document.getElementById(id)?.classList.toggle("hidden", id !== name);
   }
 }
 
-export interface LobbyChoice {
+export interface Choice {
   name: string;
   skin: number;
 }
 
-/** Wire up the lobby screen. Calls onPlay with the chosen nickname + skin. */
-export function setupLobby(onPlay: (choice: LobbyChoice) => void): void {
-  const nickInput = document.getElementById("nickname") as HTMLInputElement;
+export interface MenuHandlers {
+  quickplay: (c: Choice) => void;
+  create: (c: Choice) => void;
+  join: (c: Choice, code: string) => void;
+}
+
+export function setupMenu(h: MenuHandlers): void {
+  const nick = document.getElementById("nickname") as HTMLInputElement;
   const skinsEl = document.getElementById("skins")!;
-  const playBtn = document.getElementById("quickplay") as HTMLButtonElement;
-  const status = document.getElementById("lobby-status")!;
+  const joinCode = document.getElementById("join-code") as HTMLInputElement;
 
-  nickInput.value = localStorage.getItem("bp_nick") ?? `pumper${(Math.random() * 1000) | 0}`;
+  nick.value = localStorage.getItem("bp_nick") ?? `pumper${(Math.random() * 1000) | 0}`;
+  let skin = Number(localStorage.getItem("bp_skin") ?? 0);
 
-  let selectedSkin = Number(localStorage.getItem("bp_skin") ?? 0);
   skinsEl.innerHTML = "";
   SKIN_EMOJI.forEach((emoji, i) => {
     const el = document.createElement("div");
-    el.className = "skin" + (i === selectedSkin ? " selected" : "");
+    el.className = "skin" + (i === skin ? " selected" : "");
     el.textContent = emoji;
     el.addEventListener("click", () => {
-      selectedSkin = i;
+      skin = i;
       skinsEl.querySelectorAll(".skin").forEach((s, j) => s.classList.toggle("selected", j === i));
     });
     skinsEl.appendChild(el);
   });
 
-  playBtn.addEventListener("click", () => {
-    const name = nickInput.value.trim() || "pumper";
+  const choice = (): Choice => {
+    const name = nick.value.trim() || "pumper";
     localStorage.setItem("bp_nick", name);
-    localStorage.setItem("bp_skin", String(selectedSkin));
-    status.textContent = "Connecting…";
-    playBtn.disabled = true;
-    onPlay({ name, skin: selectedSkin });
+    localStorage.setItem("bp_skin", String(skin));
+    return { name, skin };
+  };
+
+  document.getElementById("quickplay")!.addEventListener("click", () => h.quickplay(choice()));
+  document.getElementById("create-room")!.addEventListener("click", () => h.create(choice()));
+  document.getElementById("join-room")!.addEventListener("click", () => {
+    const code = joinCode.value.trim().toUpperCase();
+    if (code.length < 3) {
+      setMenuStatus("Enter a room code");
+      return;
+    }
+    h.join(choice(), code);
   });
 }
 
-export function setLobbyStatus(text: string): void {
-  const status = document.getElementById("lobby-status");
-  if (status) status.textContent = text;
-  const playBtn = document.getElementById("quickplay") as HTMLButtonElement | null;
-  if (playBtn) playBtn.disabled = false;
+export function setMenuStatus(text: string): void {
+  const el = document.getElementById("menu-status");
+  if (el) el.textContent = text;
+}
+
+/** Refresh the waiting-room screen from current state. */
+export function renderRoom(state: GameState): void {
+  const codeBox = document.getElementById("room-code-box")!;
+  const codeEl = document.getElementById("room-code")!;
+  codeEl.textContent = state.roomCode;
+  codeBox.classList.toggle("hidden", !state.roomCode);
+
+  const list = document.getElementById("room-players")!;
+  list.innerHTML = "";
+  for (const p of state.roomPlayers) {
+    const li = document.createElement("li");
+    const dot = document.createElement("span");
+    dot.className = "pdot";
+    dot.style.background = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
+    li.appendChild(dot);
+    const name = document.createElement("span");
+    name.textContent = p.name + (p.id === state.myId ? " (you)" : "");
+    li.appendChild(name);
+    if (p.id === state.hostId) {
+      const tag = document.createElement("span");
+      tag.className = "host-tag";
+      tag.textContent = "HOST";
+      li.appendChild(tag);
+    }
+    list.appendChild(li);
+  }
+
+  const count = state.roomPlayers.length;
+  const status = document.getElementById("room-status")!;
+  const countdown = Math.ceil(state.lobbyCountdownLeft() / 1000);
+  if (countdown > 0) {
+    status.textContent = `Starting in ${countdown}…`;
+  } else if (count < MIN_PLAYERS_TO_START) {
+    status.textContent = `Waiting for players… ${count}/${MAX_PLAYERS_PER_ROOM}`;
+  } else {
+    status.textContent = state.isHost ? "Ready — press Start" : "Waiting for host to start…";
+  }
+
+  const startBtn = document.getElementById("start-now") as HTMLButtonElement;
+  startBtn.classList.toggle("hidden", !state.isHost);
+  startBtn.disabled = count < MIN_PLAYERS_TO_START;
 }
 
 export function showResult(title: string): void {

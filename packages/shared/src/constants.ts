@@ -18,8 +18,8 @@ export const PLAYER_HITBOX_RADIUS = 0.35; // ~0.7 cell wide
 export const MAX_PLAYERS_PER_ROOM = 4;
 export const MIN_PLAYERS_TO_START = 2;
 
-export const MATCH_LENGTH_MS = 90_000;
-export const SUDDEN_DEATH_AT_MS = 60_000; // walls start closing in
+export const MATCH_LENGTH_MS = 300_000; // 5 minutes
+export const SUDDEN_DEATH_AT_MS = 240_000; // last minute: walls close in
 export const SUDDEN_DEATH_STEP_MS = 2_000; // a new ring tile every 2s
 
 export const COUNTDOWN_MS = 3_000;
@@ -29,9 +29,9 @@ export const ROOM_LINGER_MS = 10_000;
 export const SOFT_BLOCK_DENSITY = 0.7; // share of free cells filled with soft blocks
 export const POWERUP_DROP_CHANCE = 0.35;
 
-// Matchmaking
-export const FILL_WITH_BOTS_AFTER_MS = 15_000; // first player waited this long
-export const IDLE_KICK_MS = 10_000;
+// Lobby / matchmaking (no bots — matches need real players)
+export const LOBBY_COUNTDOWN_MS = 15_000; // auto-start once >= MIN players present
+export const IDLE_KICK_MS = 60_000; // generous; nobody to fill in, don't punish
 
 // Hard caps
 export const MAX_BOMBS = 8;

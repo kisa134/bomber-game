@@ -34,6 +34,7 @@ export enum ClientMsg {
   INPUT_MOVE = 1,
   INPUT_PLACE_BOMB = 2,
   PING = 3,
+  REQUEST_START = 4, // host asks to start the match early
 }
 
 /** Server -> Client message ids. */
@@ -46,6 +47,7 @@ export enum ServerMsg {
   MATCH_PHASE = 15,
   MATCH_END = 16,
   PONG = 17,
+  ROOM_INFO = 18, // lobby membership + room code + start countdown
 }
 
 export enum MatchPhase {
@@ -127,6 +129,21 @@ export interface PongMsg {
   timestamp: number;
 }
 
+export interface RoomPlayerInfo {
+  id: number;
+  name: string;
+}
+
+export interface RoomInfoMsg {
+  type: ServerMsg.ROOM_INFO;
+  code: string;
+  hostId: number;
+  isHost: boolean;
+  /** ms left in the lobby auto-start countdown, 0 if not counting. */
+  lobbyCountdownMs: number;
+  players: RoomPlayerInfo[];
+}
+
 export type ServerMessage =
   | WelcomeMsg
   | Snapshot
@@ -135,4 +152,5 @@ export type ServerMessage =
   | DeathEvent
   | PickupEvent
   | MatchEndMsg
-  | PongMsg;
+  | PongMsg
+  | RoomInfoMsg;

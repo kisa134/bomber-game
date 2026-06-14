@@ -16,6 +16,8 @@ import {
   type BombSnapshot,
   type ServerMessage,
   type WelcomeMsg,
+  type RoomInfoMsg,
+  type RoomPlayerInfo,
   type PhaseMsg,
   type ExplosionEvent,
   type DeathEvent,
@@ -26,6 +28,9 @@ import {
 
 const POS_SCALE = 100;
 const SPEED_SCALE = 10;
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
 
 function asView(data: ArrayBuffer | Uint8Array): DataView {
   if (data instanceof Uint8Array) {
@@ -63,10 +68,15 @@ export function encodePing(timestamp: number): Uint8Array {
   return buf;
 }
 
+export function encodeRequestStart(): Uint8Array {
+  return new Uint8Array([ClientMsg.REQUEST_START]);
+}
+
 export type ClientMessage =
   | { type: ClientMsg.INPUT_MOVE; dir: Direction; seq: number }
   | { type: ClientMsg.INPUT_PLACE_BOMB; seq: number }
-  | { type: ClientMsg.PING; timestamp: number };
+  | { type: ClientMsg.PING; timestamp: number }
+  | { type: ClientMsg.REQUEST_START };
 
 export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | null {
   const dv = asView(data);
@@ -82,6 +92,8 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
     case ClientMsg.PING:
       if (dv.byteLength < 9) return null;
       return { type, timestamp: dv.getFloat64(1, true) };
+    case ClientMsg.REQUEST_START:
+      return { type };
     default:
       return null;
   }
@@ -203,6 +215,35 @@ export function encodePong(timestamp: number): Uint8Array {
   return buf;
 }
 
+export function encodeRoomInfo(
+  code: string,
+  hostId: number,
+  isHost: boolean,
+  lobbyCountdownMs: number,
+  players: RoomPlayerInfo[],
+): Uint8Array {
+  const codeBytes = textEncoder.encode(code);
+  const nameBytes = players.map((p) => textEncoder.encode(p.name.slice(0, 24)));
+  let size = 1 + 1 + 1 + 2 + 1 + codeBytes.length + 1;
+  for (const nb of nameBytes) size += 1 + 1 + nb.length;
+  const buf = new Uint8Array(size);
+  const dv = new DataView(buf.buffer);
+  let o = 0;
+  dv.setUint8(o, ServerMsg.ROOM_INFO); o += 1;
+  dv.setUint8(o, hostId); o += 1;
+  dv.setUint8(o, isHost ? 1 : 0); o += 1;
+  dv.setUint16(o, Math.max(0, Math.min(65535, Math.round(lobbyCountdownMs))), true); o += 2;
+  dv.setUint8(o, codeBytes.length); o += 1;
+  buf.set(codeBytes, o); o += codeBytes.length;
+  dv.setUint8(o, players.length); o += 1;
+  for (let i = 0; i < players.length; i++) {
+    dv.setUint8(o, players[i].id); o += 1;
+    dv.setUint8(o, nameBytes[i].length); o += 1;
+    buf.set(nameBytes[i], o); o += nameBytes[i].length;
+  }
+  return buf;
+}
+
 // ---------------------------------------------------------------------------
 // Server -> Client decoder (client side)
 // ---------------------------------------------------------------------------
@@ -292,6 +333,24 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
     }
     case ServerMsg.PONG: {
       const msg: PongMsg = { type, timestamp: dv.getFloat64(1, true) };
+      return msg;
+    }
+    case ServerMsg.ROOM_INFO: {
+      let o = 1;
+      const hostId = dv.getUint8(o); o += 1;
+      const isHost = dv.getUint8(o) !== 0; o += 1;
+      const lobbyCountdownMs = dv.getUint16(o, true); o += 2;
+      const codeLen = dv.getUint8(o); o += 1;
+      const code = textDecoder.decode(bytes.subarray(o, o + codeLen)); o += codeLen;
+      const count = dv.getUint8(o); o += 1;
+      const players: RoomPlayerInfo[] = [];
+      for (let i = 0; i < count; i++) {
+        const id = dv.getUint8(o); o += 1;
+        const nameLen = dv.getUint8(o); o += 1;
+        const name = textDecoder.decode(bytes.subarray(o, o + nameLen)); o += nameLen;
+        players.push({ id, name });
+      }
+      const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, players };
       return msg;
     }
     default:
