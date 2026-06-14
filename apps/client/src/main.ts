@@ -8,11 +8,13 @@ import { Net, quickplay } from "./net/socket.js";
 import { GameState } from "./game/state.js";
 import { Renderer, PLAYER_COLORS, SKIN_EMOJI } from "./game/renderer.js";
 import { Input } from "./game/input.js";
+import { Assets } from "./game/assets.js";
 import { setupLobby, setLobbyStatus, showScreen, showResult } from "./ui/lobby.js";
 
 const state = new GameState();
 const net = new Net();
 const input = new Input();
+const assets = new Assets();
 let renderer: Renderer | null = null;
 let inputTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -22,14 +24,20 @@ const pingEl = document.getElementById("ping")!;
 
 function startGame(): void {
   const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-  if (!renderer) renderer = new Renderer(canvas);
+  if (!renderer) {
+    renderer = new Renderer(canvas);
+    renderer.setAssets(assets);
+  }
   renderer.resize();
   showScreen("game");
 
   inputTimer = setInterval(() => net.sendMove(input.dir), TICK_MS);
 }
 
-input.onBomb = () => net.sendBomb();
+input.onBomb = () => {
+  net.sendBomb();
+  assets.play("place");
+};
 
 net.onMessage = (msg) => {
   switch (msg.type) {
@@ -51,8 +59,16 @@ net.onMessage = (msg) => {
     case ServerMsg.PONG:
       state.pingMs = Math.round(performance.now() - msg.timestamp);
       break;
-    // EVENT_EXPLOSION / EVENT_PLAYER_DEATH / EVENT_PICKUP are reflected in the
-    // grid snapshot already; hooks for sound can be added here later.
+    // Visual state comes from the grid snapshot; events drive sound effects.
+    case ServerMsg.EVENT_EXPLOSION:
+      assets.play("explode", 0.4);
+      break;
+    case ServerMsg.EVENT_PICKUP:
+      assets.play("pickup");
+      break;
+    case ServerMsg.EVENT_PLAYER_DEATH:
+      assets.play("death");
+      break;
     default:
       break;
   }
@@ -116,6 +132,7 @@ function frame(): void {
 // --- Bootstrap ------------------------------------------------------------
 
 input.attach();
+void assets.preload();
 setupLobby(async (choice) => {
   try {
     const { token } = await quickplay(choice.name);
