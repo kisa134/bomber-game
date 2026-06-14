@@ -4,7 +4,7 @@ services:
   - type: web
     name: bomberpump
     runtime: docker
-    plan: free # spins down when idle; cold start ~50s. Bump to "starter" for always-on.
+    plan: starter # always-on (no idle spin-down / cold starts)
     region: frankfurt # close to EU/RU audience
     dockerfilePath: ./apps/server/Dockerfile
     dockerContext: . # build context = repo root (monorepo)
