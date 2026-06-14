@@ -10,6 +10,11 @@ export const SPRITE_FILES: Record<string, string> = {
   hard: "/sprites/hard.png",
   soft: "/sprites/soft.png",
   bomb: "/sprites/bomb.png",
+  // Explosion animation frames (flash -> expanding core -> max). A single
+  // explosion.png is used as a fallback if frames are absent.
+  explosion0: "/sprites/explosion_0.png",
+  explosion1: "/sprites/explosion_1.png",
+  explosion2: "/sprites/explosion_2.png",
   explosion: "/sprites/explosion.png",
   pu_bomb: "/sprites/powerup_bomb.png",
   pu_fire: "/sprites/powerup_fire.png",

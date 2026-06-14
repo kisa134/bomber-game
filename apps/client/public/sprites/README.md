@@ -15,7 +15,10 @@ to the built-in canvas drawing, so you can add them one at a time.
 | `floor.png` | Ground tile (optional — without it you get a checker pattern) |
 | `hard.png` | Indestructible wall block |
 | `soft.png` | Destructible block (breaks on explosion) |
-| `explosion.png` | Fire/blast tile (transparent edges look best) |
+| `explosion_0.png` | Blast frame 1 — small flash |
+| `explosion_1.png` | Blast frame 2 — expanding core |
+| `explosion_2.png` | Blast frame 3 — max size |
+| `explosion.png` | Optional single-frame fallback if no frames present |
 
 ## Objects (transparent background, art centered)
 
@@ -23,7 +26,7 @@ to the built-in canvas drawing, so you can add them one at a time.
 | --- | --- |
 | `bomb.png` | Bomb |
 | `powerup_bomb.png` | +1 bomb pickup |
-| `powerup_fire.png` | +1 blast range pickup |
+| `powerup_fire.png` | +1 blast range pickup — **still missing**, falls back to 🔥 emoji |
 | `powerup_speed.png` | +speed pickup |
 | `powerup_kick.png` | kick ability pickup |
 

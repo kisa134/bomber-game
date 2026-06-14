@@ -1,4 +1,4 @@
-import { GRID_W, GRID_H, TileType, BOMB_TIMER_MS } from "../net/protocol.js";
+import { GRID_W, GRID_H, TileType, BOMB_TIMER_MS, EXPLOSION_LIFETIME_MS } from "../net/protocol.js";
 import type { RenderView } from "./state.js";
 import type { Assets } from "./assets.js";
 
@@ -24,6 +24,8 @@ export class Renderer {
   private tile = 32;
   private dpr = 1;
   private assets: Assets | null = null;
+  /** Per-cell timestamp when fire started, to drive the explosion animation. */
+  private fireStart = new Map<number, number>();
 
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
@@ -49,18 +51,27 @@ export class Renderer {
     this.canvas.style.width = `${logicalW}px`;
     this.canvas.style.height = `${logicalH}px`;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.ctx.imageSmoothingEnabled = false; // crisp pixel art
+    this.ctx.imageSmoothingEnabled = true; // AI art looks better smoothed
   }
 
   render(view: RenderView, myId: number): void {
     const ctx = this.ctx;
     const t = this.tile;
+    const now = performance.now();
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
     if (view.grid) {
       for (let y = 0; y < GRID_H; y++) {
         for (let x = 0; x < GRID_W; x++) {
-          this.drawTile(x, y, view.grid[y * GRID_W + x] as TileType);
+          const i = y * GRID_W + x;
+          const tile = view.grid[i] as TileType;
+          // Track when each cell started burning for frame selection.
+          if (tile === TileType.EXPLOSION) {
+            if (!this.fireStart.has(i)) this.fireStart.set(i, now);
+          } else if (this.fireStart.has(i)) {
+            this.fireStart.delete(i);
+          }
+          this.drawTile(x, y, tile, i, now);
         }
       }
     }
@@ -115,7 +126,7 @@ export class Renderer {
     }
   }
 
-  private drawTile(x: number, y: number, tile: TileType): void {
+  private drawTile(x: number, y: number, tile: TileType, index: number, now: number): void {
     const ctx = this.ctx;
     const t = this.tile;
     const px = x * t;
@@ -137,9 +148,14 @@ export class Renderer {
       case TileType.SOFT:
         this.drawTileSprite("soft", px, py) || this.drawSoft(px, py);
         break;
-      case TileType.EXPLOSION:
-        this.drawTileSprite("explosion", px, py) || this.drawFire(px, py);
+      case TileType.EXPLOSION: {
+        const start = this.fireStart.get(index) ?? now;
+        const frame = Math.min(2, Math.floor((now - start) / (EXPLOSION_LIFETIME_MS / 3)));
+        const drawn =
+          this.drawTileSprite(`explosion${frame}`, px, py) || this.drawTileSprite("explosion", px, py);
+        if (!drawn) this.drawFire(px, py);
         break;
+      }
       default: {
         const spriteKey = PU_SPRITE[tile];
         if (spriteKey && this.drawTileSprite(spriteKey, px, py)) break;
