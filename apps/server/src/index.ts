@@ -1,0 +1,129 @@
+import uWS from "uWebSockets.js";
+import { ClientMsg, decodeClient, encodePong } from "@bomberpump/shared";
+import { Matchmaker } from "./matchmaker.js";
+import type { SendFn } from "./player.js";
+
+const PORT = Number(process.env.PORT ?? 8787);
+const mm = new Matchmaker();
+mm.start();
+
+interface SocketData {
+  token: string;
+  roomId: string;
+  playerId: number;
+  bound: boolean;
+}
+
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+function writeCors(res: uWS.HttpResponse): void {
+  for (const [k, v] of Object.entries(CORS)) res.writeHeader(k, v);
+}
+
+function readBody(res: uWS.HttpResponse): Promise<string> {
+  return new Promise((resolve) => {
+    let buf = "";
+    res.onData((chunk, isLast) => {
+      buf += Buffer.from(chunk).toString();
+      if (isLast) resolve(buf);
+    });
+    res.onAborted(() => resolve(""));
+  });
+}
+
+const app = uWS.App();
+
+app.options("/*", (res) => {
+  writeCors(res);
+  res.endWithoutBody();
+});
+
+app.get("/health", (res) => {
+  writeCors(res);
+  res.writeHeader("Content-Type", "application/json");
+  res.end(JSON.stringify({ ok: true, ...mm.stats }));
+});
+
+app.post("/quickplay", async (res) => {
+  res.onAborted(() => {});
+  const body = await readBody(res);
+  let name = "Player";
+  try {
+    const parsed = JSON.parse(body || "{}");
+    if (typeof parsed.name === "string" && parsed.name.trim()) name = parsed.name.trim().slice(0, 16);
+  } catch {
+    // ignore malformed body, use default name
+  }
+  const { roomId, token } = mm.quickplay(name);
+  writeCors(res);
+  res.writeHeader("Content-Type", "application/json");
+  res.end(JSON.stringify({ roomId, token }));
+});
+
+app.ws<SocketData>("/ws", {
+  maxPayloadLength: 1024,
+  idleTimeout: 60,
+  maxBackpressure: 1024 * 1024,
+  upgrade: (res, req, context) => {
+    const token = new URLSearchParams(req.getQuery()).get("token") ?? "";
+    res.upgrade<SocketData>(
+      { token, roomId: "", playerId: -1, bound: false },
+      req.getHeader("sec-websocket-key"),
+      req.getHeader("sec-websocket-protocol"),
+      req.getHeader("sec-websocket-extensions"),
+      context,
+    );
+  },
+  open: (ws) => {
+    const ud = ws.getUserData();
+    const send: SendFn = (bytes) => {
+      try {
+        ws.send(bytes, true);
+      } catch {
+        // socket closing; ignore
+      }
+    };
+    const bound = mm.bindSocket(ud.token, send);
+    if (!bound) {
+      ws.end(1008, "invalid token");
+      return;
+    }
+    ud.roomId = bound.roomId;
+    ud.playerId = bound.playerId;
+    ud.bound = true;
+  },
+  message: (ws, message) => {
+    const ud = ws.getUserData();
+    if (!ud.bound) return;
+    const msg = decodeClient(message);
+    if (!msg) return;
+    if (msg.type === ClientMsg.PING) {
+      ws.send(encodePong(msg.timestamp), true);
+      return;
+    }
+    const room = mm.getRoom(ud.roomId);
+    if (!room) return;
+    if (msg.type === ClientMsg.INPUT_MOVE) {
+      room.setMove(ud.playerId, msg.dir, msg.seq);
+    } else if (msg.type === ClientMsg.INPUT_PLACE_BOMB) {
+      room.placeBomb(ud.playerId, msg.seq);
+    }
+  },
+  close: (ws) => {
+    const ud = ws.getUserData();
+    if (ud.bound) mm.getRoom(ud.roomId)?.removePlayer(ud.playerId);
+  },
+});
+
+app.listen(PORT, (listenSocket) => {
+  if (listenSocket) {
+    console.log(`[bomberpump] server listening on :${PORT}`);
+  } else {
+    console.error(`[bomberpump] failed to listen on :${PORT}`);
+    process.exit(1);
+  }
+});

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Bomberpump</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Lobby -->
+      <section id="lobby" class="screen">
+        <h1>💣 Bomberpump</h1>
+        <input id="nickname" maxlength="16" placeholder="nickname" autocomplete="off" />
+        <div id="skins" class="skins"></div>
+        <button id="quickplay">Quickplay</button>
+        <p id="lobby-status" class="status"></p>
+      </section>
+
+      <!-- Game -->
+      <section id="game" class="screen hidden">
+        <div id="hud">
+          <div id="timer">90</div>
+          <div id="players"></div>
+          <div id="ping">0 ms</div>
+        </div>
+        <canvas id="canvas"></canvas>
+        <!-- Mobile controls -->
+        <div id="touch-controls" class="hidden">
+          <div id="dpad">
+            <button data-dir="UP" class="dbtn up">▲</button>
+            <button data-dir="LEFT" class="dbtn left">◀</button>
+            <button data-dir="RIGHT" class="dbtn right">▶</button>
+            <button data-dir="DOWN" class="dbtn down">▼</button>
+          </div>
+          <button id="bomb-btn">💣</button>
+        </div>
+      </section>
+
+      <!-- Result -->
+      <section id="result" class="screen hidden">
+        <h2 id="result-title"></h2>
+        <button id="play-again">Play again</button>
+      </section>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

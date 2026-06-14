@@ -1,0 +1,17 @@
+{
+  "name": "bomberpump",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Bomberpump — fast browser multiplayer bomberman for pump.fun",
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "build": "pnpm -r --filter ./packages/shared build && pnpm -r --filter ./apps/* build",
+    "typecheck": "pnpm -r typecheck",
+    "dev": "pnpm --filter @bomberpump/server dev",
+    "dev:client": "pnpm --filter @bomberpump/client dev",
+    "dev:server": "pnpm --filter @bomberpump/server dev"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
