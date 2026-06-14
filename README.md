@@ -42,7 +42,20 @@ The simplest setup is **one box**: the server builds and serves the client from
 the same origin (WebSocket + static files), so there's nothing else to host and
 no CORS/URL wiring. The Docker image does this automatically.
 
-### Railway (easiest — git push, no CLI)
+### Render (blueprint — zero dashboard config)
+
+The repo ships a `render.yaml`, so Render reads all build settings itself:
+
+1. render.yaml is committed at the repo root.
+2. Render dashboard → **New +** → **Blueprint** → connect this repo, branch **main**.
+3. Render detects the `bomberpump` web service (Docker, `/health` check) → **Apply**.
+4. First build runs `pnpm install` + `vite build` (~1–2 min), then a public URL
+   appears. Open it, both players hit Quickplay.
+
+> Free plan spins the service down when idle (cold start ~50s on the first hit).
+> Switch `plan: free` to `plan: starter` in `render.yaml` for always-on.
+
+### Railway (alternative — git push, no CLI)
 
 1. railway.app → New Project → Deploy from GitHub repo → pick this repo/branch.
 2. It detects `apps/server/Dockerfile`. Set the build/Dockerfile path to

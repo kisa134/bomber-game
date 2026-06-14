@@ -1,0 +1,15 @@
+# Render blueprint. In Render: New + -> Blueprint -> pick this repo (branch main).
+# Render reads everything from here, so there's nothing to configure by hand.
+services:
+  - type: web
+    name: bomberpump
+    runtime: docker
+    plan: free # spins down when idle; cold start ~50s. Bump to "starter" for always-on.
+    region: frankfurt # close to EU/RU audience
+    dockerfilePath: ./apps/server/Dockerfile
+    dockerContext: . # build context = repo root (monorepo)
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 10000
