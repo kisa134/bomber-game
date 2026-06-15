@@ -27,6 +27,7 @@ import {
   type PickupEvent,
   type MatchEndMsg,
   type PongMsg,
+  type EmoteEventMsg,
 } from "./types.js";
 
 const POS_SCALE = 100;
@@ -75,11 +76,21 @@ export function encodeRequestStart(): Uint8Array {
   return new Uint8Array([ClientMsg.REQUEST_START]);
 }
 
+export function encodeSetReady(ready: boolean): Uint8Array {
+  return new Uint8Array([ClientMsg.SET_READY, ready ? 1 : 0]);
+}
+
+export function encodeEmote(emote: number): Uint8Array {
+  return new Uint8Array([ClientMsg.EMOTE, emote & 0xff]);
+}
+
 export type ClientMessage =
   | { type: ClientMsg.INPUT_MOVE; dir: Direction; seq: number }
   | { type: ClientMsg.INPUT_PLACE_BOMB; seq: number }
   | { type: ClientMsg.PING; timestamp: number }
-  | { type: ClientMsg.REQUEST_START };
+  | { type: ClientMsg.REQUEST_START }
+  | { type: ClientMsg.SET_READY; ready: boolean }
+  | { type: ClientMsg.EMOTE; emote: number };
 
 export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | null {
   const dv = asView(data);
@@ -97,6 +108,12 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
       return { type, timestamp: dv.getFloat64(1, true) };
     case ClientMsg.REQUEST_START:
       return { type };
+    case ClientMsg.SET_READY:
+      if (dv.byteLength < 2) return null;
+      return { type, ready: dv.getUint8(1) !== 0 };
+    case ClientMsg.EMOTE:
+      if (dv.byteLength < 2) return null;
+      return { type, emote: dv.getUint8(1) };
     default:
       return null;
   }
@@ -294,7 +311,8 @@ export function encodeRoomInfo(
   const codeBytes = textEncoder.encode(code);
   const nameBytes = players.map((p) => textEncoder.encode(p.name.slice(0, 24)));
   let size = 1 + 1 + 1 + 2 + 1 + codeBytes.length + 1;
-  for (const nb of nameBytes) size += 1 + 1 + 1 + nb.length; // id + skin + nameLen + name
+  // per player: id + skin + ready + wins + nameLen + name
+  for (const nb of nameBytes) size += 1 + 1 + 1 + 1 + 1 + nb.length;
   const buf = new Uint8Array(size);
   const dv = new DataView(buf.buffer);
   let o = 0;
@@ -308,10 +326,16 @@ export function encodeRoomInfo(
   for (let i = 0; i < players.length; i++) {
     dv.setUint8(o, players[i].id); o += 1;
     dv.setUint8(o, players[i].skin & 0xff); o += 1;
+    dv.setUint8(o, players[i].ready ? 1 : 0); o += 1;
+    dv.setUint8(o, Math.min(255, players[i].wins) & 0xff); o += 1;
     dv.setUint8(o, nameBytes[i].length); o += 1;
     buf.set(nameBytes[i], o); o += nameBytes[i].length;
   }
   return buf;
+}
+
+export function encodeEmoteEvent(playerId: number, emote: number): Uint8Array {
+  return new Uint8Array([ServerMsg.EVENT_EMOTE, playerId & 0xff, emote & 0xff]);
 }
 
 // ---------------------------------------------------------------------------
@@ -455,11 +479,18 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
       for (let i = 0; i < count; i++) {
         const id = dv.getUint8(o); o += 1;
         const skin = dv.getUint8(o); o += 1;
+        const ready = dv.getUint8(o) !== 0; o += 1;
+        const wins = dv.getUint8(o); o += 1;
         const nameLen = dv.getUint8(o); o += 1;
         const name = textDecoder.decode(bytes.subarray(o, o + nameLen)); o += nameLen;
-        players.push({ id, name, skin });
+        players.push({ id, name, skin, ready, wins });
       }
       const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, players };
+      return msg;
+    }
+    case ServerMsg.EVENT_EMOTE: {
+      if (dv.byteLength < 3) return null;
+      const msg: EmoteEventMsg = { type, playerId: dv.getUint8(1), emote: dv.getUint8(2) };
       return msg;
     }
     default:

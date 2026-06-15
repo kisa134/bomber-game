@@ -31,6 +31,7 @@ import {
   encodeMatchEnd,
   encodeWelcome,
   encodeRoomInfo,
+  encodeEmoteEvent,
   gridSectionUnchanged,
   gridSectionDelta,
   gridSectionFull,
@@ -107,6 +108,7 @@ export class Room {
     const spawn = SPAWNS[this.players.size % SPAWNS.length];
     const name = BOT_NAMES[id % BOT_NAMES.length];
     const p = new Player(id, name, id % 4, spawn.x, spawn.y, () => {}, true);
+    p.ready = true; // bots are always ready
     this.players.set(id, p);
     this.bots.set(id, new BotController());
   }
@@ -228,6 +230,32 @@ export class Room {
     this.start();
   }
 
+  /** Lobby ready-up toggle. */
+  setReady(id: number, ready: boolean): void {
+    const p = this.players.get(id);
+    if (!p || this.phase !== MatchPhase.LOBBY) return;
+    p.ready = ready;
+    this.broadcastRoomInfo();
+  }
+
+  /** Broadcast a quick reaction to everyone in the room. */
+  emote(id: number, emote: number): void {
+    if (!this.players.has(id)) return;
+    if (emote < 0 || emote > 31) return;
+    this.broadcast(encodeEmoteEvent(id, emote));
+  }
+
+  /** True when every connected human is readied up (and we have enough). */
+  private allReady(): boolean {
+    let humans = 0;
+    for (const p of this.players.values()) {
+      if (p.isBot) continue;
+      humans++;
+      if (!p.ready) return false;
+    }
+    return humans >= MIN_PLAYERS_TO_START;
+  }
+
   // -- main loop ------------------------------------------------------------
 
   tick(): void {
@@ -283,6 +311,11 @@ export class Room {
       this.start();
       return;
     }
+    // Everyone readied up -> start immediately (no waiting on the countdown).
+    if (this.allReady()) {
+      this.start();
+      return;
+    }
     if (this.players.size >= MIN_PLAYERS_TO_START) {
       if (!this.lobbyCounting) {
         this.lobbyCounting = true;
@@ -332,6 +365,7 @@ export class Room {
       const s = SPAWNS[i % SPAWNS.length];
       p.resetForMatch(s.x, s.y);
       p.lastMoveAtMs = Date.now();
+      if (!p.isBot) p.ready = false; // require re-ready for the next round
       i++;
     }
     this.bombs = [];
@@ -600,6 +634,8 @@ export class Room {
     for (const p of this.players.values()) if (p.alive) aliveIds.push(p.id);
     if (aliveIds.length <= 1 || timeUp) {
       this.winnerId = aliveIds.length === 1 ? aliveIds[0] : DRAW_WINNER_ID;
+      const winner = this.players.get(this.winnerId);
+      if (winner) winner.wins += 1; // series score for the room
       this.setPhase(MatchPhase.END);
       this.broadcast(encodeMatchEnd(this.winnerId));
       this.broadcast(encodeMatchSeed(this.seedCommit, this.seed)); // reveal
@@ -636,6 +672,8 @@ export class Room {
       id: p.id,
       name: p.name,
       skin: p.skin,
+      ready: p.ready,
+      wins: p.wins,
     }));
     const countdown = this.lobbyCounting ? this.lobbyCountdownMs : 0;
     for (const p of this.players.values()) {

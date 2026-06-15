@@ -7,6 +7,7 @@ import {
   PLAYER_BASE_SPEED,
   SPEED_UP_DELTA,
   PROTOCOL_VERSION,
+  EMOTES,
 } from "./net/protocol.js";
 import {
   Net,
@@ -225,6 +226,9 @@ net.onMessage = (msg) => {
       if (dp) renderer?.onDeath(Math.floor(dp.x), Math.floor(dp.y), PLAYER_COLORS[dp.id % PLAYER_COLORS.length]);
       break;
     }
+    case ServerMsg.EVENT_EMOTE:
+      showEmote(msg.playerId, msg.emote);
+      break;
     default:
       break;
   }
@@ -722,6 +726,41 @@ setupMenu({
 });
 
 document.getElementById("start-now")!.addEventListener("click", () => net.sendStart());
+
+// Ready-up toggle (reads the authoritative state from the latest room info).
+document.getElementById("ready-btn")!.addEventListener("click", () => {
+  const me = state.roomPlayers.find((p) => p.id === state.myId);
+  net.sendReady(!(me?.ready ?? false));
+});
+
+// Build both emote bars (lobby + in-game) from the shared EMOTES list.
+function buildEmoteBar(id: string): void {
+  const bar = document.getElementById(id);
+  if (!bar) return;
+  bar.innerHTML = "";
+  EMOTES.forEach((e, i) => {
+    const b = document.createElement("button");
+    b.className = "emote-btn";
+    b.textContent = e;
+    b.addEventListener("click", () => net.sendEmote(i));
+    bar.appendChild(b);
+  });
+}
+buildEmoteBar("room-emotes");
+buildEmoteBar("game-emotes");
+
+/** Show a reaction: a bubble over the player in-game, plus a lobby pop. */
+function showEmote(playerId: number, emote: number): void {
+  const e = EMOTES[emote] ?? "❓";
+  renderer?.showEmote(playerId, e);
+  if (!inGame(state.phase)) {
+    const pop = document.createElement("div");
+    pop.className = "emote-pop";
+    pop.textContent = `${state.nameOf(playerId)} ${e}`;
+    document.getElementById("room")?.appendChild(pop);
+    setTimeout(() => pop.remove(), 1800);
+  }
+}
 
 function leaveToMenu(): void {
   net.close();

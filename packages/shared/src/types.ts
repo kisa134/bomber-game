@@ -38,6 +38,8 @@ export enum ClientMsg {
   INPUT_PLACE_BOMB = 2,
   PING = 3,
   REQUEST_START = 4, // host asks to start the match early
+  SET_READY = 5, // lobby ready-up toggle
+  EMOTE = 6, // quick reaction (index into EMOTES)
 }
 
 /** Server -> Client message ids. */
@@ -54,7 +56,11 @@ export enum ServerMsg {
   EVENT_KILL = 19, // killer + victim for killfeed / frags
   RECONNECT_TOKEN = 20, // handle the client stores to rejoin after a drop
   MATCH_SEED = 21, // provably-fair: commit at start, seed revealed at end
+  EVENT_EMOTE = 22, // a player sent a quick reaction
 }
+
+/** Quick lobby/in-game reactions (no free text). */
+export const EMOTES = ["👍", "🔥", "😂", "💣", "😎", "😭"] as const;
 
 export enum MatchPhase {
   LOBBY = 0,
@@ -154,6 +160,8 @@ export interface RoomPlayerInfo {
   id: number;
   name: string;
   skin: number;
+  ready: boolean; // lobby ready-up state
+  wins: number; // matches won in this room's series
 }
 
 export interface RoomInfoMsg {
@@ -177,6 +185,12 @@ export interface MatchSeedMsg {
   seed: string; // revealed at match end ("" before)
 }
 
+export interface EmoteEventMsg {
+  type: ServerMsg.EVENT_EMOTE;
+  playerId: number;
+  emote: number; // index into EMOTES
+}
+
 export type ServerMessage =
   | WelcomeMsg
   | Snapshot
@@ -189,4 +203,5 @@ export type ServerMessage =
   | PongMsg
   | RoomInfoMsg
   | ReconnectTokenMsg
-  | MatchSeedMsg;
+  | MatchSeedMsg
+  | EmoteEventMsg;

@@ -6,6 +6,7 @@ import {
   type PlayerSnapshot,
   type BombSnapshot,
   type RoomInfoMsg,
+  type RoomPlayerInfo,
 } from "../net/protocol.js";
 
 interface TimedSnapshot {
@@ -50,7 +51,7 @@ export class GameState {
   roomCode = "";
   hostId = -1;
   isHost = false;
-  roomPlayers: Array<{ id: number; name: string; skin: number }> = [];
+  roomPlayers: RoomPlayerInfo[] = [];
   private lobbyCountdownMs = 0;
   private lobbySetAt = 0;
 

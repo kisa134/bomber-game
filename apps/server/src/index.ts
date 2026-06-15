@@ -333,6 +333,10 @@ app.ws<SocketData>("/ws", {
       room.placeBomb(ud.playerId);
     } else if (msg.type === ClientMsg.REQUEST_START) {
       room.requestStart(ud.playerId);
+    } else if (msg.type === ClientMsg.SET_READY) {
+      room.setReady(ud.playerId, msg.ready);
+    } else if (msg.type === ClientMsg.EMOTE) {
+      room.emote(ud.playerId, msg.emote);
     }
   },
   close: (ws) => {

@@ -101,6 +101,7 @@ export function renderRoom(state: GameState): void {
   codeEl.textContent = state.roomCode;
   codeBox.classList.toggle("hidden", !state.roomCode);
 
+  const seriesOn = state.roomPlayers.some((p) => p.wins > 0);
   const list = document.getElementById("room-players")!;
   list.innerHTML = "";
   for (const p of state.roomPlayers) {
@@ -109,24 +110,44 @@ export function renderRoom(state: GameState): void {
     const name = document.createElement("span");
     name.textContent = p.name + (p.id === state.myId ? " (you)" : "");
     li.appendChild(name);
+    if (seriesOn) {
+      const wins = document.createElement("span");
+      wins.className = "win-tag";
+      wins.textContent = `🏆 ${p.wins}`;
+      li.appendChild(wins);
+    }
     if (p.id === state.hostId) {
       const tag = document.createElement("span");
       tag.className = "host-tag";
       tag.textContent = "HOST";
       li.appendChild(tag);
     }
+    const ready = document.createElement("span");
+    ready.className = "ready-tag" + (p.ready ? " on" : "");
+    ready.textContent = p.ready ? "✅ READY" : "…";
+    ready.style.marginLeft = state.hostId === p.id ? "8px" : "auto";
+    li.appendChild(ready);
     list.appendChild(li);
   }
 
   const count = state.roomPlayers.length;
+  const readyCount = state.roomPlayers.filter((p) => p.ready).length;
   const status = document.getElementById("room-status")!;
   const countdown = Math.ceil(state.lobbyCountdownLeft() / 1000);
-  if (countdown > 0) {
-    status.textContent = `Starting in ${countdown}…`;
-  } else if (count < MIN_PLAYERS_TO_START) {
+  if (count < MIN_PLAYERS_TO_START) {
     status.textContent = `Waiting for players… ${count}/${MAX_PLAYERS_PER_ROOM}`;
+  } else if (countdown > 0) {
+    status.textContent = `Starting in ${countdown}… (${readyCount}/${count} ready)`;
   } else {
-    status.textContent = state.isHost ? "Ready — press Start" : "Waiting for host to start…";
+    status.textContent = `${readyCount}/${count} ready — all ready to start`;
+  }
+
+  // Ready button reflects the local player's state.
+  const me = state.roomPlayers.find((p) => p.id === state.myId);
+  const readyBtn = document.getElementById("ready-btn") as HTMLButtonElement;
+  if (readyBtn && me) {
+    readyBtn.textContent = me.ready ? "✅ Ready — waiting…" : "Ready up";
+    readyBtn.dataset.on = String(me.ready);
   }
 
   const startBtn = document.getElementById("start-now") as HTMLButtonElement;

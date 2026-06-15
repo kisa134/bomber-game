@@ -6,6 +6,8 @@ import {
   encodePlaceBomb,
   encodePing,
   encodeRequestStart,
+  encodeSetReady,
+  encodeEmote,
   type ServerMessage,
 } from "./protocol.js";
 import { SERVER_HTTP, SERVER_WS } from "../config.js";
@@ -154,6 +156,14 @@ export class Net {
 
   sendStart(): void {
     this.send(encodeRequestStart());
+  }
+
+  sendReady(ready: boolean): void {
+    this.send(encodeSetReady(ready));
+  }
+
+  sendEmote(emote: number): void {
+    this.send(encodeEmote(emote));
   }
 
   sendPing(): void {

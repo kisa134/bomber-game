@@ -42,6 +42,8 @@ export class Player {
   alive: boolean = true;
   connected: boolean = true;
   disconnectedAtMs: number = 0; // set when the socket drops; grace before removal
+  ready: boolean = false; // lobby ready-up state
+  wins: number = 0; // matches won in this room's series
   lastInputSeq: number = 0;
   lastMoveAtMs: number = 0; // for idle-kick detection
 

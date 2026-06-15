@@ -316,9 +316,73 @@ button.ghost {
   border-radius: 50%;
 }
 .players-list .host-tag {
-  margin-left: auto;
   font-size: 0.7rem;
   color: var(--accent);
+  margin-left: 8px;
+}
+.players-list .win-tag {
+  font-size: 0.78rem;
+  color: var(--accent);
+  margin-left: 8px;
+}
+.players-list .ready-tag {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--muted);
+}
+.players-list .ready-tag.on {
+  color: var(--good, #5fd96a);
+}
+
+/* Emote / reaction bars */
+.emote-bar {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.emote-btn {
+  width: 42px;
+  height: 42px;
+  font-size: 1.3rem;
+  padding: 0;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+.emote-btn:active {
+  transform: scale(0.9);
+}
+.emote-bar.in-game {
+  position: absolute;
+  left: 50%;
+  bottom: 64px;
+  transform: translateX(-50%);
+  z-index: 6;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.emote-bar.in-game .emote-btn {
+  width: 38px;
+  height: 38px;
+  font-size: 1.15rem;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.5);
+}
+.emote-pop {
+  position: absolute;
+  left: 50%;
+  bottom: 24%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 6px 14px;
+  font-weight: 700;
+  z-index: 9;
+  animation: pop 0.25s ease;
 }
 
 /* Game */

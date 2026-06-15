@@ -65,6 +65,7 @@ export class Renderer {
   private lastPos = new Map<number, { x: number; y: number }>();
   private facing = new Map<number, "down" | "up" | "left" | "right">();
   private deadAt = new Map<number, number>();
+  private emotes = new Map<number, { e: string; until: number }>();
   private particles: Particle[] = [];
   private shakeUntil = 0;
   private shakeMag = 0;
@@ -96,6 +97,11 @@ export class Renderer {
   }
 
   // -- VFX API ---------------------------------------------------------------
+
+  /** Show a reaction bubble above a player for a short time. */
+  showEmote(playerId: number, e: string): void {
+    this.emotes.set(playerId, { e, until: performance.now() + 1800 });
+  }
 
   shake(mag: number, ms = 220): void {
     this.shakeUntil = Math.max(this.shakeUntil, performance.now() + ms);
@@ -281,6 +287,24 @@ export class Renderer {
         ctx.beginPath();
         ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
         ctx.stroke();
+      }
+
+      // Reaction bubble above the player.
+      const em = this.emotes.get(p.id);
+      if (em && now < em.until) {
+        ctx.globalAlpha = 1;
+        const by = cy - r - t * 0.55;
+        const bs = t * 0.42;
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.beginPath();
+        ctx.arc(cx, by, bs, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.font = `${Math.floor(t * 0.5)}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(em.e, cx, by + 1);
+      } else if (em) {
+        this.emotes.delete(p.id);
       }
       ctx.globalAlpha = 1;
     }
