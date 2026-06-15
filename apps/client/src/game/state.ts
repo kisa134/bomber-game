@@ -1,6 +1,7 @@
 import {
   MatchPhase,
   GRID_SIZE,
+  TICK_MS,
   type Snapshot,
   type PlayerSnapshot,
   type BombSnapshot,
@@ -8,7 +9,8 @@ import {
 } from "../net/protocol.js";
 
 interface TimedSnapshot {
-  recvAt: number;
+  recvAt: number; // local arrival time (for the playback clock)
+  serverTime: number; // authoritative game time = tick * TICK_MS
   snap: Snapshot;
 }
 
@@ -20,10 +22,12 @@ export interface RenderView {
 }
 
 const MAX_SNAPSHOTS = 16;
-// Render this far in the past so two snapshots always bracket the display time
-// (server ticks at 50ms; 100ms leaves headroom for network jitter).
+// Play back this far behind the latest server time so two snapshots always
+// bracket the display moment (server ticks every 50ms; 100ms = 2 ticks of
+// cushion for network jitter).
 const INTERP_DELAY = 100;
 const INTERP_SNAP = 1.5; // cells: bigger per-entity jumps snap instead of sliding
+const CLOCK_RESYNC = 250; // ms: snap the clock on a jump this big (match start/lag)
 
 export class GameState {
   myId = -1;
@@ -48,6 +52,11 @@ export class GameState {
   private lobbySetAt = 0;
 
   private buffer: TimedSnapshot[] = [];
+  // Playback clock: maps local time to server time. `clockOffset` is a smoothed
+  // estimate of (localTime - serverTime); rendering at (now - offset - delay)
+  // gives constant-velocity interpolation independent of packet-arrival jitter.
+  private clockOffset = 0;
+  private clockReady = false;
   /** Persistent grid reconstructed from delta snapshots. */
   readonly grid = new Uint8Array(GRID_SIZE);
 
@@ -80,8 +89,20 @@ export class GameState {
     else if (snap.gridMode === 1 && snap.gridChanges) {
       for (const c of snap.gridChanges) this.grid[c.i] = c.v;
     }
-    this.buffer.push({ recvAt: performance.now(), snap });
+    const recvAt = performance.now();
+    const serverTime = snap.tick * TICK_MS;
+    this.buffer.push({ recvAt, serverTime, snap });
     if (this.buffer.length > MAX_SNAPSHOTS) this.buffer.shift();
+
+    // Update the playback clock. Hard-resync on a big jump (match start, tick
+    // reset, lag spike); otherwise track slowly so per-packet jitter is ignored.
+    const desired = recvAt - serverTime;
+    if (!this.clockReady || Math.abs(desired - this.clockOffset) > CLOCK_RESYNC) {
+      this.clockOffset = desired;
+      this.clockReady = true;
+    } else {
+      this.clockOffset += (desired - this.clockOffset) * 0.05;
+    }
   }
 
   setPhase(phase: MatchPhase, timerMs: number): void {
@@ -99,38 +120,38 @@ export class GameState {
     return this.buffer.length ? this.buffer[this.buffer.length - 1].snap : null;
   }
 
-  /** Render-ready view. We render the world ~INTERP_DELAY in the past and
-   *  linearly interpolate every entity (including the local player) between the
-   *  two real server snapshots that bracket that moment. This traces the exact
-   *  authoritative path at constant velocity — perfectly smooth, no client-side
-   *  prediction to mispredict. A large per-entity jump (respawn/teleport) snaps
+  /** Render-ready view. We play the world back ~INTERP_DELAY behind the latest
+   *  server time and linearly interpolate every entity (including the local
+   *  player) between the two snapshots that bracket that game time — keyed on
+   *  the server tick, not packet arrival, so motion is constant-velocity and
+   *  immune to network/tick jitter. A large per-entity jump (respawn) snaps
    *  instead of sliding across the map. */
   view(): RenderView {
     const buf = this.buffer;
     if (buf.length === 0) return { players: [], bombs: [], grid: this.grid };
 
-    const renderTime = performance.now() - INTERP_DELAY;
+    const renderTime = performance.now() - this.clockOffset - INTERP_DELAY;
     const newest = buf[buf.length - 1];
     // Not enough history yet, or we've outrun the buffer (lag): hold newest.
-    if (buf.length === 1 || renderTime >= newest.recvAt) {
+    if (buf.length === 1 || !this.clockReady || renderTime >= newest.serverTime) {
       return { players: newest.snap.players, bombs: newest.snap.bombs, grid: this.grid };
     }
-    if (renderTime <= buf[0].recvAt) {
+    if (renderTime <= buf[0].serverTime) {
       return { players: buf[0].snap.players, bombs: buf[0].snap.bombs, grid: this.grid };
     }
 
-    // Find a,b with a.recvAt <= renderTime <= b.recvAt.
+    // Find a,b with a.serverTime <= renderTime <= b.serverTime.
     let j = 0;
     for (let k = 0; k < buf.length - 1; k++) {
-      if (buf[k].recvAt <= renderTime && renderTime <= buf[k + 1].recvAt) {
+      if (buf[k].serverTime <= renderTime && renderTime <= buf[k + 1].serverTime) {
         j = k;
         break;
       }
     }
     const a = buf[j];
     const b = buf[j + 1];
-    const span = b.recvAt - a.recvAt;
-    const alpha = span > 0 ? (renderTime - a.recvAt) / span : 1;
+    const span = b.serverTime - a.serverTime;
+    const alpha = span > 0 ? (renderTime - a.serverTime) / span : 1;
 
     const players = b.snap.players.map((pb) => {
       const pa = a.snap.players.find((p) => p.id === pb.id);
@@ -147,6 +168,8 @@ export class GameState {
 
   reset(): void {
     this.buffer = [];
+    this.clockReady = false;
+    this.clockOffset = 0;
     this.grid.fill(0);
     this.winnerId = -1;
     this.phase = MatchPhase.LOBBY;
