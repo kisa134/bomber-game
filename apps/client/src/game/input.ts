@@ -170,10 +170,9 @@ export class Input {
       const ang = Math.atan2(dy, dx);
       thumb.style.left = `${ox + Math.cos(ang) * clamp}px`;
       thumb.style.top = `${oy + Math.sin(ang) * clamp}px`;
-      if (mag < JOY_DEADZONE) {
-        this.setJoy(Direction.NONE);
-        return;
-      }
+      // Inside the deadzone: KEEP the current direction (don't flip to NONE) so
+      // the player doesn't stop-and-go flicker while the thumb hovers near center.
+      if (mag < JOY_DEADZONE) return;
       this.setJoy(
         Math.abs(dx) > Math.abs(dy)
           ? dx > 0

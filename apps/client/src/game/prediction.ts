@@ -1,7 +1,7 @@
-// Client-side prediction for the local player. Integrates the held input each
-// frame with the SAME shared movement (corner-cutting) the server uses, then
-// corrects toward a smoothed copy of the authoritative position — only along the
-// movement axis, so the player never wobbles in a corridor.
+// Local-player movement: PURE deterministic rail simulation while moving (no
+// per-frame server correction — that fighting caused the in-cell jitter). The
+// server is authoritative but only hard-snaps us on a real desync; when idle we
+// gently settle onto the server position (its target is stable, so no jitter).
 
 import {
   GRID_W,
@@ -13,23 +13,14 @@ import {
 } from "../net/protocol.js";
 
 const R = PLAYER_HITBOX_RADIUS;
-const SNAP_DIST = 1.5; // beyond this, hard-snap (respawn/teleport/desync)
-// Movement is deterministic and identical on client & server, so prediction
-// barely diverges. Keep a wide dead zone: don't fight the local sim with
-// constant micro-corrections (that caused the in-cell jitter); only correct on
-// a real divergence.
-const DEAD_ZONE = 0.34;
-const LANE_DESYNC = 0.6; // only fix the perpendicular axis on a real desync
-const TARGET_TAU_MS = 70; // smoothing of the authoritative target
-const CORRECT_PER_SEC = 8;
+const SNAP_DIST = 0.9; // only resync if we diverge this much from the server
+const SETTLE_PER_SEC = 10; // how fast we ease onto the server while standing still
 
 export class Predictor {
   x = 0;
   y = 0;
-  private tx = 0;
+  private tx = 0; // authoritative target
   private ty = 0;
-  private csx = 0;
-  private csy = 0;
   private has = false;
   private grid: Uint8Array | null = null;
   private speed = 3.2;
@@ -53,8 +44,8 @@ export class Predictor {
     this.grid = grid;
     this.wallPass = wallPass;
     if (!this.has) {
-      this.x = this.csx = x;
-      this.y = this.csy = y;
+      this.x = x;
+      this.y = y;
       this.has = true;
     }
   }
@@ -69,34 +60,23 @@ export class Predictor {
       this.y = res.y;
     }
 
-    // Smooth the authoritative target (removes the 20Hz correction ripple).
-    const kt = 1 - Math.exp(-dt / TARGET_TAU_MS);
-    this.csx += (this.tx - this.csx) * kt;
-    this.csy += (this.ty - this.csy) * kt;
-
-    const ex = this.csx - this.x;
-    const ey = this.csy - this.y;
-    const d = Math.hypot(ex, ey);
-    if (!this.alive || d > SNAP_DIST) {
+    if (!this.alive) {
       this.x = this.tx;
       this.y = this.ty;
-      this.csx = this.tx;
-      this.csy = this.ty;
       return;
     }
-    const k = Math.min(1, (CORRECT_PER_SEC * dt) / 1000);
-    // Correct only along the movement axis; the perpendicular axis is governed
-    // by the deterministic corner-cut (identical to the server).
-    if (dir === Direction.LEFT || dir === Direction.RIGHT) {
-      if (Math.abs(ex) > DEAD_ZONE) this.x += ex * k;
-      if (Math.abs(ey) > LANE_DESYNC) this.y += ey * k;
-    } else if (dir === Direction.UP || dir === Direction.DOWN) {
-      if (Math.abs(ey) > DEAD_ZONE) this.y += ey * k;
-      if (Math.abs(ex) > LANE_DESYNC) this.x += ex * k;
-    } else if (d > DEAD_ZONE) {
-      this.x += ex * k;
-      this.y += ey * k;
+    const d = Math.hypot(this.tx - this.x, this.ty - this.y);
+    if (d > SNAP_DIST) {
+      // Real divergence (mispredicted collision / lag spike): resync.
+      this.x = this.tx;
+      this.y = this.ty;
+    } else if (dir === Direction.NONE) {
+      // Standing still: ease onto the (stable) server position. No jitter.
+      const k = Math.min(1, (SETTLE_PER_SEC * dt) / 1000);
+      this.x += (this.tx - this.x) * k;
+      this.y += (this.ty - this.y) * k;
     }
+    // Moving with a small offset: trust the local sim -> perfectly smooth.
   }
 
   private solid(cx: number, cy: number): boolean {

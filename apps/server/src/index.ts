@@ -110,9 +110,15 @@ function serveStatic(res: uWS.HttpResponse, urlPath: string): void {
     : join(CLIENT_DIST, "index.html");
   const dot = safe.lastIndexOf(".");
   const type = MIME[safe.slice(dot)] ?? "application/octet-stream";
+  // Vite assets are content-hashed -> cache forever. Everything else
+  // (index.html etc.) must NOT be cached, or players run stale JS after a deploy.
+  const cacheHeader = safe.includes("/assets/")
+    ? "public, max-age=31536000, immutable"
+    : "no-cache";
   const body = readFileSync(safe);
   res.cork(() => {
     res.writeHeader("Content-Type", type);
+    res.writeHeader("Cache-Control", cacheHeader);
     res.end(body);
   });
 }
