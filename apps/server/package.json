@@ -12,11 +12,13 @@
   "dependencies": {
     "@bomberpump/shared": "workspace:*",
     "bs58": "^6.0.0",
+    "pg": "^8.21.0",
     "tweetnacl": "^1.0.3",
     "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.49.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
+    "@types/pg": "^8.20.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }
