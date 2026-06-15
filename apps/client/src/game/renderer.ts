@@ -45,6 +45,7 @@ export class Renderer {
 
   private fireStart = new Map<number, number>();
   private lastPos = new Map<number, { x: number; y: number }>();
+  private facing = new Map<number, "down" | "up" | "left" | "right">();
   private deadAt = new Map<number, number>();
   private particles: Particle[] = [];
   private shakeUntil = 0;
@@ -177,10 +178,10 @@ export class Renderer {
     const ctx = this.ctx;
     const t = this.tile;
     const seen = new Set<number>();
+    const WALK_SEQ = [0, 1, 2, 1]; // ping-pong walk cycle
 
     for (const p of view.players) {
       seen.add(p.id);
-      // Death bookkeeping.
       if (p.alive) this.deadAt.delete(p.id);
       else if (!this.deadAt.has(p.id)) this.deadAt.set(p.id, now);
 
@@ -193,33 +194,41 @@ export class Renderer {
         scale = 1 - k;
         alpha = 1 - k;
       } else if (p.invuln) {
-        // Flash while protected after a respawn.
         alpha = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(now / 70));
       }
 
-      // Walk bob when moving.
+      // Facing inferred from movement; remembered while standing still.
       const last = this.lastPos.get(p.id);
-      const moving = !!last && Math.hypot(p.x - last.x, p.y - last.y) > 0.01;
+      const dx = last ? p.x - last.x : 0;
+      const dy = last ? p.y - last.y : 0;
+      const moving = Math.hypot(dx, dy) > 0.012;
+      let face = this.facing.get(p.id) ?? "down";
+      if (moving) {
+        face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
+        this.facing.set(p.id, face);
+      }
       this.lastPos.set(p.id, { x: p.x, y: p.y });
-      const bob = moving && p.alive ? -Math.abs(Math.sin(now / 70)) * t * 0.1 : 0;
 
       const cx = p.x * t;
-      const cy = p.y * t + bob;
+      const cy = p.y * t;
       const r = t * 0.36 * scale;
-
       ctx.globalAlpha = alpha;
-      const skin = this.assets?.img(`skin${this.skinOf(p.id)}`);
-      if (skin) {
+
+      const sk = this.skinOf(p.id);
+      const frame = moving && p.alive ? WALK_SEQ[Math.floor(now / 130) % WALK_SEQ.length] : 0;
+      const dirName = face === "up" ? "up" : face === "down" ? "down" : "side";
+      const flip = face === "left";
+      // Directional walk frame -> static skin -> emoji.
+      const img = this.assets?.img(`skin${sk}_${dirName}_${frame}`) ?? this.assets?.img(`skin${sk}`);
+
+      if (img) {
         const s = t * 0.92 * scale;
-        if (!p.alive) {
-          ctx.save();
-          ctx.translate(cx, cy);
-          ctx.rotate((1 - scale) * 1.2);
-          ctx.drawImage(skin, -s / 2, -s / 2, s, s);
-          ctx.restore();
-        } else {
-          ctx.drawImage(skin, cx - s / 2, cy - s / 2, s, s);
-        }
+        ctx.save();
+        ctx.translate(cx, cy);
+        if (!p.alive) ctx.rotate((1 - scale) * 1.2);
+        if (flip) ctx.scale(-1, 1);
+        ctx.drawImage(img, -s / 2, -s / 2, s, s);
+        ctx.restore();
       } else {
         ctx.fillStyle = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
         ctx.beginPath();
@@ -228,8 +237,9 @@ export class Renderer {
         ctx.font = `${Math.floor(t * 0.5 * scale)}px system-ui`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(SKIN_EMOJI[this.skinOf(p.id) % SKIN_EMOJI.length], cx, cy + 1);
+        ctx.fillText(SKIN_EMOJI[sk % SKIN_EMOJI.length], cx, cy + 1);
       }
+
       if (p.id === myId && p.alive) {
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 2;
@@ -240,8 +250,12 @@ export class Renderer {
       ctx.globalAlpha = 1;
     }
 
-    // Clean up stale entries.
-    for (const id of [...this.lastPos.keys()]) if (!seen.has(id)) this.lastPos.delete(id);
+    for (const id of [...this.lastPos.keys()]) {
+      if (!seen.has(id)) {
+        this.lastPos.delete(id);
+        this.facing.delete(id);
+      }
+    }
   }
 
   private updateParticles(dt: number): void {

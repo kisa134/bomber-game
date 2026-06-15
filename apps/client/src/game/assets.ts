@@ -27,6 +27,17 @@ export const SPRITE_FILES: Record<string, string> = {
   skin3: "/sprites/skin_3.webp",
 };
 
+// Directional walk frames (optional): skin<id>_<down|up|side>_<0..2>.webp.
+// "side" is used for right; left is the same sprite mirrored. Missing frames
+// fall back to the static skin sprite, so this is purely additive.
+for (let s = 0; s < 4; s++) {
+  for (const dir of ["down", "up", "side"]) {
+    for (let f = 0; f < 3; f++) {
+      SPRITE_FILES[`skin${s}_${dir}_${f}`] = `/sprites/skin_${s}_${dir}_${f}.webp`;
+    }
+  }
+}
+
 // One-shot sound effects (extension-agnostic: .mp3/.ogg/.wav all work).
 // Map sfx key -> base filename (no extension).
 const SOUND_BASE: Record<string, string> = {
