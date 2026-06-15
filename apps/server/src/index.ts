@@ -227,7 +227,9 @@ function withMatchmaking(
         sendJson(res, { error: "room_not_found" }, "404 Not Found");
         return;
       }
-      sendJson(res, result);
+      // Echo the wallet the server resolved from the session, so the client
+      // can detect a stale session and re-sign before playing.
+      sendJson(res, { ...result, wallet: b.wallet });
     } catch (e) {
       if (e instanceof ServerFullError) sendJson(res, { error: "server_full" }, "503 Service Unavailable");
       else sendJson(res, { error: "internal" }, "500 Internal Server Error");

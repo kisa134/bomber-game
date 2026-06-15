@@ -86,6 +86,22 @@ export async function connectAndSignIn(wallet: StdWallet): Promise<ConnectedWall
   return data;
 }
 
+/** Re-sign-in with the previously connected wallet (e.g. after the server
+ *  restarted and invalidated the old session). Returns true on success. */
+export async function reauth(): Promise<boolean> {
+  const stored = loadWallet();
+  if (!stored) return false;
+  const wallets = listWallets();
+  const w = wallets.find((x) => x.name === stored.walletName) ?? wallets[0];
+  if (!w) return false;
+  try {
+    await connectAndSignIn(w);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function loadWallet(): ConnectedWallet | null {
   try {
     const raw = localStorage.getItem("bp_wallet");

@@ -14,6 +14,7 @@ import { loadWallet } from "./wallet.js";
 export interface JoinResponse {
   code: string;
   token: string;
+  wallet?: string | null; // wallet the server resolved from the session
 }
 
 async function post(path: string, body: Record<string, unknown>): Promise<Response> {

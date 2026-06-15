@@ -29,6 +29,7 @@ import {
   loadWallet,
   disconnectWallet,
   shortAddr,
+  reauth,
 } from "./net/wallet.js";
 import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom } from "./ui/lobby.js";
 
@@ -103,15 +104,22 @@ function music(track: "lobby" | "battle"): void {
 
 // --- networking -----------------------------------------------------------
 
-function connect(getJoin: () => Promise<JoinResponse>): void {
+async function connect(getJoin: () => Promise<JoinResponse>): Promise<void> {
   showScreen("loading");
   document.getElementById("loading-status")!.textContent = "connecting…";
-  getJoin()
-    .then(({ token }) => net.connect(token))
-    .catch((err) => {
-      showScreen("menu");
-      setMenuStatus(`Failed: ${(err as Error).message}`);
-    });
+  try {
+    let res = await getJoin();
+    // If we have a connected wallet but the server didn't accept the session
+    // (e.g. it restarted), re-sign once so stats are credited to the wallet.
+    if (loadWallet() && !res.wallet) {
+      document.getElementById("loading-status")!.textContent = "verifying wallet…";
+      if (await reauth()) res = await getJoin();
+    }
+    net.connect(res.token);
+  } catch (err) {
+    showScreen("menu");
+    setMenuStatus(`Failed: ${(err as Error).message}`);
+  }
 }
 
 net.onClose = () => {

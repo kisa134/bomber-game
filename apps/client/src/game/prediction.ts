@@ -86,9 +86,21 @@ export class Predictor {
       this.y = this.ty;
       this.csx = this.tx;
       this.csy = this.ty;
+      return;
+    }
+    const k = Math.min(1, (CORRECT_PER_SEC * dt) / 1000);
+    // Correct ONLY along the movement axis. The perpendicular axis is governed
+    // by the deterministic lane-snap (identical on client and server), so we
+    // must not nudge it — that nudging was the "wobble in the corridor".
+    const LANE_DESYNC = 0.6; // only fix the perpendicular axis on a real desync
+    if (dir === Direction.LEFT || dir === Direction.RIGHT) {
+      if (Math.abs(ex) > DEAD_ZONE) this.x += ex * k;
+      if (Math.abs(ey) > LANE_DESYNC) this.y += ey * k;
+    } else if (dir === Direction.UP || dir === Direction.DOWN) {
+      if (Math.abs(ey) > DEAD_ZONE) this.y += ey * k;
+      if (Math.abs(ex) > LANE_DESYNC) this.x += ex * k;
     } else if (d > DEAD_ZONE) {
-      const k = Math.min(1, (CORRECT_PER_SEC * dt) / 1000);
-      this.x += ex * k;
+      this.x += ex * k; // standing still: align both axes to the server
       this.y += ey * k;
     }
   }
