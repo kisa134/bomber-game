@@ -95,7 +95,10 @@ export interface Snapshot {
   tick: number;
   players: PlayerSnapshot[];
   bombs: BombSnapshot[];
-  grid: Uint8Array; // GRID_SIZE bytes
+  // Grid is delta-encoded: 0 = unchanged, 1 = changed cells, 2 = full keyframe.
+  gridMode: 0 | 1 | 2;
+  gridChanges: Array<{ i: number; v: number }> | null;
+  gridFull: Uint8Array | null;
 }
 
 export interface WelcomeMsg {

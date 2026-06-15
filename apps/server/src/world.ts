@@ -143,12 +143,15 @@ export class World {
     return null;
   }
 
+  // Reused each tick (single-threaded) to avoid per-tick allocations.
+  private readonly snapBuf: Uint8Array = new Uint8Array(GRID_SIZE);
+
   /**
-   * Build the grid byte array sent to clients: static tiles, with fire overlaid
-   * as EXPLOSION wherever it is currently burning.
+   * Render grid sent to clients: static tiles with fire overlaid as EXPLOSION.
+   * Returns a reused buffer — copy it if you need to retain it past the tick.
    */
   snapshotGrid(): Uint8Array {
-    const out = new Uint8Array(GRID_SIZE);
+    const out = this.snapBuf;
     for (let i = 0; i < GRID_SIZE; i++) {
       out[i] = this.fire[i] > 0 ? TileType.EXPLOSION : this.grid[i];
     }

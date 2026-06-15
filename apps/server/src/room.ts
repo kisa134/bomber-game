@@ -2,6 +2,7 @@ import {
   TICK_MS,
   GRID_W,
   GRID_H,
+  GRID_SIZE,
   BOMB_TIMER_MS,
   EXPLOSION_LIFETIME_MS,
   COUNTDOWN_MS,
@@ -32,6 +33,9 @@ import {
   encodeMatchEnd,
   encodeWelcome,
   encodeRoomInfo,
+  gridSectionUnchanged,
+  gridSectionDelta,
+  gridSectionFull,
   type PlayerSnapshot,
   type BombSnapshot,
   type RoomPlayerInfo,
@@ -73,6 +77,8 @@ export class Room {
   private lobbyCountdownMs = 0;
   private winnerId = DRAW_WINNER_ID;
   private lastHumanAtMs = Date.now();
+  private readonly lastSentGrid = new Uint8Array(GRID_SIZE);
+  private readonly needKeyframe = new Set<number>(); // players owed a full grid
 
   dead = false;
 
@@ -110,6 +116,7 @@ export class Room {
     const p = new Player(id, name, skin, spawn.x, spawn.y, send);
     p.wallet = wallet;
     this.players.set(id, p);
+    this.needKeyframe.add(id);
     if (this.hostId < 0) this.hostId = id;
     send(encodeWelcome(id, GRID_W, GRID_H, PROTOCOL_VERSION));
     send(encodePhase(this.phase, this.phaseTimer()));
@@ -164,6 +171,7 @@ export class Room {
     p.send = send;
     p.connected = true;
     p.disconnectedAtMs = 0;
+    this.needKeyframe.add(id);
     send(encodeWelcome(id, GRID_W, GRID_H, PROTOCOL_VERSION));
     send(encodePhase(this.phase, this.phaseTimer()));
     this.broadcastRoomInfo();
@@ -324,6 +332,9 @@ export class Room {
     this.matchElapsedMs = 0;
     this.suddenDeathTimerMs = 0;
     this.suddenDeathIdx = 0;
+    // New map -> everyone needs a full keyframe on the first snapshot.
+    this.needKeyframe.clear();
+    for (const id of this.players.keys()) this.needKeyframe.add(id);
     this.setPhase(MatchPhase.COUNTDOWN);
   }
 
@@ -684,7 +695,32 @@ export class Room {
         power: b.power,
         fuseLeftMs: Math.max(0, Math.round(b.fuseLeftMs)),
       }));
-    this.broadcast(encodeSnapshot(Math.floor(this.matchElapsedMs / TICK_MS), players, bombs, this.world.snapshotGrid()));
+
+    // Delta-encode the grid vs what was last broadcast.
+    const cur = this.world.snapshotGrid(); // reused buffer
+    const changes: Array<{ i: number; v: number }> = [];
+    for (let i = 0; i < GRID_SIZE; i++) {
+      if (cur[i] !== this.lastSentGrid[i]) changes.push({ i, v: cur[i] });
+    }
+    let section: Uint8Array;
+    if (changes.length === 0) section = gridSectionUnchanged();
+    else if (changes.length * 2 + 2 < GRID_SIZE + 1) section = gridSectionDelta(changes);
+    else section = gridSectionFull(cur);
+
+    const tick = Math.floor(this.matchElapsedMs / TICK_MS);
+    const deltaMsg = encodeSnapshot(tick, players, bombs, section);
+    let fullMsg: Uint8Array | null = null;
+    for (const p of this.players.values()) {
+      if (p.isBot) continue;
+      if (this.needKeyframe.has(p.id)) {
+        if (!fullMsg) fullMsg = encodeSnapshot(tick, players, bombs, gridSectionFull(cur));
+        p.send(fullMsg);
+      } else {
+        p.send(deltaMsg);
+      }
+    }
+    this.needKeyframe.clear();
+    this.lastSentGrid.set(cur);
   }
 }
 

@@ -1,5 +1,6 @@
 import {
   MatchPhase,
+  GRID_SIZE,
   type Snapshot,
   type PlayerSnapshot,
   type BombSnapshot,
@@ -42,6 +43,8 @@ export class GameState {
   private lobbySetAt = 0;
 
   private buffer: TimedSnapshot[] = [];
+  /** Persistent grid reconstructed from delta snapshots. */
+  readonly grid = new Uint8Array(GRID_SIZE);
 
   setRoomInfo(msg: RoomInfoMsg): void {
     this.roomCode = msg.code;
@@ -67,6 +70,11 @@ export class GameState {
   }
 
   addSnapshot(snap: Snapshot): void {
+    // Reconstruct the grid from the delta encoding.
+    if (snap.gridMode === 2 && snap.gridFull) this.grid.set(snap.gridFull);
+    else if (snap.gridMode === 1 && snap.gridChanges) {
+      for (const c of snap.gridChanges) this.grid[c.i] = c.v;
+    }
     this.buffer.push({ recvAt: performance.now(), snap });
     if (this.buffer.length > MAX_SNAPSHOTS) this.buffer.shift();
   }
@@ -90,7 +98,7 @@ export class GameState {
   view(now: number): RenderView {
     const renderTime = now - INTERP_DELAY_MS;
     const latest = this.latest();
-    if (!latest) return { players: [], bombs: [], grid: null };
+    if (!latest) return { players: [], bombs: [], grid: this.grid };
 
     // Find the pair straddling renderTime.
     let older: TimedSnapshot | null = null;
@@ -120,12 +128,13 @@ export class GameState {
       });
     }
 
-    // Bombs and grid come straight from the newest snapshot (no lerp needed).
-    return { players, bombs: latest.bombs, grid: latest.grid };
+    // Bombs from newest snapshot; grid from the reconstructed persistent buffer.
+    return { players, bombs: latest.bombs, grid: this.grid };
   }
 
   reset(): void {
     this.buffer = [];
+    this.grid.fill(0);
     this.winnerId = -1;
     this.phase = MatchPhase.LOBBY;
   }

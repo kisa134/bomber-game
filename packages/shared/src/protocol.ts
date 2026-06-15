@@ -135,11 +135,11 @@ export function encodeSnapshot(
   tick: number,
   players: PlayerSnapshot[],
   bombs: BombSnapshot[],
-  grid: Uint8Array,
+  gridSection: Uint8Array, // pre-built [mode, ...payload]
 ): Uint8Array {
-  // header(1+4+1) + players + bombCount(1) + bombs + grid
+  // header(1+4+1) + players + bombCount(1) + bombs + gridSection
   const size =
-    6 + players.length * PLAYER_RECORD_BYTES + 1 + bombs.length * BOMB_RECORD_BYTES + GRID_SIZE;
+    6 + players.length * PLAYER_RECORD_BYTES + 1 + bombs.length * BOMB_RECORD_BYTES + gridSection.length;
   const buf = new Uint8Array(size);
   const dv = new DataView(buf.buffer);
   let o = 0;
@@ -170,7 +170,29 @@ export function encodeSnapshot(
     dv.setUint8(o, b.power); o += 1;
     dv.setUint16(o, Math.max(0, Math.min(65535, b.fuseLeftMs)), true); o += 2;
   }
-  buf.set(grid, o);
+  buf.set(gridSection, o);
+  return buf;
+}
+
+/** Build the grid section: mode 0 (unchanged), 1 (changed cells), or 2 (full). */
+export function gridSectionUnchanged(): Uint8Array {
+  return new Uint8Array([0]);
+}
+export function gridSectionDelta(changes: Array<{ i: number; v: number }>): Uint8Array {
+  const buf = new Uint8Array(2 + changes.length * 2);
+  buf[0] = 1;
+  buf[1] = changes.length;
+  let o = 2;
+  for (const c of changes) {
+    buf[o++] = c.i;
+    buf[o++] = c.v;
+  }
+  return buf;
+}
+export function gridSectionFull(grid: Uint8Array): Uint8Array {
+  const buf = new Uint8Array(1 + GRID_SIZE);
+  buf[0] = 2;
+  buf.set(grid, 1);
   return buf;
 }
 
@@ -330,8 +352,21 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
         const fuseLeftMs = dv.getUint16(o, true); o += 2;
         bombs.push({ id, x, y, power, fuseLeftMs });
       }
-      const grid = bytes.slice(o, o + GRID_SIZE);
-      const snap: Snapshot = { type, tick, players, bombs, grid };
+      const gridMode = dv.getUint8(o) as 0 | 1 | 2; o += 1;
+      let gridChanges: Array<{ i: number; v: number }> | null = null;
+      let gridFull: Uint8Array | null = null;
+      if (gridMode === 1) {
+        const count = dv.getUint8(o); o += 1;
+        gridChanges = [];
+        for (let k = 0; k < count; k++) {
+          gridChanges.push({ i: dv.getUint8(o), v: dv.getUint8(o + 1) });
+          o += 2;
+        }
+      } else if (gridMode === 2) {
+        gridFull = bytes.slice(o, o + GRID_SIZE);
+        o += GRID_SIZE;
+      }
+      const snap: Snapshot = { type, tick, players, bombs, gridMode, gridChanges, gridFull };
       return snap;
     }
     case ServerMsg.MATCH_PHASE: {

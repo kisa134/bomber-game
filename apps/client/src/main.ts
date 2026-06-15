@@ -161,10 +161,10 @@ net.onMessage = (msg) => {
     case ServerMsg.STATE_SNAPSHOT: {
       state.addSnapshot(msg);
       const me = msg.players.find((p) => p.id === state.myId);
-      if (me) predictor.reconcile(me.x, me.y, me.speed, me.alive, msg.grid, me.wallPass);
-      // Soft-block break sound (derived from the grid diff).
+      if (me) predictor.reconcile(me.x, me.y, me.speed, me.alive, state.grid, me.wallPass);
+      // Soft-block break sound (derived from the reconstructed grid).
       let soft = 0;
-      for (let i = 0; i < msg.grid.length; i++) if (msg.grid[i] === TileType.SOFT) soft++;
+      for (let i = 0; i < state.grid.length; i++) if (state.grid[i] === TileType.SOFT) soft++;
       if (prevSoftCount >= 0 && soft < prevSoftCount) assets.play("block_break", 0.35);
       prevSoftCount = soft;
       break;
