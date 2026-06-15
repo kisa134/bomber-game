@@ -89,6 +89,7 @@ export class Assets {
   private images = new Map<string, HTMLImageElement>();
   private sounds = new Map<string, string>();
   private music = new Map<string, HTMLAudioElement>();
+  private active = new Map<string, HTMLAudioElement>(); // last-played instance per key
 
   private sfxEnabled = true;
   private musicEnabled = true;
@@ -118,7 +119,18 @@ export class Assets {
     if (!url) return;
     const a = new Audio(url);
     a.volume = volume ?? SFX_GAIN[key] ?? DEFAULT_SFX_GAIN;
+    this.active.set(key, a);
     void a.play().catch(() => {});
+  }
+
+  /** Stop a (possibly long) one-shot sound, e.g. the sudden-death track. */
+  stop(key: string): void {
+    const a = this.active.get(key);
+    if (a) {
+      a.pause();
+      a.currentTime = 0;
+      this.active.delete(key);
+    }
   }
 
   // -- music ----------------------------------------------------------------

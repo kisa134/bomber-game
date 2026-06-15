@@ -4,6 +4,7 @@ import {
   START_POWER,
   START_SPEED,
   START_LIVES,
+  WALL_PASS_MS,
   MAX_BOMBS,
   MAX_POWER,
   MAX_SPEED,
@@ -30,7 +31,8 @@ export class Player {
   power: number = START_POWER;
   speed: number = START_SPEED;
   kick: boolean = false;
-  wallPass: boolean = false;
+  wallPass: boolean = false; // recomputed each tick from wallPassUntilMs
+  wallPassUntilMs: number = 0;
 
   lives: number = START_LIVES;
   invulnUntilMs: number = 0;
@@ -73,6 +75,7 @@ export class Player {
     this.speed = START_SPEED;
     this.kick = false;
     this.wallPass = false;
+    this.wallPassUntilMs = 0;
     this.lives = START_LIVES;
     this.invulnUntilMs = 0;
     this.frags = 0;
@@ -88,7 +91,7 @@ export class Player {
     return Math.floor(this.y);
   }
 
-  applyPowerup(pu: PowerUpType): void {
+  applyPowerup(pu: PowerUpType, now = Date.now()): void {
     switch (pu) {
       case PowerUpType.BOMB_UP:
         this.bombsMax = Math.min(MAX_BOMBS, this.bombsMax + 1);
@@ -103,7 +106,7 @@ export class Player {
         this.kick = true;
         break;
       case PowerUpType.WALL_PASS:
-        this.wallPass = true;
+        this.wallPassUntilMs = now + WALL_PASS_MS; // temporary
         break;
     }
   }

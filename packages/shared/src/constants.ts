@@ -38,6 +38,7 @@ export const POWERUP_DROP_CHANCE = 0.3;
 // Lives: each player has a few, respawning with brief invulnerability until out.
 export const START_LIVES = 2;
 export const RESPAWN_INVULN_MS = 2500;
+export const WALL_PASS_MS = 5000; // wall-pass powerup is temporary
 
 // Lobby / matchmaking (no bots — matches need real players)
 export const LOBBY_COUNTDOWN_MS = 15_000; // auto-start once >= MIN players present

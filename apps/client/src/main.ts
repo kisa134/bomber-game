@@ -196,6 +196,7 @@ net.onMessage = (msg) => {
       break;
     case ServerMsg.MATCH_END:
       state.winnerId = msg.winnerId;
+      assets.stop("sudden_death"); // kill the last-minute track
       announceResult(msg.winnerId);
       break;
     case ServerMsg.PONG:
@@ -244,6 +245,7 @@ function enterGame(): void {
   }
   renderer.resize();
   predictor.reset();
+  assets.stop("sudden_death");
   prevSoftCount = -1;
   killLines.length = 0;
   killfeedEl.innerHTML = "";
@@ -613,6 +615,27 @@ async function openProfile(): Promise<void> {
       profCell("Best streak", p.best_streak),
     );
     body.append(grid);
+
+    // Editable display name (applies everywhere from the next match).
+    const nameRow = document.createElement("div");
+    nameRow.className = "setting-row";
+    nameRow.append(el("span", "", "Name"));
+    const nameInput = document.createElement("input");
+    nameInput.maxLength = 16;
+    nameInput.value = localStorage.getItem("bp_nick") ?? "";
+    nameInput.style.width = "150px";
+    const save = () => {
+      const v = nameInput.value.trim().slice(0, 16);
+      if (!v) return;
+      localStorage.setItem("bp_nick", v);
+      const menuNick = document.getElementById("nickname") as HTMLInputElement | null;
+      if (menuNick) menuNick.value = v;
+    };
+    nameInput.addEventListener("change", save);
+    nameInput.addEventListener("blur", save);
+    nameRow.append(nameInput);
+    body.append(nameRow);
+    body.append(el("div", "status fair", "Name updates in the lobby, HUD and leaderboard from your next match."));
   } catch {
     body.innerHTML = '<p class="status">Failed to load.</p>';
   }
@@ -687,6 +710,7 @@ document.getElementById("start-now")!.addEventListener("click", () => net.sendSt
 
 function leaveToMenu(): void {
   net.close();
+  assets.stop("sudden_death");
   state.reset();
   input.reset();
   predictor.reset();

@@ -361,6 +361,10 @@ export class Room {
   private simulate(dt: number): void {
     this.matchElapsedMs += dt;
 
+    // Refresh timed buffs (wall-pass) before movement reads them.
+    const nowMs = Date.now();
+    for (const p of this.players.values()) p.wallPass = nowMs < p.wallPassUntilMs;
+
     // Bots decide their inputs first.
     for (const [id, ctrl] of this.bots) {
       const bot = this.players.get(id);
@@ -399,7 +403,7 @@ export class Room {
       }
       const pu = powerupOfTile(this.world.tile(p.cellX, p.cellY));
       if (pu !== null) {
-        p.applyPowerup(pu);
+        p.applyPowerup(pu, nowMs);
         this.world.set(p.cellX, p.cellY, TileType.EMPTY);
         this.broadcast(encodePickup(p.id, pu));
       }
