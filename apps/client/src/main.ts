@@ -101,9 +101,11 @@ let hudSig = "";
 const inGame = (p: MatchPhase) =>
   p === MatchPhase.COUNTDOWN || p === MatchPhase.PLAYING || p === MatchPhase.SUDDEN_DEATH;
 
-// --- debug overlay (open with ?debug=1; persists) -------------------------
+// --- debug overlay (open with ?debug=1; turn off with ?debug=0) -----------
 const BUILD = "rbk-fix3";
-if (new URLSearchParams(location.search).has("debug")) localStorage.setItem("bp_debug", "1");
+const dbgParam = new URLSearchParams(location.search).get("debug");
+if (dbgParam === "1") localStorage.setItem("bp_debug", "1");
+else if (dbgParam === "0") localStorage.removeItem("bp_debug");
 const DEBUG = localStorage.getItem("bp_debug") === "1";
 let dbgEl: HTMLElement | null = null;
 let dbgLastTs = performance.now();
