@@ -24,7 +24,8 @@ export class Player {
   // Position in cell coordinates (center of a cell is integer + 0.5).
   x: number;
   y: number;
-  dir: Direction = Direction.NONE;
+  dir: Direction = Direction.NONE; // current movement direction (managed by `advance`)
+  intent: Direction = Direction.NONE; // held input from the client/bot
 
   bombsMax: number = START_BOMBS;
   bombsActive: number = 0;
@@ -69,6 +70,7 @@ export class Player {
     this.x = spawnX + 0.5;
     this.y = spawnY + 0.5;
     this.dir = Direction.NONE;
+    this.intent = Direction.NONE;
     this.bombsMax = START_BOMBS;
     this.bombsActive = 0;
     this.power = START_POWER;

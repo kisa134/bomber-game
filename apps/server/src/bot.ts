@@ -32,12 +32,12 @@ export class BotController {
 
     // 1. Caught in a blast zone -> run to the nearest safe cell, now.
     if (danger.has(idx(cx, cy))) {
-      me.dir = bfsStep(room, cx, cy, (x, y) => !danger.has(idx(x, y))) ?? Direction.NONE;
+      me.intent = bfsStep(room, cx, cy, (x, y) => !danger.has(idx(x, y))) ?? Direction.NONE;
       return;
     }
 
     if (this.think > 0) {
-      me.dir = this.dir;
+      me.intent = this.dir;
       return;
     }
     this.think = THINK_MS;
@@ -47,7 +47,7 @@ export class BotController {
       room.placeBomb(me.id);
       const d2 = computeDanger(room);
       this.dir = bfsStep(room, cx, cy, (x, y) => !d2.has(idx(x, y))) ?? Direction.NONE;
-      me.dir = this.dir;
+      me.intent = this.dir;
       return;
     }
 
@@ -55,7 +55,7 @@ export class BotController {
     this.dir =
       bfsStep(room, cx, cy, (x, y) => isTarget(room, x, y), danger) ??
       randomDir(room, cx, cy);
-    me.dir = this.dir;
+    me.intent = this.dir;
   }
 }
 

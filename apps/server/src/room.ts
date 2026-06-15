@@ -17,7 +17,6 @@ import {
   MIN_PLAYERS_TO_START,
   IDLE_KICK_MS,
   KICK_SPEED,
-  PLAYER_HITBOX_RADIUS,
   RESPAWN_INVULN_MS,
   DRAW_WINNER_ID,
   Direction,
@@ -40,7 +39,7 @@ import {
   type RoomPlayerInfo,
 } from "@bomberpump/shared";
 import { createHash, randomBytes } from "node:crypto";
-import { makeRng, encodeMatchSeed, stepMove } from "@bomberpump/shared";
+import { makeRng, encodeMatchSeed, advance } from "@bomberpump/shared";
 import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
@@ -49,7 +48,6 @@ import { store, type MatchResult } from "./store.js";
 
 const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 
-const R = PLAYER_HITBOX_RADIUS;
 const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
 const RECONNECT_GRACE_MS = 25_000; // hold a dropped player's slot this long
 
@@ -160,6 +158,7 @@ export class Room {
       p.connected = false;
       p.disconnectedAtMs = Date.now();
       p.dir = Direction.NONE;
+      p.intent = Direction.NONE;
       p.send = () => {};
       this.broadcastRoomInfo();
     } else {
@@ -193,7 +192,7 @@ export class Room {
     if (!p || !p.alive) return;
     if (seq <= p.lastInputSeq) return;
     p.lastInputSeq = seq;
-    p.dir = dir;
+    p.intent = dir;
     if (dir !== Direction.NONE) p.lastMoveAtMs = Date.now();
   }
 
@@ -436,11 +435,11 @@ export class Room {
   // -- movement -------------------------------------------------------------
 
   private movePlayer(p: Player, dt: number): void {
-    if (p.dir === Direction.NONE) return;
+    if (p.intent === Direction.NONE && p.dir === Direction.NONE) return;
     const dist = (p.speed * dt) / 1000;
-    const res = stepMove(p.x, p.y, p.dir, dist, R, (cx, cy) => this.blockedFor(cx, cy, p, p.dir));
-    p.x = res.x;
-    p.y = res.y;
+    // `p` is the MoveState: advance mutates p.x/p.y/p.dir in place. The blocked
+    // closure reads p.dir live (it's the current movement direction) for kicks.
+    advance(p, p.intent, dist, (cx, cy) => this.blockedFor(cx, cy, p, p.dir));
   }
 
   private blockedFor(cx: number, cy: number, p: Player, dir: Direction): boolean {
@@ -565,6 +564,7 @@ export class Room {
     if (p.lives <= 0) {
       p.alive = false;
       p.dir = Direction.NONE;
+      p.intent = Direction.NONE;
     } else {
       this.respawn(p, now);
     }
@@ -575,6 +575,7 @@ export class Room {
     p.x = cell.x + 0.5;
     p.y = cell.y + 0.5;
     p.dir = Direction.NONE;
+    p.intent = Direction.NONE;
     p.invulnUntilMs = now + RESPAWN_INVULN_MS;
     p.lastMoveAtMs = now;
   }
