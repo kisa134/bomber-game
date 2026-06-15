@@ -109,14 +109,19 @@ export class GameState {
     this.lastArrival = recvAt;
     this.interpDelay = clamp(MIN_DELAY, this.maxGap + TICK_MS, MAX_DELAY);
 
-    // Update the playback clock. Hard-resync on a big jump (match start, tick
-    // reset, lag spike); otherwise track slowly so per-packet jitter is ignored.
+    // Update the playback clock. Track the FASTEST (least-delayed) packets,
+    // which give the truest clock; nudge only gently toward slower (jittery)
+    // packets so a few late ones can't hitch the view. Hard-resync only when we
+    // fall behind (starved) or on a big reset (match start / tick reset).
     const desired = recvAt - serverTime;
-    if (!this.clockReady || Math.abs(desired - this.clockOffset) > CLOCK_RESYNC) {
+    const d = desired - this.clockOffset;
+    if (!this.clockReady || d < -CLOCK_RESYNC || d > 1500) {
       this.clockOffset = desired;
       this.clockReady = true;
+    } else if (d < 0) {
+      this.clockOffset += d * 0.5; // faster packet -> better estimate, track it
     } else {
-      this.clockOffset += (desired - this.clockOffset) * 0.05;
+      this.clockOffset += d * 0.02; // slower packet (jitter) -> barely move
     }
   }
 
