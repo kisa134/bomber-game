@@ -422,7 +422,7 @@ function frame(): void {
 
   if (renderer && inGame(state.phase)) {
     if (isLive(state.phase)) predictor.step(dt, input.dir);
-    const view = state.view(now);
+    const view = state.view();
     if (predictor.ready) {
       const me = view.players.find((p) => p.id === state.myId);
       if (me && me.alive) {

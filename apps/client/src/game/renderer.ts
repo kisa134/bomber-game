@@ -180,7 +180,7 @@ export class Renderer {
     const t = this.tile;
     const seen = new Set<number>();
     const WALK_SEQ = [0, 1, 2, 1]; // ping-pong walk cycle
-    const SMOOTH_TAU = 0.05; // s; render-position easing for remote players
+    const SMOOTH_TAU = 0.07; // s; render-position easing for remote players
 
     for (const p of view.players) {
       seen.add(p.id);

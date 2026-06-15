@@ -1,6 +1,8 @@
-// Client-side prediction for the local player only. We integrate the held input
-// locally every frame using the same movement model as the server, then gently
-// correct toward the authoritative position with a dead zone so it never jitters.
+// Client-side prediction for the local player. We integrate the held input each
+// frame (same model as the server), then correct toward a CONTINUOUSLY SMOOTHED
+// version of the authoritative position. Correcting toward the raw server
+// position (which arrives in 50ms steps) injects a ~20Hz velocity ripple that
+// reads as "not smooth"; smoothing the target first removes it.
 
 import {
   GRID_W,
@@ -13,15 +15,18 @@ import {
 
 const R = PLAYER_HITBOX_RADIUS;
 const EPS = 1e-4;
-const SNAP_DIST = 1.5; // beyond this, hard-snap to the server position
-const DEAD_ZONE = 0.05; // ignore tiny errors -> no micro jitter
-const CORRECT_PER_SEC = 12; // how fast we ease toward the server position
+const SNAP_DIST = 1.5; // beyond this, hard-snap (respawn/teleport/desync)
+const DEAD_ZONE = 0.04; // ignore tiny residual error
+const TARGET_TAU_MS = 70; // how fast the smoothed target tracks the server
+const CORRECT_PER_SEC = 10; // how fast prediction eases toward the smoothed target
 
 export class Predictor {
   x = 0;
   y = 0;
-  private tx = 0; // authoritative target
+  private tx = 0; // raw authoritative target
   private ty = 0;
+  private csx = 0; // continuously smoothed target
+  private csy = 0;
   private has = false;
   private grid: Uint8Array | null = null;
   private speed = 3.2;
@@ -37,7 +42,6 @@ export class Predictor {
     this.grid = null;
   }
 
-  /** Record the latest authoritative state (correction happens in step()). */
   reconcile(x: number, y: number, speed: number, alive: boolean, grid: Uint8Array, wallPass = false): void {
     this.tx = x;
     this.ty = y;
@@ -46,13 +50,12 @@ export class Predictor {
     this.grid = grid;
     this.wallPass = wallPass;
     if (!this.has) {
-      this.x = x;
-      this.y = y;
+      this.x = this.csx = x;
+      this.y = this.csy = y;
       this.has = true;
     }
   }
 
-  /** Advance prediction by dt(ms) for the held direction, then ease to server. */
   step(dt: number, dir: Direction): void {
     if (!this.has || !this.grid) return;
 
@@ -70,13 +73,19 @@ export class Predictor {
       }
     }
 
-    // Ease toward the authoritative position.
-    const ex = this.tx - this.x;
-    const ey = this.ty - this.y;
+    // Smooth the authoritative target so corrections have no 20Hz ripple.
+    const kt = 1 - Math.exp(-dt / TARGET_TAU_MS);
+    this.csx += (this.tx - this.csx) * kt;
+    this.csy += (this.ty - this.csy) * kt;
+
+    const ex = this.csx - this.x;
+    const ey = this.csy - this.y;
     const d = Math.hypot(ex, ey);
     if (!this.alive || d > SNAP_DIST) {
       this.x = this.tx;
       this.y = this.ty;
+      this.csx = this.tx;
+      this.csy = this.ty;
     } else if (d > DEAD_ZONE) {
       const k = Math.min(1, (CORRECT_PER_SEC * dt) / 1000);
       this.x += ex * k;

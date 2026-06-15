@@ -6,7 +6,6 @@ import {
   type BombSnapshot,
   type RoomInfoMsg,
 } from "../net/protocol.js";
-import { INTERP_DELAY_MS } from "../config.js";
 
 interface TimedSnapshot {
   recvAt: number;
@@ -96,42 +95,13 @@ export class GameState {
     return this.buffer.length ? this.buffer[this.buffer.length - 1].snap : null;
   }
 
-  /** Two-snapshot linear interpolation of player positions. */
-  view(now: number): RenderView {
-    const renderTime = now - INTERP_DELAY_MS;
+  /** Render-ready view. Player positions are the latest authoritative values;
+   *  the renderer eases remote players and the local player uses prediction, so
+   *  no per-snapshot interpolation is needed here. */
+  view(): RenderView {
     const latest = this.latest();
     if (!latest) return { players: [], bombs: [], grid: this.grid };
-
-    // Find the pair straddling renderTime.
-    let older: TimedSnapshot | null = null;
-    let newer: TimedSnapshot | null = null;
-    for (let i = this.buffer.length - 1; i >= 0; i--) {
-      if (this.buffer[i].recvAt <= renderTime) {
-        older = this.buffer[i];
-        newer = this.buffer[i + 1] ?? this.buffer[i];
-        break;
-      }
-    }
-
-    let players: PlayerSnapshot[];
-    if (!older || !newer || older === newer) {
-      players = latest.players;
-    } else {
-      const span = newer.recvAt - older.recvAt;
-      const t = span > 0 ? Math.min(1, Math.max(0, (renderTime - older.recvAt) / span)) : 0;
-      players = older.snap.players.map((p0) => {
-        const p1 = newer!.snap.players.find((p) => p.id === p0.id) ?? p0;
-        return {
-          ...p0,
-          x: p0.x + (p1.x - p0.x) * t,
-          y: p0.y + (p1.y - p0.y) * t,
-          alive: p1.alive,
-        };
-      });
-    }
-
-    // Bombs from newest snapshot; grid from the reconstructed persistent buffer.
-    return { players, bombs: latest.bombs, grid: this.grid };
+    return { players: latest.players, bombs: latest.bombs, grid: this.grid };
   }
 
   reset(): void {
