@@ -45,6 +45,7 @@ export class Renderer {
 
   private fireStart = new Map<number, number>();
   private lastPos = new Map<number, { x: number; y: number }>();
+  private renderPos = new Map<number, { x: number; y: number }>();
   private facing = new Map<number, "down" | "up" | "left" | "right">();
   private deadAt = new Map<number, number>();
   private particles: Particle[] = [];
@@ -169,16 +170,17 @@ export class Renderer {
       }
     }
 
-    this.drawPlayers(view, myId, now);
+    this.drawPlayers(view, myId, now, dt);
     this.updateParticles(dt);
     ctx.restore();
   }
 
-  private drawPlayers(view: RenderView, myId: number, now: number): void {
+  private drawPlayers(view: RenderView, myId: number, now: number, dt: number): void {
     const ctx = this.ctx;
     const t = this.tile;
     const seen = new Set<number>();
     const WALK_SEQ = [0, 1, 2, 1]; // ping-pong walk cycle
+    const SMOOTH_TAU = 0.05; // s; render-position easing for remote players
 
     for (const p of view.players) {
       seen.add(p.id);
@@ -197,20 +199,40 @@ export class Renderer {
         alpha = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(now / 70));
       }
 
+      // Eased render position: self uses the predicted position directly,
+      // remote players are smoothed toward their latest position to remove
+      // network/corner jitter.
+      let rp = this.renderPos.get(p.id);
+      if (!rp) {
+        rp = { x: p.x, y: p.y };
+        this.renderPos.set(p.id, rp);
+      }
+      if (p.id === myId) {
+        rp.x = p.x;
+        rp.y = p.y;
+      } else if (Math.hypot(p.x - rp.x, p.y - rp.y) > 1.5) {
+        rp.x = p.x; // big jump (respawn/teleport) -> snap
+        rp.y = p.y;
+      } else {
+        const k = 1 - Math.exp(-dt / SMOOTH_TAU);
+        rp.x += (p.x - rp.x) * k;
+        rp.y += (p.y - rp.y) * k;
+      }
+
       // Facing inferred from movement; remembered while standing still.
       const last = this.lastPos.get(p.id);
-      const dx = last ? p.x - last.x : 0;
-      const dy = last ? p.y - last.y : 0;
-      const moving = Math.hypot(dx, dy) > 0.012;
+      const dx = last ? rp.x - last.x : 0;
+      const dy = last ? rp.y - last.y : 0;
+      const moving = Math.hypot(dx, dy) > 0.006;
       let face = this.facing.get(p.id) ?? "down";
       if (moving) {
         face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : dy > 0 ? "down" : "up";
         this.facing.set(p.id, face);
       }
-      this.lastPos.set(p.id, { x: p.x, y: p.y });
+      this.lastPos.set(p.id, { x: rp.x, y: rp.y });
 
-      const cx = p.x * t;
-      const cy = p.y * t;
+      const cx = rp.x * t;
+      const cy = rp.y * t;
       const r = t * 0.36 * scale;
       ctx.globalAlpha = alpha;
 
@@ -254,6 +276,7 @@ export class Renderer {
       if (!seen.has(id)) {
         this.lastPos.delete(id);
         this.facing.delete(id);
+        this.renderPos.delete(id);
       }
     }
   }
