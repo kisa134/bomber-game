@@ -6,6 +6,8 @@ import {
   DRAW_WINNER_ID,
   PLAYER_BASE_SPEED,
   SPEED_UP_DELTA,
+  MATCH_LENGTH_MS,
+  SUDDEN_DEATH_AT_MS,
   PROTOCOL_VERSION,
   EMOTES,
 } from "./net/protocol.js";
@@ -218,12 +220,14 @@ net.onMessage = (msg) => {
     case ServerMsg.EVENT_KILL:
       killLines.push({ killerId: msg.killerId, victimId: msg.victimId, until: performance.now() + 4500 });
       if (killLines.length > 5) killLines.shift();
+      if (msg.killerId === state.myId && msg.victimId !== state.myId) registerMyKill();
       break;
     case ServerMsg.EVENT_PLAYER_DEATH: {
       assets.play("death");
       const snap = state.latest();
       const dp = snap?.players.find((p) => p.id === msg.playerId);
       if (dp) renderer?.onDeath(Math.floor(dp.x), Math.floor(dp.y), PLAYER_COLORS[dp.id % PLAYER_COLORS.length]);
+      if (msg.playerId === state.myId) flashHit();
       break;
     }
     case ServerMsg.EVENT_EMOTE:
@@ -251,6 +255,10 @@ function enterGame(): void {
   hudSig = "";
   bottomSig = "";
   bottomEl.innerHTML = "";
+  sdWarned = false;
+  myKillTimes = [];
+  calloutEl.classList.add("hidden");
+  spectatorEl.classList.add("hidden");
   toastUntil = 0;
   toastEl.classList.add("hidden");
   showScreen("game");
@@ -286,6 +294,72 @@ input.onBomb = () => {
   net.sendBomb();
   assets.play("place");
 };
+
+// --- juice / feedback -----------------------------------------------------
+
+const hitFlashEl = document.getElementById("hit-flash")!;
+const calloutEl = document.getElementById("callout")!;
+const spectatorEl = document.getElementById("spectator")!;
+let calloutUntil = 0;
+let myKillTimes: number[] = [];
+
+/** Red damage vignette + a kick of screen shake when the local player is hit. */
+function flashHit(): void {
+  hitFlashEl.classList.remove("show");
+  void hitFlashEl.offsetWidth; // restart the animation
+  hitFlashEl.classList.add("show");
+  renderer?.shake(9, 260);
+}
+
+const STREAK_WORDS = ["", "", "DOUBLE KILL!", "TRIPLE KILL!", "MULTI KILL!", "RAMPAGE!"];
+function registerMyKill(): void {
+  const now = performance.now();
+  myKillTimes = myKillTimes.filter((t) => now - t < 3500);
+  myKillTimes.push(now);
+  const n = myKillTimes.length;
+  if (n >= 2) {
+    const word = STREAK_WORDS[Math.min(n, STREAK_WORDS.length - 1)];
+    calloutEl.textContent = word;
+    calloutEl.classList.remove("hidden", "show");
+    void calloutEl.offsetWidth;
+    calloutEl.classList.add("show");
+    calloutUntil = now + 1400;
+    assets.play("go");
+  }
+}
+
+let sdWarned = false;
+/** Spectator banner when eliminated + a one-shot sudden-death warning. */
+function updateFeedback(): void {
+  if (calloutUntil && performance.now() > calloutUntil) {
+    calloutEl.classList.add("hidden");
+    calloutUntil = 0;
+  }
+  const me = state.latest()?.players.find((p) => p.id === state.myId);
+  const live = state.phase === MatchPhase.PLAYING || state.phase === MatchPhase.SUDDEN_DEATH;
+  if (live && me && !me.alive) {
+    const alive = state.latest()!.players.filter((p) => p.alive).length;
+    spectatorEl.textContent = `☠️ You're out — spectating · ${alive} left`;
+    spectatorEl.classList.remove("hidden");
+  } else {
+    spectatorEl.classList.add("hidden");
+  }
+
+  // Telegraph sudden death ~3s before the walls start closing in.
+  if (state.phase === MatchPhase.PLAYING && !sdWarned) {
+    const left = state.phaseTimeLeft();
+    const sdAtLeft = MATCH_LENGTH_MS - SUDDEN_DEATH_AT_MS; // ms-left when SD begins
+    if (left <= sdAtLeft + 3500 && left > sdAtLeft) {
+      sdWarned = true;
+      toastEl.innerHTML = "";
+      const s = document.createElement("span");
+      s.textContent = "⚠️ Sudden death incoming!";
+      toastEl.appendChild(s);
+      toastEl.classList.remove("hidden");
+      toastUntil = performance.now() + 2500;
+    }
+  }
+}
 
 // --- HUD ------------------------------------------------------------------
 
@@ -461,6 +535,7 @@ function frame(): void {
     renderer.render(view, state.myId);
     updateHud();
     updateBottomHud();
+    updateFeedback();
     updateCountdown();
     renderKillfeed(now);
     if (toastUntil && now > toastUntil) {
