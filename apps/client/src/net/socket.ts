@@ -146,8 +146,8 @@ export class Net {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) this.ws.send(bytes);
   }
 
-  sendMove(dir: Direction): void {
-    this.send(encodeMove(dir, ++this.seq));
+  sendMove(dir: Direction, tick: number): void {
+    this.send(encodeMove(dir, tick));
   }
 
   sendBomb(): void {
