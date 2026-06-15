@@ -50,9 +50,10 @@ function httpAllow(ip: string): boolean {
   return true;
 }
 
-// Per-connection WebSocket message rate limit.
-const WS_RATE = 60; // msgs/sec
-const WS_BURST = 90;
+// Per-connection WebSocket message rate limit. At 60Hz the client sends one
+// input per tick (~60/s), so headroom is 2x that plus pings/bombs.
+const WS_RATE = 130; // msgs/sec
+const WS_BURST = 200;
 
 setInterval(() => {
   const now = Date.now();

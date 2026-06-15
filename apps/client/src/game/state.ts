@@ -22,7 +22,7 @@ export interface RenderView {
   grid: Uint8Array | null;
 }
 
-const MAX_SNAPSHOTS = 64; // ~2s at 30Hz — headroom for high-latency clients
+const MAX_SNAPSHOTS = 128; // ~2s at 60Hz — headroom for high-latency clients
 const INTERP_SNAP = 1.5; // cells: bigger per-entity jumps snap instead of sliding
 const CLOCK_RESYNC = 400; // ms: snap the clock on a jump this big (match start/lag)
 // Adaptive playback delay: we render this far behind the latest server time so

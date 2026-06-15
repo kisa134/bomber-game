@@ -23,7 +23,7 @@ import {
   type MoveState,
 } from "../net/protocol.js";
 
-const HISTORY = 120; // ticks of input/state history to keep (~4s at 30Hz)
+const HISTORY = 240; // ticks of input/state history to keep (~4s at 60Hz)
 const MIN_LEAD = 3;
 const MAX_LEAD = 40;
 const UNHEALTHY = 0.5; // cells: above this avg error, prediction is disabled
