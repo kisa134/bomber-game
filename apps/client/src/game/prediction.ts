@@ -13,8 +13,8 @@ import {
   type MoveState,
 } from "../net/protocol.js";
 
-const SNAP_DIST = 0.9; // only resync if we diverge this much from the server
-const SETTLE_PER_SEC = 10; // how fast we ease onto the server while standing still
+const HARD_SNAP_DIST = 2.5; // only a real teleport (respawn) snaps instantly
+const CORRECT_TAU = 0.12; // seconds: how gently we ease onto the server position
 
 export class Predictor implements MoveState {
   x = 0;
@@ -62,22 +62,25 @@ export class Predictor implements MoveState {
       return;
     }
 
+    // Predict locally with the SAME engine the server runs (instant, responsive).
     const dist = (this.speed * dt) / 1000;
     advance(this, intent, dist, (cx, cy) => this.solid(cx, cy));
 
-    const d = Math.hypot(this.tx - this.x, this.ty - this.y);
-    if (d > SNAP_DIST) {
-      // Real divergence (mispredicted collision / lag spike): resync.
+    const ex = this.tx - this.x;
+    const ey = this.ty - this.y;
+    if (Math.hypot(ex, ey) > HARD_SNAP_DIST) {
+      // A genuine teleport (respawn / huge lag spike): snap, keep moving.
       this.x = this.tx;
       this.y = this.ty;
-      this.dir = Direction.NONE;
-    } else if (intent === Direction.NONE && this.dir === Direction.NONE) {
-      // Fully stopped: ease onto the (stable) server position. No jitter.
-      const k = Math.min(1, (SETTLE_PER_SEC * dt) / 1000);
-      this.x += (this.tx - this.x) * k;
-      this.y += (this.ty - this.y) * k;
+      return;
     }
-    // Moving with a small offset: trust the local sim -> perfectly smooth.
+    // Otherwise gently close the gap to the authoritative server position.
+    // Input latency means a reversal briefly puts us ahead of the server; this
+    // resolves the offset smoothly instead of yanking us back. The perpendicular
+    // axis is rail-locked on both sides, so this never adds sideways wobble.
+    const k = 1 - Math.exp(-(dt / 1000) / CORRECT_TAU);
+    this.x += ex * k;
+    this.y += ey * k;
   }
 
   private solid(cx: number, cy: number): boolean {
