@@ -545,7 +545,9 @@ function frame(): void {
       for (const s of sends) net.sendMove(s.dir, s.tick);
     }
     const view = state.view();
-    if (predictor.ready) {
+    // Use the predicted position only while prediction is healthy; otherwise
+    // (bad clock / very high jitter) fall back to the smooth interpolated view.
+    if (predictor.ready && predictor.healthy) {
       const me = view.players.find((p) => p.id === state.myId);
       if (me && me.alive) {
         me.x = predictor.rx;

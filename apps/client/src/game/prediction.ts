@@ -23,9 +23,11 @@ import {
   type MoveState,
 } from "../net/protocol.js";
 
-const HISTORY = 90; // ticks of input/state history to keep (~3s at 30Hz)
+const HISTORY = 120; // ticks of input/state history to keep (~4s at 30Hz)
 const MIN_LEAD = 3;
-const MAX_LEAD = 30;
+const MAX_LEAD = 40;
+const UNHEALTHY = 0.5; // cells: above this avg error, prediction is disabled
+const HEALTHY = 0.2; // cells: below this it re-enables (hysteresis)
 
 export interface PendingInput {
   tick: number;
@@ -45,9 +47,15 @@ export class Predictor {
   private grid: Uint8Array | null = null;
   private inputHist = new Map<number, Direction>();
   private stateHist = new Map<number, { x: number; y: number; dir: Direction }>();
+  private errEma = 0; // smoothed reconcile error (cells)
+  private predicting = true; // false -> fall back to plain interpolation
 
   get ready(): boolean {
     return this.has;
+  }
+  /** Whether prediction is currently trustworthy (else caller interpolates). */
+  get healthy(): boolean {
+    return this.predicting;
   }
   get rx(): number {
     return this.prev.x + (this.head.x - this.prev.x) * this.frac;
@@ -63,6 +71,8 @@ export class Predictor {
     this.head = { x: 0, y: 0, dir: Direction.NONE };
     this.inputHist.clear();
     this.stateHist.clear();
+    this.errEma = 0;
+    this.predicting = true;
   }
 
   private dist(): number {
@@ -85,7 +95,10 @@ export class Predictor {
 
     const serverTickF = serverTimeNow / TICK_MS;
     this.frac = Math.max(0, Math.min(1, serverTickF - Math.floor(serverTickF)));
-    const lead = Math.max(MIN_LEAD, Math.min(MAX_LEAD, Math.ceil(pingMs / 2 / TICK_MS) + 2));
+    // Lead must cover the FULL round trip: the clock estimate trails true server
+    // time by ~one-way latency, so a half-ping lead lands our inputs in the
+    // server's past and they get dropped. Full ping + margin keeps them on time.
+    const lead = Math.max(MIN_LEAD, Math.min(MAX_LEAD, Math.ceil(pingMs / TICK_MS) + 3));
     const target = Math.floor(serverTickF) + lead;
 
     // Don't let a long stall make us spin forever.
@@ -144,6 +157,14 @@ export class Predictor {
       this.stateHist.set(serverTick, { x, y, dir: Direction.NONE });
       return;
     }
+
+    // Track prediction health: if our recorded position for this tick is far
+    // from the authoritative one, prediction isn't working (bad clock / very
+    // high jitter) -> fall back to interpolation until it recovers (hysteresis).
+    const err = Math.hypot(x - predicted.x, y - predicted.y);
+    this.errEma = this.errEma * 0.8 + err * 0.2;
+    if (this.predicting && this.errEma > UNHEALTHY) this.predicting = false;
+    else if (!this.predicting && this.errEma < HEALTHY) this.predicting = true;
 
     // Rollback: pin the authoritative state at serverTick, replay inputs forward.
     const base: MoveState = { x, y, dir: predicted.dir };

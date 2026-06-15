@@ -193,9 +193,13 @@ export class Room {
   setMove(id: number, dir: Direction, tick: number): void {
     const p = this.players.get(id);
     if (!p || !p.alive) return;
-    // Ignore inputs for ticks we've already simulated past (too late to matter).
-    if (tick < this.simTick) return;
-    p.inputs.set(tick, dir);
+    if (tick <= this.simTick) {
+      // Late (clock off / high lag): apply right now instead of dropping, so the
+      // player can never freeze. Worst case = a little extra reconcile work.
+      p.intent = dir;
+    } else {
+      p.inputs.set(tick, dir);
+    }
     if (dir !== Direction.NONE) p.lastMoveAtMs = Date.now();
   }
 
