@@ -20,6 +20,10 @@ export interface RenderView {
 }
 
 const MAX_SNAPSHOTS = 16;
+// Render this far in the past so two snapshots always bracket the display time
+// (server ticks at 50ms; 100ms leaves headroom for network jitter).
+const INTERP_DELAY = 100;
+const INTERP_SNAP = 1.5; // cells: bigger per-entity jumps snap instead of sliding
 
 export class GameState {
   myId = -1;
@@ -95,13 +99,50 @@ export class GameState {
     return this.buffer.length ? this.buffer[this.buffer.length - 1].snap : null;
   }
 
-  /** Render-ready view. Player positions are the latest authoritative values;
-   *  the renderer eases remote players and the local player uses prediction, so
-   *  no per-snapshot interpolation is needed here. */
+  /** Render-ready view. We render the world ~INTERP_DELAY in the past and
+   *  linearly interpolate every entity (including the local player) between the
+   *  two real server snapshots that bracket that moment. This traces the exact
+   *  authoritative path at constant velocity — perfectly smooth, no client-side
+   *  prediction to mispredict. A large per-entity jump (respawn/teleport) snaps
+   *  instead of sliding across the map. */
   view(): RenderView {
-    const latest = this.latest();
-    if (!latest) return { players: [], bombs: [], grid: this.grid };
-    return { players: latest.players, bombs: latest.bombs, grid: this.grid };
+    const buf = this.buffer;
+    if (buf.length === 0) return { players: [], bombs: [], grid: this.grid };
+
+    const renderTime = performance.now() - INTERP_DELAY;
+    const newest = buf[buf.length - 1];
+    // Not enough history yet, or we've outrun the buffer (lag): hold newest.
+    if (buf.length === 1 || renderTime >= newest.recvAt) {
+      return { players: newest.snap.players, bombs: newest.snap.bombs, grid: this.grid };
+    }
+    if (renderTime <= buf[0].recvAt) {
+      return { players: buf[0].snap.players, bombs: buf[0].snap.bombs, grid: this.grid };
+    }
+
+    // Find a,b with a.recvAt <= renderTime <= b.recvAt.
+    let j = 0;
+    for (let k = 0; k < buf.length - 1; k++) {
+      if (buf[k].recvAt <= renderTime && renderTime <= buf[k + 1].recvAt) {
+        j = k;
+        break;
+      }
+    }
+    const a = buf[j];
+    const b = buf[j + 1];
+    const span = b.recvAt - a.recvAt;
+    const alpha = span > 0 ? (renderTime - a.recvAt) / span : 1;
+
+    const players = b.snap.players.map((pb) => {
+      const pa = a.snap.players.find((p) => p.id === pb.id);
+      if (!pa || Math.hypot(pb.x - pa.x, pb.y - pa.y) > INTERP_SNAP) return pb;
+      return { ...pb, x: pa.x + (pb.x - pa.x) * alpha, y: pa.y + (pb.y - pa.y) * alpha };
+    });
+    const bombs = b.snap.bombs.map((bb) => {
+      const ba = a.snap.bombs.find((x) => x.id === bb.id);
+      if (!ba || Math.hypot(bb.x - ba.x, bb.y - ba.y) > INTERP_SNAP) return bb;
+      return { ...bb, x: ba.x + (bb.x - ba.x) * alpha, y: ba.y + (bb.y - ba.y) * alpha };
+    });
+    return { players, bombs, grid: this.grid };
   }
 
   reset(): void {
