@@ -775,6 +775,51 @@ function leaveToMenu(): void {
 document.getElementById("leave-room")!.addEventListener("click", leaveToMenu);
 document.getElementById("result-leave")!.addEventListener("click", leaveToMenu);
 
+// --- viral: invite links + result sharing ---------------------------------
+
+function inviteUrl(code: string): string {
+  return `${location.origin}${location.pathname}?room=${code}`;
+}
+
+document.getElementById("copy-invite")?.addEventListener("click", () => {
+  const btn = document.getElementById("copy-invite") as HTMLButtonElement;
+  const url = inviteUrl(state.roomCode);
+  const done = () => {
+    const old = btn.textContent;
+    btn.textContent = "✅ Copied!";
+    setTimeout(() => (btn.textContent = old), 1500);
+  };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(done);
+  else done();
+});
+
+document.getElementById("result-share")?.addEventListener("click", () => {
+  const me = state.latest()?.players.find((p) => p.id === state.myId);
+  const won = state.winnerId === state.myId;
+  const frags = me?.frags ?? 0;
+  const text = won
+    ? `I just won a round of Bomberpump 💣🏆 with ${frags} frags. Come get blown up:`
+    : `Just dropped ${frags} frags in Bomberpump 💣 Think you can do better?`;
+  const url = `${location.origin}${location.pathname}`;
+  if (navigator.share) {
+    void navigator.share({ title: "Bomberpump", text, url }).catch(() => {});
+  } else {
+    const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+    window.open(intent, "_blank", "noopener");
+  }
+});
+
+// Deep link: ?room=CODE auto-joins with the saved nick/skin.
+(function autoJoinFromUrl(): void {
+  const code = new URLSearchParams(location.search).get("room");
+  if (!code) return;
+  history.replaceState(null, "", location.pathname); // clean the URL
+  const name = (localStorage.getItem("bp_nick") || `pumper${(Math.random() * 1000) | 0}`).trim();
+  const skin = Number(localStorage.getItem("bp_skin") ?? 0);
+  setMenuStatus(`Joining room ${code.toUpperCase()}…`);
+  void connect(() => joinRoom(name, code.toUpperCase(), skin));
+})();
+
 // UI click sound + kick music off the first user gesture (autoplay policy).
 document.addEventListener("pointerdown", (e) => {
   const el = e.target as HTMLElement;
