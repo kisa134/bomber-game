@@ -3,8 +3,8 @@
 // Bump whenever the binary frame layout changes; client + server must match.
 export const PROTOCOL_VERSION = 2;
 
-export const TICK_RATE = 20; // Hz
-export const TICK_MS = 1000 / TICK_RATE; // 50
+export const TICK_RATE = 30; // Hz — higher tick = finer, more responsive base motion
+export const TICK_MS = 1000 / TICK_RATE; // ~33.3
 
 export const GRID_W = 13;
 export const GRID_H = 11;

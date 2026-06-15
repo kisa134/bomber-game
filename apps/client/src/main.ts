@@ -6,6 +6,7 @@ import {
   DRAW_WINNER_ID,
   PLAYER_BASE_SPEED,
   PROTOCOL_VERSION,
+  TICK_MS,
 } from "./net/protocol.js";
 import {
   Net,
@@ -21,6 +22,7 @@ import { GameState } from "./game/state.js";
 import { Renderer, PLAYER_COLORS } from "./game/renderer.js";
 import { Input } from "./game/input.js";
 import { Assets } from "./game/assets.js";
+import { Predictor } from "./game/prediction.js";
 import { loadSettings, saveSettings, type Settings } from "./settings.js";
 import {
   listWallets,
@@ -36,9 +38,11 @@ const state = new GameState();
 const net = new Net();
 const input = new Input();
 const assets = new Assets();
+const predictor = new Predictor();
 const settings = loadSettings();
 
 let renderer: Renderer | null = null;
+let lastFrame = performance.now();
 let keepAlive: ReturnType<typeof setInterval> | null = null;
 let currentTrack: "lobby" | "battle" = "lobby";
 let lastCountSec = -1;
@@ -164,6 +168,18 @@ net.onMessage = (msg) => {
     }
     case ServerMsg.STATE_SNAPSHOT: {
       state.addSnapshot(msg);
+      const me = msg.players.find((p) => p.id === state.myId);
+      if (me) {
+        predictor.onServerState(
+          msg.tick * TICK_MS,
+          me.x,
+          me.y,
+          me.speed,
+          me.alive,
+          state.grid,
+          me.wallPass,
+        );
+      }
       // Soft-block break sound (derived from the reconstructed grid).
       let soft = 0;
       for (let i = 0; i < state.grid.length; i++) if (state.grid[i] === TileType.SOFT) soft++;
@@ -238,6 +254,7 @@ function enterGame(): void {
     renderer.skinOf = (id) => state.skinOf(id);
   }
   renderer.resize();
+  predictor.reset();
   assets.stop("sudden_death");
   prevSoftCount = -1;
   killLines.length = 0;
@@ -420,9 +437,21 @@ function updateCountdown(): void {
 
 function frame(): void {
   const now = performance.now();
+  const dt = now - lastFrame;
+  lastFrame = now;
 
   if (renderer && inGame(state.phase)) {
+    if (state.clockSynced) predictor.step(dt, input.dir, state.serverNow());
     const view = state.view();
+    // Render the local player from the responsive prediction; everyone else is
+    // smoothly interpolated from server snapshots.
+    if (predictor.ready) {
+      const me = view.players.find((p) => p.id === state.myId);
+      if (me && me.alive) {
+        me.x = predictor.x;
+        me.y = predictor.y;
+      }
+    }
     renderer.render(view, state.myId);
     updateHud();
     updateCountdown();
@@ -696,6 +725,7 @@ function leaveToMenu(): void {
   assets.stop("sudden_death");
   state.reset();
   input.reset();
+  predictor.reset();
   prevPlayerCount = 0;
   showScreen("menu");
   music("lobby");

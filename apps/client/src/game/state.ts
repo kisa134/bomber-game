@@ -120,6 +120,16 @@ export class GameState {
     return this.buffer.length ? this.buffer[this.buffer.length - 1].snap : null;
   }
 
+  /** Whether the playback clock has locked onto the server time yet. */
+  get clockSynced(): boolean {
+    return this.clockReady;
+  }
+
+  /** Best estimate of the current server game-time (ms), for local prediction. */
+  serverNow(): number {
+    return performance.now() - this.clockOffset;
+  }
+
   /** Render-ready view. We play the world back ~INTERP_DELAY behind the latest
    *  server time and linearly interpolate every entity (including the local
    *  player) between the two snapshots that bracket that game time — keyed on
