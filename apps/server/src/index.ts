@@ -3,7 +3,8 @@ import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
 import { ClientMsg, decodeClient, encodePong } from "@bomberpump/shared";
 import { Matchmaker } from "./matchmaker.js";
-import { createNonce, verifySignature, createSession } from "./auth.js";
+import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
+import { store } from "./store.js";
 import type { SendFn } from "./player.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -91,20 +92,41 @@ app.get("/health", (res) => {
   res.end(JSON.stringify({ ok: true, ...mm.stats }));
 });
 
-async function parseBody(res: uWS.HttpResponse): Promise<{ name: string; code: string; skin: number }> {
+app.get("/profile", (res, req) => {
+  res.onAborted(() => {});
+  const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
+  store
+    .getProfile(wallet)
+    .then((p) => sendJson(res, p ?? { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0 }))
+    .catch(() => sendJson(res, { error: "profile_failed" }, "500 Internal Server Error"));
+});
+
+app.get("/leaderboard", (res) => {
+  res.onAborted(() => {});
+  store
+    .leaderboard(100)
+    .then((rows) => sendJson(res, { rows }))
+    .catch(() => sendJson(res, { rows: [] }));
+});
+
+async function parseBody(
+  res: uWS.HttpResponse,
+): Promise<{ name: string; code: string; skin: number; wallet: string | null }> {
   const body = await readBody(res);
   let name = "Player";
   let code = "";
   let skin = 0;
+  let wallet: string | null = null;
   try {
     const parsed = JSON.parse(body || "{}");
     if (typeof parsed.name === "string" && parsed.name.trim()) name = parsed.name.trim().slice(0, 16);
     if (typeof parsed.code === "string") code = parsed.code.trim().toUpperCase().slice(0, 8);
     if (Number.isFinite(parsed.skin)) skin = Math.max(0, Math.min(3, Math.floor(parsed.skin)));
+    if (typeof parsed.session === "string" && parsed.session) wallet = verifySession(parsed.session);
   } catch {
     // ignore malformed body
   }
-  return { name, code, skin };
+  return { name, code, skin, wallet };
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
@@ -145,26 +167,26 @@ app.post("/auth/verify", async (res) => {
 
 app.post("/quickplay", async (res) => {
   res.onAborted(() => {});
-  const { name, skin } = await parseBody(res);
-  sendJson(res, mm.quickplay(name, skin));
+  const { name, skin, wallet } = await parseBody(res);
+  sendJson(res, mm.quickplay(name, skin, wallet));
 });
 
 app.post("/create", async (res) => {
   res.onAborted(() => {});
-  const { name, skin } = await parseBody(res);
-  sendJson(res, mm.createPrivate(name, skin));
+  const { name, skin, wallet } = await parseBody(res);
+  sendJson(res, mm.createPrivate(name, skin, wallet));
 });
 
 app.post("/practice", async (res) => {
   res.onAborted(() => {});
-  const { name, skin } = await parseBody(res);
-  sendJson(res, mm.practice(name, skin));
+  const { name, skin, wallet } = await parseBody(res);
+  sendJson(res, mm.practice(name, skin, wallet));
 });
 
 app.post("/join", async (res) => {
   res.onAborted(() => {});
-  const { name, code, skin } = await parseBody(res);
-  const result = mm.joinByCode(code, name, skin);
+  const { name, code, skin, wallet } = await parseBody(res);
+  const result = mm.joinByCode(code, name, skin, wallet);
   if (!result) {
     sendJson(res, { error: "room_not_found" }, "404 Not Found");
     return;

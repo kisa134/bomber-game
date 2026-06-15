@@ -6,7 +6,16 @@ import {
   DRAW_WINNER_ID,
   PLAYER_BASE_SPEED,
 } from "./net/protocol.js";
-import { Net, quickplay, createRoom, joinRoom, practiceRoom, type JoinResponse } from "./net/socket.js";
+import {
+  Net,
+  quickplay,
+  createRoom,
+  joinRoom,
+  practiceRoom,
+  fetchProfile,
+  fetchLeaderboard,
+  type JoinResponse,
+} from "./net/socket.js";
 import { GameState } from "./game/state.js";
 import { Renderer, PLAYER_COLORS } from "./game/renderer.js";
 import { Input } from "./game/input.js";
@@ -501,6 +510,93 @@ function wireWallet(): void {
   refreshWalletBtn();
 }
 
+// --- profile & leaderboard ------------------------------------------------
+
+function el(tag: string, cls: string, text: string): HTMLElement {
+  const e = document.createElement(tag);
+  e.className = cls;
+  e.textContent = text;
+  return e;
+}
+
+function profCell(label: string, value: string | number): HTMLElement {
+  const c = document.createElement("div");
+  c.className = "prof-cell";
+  c.append(el("span", "", label), el("b", "", String(value)));
+  return c;
+}
+
+async function openProfile(): Promise<void> {
+  showScreen("profile");
+  const body = document.getElementById("profile-body")!;
+  const w = loadWallet();
+  if (!w) {
+    body.innerHTML = '<p class="status">Connect a wallet to track your stats.</p>';
+    return;
+  }
+  body.innerHTML = '<p class="status">Loading…</p>';
+  try {
+    const p = await fetchProfile(w.address);
+    const into = p.xp % 200;
+    const wr = p.matches ? Math.round((p.wins / p.matches) * 100) : 0;
+    body.innerHTML = "";
+    body.append(el("div", "prof-addr", shortAddr(w.address)), el("div", "prof-level", `Level ${p.level}`));
+    const bar = document.createElement("div");
+    bar.className = "xp-bar";
+    const fill = document.createElement("div");
+    fill.className = "xp-fill";
+    fill.style.width = `${(into / 200) * 100}%`;
+    bar.appendChild(fill);
+    body.append(bar, el("div", "status", `${into} / 200 XP`));
+    const grid = document.createElement("div");
+    grid.className = "prof-grid";
+    grid.append(
+      profCell("Matches", p.matches),
+      profCell("Wins", p.wins),
+      profCell("Win rate", `${wr}%`),
+      profCell("Frags", p.frags),
+      profCell("Deaths", p.deaths),
+      profCell("Best streak", p.best_streak),
+    );
+    body.append(grid);
+  } catch {
+    body.innerHTML = '<p class="status">Failed to load.</p>';
+  }
+}
+
+async function openLeaderboard(): Promise<void> {
+  showScreen("leaderboard");
+  const body = document.getElementById("leaderboard-body")!;
+  body.innerHTML = '<li class="status">Loading…</li>';
+  try {
+    const rows = await fetchLeaderboard();
+    body.innerHTML = "";
+    if (!rows.length) {
+      body.innerHTML = '<li class="status">No players yet — be the first!</li>';
+      return;
+    }
+    rows.forEach((r, i) => {
+      const li = document.createElement("li");
+      li.className = "lb-row";
+      li.append(
+        el("span", "lb-rank", `${i + 1}`),
+        el("span", "lb-name", r.name || shortAddr(r.wallet)),
+        el("span", "lb-xp", `Lv${r.level} · ${r.xp} XP`),
+      );
+      body.appendChild(li);
+    });
+  } catch {
+    body.innerHTML = '<li class="status">Failed to load.</li>';
+  }
+}
+
+function wireMenuLinks(): void {
+  document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
+  document.getElementById("open-leaderboard")!.addEventListener("click", () => void openLeaderboard());
+  document.getElementById("profile-back")!.addEventListener("click", () => showScreen("menu"));
+  document.getElementById("leaderboard-back")!.addEventListener("click", () => showScreen("menu"));
+}
+
 // --- background video -----------------------------------------------------
 
 function setupBackground(): void {
@@ -523,6 +619,7 @@ void assets.preload();
 applySettings();
 wireSettings();
 wireWallet();
+wireMenuLinks();
 setupBackground();
 
 setupMenu({

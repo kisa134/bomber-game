@@ -18,6 +18,7 @@ export class Player {
   name: string;
   skin: number;
   isBot: boolean;
+  wallet: string | null = null; // verified Solana address, for ranked stats
 
   // Position in cell coordinates (center of a cell is integer + 0.5).
   x: number;
@@ -34,6 +35,7 @@ export class Player {
   lives: number = START_LIVES;
   invulnUntilMs: number = 0;
   frags: number = 0;
+  deaths: number = 0;
   alive: boolean = true;
   lastInputSeq: number = 0;
   lastMoveAtMs: number = 0; // for idle-kick detection
@@ -72,6 +74,7 @@ export class Player {
     this.lives = START_LIVES;
     this.invulnUntilMs = 0;
     this.frags = 0;
+    this.deaths = 0;
     this.alive = true;
   }
 

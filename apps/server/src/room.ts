@@ -39,6 +39,7 @@ import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
 import { BotController } from "./bot.js";
+import { store, type MatchResult } from "./store.js";
 
 const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 
@@ -99,10 +100,11 @@ export class Room {
     this.bots.set(id, new BotController());
   }
 
-  addPlayer(name: string, skin: number, send: SendFn): Player {
+  addPlayer(name: string, skin: number, send: SendFn, wallet: string | null = null): Player {
     const id = this.nextPlayerId++;
     const spawn = SPAWNS[this.players.size % SPAWNS.length];
     const p = new Player(id, name, skin, spawn.x, spawn.y, send);
+    p.wallet = wallet;
     this.players.set(id, p);
     if (this.hostId < 0) this.hostId = id;
     send(encodeWelcome(id, GRID_W, GRID_H));
@@ -515,6 +517,7 @@ export class Room {
     }
     this.broadcast(encodeKill(killerId >= 0 ? killerId : 255, p.id));
 
+    p.deaths += 1;
     p.lives = eliminate ? 0 : p.lives - 1;
     this.broadcast(encodeDeath(p.id)); // VFX/sound on every hit
     if (p.lives <= 0) {
@@ -556,7 +559,26 @@ export class Room {
       this.winnerId = aliveIds.length === 1 ? aliveIds[0] : DRAW_WINNER_ID;
       this.setPhase(MatchPhase.END);
       this.broadcast(encodeMatchEnd(this.winnerId));
+      this.recordStats();
     }
+  }
+
+  /** Persist ranked stats for wallet-authenticated humans (not practice/bots). */
+  private recordStats(): void {
+    if (this.practice) return;
+    const results: MatchResult[] = [];
+    for (const p of this.players.values()) {
+      if (p.isBot || !p.wallet) continue;
+      results.push({
+        wallet: p.wallet,
+        name: p.name,
+        skin: p.skin,
+        won: p.id === this.winnerId,
+        frags: p.frags,
+        deaths: p.deaths,
+      });
+    }
+    if (results.length) void store.recordMatch(results);
   }
 
   // -- networking -----------------------------------------------------------

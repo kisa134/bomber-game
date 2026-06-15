@@ -79,6 +79,26 @@ You can still host the client on Vercel and the API on Fly/Railway separately:
 build the client with `VITE_SERVER_URL=https://your-server` and deploy `apps/client`
 (`vercel.json` included). Note Vercel cannot host the WebSocket server itself.
 
+## Profiles & progression (wallet-based)
+
+Connect a Solana wallet (Phantom/Solflare/Backpack/… via Wallet Standard) →
+the server verifies an ed25519-signed nonce (Sign-In With Solana) and binds
+stats to the wallet. XP / level / wins / frags / streak are written
+**server-side on match end** (never client-claimed). Profile + leaderboard
+screens read from `GET /profile` and `GET /leaderboard`.
+
+Persistence is **in-memory by default** (works immediately). To make it durable,
+run `apps/server/sql/001_profiles.sql` on a Postgres/Supabase DB and set on the
+server:
+
+```
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_SERVICE_KEY=<service_role key>
+AUTH_SECRET=<any long random string>   # stable wallet sessions across restarts
+```
+
+The server auto-detects these and switches from in-memory to Supabase.
+
 ## Roadmap (post-MVP)
 
 Wallet/token-gated skins, pot mode with $TOKEN buy-ins, leaderboard cNFTs,

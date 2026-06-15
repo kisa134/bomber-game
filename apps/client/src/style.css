@@ -557,6 +557,92 @@ button.ghost {
   border: none;
 }
 
+/* Menu links + profile + leaderboard */
+.menu-links {
+  display: flex;
+  gap: 18px;
+  margin-top: 2px;
+}
+.link {
+  width: auto;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 4px;
+}
+#profile-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.prof-addr {
+  text-align: center;
+  color: var(--accent);
+  font-weight: 700;
+}
+.prof-level {
+  font-size: 1.4rem;
+  font-weight: 800;
+  text-align: center;
+}
+.xp-bar {
+  height: 12px;
+  background: var(--bg2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd95a, var(--accent));
+}
+.prof-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.prof-cell {
+  background: var(--bg2);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+}
+.prof-cell b {
+  color: var(--text);
+}
+.lb-list {
+  width: 100%;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg2);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+.lb-rank {
+  width: 22px;
+  font-weight: 800;
+  color: var(--accent);
+}
+.lb-name {
+  flex: 1;
+}
+.lb-xp {
+  color: var(--muted);
+}
+
 /* Wallet picker modal */
 .modal {
   position: fixed;

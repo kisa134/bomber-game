@@ -40,7 +40,29 @@
             <input id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" />
             <button id="join-room">Join</button>
           </div>
+          <div class="menu-links">
+            <button id="open-profile" class="link">👤 Profile</button>
+            <button id="open-leaderboard" class="link">🏆 Leaderboard</button>
+          </div>
           <p id="menu-status" class="status"></p>
+        </div>
+      </section>
+
+      <!-- Profile -->
+      <section id="profile" class="screen hidden">
+        <div class="panel">
+          <h2>👤 Profile</h2>
+          <div id="profile-body"></div>
+          <button id="profile-back" class="primary">Back</button>
+        </div>
+      </section>
+
+      <!-- Leaderboard -->
+      <section id="leaderboard" class="screen hidden">
+        <div class="panel">
+          <h2>🏆 Leaderboard</h2>
+          <ol id="leaderboard-body" class="lb-list"></ol>
+          <button id="leaderboard-back" class="primary">Back</button>
         </div>
       </section>
 

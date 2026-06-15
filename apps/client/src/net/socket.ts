@@ -8,6 +8,7 @@ import {
   type ServerMessage,
 } from "./protocol.js";
 import { SERVER_HTTP, SERVER_WS } from "../config.js";
+import { loadWallet } from "./wallet.js";
 
 export interface JoinResponse {
   code: string;
@@ -15,11 +16,35 @@ export interface JoinResponse {
 }
 
 async function post(path: string, body: Record<string, unknown>): Promise<Response> {
+  const session = loadWallet()?.session;
   return fetch(`${SERVER_HTTP}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(session ? { ...body, session } : body),
   });
+}
+
+export interface ProfileData {
+  wallet: string;
+  name: string;
+  level: number;
+  xp: number;
+  matches: number;
+  wins: number;
+  frags: number;
+  deaths: number;
+  best_streak: number;
+}
+
+export async function fetchProfile(wallet: string): Promise<ProfileData> {
+  const res = await fetch(`${SERVER_HTTP}/profile?wallet=${encodeURIComponent(wallet)}`);
+  return res.json();
+}
+
+export async function fetchLeaderboard(): Promise<ProfileData[]> {
+  const res = await fetch(`${SERVER_HTTP}/leaderboard`);
+  const { rows } = (await res.json()) as { rows: ProfileData[] };
+  return rows ?? [];
 }
 
 export async function quickplay(name: string, skin: number): Promise<JoinResponse> {

@@ -2,8 +2,25 @@ import { PLAYER_COLORS, SKIN_EMOJI } from "../game/renderer.js";
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM } from "../net/protocol.js";
 import type { GameState } from "../game/state.js";
 
-export type ScreenName = "loading" | "menu" | "settings" | "room" | "game" | "result";
-const SCREENS: ScreenName[] = ["loading", "menu", "settings", "room", "game", "result"];
+export type ScreenName =
+  | "loading"
+  | "menu"
+  | "settings"
+  | "profile"
+  | "leaderboard"
+  | "room"
+  | "game"
+  | "result";
+const SCREENS: ScreenName[] = [
+  "loading",
+  "menu",
+  "settings",
+  "profile",
+  "leaderboard",
+  "room",
+  "game",
+  "result",
+];
 
 export function showScreen(name: ScreenName): void {
   for (const id of SCREENS) {
