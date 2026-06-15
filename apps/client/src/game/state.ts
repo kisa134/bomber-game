@@ -21,7 +21,7 @@ export interface RenderView {
   grid: Uint8Array | null;
 }
 
-const MAX_SNAPSHOTS = 16;
+const MAX_SNAPSHOTS = 40; // ~1.3s at 30Hz — headroom for high-latency clients
 // Play back this far behind the latest server time so two snapshots always
 // bracket the display moment (server ticks every 50ms; 100ms = 2 ticks of
 // cushion for network jitter).

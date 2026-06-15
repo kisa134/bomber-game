@@ -1,40 +1,48 @@
-// Local-player prediction with history-based reconciliation.
+// Local-player prediction: a DETERMINISTIC fixed-timestep simulation that runs
+// the exact same engine and step size as the server (shared `advance` at
+// TICK_MS), so given the same input it produces the same path — there is
+// nothing to continuously "correct", which is what removes the micro-jerk.
 //
-// We run the SAME deterministic arcade engine the server runs (shared
-// `advance`) so the local player responds instantly to input. The server stays
-// authoritative: each snapshot we compare its position to where WE predicted we
-// were AT THAT SAME SERVER TIME (from a small history ring), not to where we are
-// right now. That distinction is what removes the old "jump to another cell" at
-// turns — during a turn our past position was also pre-turn, so the error is
-// tiny. Any residual error is eased out smoothly (no snapping except on a real
-// teleport). The perpendicular axis is rail-locked by `advance`, so there is no
-// in-cell wobble.
+// - We integrate in fixed TICK_MS steps and render the position interpolated
+//   between the last two ticks, so motion is smooth at any display refresh rate.
+// - Reconciliation is history-based with a dead-zone: each snapshot we compare
+//   the authoritative position to where we predicted we were AT THAT SERVER
+//   TIME. While the prediction is right (the normal case) the error is below
+//   the dead-zone and we leave the position untouched -> perfectly smooth. Only
+//   a genuine misprediction is eased out, and a real teleport (respawn) snaps.
 
 import {
   GRID_W,
   GRID_H,
   TileType,
+  TICK_MS,
   Direction,
   advance,
   type MoveState,
 } from "../net/protocol.js";
 
-const HARD_SNAP = 2.0; // cells: a genuine teleport (respawn) snaps instantly
-const CORRECT_GAIN = 0.15; // fraction of positional error absorbed per server update
-const HISTORY_MS = 1500; // how much predicted history we keep for reconciliation
+const TICK_S = TICK_MS / 1000;
+const HARD_SNAP = 2.0; // cells: a real teleport (respawn) snaps instantly
+const DEADZONE = 0.35; // cells: ignore prediction error smaller than this
+const BLEND = 0.2; // fraction of a beyond-dead-zone error absorbed per snapshot
+const HISTORY_MS = 1500;
+const MAX_ACC = 250; // ms: clamp the step accumulator (tab unfocus / hitch)
 
 interface Sample {
-  t: number; // server-time estimate when this position was produced
+  t: number;
   x: number;
   y: number;
 }
 
 export class Predictor implements MoveState {
-  x = 0;
+  x = 0; // simulation position at the latest tick
   y = 0;
   dir: Direction = Direction.NONE;
   alive = true;
 
+  private prevX = 0; // position one tick earlier (for render interpolation)
+  private prevY = 0;
+  private acc = 0; // ms accumulated toward the next fixed step
   private speed = 3.2;
   private wallPass = false;
   private grid: Uint8Array | null = null;
@@ -45,21 +53,35 @@ export class Predictor implements MoveState {
     return this.has;
   }
 
+  /** Smoothly interpolated render position between the last two ticks. */
+  get rx(): number {
+    const f = this.acc / TICK_MS;
+    return this.prevX + (this.x - this.prevX) * f;
+  }
+  get ry(): number {
+    const f = this.acc / TICK_MS;
+    return this.prevY + (this.y - this.prevY) * f;
+  }
+
   reset(): void {
     this.has = false;
     this.grid = null;
     this.dir = Direction.NONE;
+    this.acc = 0;
     this.history = [];
   }
 
-  /** Integrate local input for this frame and record the result in history. */
-  step(dt: number, intent: Direction, serverTimeNow: number): void {
+  /** Advance the fixed-timestep simulation by the elapsed wall-clock time. */
+  step(dtMs: number, intent: Direction, serverTimeNow: number): void {
     if (!this.has || !this.grid) return;
-    if (this.alive) {
-      const dist = (this.speed * dt) / 1000;
-      advance(this, intent, dist, (cx, cy) => this.solid(cx, cy));
+    this.acc = Math.min(this.acc + dtMs, MAX_ACC);
+    while (this.acc >= TICK_MS) {
+      this.acc -= TICK_MS;
+      this.prevX = this.x;
+      this.prevY = this.y;
+      if (this.alive) advance(this, intent, this.speed * TICK_S, (cx, cy) => this.solid(cx, cy));
+      this.history.push({ t: serverTimeNow, x: this.x, y: this.y });
     }
-    this.history.push({ t: serverTimeNow, x: this.x, y: this.y });
     const cutoff = serverTimeNow - HISTORY_MS;
     while (this.history.length > 2 && this.history[0].t < cutoff) this.history.shift();
   }
@@ -79,30 +101,34 @@ export class Predictor implements MoveState {
     this.grid = grid;
     this.wallPass = wallPass;
     if (!this.has) {
-      this.x = x;
-      this.y = y;
+      this.x = this.prevX = x;
+      this.y = this.prevY = y;
       this.has = true;
       return;
     }
     if (!alive) {
-      this.x = x;
-      this.y = y;
+      this.x = this.prevX = x;
+      this.y = this.prevY = y;
       return;
     }
-    // Where did we predict we were at this server time?
     const s = this.sampleAt(serverTime);
-    const hx = s ? s.x : this.x;
-    const hy = s ? s.y : this.y;
-    const ex = x - hx;
-    const ey = y - hy;
-    if (Math.hypot(ex, ey) > HARD_SNAP) {
-      this.x = x;
-      this.y = y;
+    const ex = x - (s ? s.x : this.x);
+    const ey = y - (s ? s.y : this.y);
+    const e = Math.hypot(ex, ey);
+    if (e > HARD_SNAP) {
+      this.x = this.prevX = x;
+      this.y = this.prevY = y;
       return;
     }
-    // That same error is still baked into our current position — ease it out.
-    this.x += ex * CORRECT_GAIN;
-    this.y += ey * CORRECT_GAIN;
+    if (e > DEADZONE) {
+      // Genuine misprediction: ease the error out of both endpoints so the
+      // render interpolation stays continuous.
+      this.x += ex * BLEND;
+      this.y += ey * BLEND;
+      this.prevX += ex * BLEND;
+      this.prevY += ey * BLEND;
+    }
+    // Within the dead-zone: prediction is correct, leave it alone (smooth).
   }
 
   private sampleAt(t: number): Sample | null {

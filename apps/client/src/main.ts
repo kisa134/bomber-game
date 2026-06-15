@@ -448,8 +448,8 @@ function frame(): void {
     if (predictor.ready) {
       const me = view.players.find((p) => p.id === state.myId);
       if (me && me.alive) {
-        me.x = predictor.x;
-        me.y = predictor.y;
+        me.x = predictor.rx;
+        me.y = predictor.ry;
       }
     }
     renderer.render(view, state.myId);
