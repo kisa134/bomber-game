@@ -692,6 +692,36 @@ button.ghost {
   height: 28px;
   border-radius: 6px;
 }
+.wc-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.wc-or {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.wc-qr {
+  width: 168px;
+  height: 168px;
+  background: #fff;
+  border-radius: 10px;
+  padding: 6px;
+}
+.wc-deeplinks {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.wc-deeplinks button {
+  width: auto;
+  font-size: 0.85rem;
+  padding: 10px 14px;
+}
 
 /* Floating joystick (left half of the screen) */
 #joystick {

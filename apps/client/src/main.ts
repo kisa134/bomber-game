@@ -530,6 +530,21 @@ function openWalletModal(): void {
     });
     list.appendChild(row);
   }
+
+  // Phone connect (no WalletConnect SDK): deeplink into the wallet's in-app
+  // browser (where Wallet Standard works) + a QR of the game URL to scan.
+  const url = window.location.href.split("#")[0];
+  const enc = encodeURIComponent(url);
+  const ref = encodeURIComponent(window.location.origin);
+  (document.getElementById("wc-qr") as HTMLImageElement).src =
+    `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=8&data=${enc}`;
+  document.getElementById("wc-phantom")!.onclick = () => {
+    window.location.href = `https://phantom.app/ul/browse/${enc}?ref=${ref}`;
+  };
+  document.getElementById("wc-solflare")!.onclick = () => {
+    window.location.href = `https://solflare.com/ul/v1/browse/${enc}?ref=${ref}`;
+  };
+
   modal.classList.remove("hidden");
 }
 

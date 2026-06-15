@@ -146,8 +146,17 @@
           <h3>Connect a Solana wallet</h3>
           <div id="wallet-list"></div>
           <p id="wallet-empty" class="status hidden">
-            No wallet detected. Install Phantom, Solflare or Backpack.
+            No browser wallet detected — use your phone below.
           </p>
+          <div class="wc-section">
+            <div class="wc-or">— or connect from your phone —</div>
+            <img id="wc-qr" class="wc-qr" alt="Scan to open on phone" />
+            <div class="wc-deeplinks">
+              <button id="wc-phantom">📲 Open in Phantom</button>
+              <button id="wc-solflare">📲 Open in Solflare</button>
+            </div>
+            <p class="status fair">Scan with your phone, or tap to open the game inside your wallet's browser, then Connect.</p>
+          </div>
           <p id="wallet-modal-status" class="status"></p>
           <button id="wallet-modal-close" class="ghost">Cancel</button>
         </div>
