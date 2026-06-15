@@ -57,6 +57,10 @@ export class Predictor {
   get healthy(): boolean {
     return this.predicting;
   }
+  /** Diagnostics for the debug overlay. */
+  get debug(): { headTick: number; errEma: number; predicting: boolean } {
+    return { headTick: this.headTick, errEma: this.errEma, predicting: this.predicting };
+  }
   get rx(): number {
     return this.prev.x + (this.head.x - this.prev.x) * this.frac;
   }

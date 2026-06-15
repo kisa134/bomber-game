@@ -101,6 +101,38 @@ let hudSig = "";
 const inGame = (p: MatchPhase) =>
   p === MatchPhase.COUNTDOWN || p === MatchPhase.PLAYING || p === MatchPhase.SUDDEN_DEATH;
 
+// --- debug overlay (open with ?debug=1; persists) -------------------------
+const BUILD = "rbk-fix3";
+if (new URLSearchParams(location.search).has("debug")) localStorage.setItem("bp_debug", "1");
+const DEBUG = localStorage.getItem("bp_debug") === "1";
+let dbgEl: HTMLElement | null = null;
+let dbgLastTs = performance.now();
+let dbgFps = 0;
+if (DEBUG) {
+  dbgEl = document.createElement("div");
+  dbgEl.style.cssText =
+    "position:fixed;top:4px;left:4px;z-index:9999;background:rgba(0,0,0,.75);color:#0f0;" +
+    "font:11px/1.35 monospace;padding:6px 8px;border-radius:6px;white-space:pre;pointer-events:none";
+  document.body.appendChild(dbgEl);
+}
+function updateDebug(): void {
+  if (!dbgEl) return;
+  const now = performance.now();
+  dbgFps = dbgFps * 0.9 + (1000 / Math.max(1, now - dbgLastTs)) * 0.1;
+  dbgLastTs = now;
+  const snapTick = state.latest()?.tick ?? -1;
+  const d = predictor.debug;
+  const sn = state.clockSynced ? Math.floor(state.serverNow() / (1000 / 30)) : -1;
+  dbgEl.textContent =
+    `build ${BUILD}  proto v${PROTOCOL_VERSION}\n` +
+    `ping ${state.pingMs}ms  fps ${dbgFps.toFixed(0)}\n` +
+    `clockSynced ${state.clockSynced}\n` +
+    `snapTick ${snapTick}  serverNowTick ${sn}\n` +
+    `headTick ${d.headTick}  lead ${d.headTick - sn}\n` +
+    `predicting ${d.predicting}  errEma ${d.errEma.toFixed(3)}\n` +
+    `phase ${MatchPhase[state.phase]}`;
+}
+
 function music(track: "lobby" | "battle"): void {
   currentTrack = track;
   assets.playMusic(track);
@@ -536,6 +568,7 @@ function updateCountdown(): void {
 
 function frame(): void {
   const now = performance.now();
+  updateDebug();
 
   if (renderer && inGame(state.phase)) {
     // Rollback prediction for the local player: advance + send tick-stamped
