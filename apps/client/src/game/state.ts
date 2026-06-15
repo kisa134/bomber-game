@@ -21,13 +21,16 @@ export interface RenderView {
   grid: Uint8Array | null;
 }
 
-const MAX_SNAPSHOTS = 40; // ~1.3s at 30Hz — headroom for high-latency clients
-// Play back this far behind the latest server time so two snapshots always
-// bracket the display moment (server ticks every 50ms; 100ms = 2 ticks of
-// cushion for network jitter).
-const INTERP_DELAY = 100;
+const MAX_SNAPSHOTS = 64; // ~2s at 30Hz — headroom for high-latency clients
 const INTERP_SNAP = 1.5; // cells: bigger per-entity jumps snap instead of sliding
-const CLOCK_RESYNC = 250; // ms: snap the clock on a jump this big (match start/lag)
+const CLOCK_RESYNC = 400; // ms: snap the clock on a jump this big (match start/lag)
+// Adaptive playback delay: we render this far behind the latest server time so
+// two snapshots always bracket the display moment. It tracks the worst recent
+// inter-arrival gap, so a steady connection stays crisp (~min) while a jittery
+// one buffers more (smooth but more delayed) instead of stuttering.
+const MIN_DELAY = 70;
+const MAX_DELAY = 500;
+const clamp = (lo: number, v: number, hi: number) => Math.max(lo, Math.min(v, hi));
 
 export class GameState {
   myId = -1;
@@ -57,6 +60,9 @@ export class GameState {
   // gives constant-velocity interpolation independent of packet-arrival jitter.
   private clockOffset = 0;
   private clockReady = false;
+  private lastArrival = 0;
+  private maxGap = TICK_MS; // slowly-decaying worst inter-arrival gap
+  private interpDelay = MIN_DELAY;
   /** Persistent grid reconstructed from delta snapshots. */
   readonly grid = new Uint8Array(GRID_SIZE);
 
@@ -93,6 +99,14 @@ export class GameState {
     const serverTime = snap.tick * TICK_MS;
     this.buffer.push({ recvAt, serverTime, snap });
     if (this.buffer.length > MAX_SNAPSHOTS) this.buffer.shift();
+
+    // Track the worst recent inter-arrival gap and size the playback delay to it.
+    if (this.lastArrival > 0) {
+      const gap = recvAt - this.lastArrival;
+      this.maxGap = Math.max(gap, this.maxGap * 0.995);
+    }
+    this.lastArrival = recvAt;
+    this.interpDelay = clamp(MIN_DELAY, this.maxGap + TICK_MS, MAX_DELAY);
 
     // Update the playback clock. Hard-resync on a big jump (match start, tick
     // reset, lag spike); otherwise track slowly so per-packet jitter is ignored.
@@ -140,7 +154,7 @@ export class GameState {
     const buf = this.buffer;
     if (buf.length === 0) return { players: [], bombs: [], grid: this.grid };
 
-    const renderTime = performance.now() - this.clockOffset - INTERP_DELAY;
+    const renderTime = performance.now() - this.clockOffset - this.interpDelay;
     const newest = buf[buf.length - 1];
     // Not enough history yet, or we've outrun the buffer (lag): hold newest.
     if (buf.length === 1 || !this.clockReady || renderTime >= newest.serverTime) {
@@ -180,6 +194,9 @@ export class GameState {
     this.buffer = [];
     this.clockReady = false;
     this.clockOffset = 0;
+    this.lastArrival = 0;
+    this.maxGap = TICK_MS;
+    this.interpDelay = MIN_DELAY;
     this.grid.fill(0);
     this.winnerId = -1;
     this.phase = MatchPhase.LOBBY;
