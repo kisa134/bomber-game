@@ -33,6 +33,7 @@ export class Player {
 
   lives: number = START_LIVES;
   invulnUntilMs: number = 0;
+  frags: number = 0;
   alive: boolean = true;
   lastInputSeq: number = 0;
   lastMoveAtMs: number = 0; // for idle-kick detection
@@ -70,6 +71,7 @@ export class Player {
     this.wallPass = false;
     this.lives = START_LIVES;
     this.invulnUntilMs = 0;
+    this.frags = 0;
     this.alive = true;
   }
 

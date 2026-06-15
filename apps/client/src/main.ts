@@ -1,4 +1,11 @@
-import { ServerMsg, MatchPhase, TileType, DRAW_WINNER_ID } from "./net/protocol.js";
+import {
+  ServerMsg,
+  MatchPhase,
+  TileType,
+  PowerUpType,
+  DRAW_WINNER_ID,
+  PLAYER_BASE_SPEED,
+} from "./net/protocol.js";
 import { Net, quickplay, createRoom, joinRoom, practiceRoom, type JoinResponse } from "./net/socket.js";
 import { GameState } from "./game/state.js";
 import { Renderer, PLAYER_COLORS } from "./game/renderer.js";
@@ -27,6 +34,46 @@ let prevPlayerCount = 0;
 const timerEl = document.getElementById("timer")!;
 const playersEl = document.getElementById("players")!;
 const pingEl = document.getElementById("ping")!;
+const killfeedEl = document.getElementById("killfeed")!;
+const toastEl = document.getElementById("toast")!;
+
+// Unified powerup visuals — same sprite file on the field and in the UI,
+// with a consistent emoji fallback when a sprite is missing.
+interface PuMeta {
+  sprite: string;
+  emoji: string;
+  label: string;
+}
+const POWERUP_META: Record<PowerUpType, PuMeta> = {
+  [PowerUpType.BOMB_UP]: { sprite: "powerup_bomb", emoji: "💣", label: "Bomb +1" },
+  [PowerUpType.FIRE_UP]: { sprite: "powerup_fire", emoji: "🔥", label: "Fire +1" },
+  [PowerUpType.SPEED_UP]: { sprite: "powerup_speed", emoji: "👟", label: "Speed +" },
+  [PowerUpType.KICK]: { sprite: "powerup_kick", emoji: "🦵", label: "Kick!" },
+  [PowerUpType.WALL_PASS]: { sprite: "powerup_wall", emoji: "👻", label: "Wall Pass!" },
+};
+
+/** Small icon element using the shared sprite, falling back to emoji. */
+function puIcon(meta: PuMeta): HTMLElement {
+  const img = document.createElement("img");
+  img.className = "pu-ic";
+  img.src = `/sprites/${meta.sprite}.webp`;
+  img.alt = meta.emoji;
+  img.onerror = () => {
+    const span = document.createElement("span");
+    span.textContent = meta.emoji;
+    img.replaceWith(span);
+  };
+  return img;
+}
+
+interface KillLine {
+  killerId: number;
+  victimId: number;
+  until: number;
+}
+const killLines: KillLine[] = [];
+let toastUntil = 0;
+let hudSig = "";
 
 const inGame = (p: MatchPhase) =>
   p === MatchPhase.COUNTDOWN || p === MatchPhase.PLAYING || p === MatchPhase.SUDDEN_DEATH;
@@ -119,8 +166,13 @@ net.onMessage = (msg) => {
       const snap = state.latest();
       const pp = snap?.players.find((p) => p.id === msg.playerId);
       if (pp) renderer?.burst(Math.floor(pp.x), Math.floor(pp.y), "#7CFC00", 10, 3);
+      if (msg.playerId === state.myId) showPickupToast(msg.powerup);
       break;
     }
+    case ServerMsg.EVENT_KILL:
+      killLines.push({ killerId: msg.killerId, victimId: msg.victimId, until: performance.now() + 4500 });
+      if (killLines.length > 5) killLines.shift();
+      break;
     case ServerMsg.EVENT_PLAYER_DEATH: {
       assets.play("death");
       const snap = state.latest();
@@ -145,6 +197,11 @@ function enterGame(): void {
   renderer.resize();
   predictor.reset();
   prevSoftCount = -1;
+  killLines.length = 0;
+  killfeedEl.innerHTML = "";
+  hudSig = "";
+  toastUntil = 0;
+  toastEl.classList.add("hidden");
   showScreen("game");
   music("battle");
   if (!keepAlive) keepAlive = setInterval(() => net.sendMove(input.dir), 150);
@@ -195,20 +252,91 @@ function updateHud(): void {
 
   const snap = state.latest();
   if (!snap) return;
+
+  // Sort by frags (scoreboard order); rebuild only when something changed.
+  const ordered = [...snap.players].sort((a, b) => b.frags - a.frags || a.id - b.id);
+  const sig = ordered
+    .map(
+      (p) =>
+        `${p.id}.${p.alive ? 1 : 0}.${p.lives}.${p.frags}.${p.bombsMax}.${p.power}.${p.speed.toFixed(1)}.${p.kick ? 1 : 0}.${p.wallPass ? 1 : 0}`,
+    )
+    .join("|");
+  if (sig === hudSig) return;
+  hudSig = sig;
+
   playersEl.innerHTML = "";
-  for (const p of snap.players) {
+  for (const p of ordered) {
     const card = document.createElement("div");
     card.className = "pcard" + (p.alive ? "" : " dead");
+
     const dot = document.createElement("span");
     dot.className = "pdot";
     dot.style.background = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
     card.appendChild(dot);
-    const hearts = p.lives > 0 ? "❤️".repeat(p.lives) : "💀";
-    const txt = document.createElement("span");
-    txt.textContent =
-      `${state.nameOf(p.id)} ${hearts} 💣${p.bombsMax} 🔥${p.power}${p.kick ? " 🦵" : ""}${p.wallPass ? " 👻" : ""}`;
-    card.appendChild(txt);
+
+    const name = document.createElement("span");
+    name.textContent = `${state.nameOf(p.id)}${p.id === state.myId ? " (you)" : ""}`;
+    card.appendChild(name);
+
+    const score = document.createElement("span");
+    score.textContent = `☠️${p.frags}`;
+    card.appendChild(score);
+
+    const lives = document.createElement("span");
+    lives.textContent = p.lives > 0 ? "❤️".repeat(p.lives) : "💀";
+    card.appendChild(lives);
+
+    card.appendChild(statGroup(POWERUP_META[PowerUpType.BOMB_UP], p.bombsMax));
+    card.appendChild(statGroup(POWERUP_META[PowerUpType.FIRE_UP], p.power));
+    if (p.speed > PLAYER_BASE_SPEED) card.appendChild(puIcon(POWERUP_META[PowerUpType.SPEED_UP]));
+    if (p.kick) card.appendChild(puIcon(POWERUP_META[PowerUpType.KICK]));
+    if (p.wallPass) card.appendChild(puIcon(POWERUP_META[PowerUpType.WALL_PASS]));
+
     playersEl.appendChild(card);
+  }
+}
+
+/** Icon + count, used in the HUD stat cards. */
+function statGroup(meta: PuMeta, count: number): HTMLElement {
+  const wrap = document.createElement("span");
+  wrap.className = "stat";
+  wrap.appendChild(puIcon(meta));
+  const n = document.createElement("span");
+  n.textContent = String(count);
+  wrap.appendChild(n);
+  return wrap;
+}
+
+function showPickupToast(pu: PowerUpType): void {
+  const meta = POWERUP_META[pu];
+  toastEl.innerHTML = "";
+  toastEl.appendChild(puIcon(meta));
+  const t = document.createElement("span");
+  t.textContent = meta.label;
+  toastEl.appendChild(t);
+  toastEl.classList.remove("hidden");
+  toastUntil = performance.now() + 1400;
+}
+
+function renderKillfeed(now: number): void {
+  while (killLines.length && killLines[0].until < now) killLines.shift();
+  // Only rebuild when set changes is overkill; few entries, cheap.
+  killfeedEl.innerHTML = "";
+  for (const k of killLines) {
+    const e = document.createElement("div");
+    e.className = "kill-entry";
+    const killer = document.createElement("span");
+    killer.className = "nm";
+    killer.style.color = k.killerId < 255 ? PLAYER_COLORS[k.killerId % PLAYER_COLORS.length] : "#aaa";
+    killer.textContent = k.killerId < 255 ? state.nameOf(k.killerId) : "☠️";
+    const mid = document.createElement("span");
+    mid.textContent = "💥";
+    const victim = document.createElement("span");
+    victim.className = "nm";
+    victim.style.color = PLAYER_COLORS[k.victimId % PLAYER_COLORS.length];
+    victim.textContent = state.nameOf(k.victimId);
+    e.append(killer, mid, victim);
+    killfeedEl.appendChild(e);
   }
 }
 
@@ -258,6 +386,11 @@ function frame(): void {
     renderer.render(view, state.myId);
     updateHud();
     updateCountdown();
+    renderKillfeed(now);
+    if (toastUntil && now > toastUntil) {
+      toastEl.classList.add("hidden");
+      toastUntil = 0;
+    }
   } else if (state.phase === MatchPhase.LOBBY && !document.getElementById("room")!.classList.contains("hidden")) {
     renderRoom(state);
   }

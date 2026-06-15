@@ -51,6 +51,7 @@ export enum ServerMsg {
   MATCH_END = 16,
   PONG = 17,
   ROOM_INFO = 18, // lobby membership + room code + start countdown
+  EVENT_KILL = 19, // killer + victim for killfeed / frags
 }
 
 export enum MatchPhase {
@@ -77,6 +78,7 @@ export interface PlayerSnapshot {
   wallPass: boolean;
   lives: number;
   invuln: boolean;
+  frags: number;
 }
 
 export interface BombSnapshot {
@@ -119,6 +121,12 @@ export interface DeathEvent {
   playerId: number;
 }
 
+export interface KillEvent {
+  type: ServerMsg.EVENT_KILL;
+  killerId: number; // 255 = environment / suicide-less
+  victimId: number;
+}
+
 export interface PickupEvent {
   type: ServerMsg.EVENT_PICKUP;
   playerId: number;
@@ -157,6 +165,7 @@ export type ServerMessage =
   | PhaseMsg
   | ExplosionEvent
   | DeathEvent
+  | KillEvent
   | PickupEvent
   | MatchEndMsg
   | PongMsg

@@ -21,6 +21,7 @@ import {
   type PhaseMsg,
   type ExplosionEvent,
   type DeathEvent,
+  type KillEvent,
   type PickupEvent,
   type MatchEndMsg,
   type PongMsg,
@@ -119,8 +120,8 @@ export function encodeWelcome(playerId: number, gridW: number, gridH: number): U
   return buf;
 }
 
-// Per-player record: id(1) x(2) y(2) bombsMax(1) power(1) speed(1) flags(1) lives(1) = 10 bytes.
-const PLAYER_RECORD_BYTES = 10;
+// Per-player record: id(1) x(2) y(2) bombsMax(1) power(1) speed(1) flags(1) lives(1) frags(1) = 11 bytes.
+const PLAYER_RECORD_BYTES = 11;
 const BOMB_RECORD_BYTES = 6;
 
 export function encodeSnapshot(
@@ -152,6 +153,7 @@ export function encodeSnapshot(
     if (p.invuln) flags |= FLAG_INVULN;
     dv.setUint8(o, flags); o += 1;
     dv.setUint8(o, p.lives & 0xff); o += 1;
+    dv.setUint8(o, Math.min(255, Math.max(0, p.frags)) & 0xff); o += 1;
   }
   dv.setUint8(o, bombs.length); o += 1;
   for (const b of bombs) {
@@ -192,6 +194,15 @@ export function encodeDeath(playerId: number): Uint8Array {
   const dv = new DataView(buf.buffer);
   dv.setUint8(0, ServerMsg.EVENT_PLAYER_DEATH);
   dv.setUint8(1, playerId);
+  return buf;
+}
+
+export function encodeKill(killerId: number, victimId: number): Uint8Array {
+  const buf = new Uint8Array(3);
+  const dv = new DataView(buf.buffer);
+  dv.setUint8(0, ServerMsg.EVENT_KILL);
+  dv.setUint8(1, killerId & 0xff);
+  dv.setUint8(2, victimId & 0xff);
   return buf;
 }
 
@@ -283,8 +294,9 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
         const speed = dv.getUint8(o) / SPEED_SCALE; o += 1;
         const flags = dv.getUint8(o); o += 1;
         const lives = dv.getUint8(o); o += 1;
+        const frags = dv.getUint8(o); o += 1;
         players.push({
-          id, x, y, bombsMax, power, speed, lives,
+          id, x, y, bombsMax, power, speed, lives, frags,
           alive: (flags & FLAG_ALIVE) !== 0,
           kick: (flags & FLAG_KICK) !== 0,
           wallPass: (flags & FLAG_WALLPASS) !== 0,
@@ -326,6 +338,10 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
     }
     case ServerMsg.EVENT_PLAYER_DEATH: {
       const msg: DeathEvent = { type, playerId: dv.getUint8(1) };
+      return msg;
+    }
+    case ServerMsg.EVENT_KILL: {
+      const msg: KillEvent = { type, killerId: dv.getUint8(1), victimId: dv.getUint8(2) };
       return msg;
     }
     case ServerMsg.EVENT_PICKUP: {

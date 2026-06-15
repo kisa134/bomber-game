@@ -45,6 +45,8 @@ export class World {
   readonly grid: Uint8Array = new Uint8Array(GRID_SIZE);
   // Transient explosion layer: ms remaining of fire on each cell (0 = none).
   readonly fire: Float32Array = new Float32Array(GRID_SIZE);
+  // Owner (player id) of the fire on each cell, for kill attribution (-1 = none).
+  readonly fireOwner: Int16Array = new Int16Array(GRID_SIZE).fill(-1);
 
   idx(x: number, y: number): number {
     return y * GRID_W + x;
@@ -80,6 +82,7 @@ export class World {
   generate(rng: () => number = Math.random): void {
     this.grid.fill(TileType.EMPTY);
     this.fire.fill(0);
+    this.fireOwner.fill(-1);
 
     // Border + interior pillars on even/even cells = HARD.
     for (let y = 0; y < GRID_H; y++) {

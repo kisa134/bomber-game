@@ -320,6 +320,58 @@ button.ghost {
   border-radius: 8px;
 }
 
+/* Killfeed (top-right, under HUD) */
+#killfeed {
+  position: absolute;
+  top: 48px;
+  right: 12px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-end;
+  pointer-events: none;
+}
+.kill-entry {
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 8px;
+  padding: 4px 9px;
+  font-size: 0.82rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  animation: pop 0.25s ease;
+}
+.kill-entry .nm {
+  font-weight: 700;
+}
+
+/* Pickup toast (bottom center) */
+#toast {
+  position: absolute;
+  left: 50%;
+  bottom: 18%;
+  transform: translateX(-50%);
+  z-index: 7;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 16px;
+  font-size: 1rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  animation: pop 0.25s ease;
+}
+.pu-ic {
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.2em;
+  image-rendering: auto;
+}
+
 /* Big centered countdown / GO! overlay */
 #countdown-overlay {
   position: absolute;

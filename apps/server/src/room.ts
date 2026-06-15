@@ -26,6 +26,7 @@ import {
   encodePhase,
   encodeExplosion,
   encodeDeath,
+  encodeKill,
   encodePickup,
   encodeMatchEnd,
   encodeWelcome,
@@ -271,6 +272,7 @@ export class Room {
     this.phase = MatchPhase.LOBBY;
     this.bombs = [];
     this.world.fire.fill(0);
+    this.world.fireOwner.fill(-1);
     this.lobbyCounting = false;
     this.lobbyCountdownMs = 0;
     this.winnerId = DRAW_WINNER_ID;
@@ -303,7 +305,10 @@ export class Room {
     for (let i = 0; i < fire.length; i++) {
       if (fire[i] > 0) {
         fire[i] -= dt;
-        if (fire[i] < 0) fire[i] = 0;
+        if (fire[i] <= 0) {
+          fire[i] = 0;
+          this.world.fireOwner[i] = -1;
+        }
       }
     }
 
@@ -311,7 +316,7 @@ export class Room {
       if (!p.alive) continue;
       const i = this.world.idx(p.cellX, p.cellY);
       if (fire[i] > 0) {
-        this.hit(p);
+        this.hit(p, false, this.world.fireOwner[i]);
         continue;
       }
       const pu = powerupOfTile(this.world.tile(p.cellX, p.cellY));
@@ -440,7 +445,9 @@ export class Room {
 
     const cells: Array<{ x: number; y: number }> = [];
     const ignite = (x: number, y: number) => {
-      this.world.fire[this.world.idx(x, y)] = EXPLOSION_LIFETIME_MS;
+      const i = this.world.idx(x, y);
+      this.world.fire[i] = EXPLOSION_LIFETIME_MS;
+      this.world.fireOwner[i] = b.ownerId;
       cells.push({ x, y });
     };
 
@@ -492,11 +499,22 @@ export class Room {
   }
 
   /** Take a hit: lose a life and respawn, or get eliminated. `eliminate`
-   *  forces a full kill (idle-kick, sudden-death wall) ignoring lives/invuln. */
-  private hit(p: Player, eliminate = false): void {
+   *  forces a full kill (idle-kick, sudden-death wall) ignoring lives/invuln.
+   *  `killerId` is the bomb owner whose fire landed the hit (-1 = environment). */
+  private hit(p: Player, eliminate = false, killerId = -1): void {
     if (!p.alive) return;
     const now = Date.now();
     if (!eliminate && now < p.invulnUntilMs) return; // protected after respawn
+
+    // Frag accounting.
+    if (killerId >= 0 && killerId !== p.id) {
+      const killer = this.players.get(killerId);
+      if (killer) killer.frags += 1;
+    } else if (killerId === p.id) {
+      p.frags = Math.max(0, p.frags - 1); // suicide penalty
+    }
+    this.broadcast(encodeKill(killerId >= 0 ? killerId : 255, p.id));
+
     p.lives = eliminate ? 0 : p.lives - 1;
     this.broadcast(encodeDeath(p.id)); // VFX/sound on every hit
     if (p.lives <= 0) {
@@ -575,6 +593,7 @@ export class Room {
         wallPass: p.wallPass,
         lives: p.lives,
         invuln: now < p.invulnUntilMs,
+        frags: p.frags,
       });
     }
     const bombs: BombSnapshot[] = this.bombs
