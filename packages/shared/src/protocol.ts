@@ -110,13 +110,19 @@ const FLAG_KICK = 1 << 1;
 const FLAG_WALLPASS = 1 << 2;
 const FLAG_INVULN = 1 << 3;
 
-export function encodeWelcome(playerId: number, gridW: number, gridH: number): Uint8Array {
-  const buf = new Uint8Array(4);
+export function encodeWelcome(
+  playerId: number,
+  gridW: number,
+  gridH: number,
+  protocolVersion: number,
+): Uint8Array {
+  const buf = new Uint8Array(5);
   const dv = new DataView(buf.buffer);
   dv.setUint8(0, ServerMsg.WELCOME);
   dv.setUint8(1, playerId);
   dv.setUint8(2, gridW);
   dv.setUint8(3, gridH);
+  dv.setUint8(4, protocolVersion & 0xff);
   return buf;
 }
 
@@ -277,6 +283,7 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
         playerId: dv.getUint8(1),
         gridW: dv.getUint8(2),
         gridH: dv.getUint8(3),
+        protocolVersion: dv.byteLength > 4 ? dv.getUint8(4) : 0,
       };
       return msg;
     }

@@ -11,6 +11,7 @@ import {
   END_SCREEN_MS,
   ROOM_LINGER_MS,
   LOBBY_COUNTDOWN_MS,
+  PROTOCOL_VERSION,
   MAX_PLAYERS_PER_ROOM,
   MIN_PLAYERS_TO_START,
   IDLE_KICK_MS,
@@ -45,6 +46,7 @@ const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 
 const R = PLAYER_HITBOX_RADIUS;
 const EPS = 1e-4;
+const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
 
 export class Room {
   readonly id: string; // also used as the shareable room code
@@ -69,6 +71,7 @@ export class Room {
   private lobbyCounting = false;
   private lobbyCountdownMs = 0;
   private winnerId = DRAW_WINNER_ID;
+  private lastHumanAtMs = Date.now();
 
   dead = false;
 
@@ -107,7 +110,7 @@ export class Room {
     p.wallet = wallet;
     this.players.set(id, p);
     if (this.hostId < 0) this.hostId = id;
-    send(encodeWelcome(id, GRID_W, GRID_H));
+    send(encodeWelcome(id, GRID_W, GRID_H, PROTOCOL_VERSION));
     send(encodePhase(this.phase, this.phaseTimer()));
     this.broadcastRoomInfo();
     return p;
@@ -180,6 +183,14 @@ export class Room {
 
   tick(): void {
     const dt = TICK_MS;
+
+    // Reaper: drop rooms that have had no human for too long (covers reserved
+    // rooms whose socket never connected, and abandoned lobbies).
+    if (this.humanCount > 0) this.lastHumanAtMs = Date.now();
+    else if (Date.now() - this.lastHumanAtMs > EMPTY_ROOM_TTL_MS) {
+      this.dead = true;
+      return;
+    }
 
     switch (this.phase) {
       case MatchPhase.LOBBY:

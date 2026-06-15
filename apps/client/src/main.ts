@@ -5,6 +5,7 @@ import {
   PowerUpType,
   DRAW_WINNER_ID,
   PLAYER_BASE_SPEED,
+  PROTOCOL_VERSION,
 } from "./net/protocol.js";
 import {
   Net,
@@ -124,6 +125,12 @@ net.onClose = () => {
 net.onMessage = (msg) => {
   switch (msg.type) {
     case ServerMsg.WELCOME:
+      if (msg.protocolVersion !== PROTOCOL_VERSION) {
+        net.close();
+        showScreen("menu");
+        setMenuStatus("Game was updated — please refresh the page (Ctrl/Cmd+R).");
+        return;
+      }
       state.myId = msg.playerId;
       break;
     case ServerMsg.ROOM_INFO: {

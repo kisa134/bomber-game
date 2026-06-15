@@ -2,7 +2,7 @@ import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
 import { ClientMsg, decodeClient, encodePong } from "@bomberpump/shared";
-import { Matchmaker } from "./matchmaker.js";
+import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { store } from "./store.js";
 import type { SendFn } from "./player.js";
@@ -19,7 +19,44 @@ interface SocketData {
   roomId: string;
   playerId: number;
   bound: boolean;
+  msgTokens: number;
+  msgTs: number;
 }
+
+// Per-IP HTTP rate limit (token bucket) for the mutating endpoints.
+const HTTP_RATE = 8; // tokens/sec
+const HTTP_BURST = 16;
+const httpBuckets = new Map<string, { t: number; ts: number }>();
+
+function clientIp(res: uWS.HttpResponse, req: uWS.HttpRequest): string {
+  const xff = req.getHeader("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  try {
+    return Buffer.from(res.getRemoteAddressAsText()).toString();
+  } catch {
+    return "?";
+  }
+}
+
+function httpAllow(ip: string): boolean {
+  const now = Date.now();
+  const b = httpBuckets.get(ip) ?? { t: HTTP_BURST, ts: now };
+  b.t = Math.min(HTTP_BURST, b.t + ((now - b.ts) / 1000) * HTTP_RATE);
+  b.ts = now;
+  httpBuckets.set(ip, b);
+  if (b.t < 1) return false;
+  b.t -= 1;
+  return true;
+}
+
+// Per-connection WebSocket message rate limit.
+const WS_RATE = 60; // msgs/sec
+const WS_BURST = 90;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, b] of httpBuckets) if (now - b.ts > 60_000) httpBuckets.delete(ip);
+}, 60_000).unref?.();
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -137,62 +174,78 @@ function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
   res.end(JSON.stringify(obj));
 }
 
+/** Sets up a rate-limited handler. Returns false if the request was rejected. */
+function guard(res: uWS.HttpResponse, req: uWS.HttpRequest): boolean {
+  const ip = clientIp(res, req);
+  res.onAborted(() => {});
+  if (!httpAllow(ip)) {
+    sendJson(res, { error: "rate_limited" }, "429 Too Many Requests");
+    return false;
+  }
+  return true;
+}
+
 // --- wallet sign-in ---
-app.post("/auth/nonce", async (res) => {
-  res.onAborted(() => {});
-  await readBody(res);
-  sendJson(res, { nonce: createNonce() });
+app.post("/auth/nonce", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(() => sendJson(res, { nonce: createNonce() }));
 });
 
-app.post("/auth/verify", async (res) => {
-  res.onAborted(() => {});
-  const body = await readBody(res);
-  let pubkey = "";
-  let nonce = "";
-  let signature = "";
-  try {
-    const j = JSON.parse(body || "{}");
-    pubkey = String(j.pubkey ?? "");
-    nonce = String(j.nonce ?? "");
-    signature = String(j.signature ?? "");
-  } catch {
-    // ignore
-  }
-  if (verifySignature(pubkey, nonce, signature)) {
-    sendJson(res, { session: createSession(pubkey), pubkey });
-  } else {
-    sendJson(res, { error: "invalid_signature" }, "401 Unauthorized");
-  }
+app.post("/auth/verify", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then((body) => {
+    let pubkey = "";
+    let nonce = "";
+    let signature = "";
+    try {
+      const j = JSON.parse(body || "{}");
+      pubkey = String(j.pubkey ?? "");
+      nonce = String(j.nonce ?? "");
+      signature = String(j.signature ?? "");
+    } catch {
+      // ignore
+    }
+    if (verifySignature(pubkey, nonce, signature)) {
+      sendJson(res, { session: createSession(pubkey), pubkey });
+    } else {
+      sendJson(res, { error: "invalid_signature" }, "401 Unauthorized");
+    }
+  });
 });
 
-app.post("/quickplay", async (res) => {
-  res.onAborted(() => {});
-  const { name, skin, wallet } = await parseBody(res);
-  sendJson(res, mm.quickplay(name, skin, wallet));
-});
+function withMatchmaking(
+  res: uWS.HttpResponse,
+  req: uWS.HttpRequest,
+  fn: (b: { name: string; code: string; skin: number; wallet: string | null }) => unknown,
+): void {
+  if (!guard(res, req)) return;
+  void parseBody(res).then((b) => {
+    try {
+      const result = fn(b);
+      if (!result) {
+        sendJson(res, { error: "room_not_found" }, "404 Not Found");
+        return;
+      }
+      sendJson(res, result);
+    } catch (e) {
+      if (e instanceof ServerFullError) sendJson(res, { error: "server_full" }, "503 Service Unavailable");
+      else sendJson(res, { error: "internal" }, "500 Internal Server Error");
+    }
+  });
+}
 
-app.post("/create", async (res) => {
-  res.onAborted(() => {});
-  const { name, skin, wallet } = await parseBody(res);
-  sendJson(res, mm.createPrivate(name, skin, wallet));
-});
-
-app.post("/practice", async (res) => {
-  res.onAborted(() => {});
-  const { name, skin, wallet } = await parseBody(res);
-  sendJson(res, mm.practice(name, skin, wallet));
-});
-
-app.post("/join", async (res) => {
-  res.onAborted(() => {});
-  const { name, code, skin, wallet } = await parseBody(res);
-  const result = mm.joinByCode(code, name, skin, wallet);
-  if (!result) {
-    sendJson(res, { error: "room_not_found" }, "404 Not Found");
-    return;
-  }
-  sendJson(res, result);
-});
+app.post("/quickplay", (res, req) =>
+  withMatchmaking(res, req, (b) => mm.quickplay(b.name, b.skin, b.wallet)),
+);
+app.post("/create", (res, req) =>
+  withMatchmaking(res, req, (b) => mm.createPrivate(b.name, b.skin, b.wallet)),
+);
+app.post("/practice", (res, req) =>
+  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet)),
+);
+app.post("/join", (res, req) =>
+  withMatchmaking(res, req, (b) => mm.joinByCode(b.code, b.name, b.skin, b.wallet)),
+);
 
 app.ws<SocketData>("/ws", {
   maxPayloadLength: 1024,
@@ -201,7 +254,7 @@ app.ws<SocketData>("/ws", {
   upgrade: (res, req, context) => {
     const token = new URLSearchParams(req.getQuery()).get("token") ?? "";
     res.upgrade<SocketData>(
-      { token, roomId: "", playerId: -1, bound: false },
+      { token, roomId: "", playerId: -1, bound: false, msgTokens: WS_BURST, msgTs: Date.now() },
       req.getHeader("sec-websocket-key"),
       req.getHeader("sec-websocket-protocol"),
       req.getHeader("sec-websocket-extensions"),
@@ -229,6 +282,12 @@ app.ws<SocketData>("/ws", {
   message: (ws, message) => {
     const ud = ws.getUserData();
     if (!ud.bound) return;
+    // Per-connection rate limit (token bucket) — drop floods before decoding work.
+    const now = Date.now();
+    ud.msgTokens = Math.min(WS_BURST, ud.msgTokens + ((now - ud.msgTs) / 1000) * WS_RATE);
+    ud.msgTs = now;
+    if (ud.msgTokens < 1) return;
+    ud.msgTokens -= 1;
     const msg = decodeClient(message);
     if (!msg) return;
     if (msg.type === ClientMsg.PING) {

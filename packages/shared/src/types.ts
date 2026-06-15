@@ -102,6 +102,7 @@ export interface WelcomeMsg {
   playerId: number;
   gridW: number;
   gridH: number;
+  protocolVersion: number;
 }
 
 export interface PhaseMsg {

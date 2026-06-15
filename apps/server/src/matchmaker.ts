@@ -12,8 +12,15 @@ interface Pending {
 }
 
 const TOKEN_TTL_MS = 60_000;
+const MAX_ROOMS = 500; // hard cap to bound memory / room-creation DoS
 // No ambiguous chars (0/O, 1/I).
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export class ServerFullError extends Error {
+  constructor() {
+    super("server_full");
+  }
+}
 
 export class Matchmaker {
   private readonly rooms = new Map<string, Room>();
@@ -69,6 +76,7 @@ export class Matchmaker {
   }
 
   private newRoom(isPublic: boolean, practice = false): Room {
+    if (this.rooms.size >= MAX_ROOMS) throw new ServerFullError();
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
     const room = new Room(code, isPublic, practice);
