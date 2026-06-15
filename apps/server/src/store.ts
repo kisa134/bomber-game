@@ -37,6 +37,8 @@ export function levelForXp(xp: number): number {
 }
 
 export interface ProfileStore {
+  readonly kind: string;
+  ping(): Promise<boolean>;
   recordMatch(results: MatchResult[]): Promise<void>;
   getProfile(wallet: string): Promise<Profile | null>;
   leaderboard(limit: number): Promise<Profile[]>;
@@ -72,7 +74,12 @@ function applyResult(p: Profile, r: MatchResult): void {
 }
 
 class InMemoryStore implements ProfileStore {
+  readonly kind = "memory";
   private map = new Map<string, Profile>();
+
+  async ping(): Promise<boolean> {
+    return true;
+  }
 
   async recordMatch(results: MatchResult[]): Promise<void> {
     for (const r of results) {
@@ -92,10 +99,22 @@ class InMemoryStore implements ProfileStore {
 }
 
 class SupabaseStore implements ProfileStore {
+  readonly kind = "supabase-rest";
   constructor(
     private url: string,
     private key: string,
   ) {}
+
+  async ping(): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.url}/rest/v1/profiles?select=wallet&limit=1`, {
+        headers: this.headers(),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
 
   private headers(): Record<string, string> {
     return {
@@ -156,12 +175,23 @@ class SupabaseStore implements ProfileStore {
 // Direct Postgres (any provider). Auto-creates the schema on boot, so the only
 // setup is a DATABASE_URL env var — no manual SQL, no service keys.
 class PostgresStore implements ProfileStore {
+  readonly kind = "postgres";
   private pool: pg.Pool;
   private ready: Promise<void>;
 
   constructor(url: string) {
     this.pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
     this.ready = this.migrate();
+  }
+
+  async ping(): Promise<boolean> {
+    try {
+      await this.ready;
+      await this.pool.query("select 1");
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async migrate(): Promise<void> {

@@ -125,9 +125,11 @@ app.options("/*", (res) => {
 });
 
 app.get("/health", (res) => {
-  writeCors(res);
-  res.writeHeader("Content-Type", "application/json");
-  res.end(JSON.stringify({ ok: true, ...mm.stats }));
+  res.onAborted(() => {});
+  store
+    .ping()
+    .then((db) => sendJson(res, { ok: true, store: store.kind, db: db ? "ok" : "down", ...mm.stats }))
+    .catch(() => sendJson(res, { ok: true, store: store.kind, db: "down", ...mm.stats }));
 });
 
 app.get("/profile", (res, req) => {
