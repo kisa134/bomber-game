@@ -29,7 +29,7 @@ const CLOCK_RESYNC = 400; // ms: snap the clock on a jump this big (match start/
 // two snapshots always bracket the display moment. It tracks the worst recent
 // inter-arrival gap, so a steady connection stays crisp (~min) while a jittery
 // one buffers more (smooth but more delayed) instead of stuttering.
-const MIN_DELAY = 70;
+const MIN_DELAY = 45; // ~1.4 ticks: fresher opponents on clean connections
 const MAX_DELAY = 500;
 const clamp = (lo: number, v: number, hi: number) => Math.max(lo, Math.min(v, hi));
 
