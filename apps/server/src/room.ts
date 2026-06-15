@@ -18,7 +18,6 @@ import {
   IDLE_KICK_MS,
   KICK_SPEED,
   PLAYER_HITBOX_RADIUS,
-  CORNER_ASSIST,
   RESPAWN_INVULN_MS,
   DRAW_WINNER_ID,
   Direction,
@@ -41,7 +40,7 @@ import {
   type RoomPlayerInfo,
 } from "@bomberpump/shared";
 import { createHash, randomBytes } from "node:crypto";
-import { makeRng, encodeMatchSeed } from "@bomberpump/shared";
+import { makeRng, encodeMatchSeed, stepMove } from "@bomberpump/shared";
 import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
@@ -51,7 +50,6 @@ import { store, type MatchResult } from "./store.js";
 const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 
 const R = PLAYER_HITBOX_RADIUS;
-const EPS = 1e-4;
 const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
 const RECONNECT_GRACE_MS = 25_000; // hold a dropped player's slot this long
 
@@ -436,47 +434,9 @@ export class Room {
   private movePlayer(p: Player, dt: number): void {
     if (p.dir === Direction.NONE) return;
     const dist = (p.speed * dt) / 1000;
-    const snap = dist * CORNER_ASSIST; // align to the lane faster than walking
-    const { dx, dy } = dirVector(p.dir);
-    if (dx !== 0) {
-      const cy = Math.floor(p.y) + 0.5;
-      p.y += clampToward(cy - p.y, snap);
-      this.moveX(p, dx * dist);
-    } else if (dy !== 0) {
-      const cx = Math.floor(p.x) + 0.5;
-      p.x += clampToward(cx - p.x, snap);
-      this.moveY(p, dy * dist);
-    }
-  }
-
-  private moveX(p: Player, step: number): void {
-    const newX = p.x + step;
-    const edge = step > 0 ? newX + R : newX - R;
-    const cellX = Math.floor(edge);
-    const rowTop = Math.floor(p.y - R + EPS);
-    const rowBot = Math.floor(p.y + R - EPS);
-    for (let row = rowTop; row <= rowBot; row++) {
-      if (this.blockedFor(cellX, row, p, step > 0 ? Direction.RIGHT : Direction.LEFT)) {
-        p.x = step > 0 ? cellX - R - EPS : cellX + 1 + R + EPS;
-        return;
-      }
-    }
-    p.x = newX;
-  }
-
-  private moveY(p: Player, step: number): void {
-    const newY = p.y + step;
-    const edge = step > 0 ? newY + R : newY - R;
-    const cellY = Math.floor(edge);
-    const colL = Math.floor(p.x - R + EPS);
-    const colR = Math.floor(p.x + R - EPS);
-    for (let col = colL; col <= colR; col++) {
-      if (this.blockedFor(col, cellY, p, step > 0 ? Direction.DOWN : Direction.UP)) {
-        p.y = step > 0 ? cellY - R - EPS : cellY + 1 + R + EPS;
-        return;
-      }
-    }
-    p.y = newY;
+    const res = stepMove(p.x, p.y, p.dir, dist, R, (cx, cy) => this.blockedFor(cx, cy, p, p.dir));
+    p.x = res.x;
+    p.y = res.y;
   }
 
   private blockedFor(cx: number, cy: number, p: Player, dir: Direction): boolean {
@@ -733,11 +693,6 @@ export class Room {
     this.needKeyframe.clear();
     this.lastSentGrid.set(cur);
   }
-}
-
-function clampToward(diff: number, max: number): number {
-  if (Math.abs(diff) <= max) return diff;
-  return Math.sign(diff) * max;
 }
 
 function buildSpiral(): Array<{ x: number; y: number }> {
