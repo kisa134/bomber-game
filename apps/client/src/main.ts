@@ -35,6 +35,7 @@ import {
   reauth,
 } from "./net/wallet.js";
 import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom } from "./ui/lobby.js";
+import { track, identifyWallet, initErrorTracking } from "./analytics.js";
 
 const state = new GameState();
 const net = new Net();
@@ -184,6 +185,7 @@ net.onMessage = (msg) => {
       } else if (msg.phase === MatchPhase.PLAYING) {
         assets.play("go");
         goUntil = performance.now() + 800;
+        track("match_started", { players: state.roomPlayers.length });
       } else if (msg.phase === MatchPhase.SUDDEN_DEATH) {
         assets.play("sudden_death");
       } else if (msg.phase === MatchPhase.LOBBY) {
@@ -267,6 +269,8 @@ function enterGame(): void {
 }
 
 function announceResult(winnerId: number): void {
+  const meFrags = state.latest()?.players.find((p) => p.id === state.myId)?.frags ?? 0;
+  track("match_ended", { won: winnerId === state.myId, draw: winnerId === DRAW_WINNER_ID, frags: meFrags });
   let title: string;
   if (winnerId === DRAW_WINNER_ID) {
     title = "🤝 Draw!";
@@ -618,6 +622,9 @@ function openWalletModal(): void {
       status.textContent = `Connecting to ${w.name}…`;
       try {
         await connectAndSignIn(w);
+        const wal = loadWallet();
+        if (wal) identifyWallet(wal.address);
+        track("wallet_connected", { provider: w.name });
         refreshWalletBtn();
         modal.classList.add("hidden");
       } catch (e) {
@@ -785,6 +792,8 @@ function setupBackground(): void {
 
 // --- bootstrap ------------------------------------------------------------
 
+initErrorTracking();
+track("app_loaded");
 input.attach();
 void assets.preload();
 applySettings();
@@ -794,10 +803,10 @@ wireMenuLinks();
 setupBackground();
 
 setupMenu({
-  quickplay: (c) => connect(() => quickplay(c.name, c.skin)),
-  practice: (c) => connect(() => practiceRoom(c.name, c.skin)),
-  create: (c) => connect(() => createRoom(c.name, c.skin)),
-  join: (c, code) => connect(() => joinRoom(c.name, code, c.skin)),
+  quickplay: (c) => { track("play_start", { mode: "quickplay" }); connect(() => quickplay(c.name, c.skin)); },
+  practice: (c) => { track("play_start", { mode: "practice" }); connect(() => practiceRoom(c.name, c.skin)); },
+  create: (c) => { track("play_start", { mode: "create" }); connect(() => createRoom(c.name, c.skin)); },
+  join: (c, code) => { track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
 });
 
 document.getElementById("start-now")!.addEventListener("click", () => net.sendStart());
