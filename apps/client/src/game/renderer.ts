@@ -5,6 +5,24 @@ import type { Assets } from "./assets.js";
 export const PLAYER_COLORS = ["#ff5555", "#4aa3ff", "#5fd96a", "#ffcc33"];
 export const SKIN_EMOJI = ["🐕", "🐸", "🦊", "😐"];
 
+/** DOM avatar showing the character sprite (emoji fallback), with an optional
+ *  colored ring. Shared by the skin picker, room list and HUD. */
+export function skinAvatar(skin: number, color?: string): HTMLElement {
+  const wrap = document.createElement("span");
+  wrap.className = "avatar";
+  if (color) wrap.style.boxShadow = `inset 0 0 0 2px ${color}`;
+  const img = document.createElement("img");
+  img.src = `/sprites/skin_${skin}.webp`;
+  img.alt = SKIN_EMOJI[skin % SKIN_EMOJI.length];
+  img.onerror = () => {
+    const s = document.createElement("span");
+    s.textContent = SKIN_EMOJI[skin % SKIN_EMOJI.length];
+    img.replaceWith(s);
+  };
+  wrap.appendChild(img);
+  return wrap;
+}
+
 const PU_ICON: Partial<Record<TileType, string>> = {
   [TileType.PU_BOMB]: "💣",
   [TileType.PU_FIRE]: "🔥",
@@ -154,6 +172,16 @@ export class Renderer {
       const pulse = 1 - (b.fuseLeftMs / BOMB_TIMER_MS) * 0.25;
       const cx = (b.x + 0.5) * t;
       const cy = (b.y + 0.5) * t;
+      const color = PLAYER_COLORS[b.ownerId % PLAYER_COLORS.length];
+      // Owner-colored glow under the bomb (pulses with the fuse).
+      const glow = t * 0.5 * (0.85 + 0.15 * Math.sin(now / 80));
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glow);
+      grad.addColorStop(0, color + "cc");
+      grad.addColorStop(1, color + "00");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, glow, 0, Math.PI * 2);
+      ctx.fill();
       const img = this.assets?.img("bomb");
       if (img) {
         const s = t * 0.9 * (0.95 + 0.05 * Math.sin(now / 80)) * pulse;
@@ -164,6 +192,9 @@ export class Renderer {
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
         ctx.fillStyle = "#ff7043";
         ctx.fillRect(cx - 1.5, cy - r - t * 0.12, 3, t * 0.12);
       }

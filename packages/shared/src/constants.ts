@@ -1,7 +1,7 @@
 // All gameplay-balancing numbers live here. No magic numbers in logic.
 
 // Bump whenever the binary frame layout changes; client + server must match.
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 export const TICK_RATE = 30; // Hz — higher tick = finer, more responsive base motion
 export const TICK_MS = 1000 / TICK_RATE; // ~33.3
@@ -30,7 +30,7 @@ export const SUDDEN_DEATH_STEP_MS = 2_000; // a new ring tile every 2s
 
 export const COUNTDOWN_MS = 3_000;
 export const END_SCREEN_MS = 5_000;
-export const ROOM_LINGER_MS = 10_000;
+export const ROOM_LINGER_MS = 3_000;
 
 export const SOFT_BLOCK_DENSITY = 0.7; // share of free cells filled with soft blocks
 export const POWERUP_DROP_CHANCE = 0.3;

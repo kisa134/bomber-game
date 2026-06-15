@@ -666,6 +666,7 @@ export class Room {
       .filter((b) => !b.exploded)
       .map((b) => ({
         id: b.id,
+        ownerId: b.ownerId,
         x: b.x,
         y: b.y,
         power: b.power,

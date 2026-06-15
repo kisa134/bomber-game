@@ -85,6 +85,7 @@ export interface PlayerSnapshot {
 
 export interface BombSnapshot {
   id: number;
+  ownerId: number; // who placed it (for owner-colored rendering)
   x: number; // cell coords (int)
   y: number;
   power: number;

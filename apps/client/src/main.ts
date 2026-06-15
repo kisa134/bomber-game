@@ -5,6 +5,7 @@ import {
   PowerUpType,
   DRAW_WINNER_ID,
   PLAYER_BASE_SPEED,
+  SPEED_UP_DELTA,
   PROTOCOL_VERSION,
 } from "./net/protocol.js";
 import {
@@ -51,6 +52,7 @@ const playersEl = document.getElementById("players")!;
 const pingEl = document.getElementById("ping")!;
 const killfeedEl = document.getElementById("killfeed")!;
 const toastEl = document.getElementById("toast")!;
+const bottomEl = document.getElementById("hud-bottom")!;
 
 // Unified powerup visuals — same sprite file on the field and in the UI,
 // with a consistent emoji fallback when a sprite is missing.
@@ -243,6 +245,8 @@ function enterGame(): void {
   killLines.length = 0;
   killfeedEl.innerHTML = "";
   hudSig = "";
+  bottomSig = "";
+  bottomEl.innerHTML = "";
   toastUntil = 0;
   toastEl.classList.add("hidden");
   showScreen("game");
@@ -336,23 +340,50 @@ function updateHud(): void {
     lives.textContent = p.lives > 0 ? "❤️".repeat(p.lives) : "💀";
     card.appendChild(lives);
 
-    card.appendChild(statGroup(POWERUP_META[PowerUpType.BOMB_UP], p.bombsMax));
-    card.appendChild(statGroup(POWERUP_META[PowerUpType.FIRE_UP], p.power));
-    if (p.speed > PLAYER_BASE_SPEED) card.appendChild(puIcon(POWERUP_META[PowerUpType.SPEED_UP]));
-    if (p.kick) card.appendChild(puIcon(POWERUP_META[PowerUpType.KICK]));
-    if (p.wallPass) card.appendChild(puIcon(POWERUP_META[PowerUpType.WALL_PASS]));
-
     playersEl.appendChild(card);
   }
 }
 
-/** Icon + count, used in the HUD stat cards. */
-function statGroup(meta: PuMeta, count: number): HTMLElement {
-  const wrap = document.createElement("span");
-  wrap.className = "stat";
+let bottomSig = "";
+/** The local player's own kit (lives + powerups with level counters), shown in
+ *  a bar at the bottom of the screen using the same sprites as the field. */
+function updateBottomHud(): void {
+  const snap = state.latest();
+  const me = snap?.players.find((p) => p.id === state.myId);
+  if (!me) {
+    if (bottomSig !== "") {
+      bottomEl.innerHTML = "";
+      bottomSig = "";
+    }
+    return;
+  }
+  const speedLvl = Math.max(0, Math.round((me.speed - PLAYER_BASE_SPEED) / SPEED_UP_DELTA));
+  const sig = `${me.alive ? 1 : 0}.${me.lives}.${me.bombsMax}.${me.power}.${speedLvl}.${me.kick ? 1 : 0}.${me.wallPass ? 1 : 0}`;
+  if (sig === bottomSig) return;
+  bottomSig = sig;
+
+  bottomEl.innerHTML = "";
+
+  const livesEl = document.createElement("div");
+  livesEl.className = "kit lives";
+  livesEl.textContent = me.lives > 0 ? "❤️".repeat(me.lives) : "💀";
+  bottomEl.appendChild(livesEl);
+
+  bottomEl.appendChild(kitStat(POWERUP_META[PowerUpType.BOMB_UP], me.bombsMax, true));
+  bottomEl.appendChild(kitStat(POWERUP_META[PowerUpType.FIRE_UP], me.power, true));
+  bottomEl.appendChild(kitStat(POWERUP_META[PowerUpType.SPEED_UP], speedLvl + 1, true));
+  bottomEl.appendChild(kitStat(POWERUP_META[PowerUpType.KICK], 0, me.kick));
+  bottomEl.appendChild(kitStat(POWERUP_META[PowerUpType.WALL_PASS], 0, me.wallPass));
+}
+
+/** Bottom-bar entry: field sprite + level number (or on/off for toggles). */
+function kitStat(meta: PuMeta, level: number, active: boolean): HTMLElement {
+  const wrap = document.createElement("div");
+  wrap.className = "kit" + (active ? "" : " off");
   wrap.appendChild(puIcon(meta));
   const n = document.createElement("span");
-  n.textContent = String(count);
+  n.className = "lvl";
+  n.textContent = level > 0 ? `×${level}` : active ? "✓" : "—";
   wrap.appendChild(n);
   return wrap;
 }
@@ -425,6 +456,7 @@ function frame(): void {
     const view = state.view();
     renderer.render(view, state.myId);
     updateHud();
+    updateBottomHud();
     updateCountdown();
     renderKillfeed(now);
     if (toastUntil && now > toastUntil) {

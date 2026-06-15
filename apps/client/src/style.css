@@ -219,6 +219,34 @@ button.ghost {
   border-color: var(--accent);
   box-shadow: 0 0 16px rgba(255, 204, 51, 0.35);
 }
+.skin .avatar {
+  width: 100%;
+  height: 100%;
+}
+
+/* Character avatar (sprite with emoji fallback + optional colored ring) */
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 1.1rem;
+  flex: none;
+}
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.players-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
 .status {
   color: var(--muted);
@@ -375,6 +403,50 @@ button.ghost {
   height: 1.15em;
   vertical-align: -0.2em;
   image-rendering: auto;
+}
+
+/* Bottom kit bar: the local player's lives + powerups with level counters */
+#hud-bottom {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  pointer-events: none;
+}
+.kit {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+.kit .pu-ic {
+  width: 1.6em;
+  height: 1.6em;
+}
+.kit.lives {
+  font-size: 1.05rem;
+  letter-spacing: -2px;
+  padding-right: 4px;
+  border-right: 1px solid var(--border);
+}
+.kit .lvl {
+  color: var(--accent);
+  min-width: 1.4em;
+}
+.kit.off {
+  opacity: 0.32;
+}
+.kit.off .lvl {
+  color: var(--muted);
 }
 
 /* Big centered countdown / GO! overlay */

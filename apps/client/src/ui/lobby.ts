@@ -1,4 +1,4 @@
-import { PLAYER_COLORS, SKIN_EMOJI } from "../game/renderer.js";
+import { PLAYER_COLORS, SKIN_EMOJI, skinAvatar } from "../game/renderer.js";
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM } from "../net/protocol.js";
 import type { GameState } from "../game/state.js";
 
@@ -58,10 +58,10 @@ export function setupMenu(h: MenuHandlers): void {
   let skin = Number(localStorage.getItem("bp_skin") ?? 0);
 
   skinsEl.innerHTML = "";
-  SKIN_EMOJI.forEach((emoji, i) => {
+  SKIN_EMOJI.forEach((_emoji, i) => {
     const el = document.createElement("div");
     el.className = "skin" + (i === skin ? " selected" : "");
-    el.textContent = emoji;
+    el.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
     el.addEventListener("click", () => {
       skin = i;
       skinsEl.querySelectorAll(".skin").forEach((s, j) => s.classList.toggle("selected", j === i));
@@ -105,10 +105,7 @@ export function renderRoom(state: GameState): void {
   list.innerHTML = "";
   for (const p of state.roomPlayers) {
     const li = document.createElement("li");
-    const dot = document.createElement("span");
-    dot.className = "pdot";
-    dot.style.background = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
-    li.appendChild(dot);
+    li.appendChild(skinAvatar(p.skin, PLAYER_COLORS[p.id % PLAYER_COLORS.length]));
     const name = document.createElement("span");
     name.textContent = p.name + (p.id === state.myId ? " (you)" : "");
     li.appendChild(name);

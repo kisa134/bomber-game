@@ -130,7 +130,7 @@ export function encodeWelcome(
 
 // Per-player record: id(1) x(2) y(2) bombsMax(1) power(1) speed(1) flags(1) lives(1) frags(1) = 11 bytes.
 const PLAYER_RECORD_BYTES = 11;
-const BOMB_RECORD_BYTES = 6;
+const BOMB_RECORD_BYTES = 7;
 
 export function encodeSnapshot(
   tick: number,
@@ -166,6 +166,7 @@ export function encodeSnapshot(
   dv.setUint8(o, bombs.length); o += 1;
   for (const b of bombs) {
     dv.setUint8(o, b.id); o += 1;
+    dv.setUint8(o, b.ownerId & 0xff); o += 1;
     dv.setUint8(o, b.x); o += 1;
     dv.setUint8(o, b.y); o += 1;
     dv.setUint8(o, b.power); o += 1;
@@ -360,11 +361,12 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
       const bombs: BombSnapshot[] = [];
       for (let i = 0; i < bombCount; i++) {
         const id = dv.getUint8(o); o += 1;
+        const ownerId = dv.getUint8(o); o += 1;
         const x = dv.getUint8(o); o += 1;
         const y = dv.getUint8(o); o += 1;
         const power = dv.getUint8(o); o += 1;
         const fuseLeftMs = dv.getUint16(o, true); o += 2;
-        bombs.push({ id, x, y, power, fuseLeftMs });
+        bombs.push({ id, ownerId, x, y, power, fuseLeftMs });
       }
       const gridMode = dv.getUint8(o) as 0 | 1 | 2; o += 1;
       let gridChanges: Array<{ i: number; v: number }> | null = null;
