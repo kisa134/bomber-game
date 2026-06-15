@@ -3,6 +3,7 @@ import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
 import { ClientMsg, decodeClient, encodePong } from "@bomberpump/shared";
 import { Matchmaker } from "./matchmaker.js";
+import { createNonce, verifySignature, createSession } from "./auth.js";
 import type { SendFn } from "./player.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -113,6 +114,34 @@ function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
   res.writeHeader("Content-Type", "application/json");
   res.end(JSON.stringify(obj));
 }
+
+// --- wallet sign-in ---
+app.post("/auth/nonce", async (res) => {
+  res.onAborted(() => {});
+  await readBody(res);
+  sendJson(res, { nonce: createNonce() });
+});
+
+app.post("/auth/verify", async (res) => {
+  res.onAborted(() => {});
+  const body = await readBody(res);
+  let pubkey = "";
+  let nonce = "";
+  let signature = "";
+  try {
+    const j = JSON.parse(body || "{}");
+    pubkey = String(j.pubkey ?? "");
+    nonce = String(j.nonce ?? "");
+    signature = String(j.signature ?? "");
+  } catch {
+    // ignore
+  }
+  if (verifySignature(pubkey, nonce, signature)) {
+    sendJson(res, { session: createSession(pubkey), pubkey });
+  } else {
+    sendJson(res, { error: "invalid_signature" }, "401 Unauthorized");
+  }
+});
 
 app.post("/quickplay", async (res) => {
   res.onAborted(() => {});

@@ -13,6 +13,13 @@ import { Input } from "./game/input.js";
 import { Assets } from "./game/assets.js";
 import { Predictor } from "./game/prediction.js";
 import { loadSettings, saveSettings, type Settings } from "./settings.js";
+import {
+  listWallets,
+  connectAndSignIn,
+  loadWallet,
+  disconnectWallet,
+  shortAddr,
+} from "./net/wallet.js";
 import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom } from "./ui/lobby.js";
 
 const state = new GameState();
@@ -435,6 +442,65 @@ function wireSettings(): void {
   document.getElementById("ctl-dpad")!.addEventListener("click", () => update("controls", "dpad"));
 }
 
+// --- wallet ---------------------------------------------------------------
+
+function refreshWalletBtn(): void {
+  const btn = document.getElementById("wallet-btn")!;
+  const w = loadWallet();
+  btn.textContent = w ? `🟢 ${shortAddr(w.address)}` : "🔗 Connect Wallet";
+}
+
+function openWalletModal(): void {
+  const modal = document.getElementById("wallet-modal")!;
+  const list = document.getElementById("wallet-list")!;
+  const empty = document.getElementById("wallet-empty")!;
+  const status = document.getElementById("wallet-modal-status")!;
+  status.textContent = "";
+  list.innerHTML = "";
+  const wallets = listWallets();
+  empty.classList.toggle("hidden", wallets.length > 0);
+  for (const w of wallets) {
+    const row = document.createElement("button");
+    row.className = "wallet-row";
+    if (w.icon) {
+      const img = document.createElement("img");
+      img.src = w.icon;
+      row.appendChild(img);
+    }
+    const nm = document.createElement("span");
+    nm.textContent = w.name;
+    row.appendChild(nm);
+    row.addEventListener("click", async () => {
+      status.textContent = `Connecting to ${w.name}…`;
+      try {
+        await connectAndSignIn(w);
+        refreshWalletBtn();
+        modal.classList.add("hidden");
+      } catch (e) {
+        status.textContent = `Failed: ${(e as Error).message}`;
+      }
+    });
+    list.appendChild(row);
+  }
+  modal.classList.remove("hidden");
+}
+
+function wireWallet(): void {
+  const btn = document.getElementById("wallet-btn")!;
+  btn.addEventListener("click", () => {
+    if (loadWallet()) {
+      disconnectWallet();
+      refreshWalletBtn();
+    } else {
+      openWalletModal();
+    }
+  });
+  document
+    .getElementById("wallet-modal-close")!
+    .addEventListener("click", () => document.getElementById("wallet-modal")!.classList.add("hidden"));
+  refreshWalletBtn();
+}
+
 // --- background video -----------------------------------------------------
 
 function setupBackground(): void {
@@ -456,6 +522,7 @@ input.attach();
 void assets.preload();
 applySettings();
 wireSettings();
+wireWallet();
 setupBackground();
 
 setupMenu({
