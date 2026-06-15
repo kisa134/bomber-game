@@ -71,6 +71,7 @@ export class Room {
 
   private nextPlayerId = 0;
   private nextBombId = 0;
+  private simTick = 0; // authoritative integer tick, drives input consumption
   hostId = -1;
   private lobbyCounting = false;
   private lobbyCountdownMs = 0;
@@ -189,12 +190,12 @@ export class Room {
 
   // -- input ----------------------------------------------------------------
 
-  setMove(id: number, dir: Direction, seq: number): void {
+  setMove(id: number, dir: Direction, tick: number): void {
     const p = this.players.get(id);
     if (!p || !p.alive) return;
-    if (seq <= p.lastInputSeq) return;
-    p.lastInputSeq = seq;
-    p.intent = dir;
+    // Ignore inputs for ticks we've already simulated past (too late to matter).
+    if (tick < this.simTick) return;
+    p.inputs.set(tick, dir);
     if (dir !== Direction.NONE) p.lastMoveAtMs = Date.now();
   }
 
@@ -370,6 +371,7 @@ export class Room {
     }
     this.bombs = [];
     this.matchElapsedMs = 0;
+    this.simTick = 0;
     this.suddenDeathTimerMs = 0;
     this.suddenDeathIdx = 0;
     // New map -> everyone needs a full keyframe on the first snapshot.
@@ -393,10 +395,20 @@ export class Room {
 
   private simulate(dt: number): void {
     this.matchElapsedMs += dt;
+    this.simTick += 1;
 
     // Refresh timed buffs (wall-pass) before movement reads them.
     const nowMs = Date.now();
     for (const p of this.players.values()) p.wallPass = nowMs < p.wallPassUntilMs;
+
+    // Consume each player's tick-stamped input for this exact tick (rollback).
+    // If it hasn't arrived (jitter), the last intent carries over.
+    for (const p of this.players.values()) {
+      const queued = p.inputs.get(this.simTick);
+      if (queued !== undefined) p.intent = queued;
+      // Drop inputs we've now passed to bound memory.
+      for (const t of p.inputs.keys()) if (t <= this.simTick) p.inputs.delete(t);
+    }
 
     // Bots decide their inputs first.
     for (const [id, ctrl] of this.bots) {
@@ -722,7 +734,7 @@ export class Room {
     else if (changes.length * 2 + 2 < GRID_SIZE + 1) section = gridSectionDelta(changes);
     else section = gridSectionFull(cur);
 
-    const tick = Math.floor(this.matchElapsedMs / TICK_MS);
+    const tick = this.simTick;
     const deltaMsg = encodeSnapshot(tick, players, bombs, section);
     let fullMsg: Uint8Array | null = null;
     for (const p of this.players.values()) {
