@@ -14,10 +14,14 @@ import {
 
 const R = PLAYER_HITBOX_RADIUS;
 const SNAP_DIST = 1.5; // beyond this, hard-snap (respawn/teleport/desync)
-const DEAD_ZONE = 0.04;
+// Movement is deterministic and identical on client & server, so prediction
+// barely diverges. Keep a wide dead zone: don't fight the local sim with
+// constant micro-corrections (that caused the in-cell jitter); only correct on
+// a real divergence.
+const DEAD_ZONE = 0.34;
 const LANE_DESYNC = 0.6; // only fix the perpendicular axis on a real desync
 const TARGET_TAU_MS = 70; // smoothing of the authoritative target
-const CORRECT_PER_SEC = 10;
+const CORRECT_PER_SEC = 8;
 
 export class Predictor {
   x = 0;
