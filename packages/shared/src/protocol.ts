@@ -18,6 +18,7 @@ import {
   type WelcomeMsg,
   type RoomInfoMsg,
   type RoomPlayerInfo,
+  type ReconnectTokenMsg,
   type PhaseMsg,
   type ExplosionEvent,
   type DeathEvent,
@@ -237,6 +238,15 @@ export function encodePong(timestamp: number): Uint8Array {
   return buf;
 }
 
+export function encodeReconnectToken(token: string): Uint8Array {
+  const tb = textEncoder.encode(token);
+  const buf = new Uint8Array(2 + tb.length);
+  buf[0] = ServerMsg.RECONNECT_TOKEN;
+  buf[1] = tb.length;
+  buf.set(tb, 2);
+  return buf;
+}
+
 export function encodeRoomInfo(
   code: string,
   hostId: number,
@@ -365,6 +375,12 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
     }
     case ServerMsg.PONG: {
       const msg: PongMsg = { type, timestamp: dv.getFloat64(1, true) };
+      return msg;
+    }
+    case ServerMsg.RECONNECT_TOKEN: {
+      const len = dv.getUint8(1);
+      const token = textDecoder.decode(bytes.subarray(2, 2 + len));
+      const msg: ReconnectTokenMsg = { type, token };
       return msg;
     }
     case ServerMsg.ROOM_INFO: {

@@ -37,6 +37,8 @@ export class Player {
   frags: number = 0;
   deaths: number = 0;
   alive: boolean = true;
+  connected: boolean = true;
+  disconnectedAtMs: number = 0; // set when the socket drops; grace before removal
   lastInputSeq: number = 0;
   lastMoveAtMs: number = 0; // for idle-kick detection
 

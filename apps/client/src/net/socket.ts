@@ -1,5 +1,6 @@
 import {
   Direction,
+  ServerMsg,
   decodeServer,
   encodeMove,
   encodePlaceBomb,
@@ -72,33 +73,70 @@ export async function joinRoom(name: string, code: string, skin: number): Promis
   return res.json();
 }
 
+const MAX_RECONNECT_ATTEMPTS = 8;
+const RECONNECT_DELAY_MS = 1500;
+
 export class Net {
   private ws: WebSocket | null = null;
   private seq = 0;
   private pingTimer: ReturnType<typeof setInterval> | null = null;
+  private reconnectToken = "";
+  private intentional = false;
+  private attempts = 0;
 
   onMessage: (msg: ServerMessage) => void = () => {};
   onOpen: () => void = () => {};
   onClose: () => void = () => {};
+  /** Fired when a dropped connection is being retried (attempt number). */
+  onReconnecting: (attempt: number) => void = () => {};
 
   connect(token: string): void {
-    const ws = new WebSocket(`${SERVER_WS}?token=${encodeURIComponent(token)}`);
+    this.intentional = false;
+    this.attempts = 0;
+    this.reconnectToken = "";
+    this.open(`token=${encodeURIComponent(token)}`);
+  }
+
+  private open(query: string): void {
+    const ws = new WebSocket(`${SERVER_WS}?${query}`);
     ws.binaryType = "arraybuffer";
     this.ws = ws;
 
     ws.onopen = () => {
+      this.attempts = 0;
       this.onOpen();
       this.pingTimer = setInterval(() => this.sendPing(), 1000);
     };
     ws.onmessage = (ev) => {
       const msg = decodeServer(ev.data as ArrayBuffer);
-      if (msg) this.onMessage(msg);
+      if (!msg) return;
+      // Intercept the reconnect handle; everything else flows to the game.
+      if (msg.type === ServerMsg.RECONNECT_TOKEN) {
+        this.reconnectToken = msg.token;
+        return;
+      }
+      this.onMessage(msg);
     };
-    ws.onclose = () => {
-      this.cleanup();
-      this.onClose();
-    };
+    ws.onclose = () => this.handleClose();
     ws.onerror = () => ws.close();
+  }
+
+  private handleClose(): void {
+    this.cleanup();
+    if (this.intentional) {
+      this.onClose();
+      return;
+    }
+    // Unexpected drop: retry with the reconnect handle for a while.
+    if (this.reconnectToken && this.attempts < MAX_RECONNECT_ATTEMPTS) {
+      this.attempts += 1;
+      this.onReconnecting(this.attempts);
+      setTimeout(() => {
+        if (!this.intentional) this.open(`reconnect=${encodeURIComponent(this.reconnectToken)}`);
+      }, RECONNECT_DELAY_MS);
+      return;
+    }
+    this.onClose();
   }
 
   private send(bytes: Uint8Array): void {
@@ -127,6 +165,7 @@ export class Net {
   }
 
   close(): void {
+    this.intentional = true;
     this.cleanup();
     if (this.ws) {
       this.ws.onclose = null;

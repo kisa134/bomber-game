@@ -47,6 +47,7 @@ const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 const R = PLAYER_HITBOX_RADIUS;
 const EPS = 1e-4;
 const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
+const RECONNECT_GRACE_MS = 25_000; // hold a dropped player's slot this long
 
 export class Room {
   readonly id: string; // also used as the shareable room code
@@ -136,6 +137,44 @@ export class Room {
     this.broadcastRoomInfo();
   }
 
+  /** Socket dropped. During an active match, hold the slot for a grace window
+   *  so the player can reconnect; otherwise remove immediately. */
+  handleDisconnect(id: number): void {
+    const p = this.players.get(id);
+    if (!p) return;
+    const active =
+      this.phase === MatchPhase.PLAYING ||
+      this.phase === MatchPhase.SUDDEN_DEATH ||
+      this.phase === MatchPhase.COUNTDOWN;
+    if (active && p.alive) {
+      p.connected = false;
+      p.disconnectedAtMs = Date.now();
+      p.dir = Direction.NONE;
+      p.send = () => {};
+      this.broadcastRoomInfo();
+    } else {
+      this.removePlayer(id);
+    }
+  }
+
+  /** Re-attach a reconnecting socket to its player and resync it. */
+  rebind(id: number, send: SendFn): boolean {
+    const p = this.players.get(id);
+    if (!p) return false;
+    p.send = send;
+    p.connected = true;
+    p.disconnectedAtMs = 0;
+    send(encodeWelcome(id, GRID_W, GRID_H, PROTOCOL_VERSION));
+    send(encodePhase(this.phase, this.phaseTimer()));
+    this.broadcastRoomInfo();
+    return true;
+  }
+
+  /** Drop this room's reconnect-token entries (called when the room dies). */
+  cleanupReconnect(map: Map<string, { roomId: string; playerId: number }>): void {
+    for (const [rt, e] of map) if (e.roomId === this.id) map.delete(rt);
+  }
+
   // -- input ----------------------------------------------------------------
 
   setMove(id: number, dir: Direction, seq: number): void {
@@ -186,6 +225,13 @@ export class Room {
 
     // Reaper: drop rooms that have had no human for too long (covers reserved
     // rooms whose socket never connected, and abandoned lobbies).
+    // Expire players who dropped and didn't reconnect within the grace window.
+    const now = Date.now();
+    for (const p of [...this.players.values()]) {
+      if (!p.connected && now - p.disconnectedAtMs > RECONNECT_GRACE_MS) this.removePlayer(p.id);
+    }
+    if (this.dead) return;
+
     if (this.humanCount > 0) this.lastHumanAtMs = Date.now();
     else if (Date.now() - this.lastHumanAtMs > EMPTY_ROOM_TTL_MS) {
       this.dead = true;

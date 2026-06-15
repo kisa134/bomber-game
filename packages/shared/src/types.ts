@@ -52,6 +52,7 @@ export enum ServerMsg {
   PONG = 17,
   ROOM_INFO = 18, // lobby membership + room code + start countdown
   EVENT_KILL = 19, // killer + victim for killfeed / frags
+  RECONNECT_TOKEN = 20, // handle the client stores to rejoin after a drop
 }
 
 export enum MatchPhase {
@@ -160,6 +161,11 @@ export interface RoomInfoMsg {
   players: RoomPlayerInfo[];
 }
 
+export interface ReconnectTokenMsg {
+  type: ServerMsg.RECONNECT_TOKEN;
+  token: string;
+}
+
 export type ServerMessage =
   | WelcomeMsg
   | Snapshot
@@ -170,4 +176,5 @@ export type ServerMessage =
   | PickupEvent
   | MatchEndMsg
   | PongMsg
-  | RoomInfoMsg;
+  | RoomInfoMsg
+  | ReconnectTokenMsg;

@@ -13,6 +13,7 @@ interface Pending {
 
 const TOKEN_TTL_MS = 60_000;
 const MAX_ROOMS = 500; // hard cap to bound memory / room-creation DoS
+const MAX_CATCHUP = 5; // fixed-timestep: max steps to run per loop iteration
 // No ambiguous chars (0/O, 1/I).
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -25,7 +26,10 @@ export class ServerFullError extends Error {
 export class Matchmaker {
   private readonly rooms = new Map<string, Room>();
   private readonly pending = new Map<string, Pending>();
+  private readonly reconnects = new Map<string, { roomId: string; playerId: number }>();
   private loop: ReturnType<typeof setInterval> | null = null;
+  private lastTime = 0;
+  private acc = 0;
 
   /** Join (or open) a public room. */
   quickplay(name: string, skin: number, wallet: string | null): { code: string; token: string } {
@@ -91,7 +95,10 @@ export class Matchmaker {
   }
 
   /** Attach a freshly opened socket to its reserved room. */
-  bindSocket(token: string, send: SendFn): { roomId: string; playerId: number } | null {
+  bindSocket(
+    token: string,
+    send: SendFn,
+  ): { roomId: string; playerId: number; reconnectToken: string } | null {
     const p = this.pending.get(token);
     if (!p) return null;
     this.pending.delete(token);
@@ -108,7 +115,21 @@ export class Matchmaker {
       if (!room) room = this.newRoom(true);
     }
     const player = room.addPlayer(p.name, p.skin, send, p.wallet);
-    return { roomId: room.id, playerId: player.id };
+    const reconnectToken = randomUUID();
+    this.reconnects.set(reconnectToken, { roomId: room.id, playerId: player.id });
+    return { roomId: room.id, playerId: player.id, reconnectToken };
+  }
+
+  /** Re-attach a dropped socket to its existing player within the grace window. */
+  reconnect(reconnectToken: string, send: SendFn): { roomId: string; playerId: number } | null {
+    const e = this.reconnects.get(reconnectToken);
+    if (!e) return null;
+    const room = this.rooms.get(e.roomId);
+    if (!room || !room.rebind(e.playerId, send)) {
+      this.reconnects.delete(reconnectToken);
+      return null;
+    }
+    return { roomId: e.roomId, playerId: e.playerId };
   }
 
   getRoom(id: string): Room | undefined {
@@ -117,7 +138,9 @@ export class Matchmaker {
 
   start(): void {
     if (this.loop) return;
-    this.loop = setInterval(() => this.tick(), TICK_MS);
+    this.lastTime = Date.now();
+    this.acc = 0;
+    this.loop = setInterval(() => this.step(), TICK_MS);
   }
 
   stop(): void {
@@ -125,14 +148,36 @@ export class Matchmaker {
     this.loop = null;
   }
 
-  private tick(): void {
+  /**
+   * Fixed-timestep accumulator: run exactly as many TICK_MS steps as real time
+   * has elapsed, so game time tracks the wall clock (no slow-motion under load,
+   * and dt-based and Date.now-based timers stay aligned). Backlog beyond
+   * MAX_CATCHUP steps is dropped to avoid a spiral of death.
+   */
+  private step(): void {
+    const now = Date.now();
+    this.acc += now - this.lastTime;
+    this.lastTime = now;
+    let steps = 0;
+    while (this.acc >= TICK_MS && steps < MAX_CATCHUP) {
+      this.runTick();
+      this.acc -= TICK_MS;
+      steps++;
+    }
+    if (this.acc > TICK_MS * MAX_CATCHUP) this.acc = 0;
+  }
+
+  private runTick(): void {
     const now = Date.now();
     for (const [token, p] of this.pending) {
       if (now - p.createdAt > TOKEN_TTL_MS) this.pending.delete(token);
     }
     for (const [id, room] of this.rooms) {
       room.tick();
-      if (room.dead) this.rooms.delete(id);
+      if (room.dead) {
+        room.cleanupReconnect(this.reconnects);
+        this.rooms.delete(id);
+      }
     }
   }
 

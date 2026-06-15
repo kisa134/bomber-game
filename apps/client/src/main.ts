@@ -122,6 +122,19 @@ net.onClose = () => {
   setMenuStatus("Disconnected");
 };
 
+net.onReconnecting = (n) => {
+  toastEl.innerHTML = "";
+  const s = document.createElement("span");
+  s.textContent = `Reconnecting… (${n})`;
+  toastEl.appendChild(s);
+  toastEl.classList.remove("hidden");
+  toastUntil = 0; // keep it pinned until we reconnect
+};
+
+net.onOpen = () => {
+  toastEl.classList.add("hidden"); // clear any "reconnecting…" banner
+};
+
 net.onMessage = (msg) => {
   switch (msg.type) {
     case ServerMsg.WELCOME:

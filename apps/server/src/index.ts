@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { store } from "./store.js";
@@ -16,6 +16,7 @@ mm.start();
 
 interface SocketData {
   token: string;
+  reconnect: string;
   roomId: string;
   playerId: number;
   bound: boolean;
@@ -252,9 +253,17 @@ app.ws<SocketData>("/ws", {
   idleTimeout: 60,
   maxBackpressure: 1024 * 1024,
   upgrade: (res, req, context) => {
-    const token = new URLSearchParams(req.getQuery()).get("token") ?? "";
+    const qs = new URLSearchParams(req.getQuery());
     res.upgrade<SocketData>(
-      { token, roomId: "", playerId: -1, bound: false, msgTokens: WS_BURST, msgTs: Date.now() },
+      {
+        token: qs.get("token") ?? "",
+        reconnect: qs.get("reconnect") ?? "",
+        roomId: "",
+        playerId: -1,
+        bound: false,
+        msgTokens: WS_BURST,
+        msgTs: Date.now(),
+      },
       req.getHeader("sec-websocket-key"),
       req.getHeader("sec-websocket-protocol"),
       req.getHeader("sec-websocket-extensions"),
@@ -270,6 +279,17 @@ app.ws<SocketData>("/ws", {
         // socket closing; ignore
       }
     };
+    if (ud.reconnect) {
+      const r = mm.reconnect(ud.reconnect, send);
+      if (!r) {
+        ws.end(1008, "reconnect failed");
+        return;
+      }
+      ud.roomId = r.roomId;
+      ud.playerId = r.playerId;
+      ud.bound = true;
+      return;
+    }
     const bound = mm.bindSocket(ud.token, send);
     if (!bound) {
       ws.end(1008, "invalid token");
@@ -278,6 +298,7 @@ app.ws<SocketData>("/ws", {
     ud.roomId = bound.roomId;
     ud.playerId = bound.playerId;
     ud.bound = true;
+    send(encodeReconnectToken(bound.reconnectToken));
   },
   message: (ws, message) => {
     const ud = ws.getUserData();
@@ -306,7 +327,7 @@ app.ws<SocketData>("/ws", {
   },
   close: (ws) => {
     const ud = ws.getUserData();
-    if (ud.bound) mm.getRoom(ud.roomId)?.removePlayer(ud.playerId);
+    if (ud.bound) mm.getRoom(ud.roomId)?.handleDisconnect(ud.playerId);
   },
 });
 
