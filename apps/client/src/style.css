@@ -226,6 +226,11 @@ button.ghost {
   min-height: 1.2em;
   text-align: center;
 }
+.fair {
+  font-size: 0.72rem;
+  opacity: 0.75;
+  word-break: break-all;
+}
 
 /* Loading spinner */
 .spinner {

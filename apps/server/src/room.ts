@@ -40,6 +40,8 @@ import {
   type BombSnapshot,
   type RoomPlayerInfo,
 } from "@bomberpump/shared";
+import { createHash, randomBytes } from "node:crypto";
+import { makeRng, encodeMatchSeed } from "@bomberpump/shared";
 import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
@@ -79,6 +81,9 @@ export class Room {
   private lastHumanAtMs = Date.now();
   private readonly lastSentGrid = new Uint8Array(GRID_SIZE);
   private readonly needKeyframe = new Set<number>(); // players owed a full grid
+  private seed = "";
+  private seedCommit = "";
+  private rng: () => number = Math.random;
 
   dead = false;
 
@@ -320,7 +325,11 @@ export class Room {
   private start(): void {
     this.lobbyCounting = false;
     this.lobbyCountdownMs = 0;
-    this.world.generate();
+    // Provably-fair: seed the map RNG, commit to its hash now, reveal at the end.
+    this.seed = randomBytes(8).toString("hex");
+    this.seedCommit = createHash("sha256").update(this.seed).digest("hex");
+    this.rng = makeRng(this.seed);
+    this.world.generate(this.rng);
     let i = 0;
     for (const p of this.players.values()) {
       const s = SPAWNS[i % SPAWNS.length];
@@ -335,6 +344,7 @@ export class Room {
     // New map -> everyone needs a full keyframe on the first snapshot.
     this.needKeyframe.clear();
     for (const id of this.players.keys()) this.needKeyframe.add(id);
+    this.broadcast(encodeMatchSeed(this.seedCommit, "")); // commit only
     this.setPhase(MatchPhase.COUNTDOWN);
   }
 
@@ -536,7 +546,7 @@ export class Room {
         if (!this.world.inBounds(nx, ny)) break;
         if (this.world.isHard(nx, ny)) break;
         if (this.world.isSoft(nx, ny)) {
-          this.world.destroySoft(nx, ny);
+          this.world.destroySoft(nx, ny, this.rng);
           ignite(nx, ny);
           break;
         }
@@ -627,6 +637,7 @@ export class Room {
       this.winnerId = aliveIds.length === 1 ? aliveIds[0] : DRAW_WINNER_ID;
       this.setPhase(MatchPhase.END);
       this.broadcast(encodeMatchEnd(this.winnerId));
+      this.broadcast(encodeMatchSeed(this.seedCommit, this.seed)); // reveal
       this.recordStats();
     }
   }

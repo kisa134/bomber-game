@@ -33,6 +33,8 @@ export class GameState {
 
   winnerId = -1;
   pingMs = 0;
+  seedCommit = "";
+  seed = "";
 
   // Room / lobby info
   roomCode = "";

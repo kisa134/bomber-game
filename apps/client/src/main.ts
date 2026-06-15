@@ -193,6 +193,10 @@ net.onMessage = (msg) => {
     case ServerMsg.PONG:
       state.pingMs = Math.round(performance.now() - msg.timestamp);
       break;
+    case ServerMsg.MATCH_SEED:
+      state.seedCommit = msg.commit;
+      if (msg.seed) state.seed = msg.seed;
+      break;
     case ServerMsg.EVENT_EXPLOSION:
       assets.play("explode");
       renderer?.onExplosion(msg.cells);
@@ -256,7 +260,14 @@ function announceResult(winnerId: number): void {
     assets.play("defeat");
   }
   music("lobby");
-  setTimeout(() => showResult(title), 1000);
+  setTimeout(() => {
+    showResult(title);
+    const fair = document.getElementById("result-fair")!;
+    fair.textContent =
+      state.seed && state.seedCommit
+        ? `🔒 provably fair · seed ${state.seed.slice(0, 10)}… · commit ${state.seedCommit.slice(0, 8)}…`
+        : "";
+  }, 1000);
 }
 
 input.onChange = (dir) => net.sendMove(dir);

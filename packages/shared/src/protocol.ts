@@ -19,6 +19,7 @@ import {
   type RoomInfoMsg,
   type RoomPlayerInfo,
   type ReconnectTokenMsg,
+  type MatchSeedMsg,
   type PhaseMsg,
   type ExplosionEvent,
   type DeathEvent,
@@ -260,6 +261,19 @@ export function encodePong(timestamp: number): Uint8Array {
   return buf;
 }
 
+export function encodeMatchSeed(commit: string, seed: string): Uint8Array {
+  const c = textEncoder.encode(commit);
+  const s = textEncoder.encode(seed);
+  const buf = new Uint8Array(1 + 1 + c.length + 1 + s.length);
+  let o = 0;
+  buf[o++] = ServerMsg.MATCH_SEED;
+  buf[o++] = c.length;
+  buf.set(c, o); o += c.length;
+  buf[o++] = s.length;
+  buf.set(s, o);
+  return buf;
+}
+
 export function encodeReconnectToken(token: string): Uint8Array {
   const tb = textEncoder.encode(token);
   const buf = new Uint8Array(2 + tb.length);
@@ -416,6 +430,15 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
       const len = dv.getUint8(1);
       const token = textDecoder.decode(bytes.subarray(2, 2 + len));
       const msg: ReconnectTokenMsg = { type, token };
+      return msg;
+    }
+    case ServerMsg.MATCH_SEED: {
+      let o = 1;
+      const cl = dv.getUint8(o); o += 1;
+      const commit = textDecoder.decode(bytes.subarray(o, o + cl)); o += cl;
+      const sl = dv.getUint8(o); o += 1;
+      const seed = textDecoder.decode(bytes.subarray(o, o + sl));
+      const msg: MatchSeedMsg = { type, commit, seed };
       return msg;
     }
     case ServerMsg.ROOM_INFO: {

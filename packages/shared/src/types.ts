@@ -53,6 +53,7 @@ export enum ServerMsg {
   ROOM_INFO = 18, // lobby membership + room code + start countdown
   EVENT_KILL = 19, // killer + victim for killfeed / frags
   RECONNECT_TOKEN = 20, // handle the client stores to rejoin after a drop
+  MATCH_SEED = 21, // provably-fair: commit at start, seed revealed at end
 }
 
 export enum MatchPhase {
@@ -169,6 +170,12 @@ export interface ReconnectTokenMsg {
   token: string;
 }
 
+export interface MatchSeedMsg {
+  type: ServerMsg.MATCH_SEED;
+  commit: string; // sha256(seed), known before the match
+  seed: string; // revealed at match end ("" before)
+}
+
 export type ServerMessage =
   | WelcomeMsg
   | Snapshot
@@ -180,4 +187,5 @@ export type ServerMessage =
   | MatchEndMsg
   | PongMsg
   | RoomInfoMsg
-  | ReconnectTokenMsg;
+  | ReconnectTokenMsg
+  | MatchSeedMsg;
