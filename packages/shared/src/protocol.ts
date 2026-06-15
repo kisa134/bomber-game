@@ -47,14 +47,12 @@ function asView(data: ArrayBuffer | Uint8Array): DataView {
 // Client -> Server encoders
 // ---------------------------------------------------------------------------
 
-// `tick` is the target server tick this input is meant for (client leads the
-// server by a ping-based lead, enabling rollback prediction + reconciliation).
-export function encodeMove(dir: Direction, tick: number): Uint8Array {
+export function encodeMove(dir: Direction, seq: number): Uint8Array {
   const buf = new Uint8Array(6);
   const dv = new DataView(buf.buffer);
   dv.setUint8(0, ClientMsg.INPUT_MOVE);
   dv.setUint8(1, dir);
-  dv.setUint32(2, tick >>> 0, true);
+  dv.setUint32(2, seq >>> 0, true);
   return buf;
 }
 
@@ -87,7 +85,7 @@ export function encodeEmote(emote: number): Uint8Array {
 }
 
 export type ClientMessage =
-  | { type: ClientMsg.INPUT_MOVE; dir: Direction; tick: number }
+  | { type: ClientMsg.INPUT_MOVE; dir: Direction; seq: number }
   | { type: ClientMsg.INPUT_PLACE_BOMB; seq: number }
   | { type: ClientMsg.PING; timestamp: number }
   | { type: ClientMsg.REQUEST_START }
@@ -101,7 +99,7 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
   switch (type) {
     case ClientMsg.INPUT_MOVE:
       if (dv.byteLength < 6) return null;
-      return { type, dir: dv.getUint8(1) as Direction, tick: dv.getUint32(2, true) };
+      return { type, dir: dv.getUint8(1) as Direction, seq: dv.getUint32(2, true) };
     case ClientMsg.INPUT_PLACE_BOMB:
       if (dv.byteLength < 5) return null;
       return { type, seq: dv.getUint32(1, true) };

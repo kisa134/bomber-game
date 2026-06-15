@@ -1,7 +1,7 @@
 // All gameplay-balancing numbers live here. No magic numbers in logic.
 
 // Bump whenever the binary frame layout changes; client + server must match.
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 3;
 
 export const TICK_RATE = 30; // Hz — higher tick = finer, more responsive base motion
 export const TICK_MS = 1000 / TICK_RATE; // ~33.3

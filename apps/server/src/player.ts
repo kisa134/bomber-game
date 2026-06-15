@@ -46,8 +46,6 @@ export class Player {
   wins: number = 0; // matches won in this room's series
   lastInputSeq: number = 0;
   lastMoveAtMs: number = 0; // for idle-kick detection
-  /** Tick-stamped input buffer for rollback: server tick -> intended direction. */
-  inputs: Map<number, Direction> = new Map();
 
   send: SendFn;
 
@@ -75,7 +73,6 @@ export class Player {
     this.y = spawnY + 0.5;
     this.dir = Direction.NONE;
     this.intent = Direction.NONE;
-    this.inputs.clear();
     this.bombsMax = START_BOMBS;
     this.bombsActive = 0;
     this.power = START_POWER;

@@ -36,13 +36,11 @@ import {
 } from "./net/wallet.js";
 import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom } from "./ui/lobby.js";
 import { track, identifyWallet, initErrorTracking } from "./analytics.js";
-import { Predictor } from "./game/prediction.js";
 
 const state = new GameState();
 const net = new Net();
 const input = new Input();
 const assets = new Assets();
-const predictor = new Predictor();
 const settings = loadSettings();
 
 let renderer: Renderer | null = null;
@@ -172,8 +170,6 @@ net.onMessage = (msg) => {
     }
     case ServerMsg.STATE_SNAPSHOT: {
       state.addSnapshot(msg);
-      const me = msg.players.find((p) => p.id === state.myId);
-      if (me) predictor.onServerState(msg.tick, me.x, me.y, me.speed, me.alive, state.grid, me.wallPass);
       // Soft-block break sound (derived from the reconstructed grid).
       let soft = 0;
       for (let i = 0; i < state.grid.length; i++) if (state.grid[i] === TileType.SOFT) soft++;
@@ -269,7 +265,7 @@ function enterGame(): void {
   toastEl.classList.add("hidden");
   showScreen("game");
   music("battle");
-  predictor.reset();
+  if (!keepAlive) keepAlive = setInterval(() => net.sendMove(input.dir), 150);
 }
 
 function announceResult(winnerId: number): void {
@@ -297,6 +293,7 @@ function announceResult(winnerId: number): void {
   }, 1000);
 }
 
+input.onChange = (dir) => net.sendMove(dir);
 input.onBomb = () => {
   net.sendBomb();
   assets.play("place");
@@ -538,20 +535,7 @@ function frame(): void {
   const now = performance.now();
 
   if (renderer && inGame(state.phase)) {
-    // Rollback prediction for the local player: advance + send tick-stamped
-    // inputs, then render the predicted head over the interpolated view.
-    if (state.clockSynced) {
-      const sends = predictor.step(state.serverNow(), state.pingMs, input.dir);
-      for (const s of sends) net.sendMove(s.dir, s.tick);
-    }
     const view = state.view();
-    if (predictor.ready) {
-      const me = view.players.find((p) => p.id === state.myId);
-      if (me && me.alive) {
-        me.x = predictor.rx;
-        me.y = predictor.ry;
-      }
-    }
     renderer.render(view, state.myId);
     updateHud();
     updateBottomHud();
@@ -867,7 +851,6 @@ function leaveToMenu(): void {
   assets.stop("sudden_death");
   state.reset();
   input.reset();
-  predictor.reset();
   prevPlayerCount = 0;
   showScreen("menu");
   music("lobby");

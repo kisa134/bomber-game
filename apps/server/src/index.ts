@@ -328,7 +328,7 @@ app.ws<SocketData>("/ws", {
     const room = mm.getRoom(ud.roomId);
     if (!room) return;
     if (msg.type === ClientMsg.INPUT_MOVE) {
-      room.setMove(ud.playerId, msg.dir, msg.tick);
+      room.setMove(ud.playerId, msg.dir, msg.seq);
     } else if (msg.type === ClientMsg.INPUT_PLACE_BOMB) {
       room.placeBomb(ud.playerId);
     } else if (msg.type === ClientMsg.REQUEST_START) {
