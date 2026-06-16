@@ -28,12 +28,14 @@ export const SPRITE_FILES: Record<string, string> = {
   skin3: "/sprites/skin_3.webp",
 };
 
-// Front-facing walk frames (optional): skin<id>_down_<0..3>.webp. Characters
-// always face the camera; left movement is the same sprite mirrored. Missing
-// frames fall back to the static skin sprite, so this is purely additive.
+// Directional walk frames (optional): skin<id>_<down|up|side>_<0..2>.webp.
+// "side" is used for right; left is the same sprite mirrored. Missing frames
+// fall back to the static skin sprite, so this is purely additive.
 for (let s = 0; s < 4; s++) {
-  for (let f = 0; f < 4; f++) {
-    SPRITE_FILES[`skin${s}_down_${f}`] = `/sprites/skin_${s}_down_${f}.webp`;
+  for (const dir of ["down", "up", "side"]) {
+    for (let f = 0; f < 3; f++) {
+      SPRITE_FILES[`skin${s}_${dir}_${f}`] = `/sprites/skin_${s}_${dir}_${f}.webp`;
+    }
   }
 }
 

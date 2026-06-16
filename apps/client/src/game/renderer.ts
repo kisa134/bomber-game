@@ -217,7 +217,7 @@ export class Renderer {
     const ctx = this.ctx;
     const t = this.tile;
     const seen = new Set<number>();
-    const WALK_SEQ = [0, 1, 2, 3]; // 4-frame walk: stand, left step, stand, right step
+    const WALK_SEQ = [0, 1, 2, 1]; // ping-pong walk cycle
 
     for (const p of view.players) {
       seen.add(p.id);
@@ -259,11 +259,10 @@ export class Renderer {
 
       const sk = this.skinOf(p.id);
       const frame = moving && p.alive ? WALK_SEQ[Math.floor(now / 130) % WALK_SEQ.length] : 0;
-      // Characters always face the camera (front-facing art); left movement is
-      // the same sprite mirrored. This matches the front-facing splash style.
+      const dirName = face === "up" ? "up" : face === "down" ? "down" : "side";
       const flip = face === "left";
-      // Front walk frame -> static skin -> emoji.
-      const img = this.assets?.img(`skin${sk}_down_${frame}`) ?? this.assets?.img(`skin${sk}`);
+      // Directional walk frame -> static skin -> emoji.
+      const img = this.assets?.img(`skin${sk}_${dirName}_${frame}`) ?? this.assets?.img(`skin${sk}`);
 
       if (img) {
         const s = t * 0.92 * scale;
