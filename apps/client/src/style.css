@@ -385,29 +385,45 @@ button.ghost {
   animation: pop 0.25s ease;
 }
 
-/* Game */
+/* Game — column layout: play area on top, info panel below it */
 #game {
   position: relative;
-  justify-content: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
   padding: 0;
+  height: 100vh;
+}
+#play-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 #canvas {
   display: block;
   background: #0c0e14;
-  max-width: 100vw;
-  max-height: 100vh;
 }
-#hud {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+/* Info panel under the board: timer, your kit, scoreboard, ping */
+#hud-panel {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  pointer-events: none;
-  z-index: 5;
+  gap: 14px;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.6);
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+}
+#hud-panel #players {
+  flex: 1 1 auto;
+  justify-content: flex-start;
+}
+#hud-panel #hud-bottom {
+  flex: 0 0 auto;
 }
 #timer {
   font-size: 1.3rem;
@@ -415,6 +431,7 @@ button.ghost {
   background: rgba(0, 0, 0, 0.5);
   padding: 4px 12px;
   border-radius: 8px;
+  flex: 0 0 auto;
 }
 
 /* Killfeed (top-right, under HUD) */
@@ -469,21 +486,11 @@ button.ghost {
   image-rendering: auto;
 }
 
-/* Bottom kit bar: the local player's lives + powerups with level counters */
+/* Kit: the local player's lives + powerups with level counters (in HUD panel) */
 #hud-bottom {
-  position: absolute;
-  left: 50%;
-  bottom: 10px;
-  transform: translateX(-50%);
-  z-index: 5;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  pointer-events: none;
 }
 .kit {
   display: flex;
@@ -630,6 +637,7 @@ button.ghost {
   background: rgba(0, 0, 0, 0.5);
   padding: 4px 8px;
   border-radius: 8px;
+  flex: 0 0 auto;
 }
 
 /* Touch controls */

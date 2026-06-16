@@ -76,17 +76,24 @@ const POWERUP_META: Record<PowerUpType, PuMeta> = {
   [PowerUpType.HEALTH]: { sprite: "powerup_health", emoji: "❤️", label: "+1 Health!" },
 };
 
-/** Small icon element using the shared sprite, falling back to emoji. */
+/** Small icon element using the shared sprite (.webp or .png), emoji fallback. */
 function puIcon(meta: PuMeta): HTMLElement {
   const img = document.createElement("img");
   img.className = "pu-ic";
-  img.src = `/sprites/${meta.sprite}.webp`;
   img.alt = meta.emoji;
-  img.onerror = () => {
-    const span = document.createElement("span");
-    span.textContent = meta.emoji;
-    img.replaceWith(span);
+  const exts = [".webp", ".png"];
+  let i = 0;
+  const next = () => {
+    if (i >= exts.length) {
+      const span = document.createElement("span");
+      span.textContent = meta.emoji;
+      img.replaceWith(span);
+      return;
+    }
+    img.src = `/sprites/${meta.sprite}${exts[i++]}`;
   };
+  img.onerror = () => next();
+  next();
   return img;
 }
 

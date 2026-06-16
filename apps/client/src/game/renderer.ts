@@ -87,7 +87,11 @@ export class Renderer {
 
   resize(): void {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.tile = Math.floor(Math.min(window.innerWidth / GRID_W, window.innerHeight / GRID_H));
+    // Fit the canvas into the play area (above the HUD panel), not the whole window.
+    const host = this.canvas.parentElement;
+    const availW = host?.clientWidth || window.innerWidth;
+    const availH = host?.clientHeight || window.innerHeight;
+    this.tile = Math.floor(Math.min(availW / GRID_W, availH / GRID_H));
     const w = this.tile * GRID_W;
     const h = this.tile * GRID_H;
     this.canvas.width = w * this.dpr;

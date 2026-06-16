@@ -5,36 +5,42 @@
 // Drop files into apps/client/public/sprites and apps/client/public/sounds with
 // the exact names below (see those folders' README.md).
 
+// Sprite base paths (no extension). The loader tries .webp then .png, so new
+// art can be dropped in as PNG with no conversion needed.
 export const SPRITE_FILES: Record<string, string> = {
-  floor: "/sprites/floor.webp",
-  hard: "/sprites/hard.webp",
-  soft: "/sprites/soft.webp",
-  bomb: "/sprites/bomb.webp",
+  floor: "/sprites/floor",
+  hard: "/sprites/hard",
+  soft: "/sprites/soft",
+  bomb: "/sprites/bomb",
   // Explosion animation frames (flash -> expanding core -> max). A single
-  // explosion.webp is used as a fallback if frames are absent.
-  explosion0: "/sprites/explosion_0.webp",
-  explosion1: "/sprites/explosion_1.webp",
-  explosion2: "/sprites/explosion_2.webp",
-  explosion: "/sprites/explosion.webp",
-  pu_bomb: "/sprites/powerup_bomb.webp",
-  pu_fire: "/sprites/powerup_fire.webp",
-  pu_speed: "/sprites/powerup_speed.webp",
-  pu_kick: "/sprites/powerup_kick.webp",
-  pu_wall: "/sprites/powerup_wall.webp",
-  pu_health: "/sprites/powerup_health.webp",
-  skin0: "/sprites/skin_0.webp",
-  skin1: "/sprites/skin_1.webp",
-  skin2: "/sprites/skin_2.webp",
-  skin3: "/sprites/skin_3.webp",
+  // explosion is used as a fallback if frames are absent.
+  explosion0: "/sprites/explosion_0",
+  explosion1: "/sprites/explosion_1",
+  explosion2: "/sprites/explosion_2",
+  explosion: "/sprites/explosion",
+  pu_bomb: "/sprites/powerup_bomb",
+  pu_fire: "/sprites/powerup_fire",
+  pu_speed: "/sprites/powerup_speed",
+  pu_kick: "/sprites/powerup_kick",
+  pu_wall: "/sprites/powerup_wall",
+  pu_health: "/sprites/powerup_health",
+  skin0: "/sprites/skin_0",
+  skin1: "/sprites/skin_1",
+  skin2: "/sprites/skin_2",
+  skin3: "/sprites/skin_3",
 };
 
-// Directional walk frames (optional): skin<id>_<down|up|side>_<0..2>.webp.
+// Image formats tried in order (first that loads wins). PNG support means new
+// assets need no conversion.
+const IMG_EXTS = [".webp", ".png"];
+
+// Directional walk frames (optional): skin<id>_<down|up|side>_<0..2>.
 // "side" is used for right; left is the same sprite mirrored. Missing frames
 // fall back to the static skin sprite, so this is purely additive.
 for (let s = 0; s < 4; s++) {
   for (const dir of ["down", "up", "side"]) {
     for (let f = 0; f < 3; f++) {
-      SPRITE_FILES[`skin${s}_${dir}_${f}`] = `/sprites/skin_${s}_${dir}_${f}.webp`;
+      SPRITE_FILES[`skin${s}_${dir}_${f}`] = `/sprites/skin_${s}_${dir}_${f}`;
     }
   }
 }
@@ -175,15 +181,23 @@ export class Assets {
 
   // -- loading --------------------------------------------------------------
 
-  private tryImage(key: string, url: string): Promise<void> {
+  private tryImage(key: string, base: string): Promise<void> {
     return new Promise((resolve) => {
+      let i = 0;
       const img = new Image();
+      const tryNext = () => {
+        if (i >= IMG_EXTS.length) {
+          resolve(); // none of the formats loaded — fall back to canvas/emoji
+          return;
+        }
+        img.src = `${base}${IMG_EXTS[i++]}`;
+      };
       img.onload = () => {
         this.images.set(key, img);
         resolve();
       };
-      img.onerror = () => resolve();
-      img.src = url;
+      img.onerror = () => tryNext();
+      tryNext();
     });
   }
 
