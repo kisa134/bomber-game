@@ -42,6 +42,8 @@ const PU_SPRITE: Partial<Record<TileType, string>> = {
 };
 
 const DEATH_MS = 650;
+const MAX_PARTICLES = 520;
+const MAX_DECALS = 90;
 
 interface Particle {
   x: number; // cell coords
@@ -52,6 +54,22 @@ interface Particle {
   max: number;
   size: number; // px
   color: string;
+  gravity?: number; // cells/s^2 added to vy
+  drag?: number; // per-frame velocity multiplier (default 0.92)
+  grow?: number; // px/s size growth (smoke)
+  rot?: number; // current rotation (rad)
+  spin?: number; // rad/s
+  shape?: "circle" | "rect" | "glyph" | "flash";
+  glyph?: string;
+}
+
+interface Decal {
+  x: number; // cell coords (top-left)
+  y: number;
+  born: number;
+  life: number; // ms
+  kind: "scorch" | "trample";
+  rot: number;
 }
 
 export class Renderer {
@@ -69,6 +87,12 @@ export class Renderer {
   private deadAt = new Map<number, number>();
   private emotes = new Map<number, { e: string; until: number }>();
   private particles: Particle[] = [];
+  private decals: Decal[] = [];
+  private prevGrid: Uint8Array | null = null;
+  private lastDust = new Map<number, number>();
+  private lastTrample = new Map<number, number>();
+  private flashUntil = 0;
+  private flashStrength = 0;
   private shakeUntil = 0;
   private shakeMag = 0;
   private lastTime = performance.now();
@@ -114,11 +138,16 @@ export class Renderer {
     this.shakeMag = Math.max(this.shakeMag, mag);
   }
 
+  private push(p: Particle): void {
+    this.particles.push(p);
+    if (this.particles.length > MAX_PARTICLES) this.particles.splice(0, this.particles.length - MAX_PARTICLES);
+  }
+
   burst(cx: number, cy: number, color: string, count: number, speed = 3): void {
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = speed * (0.3 + Math.random() * 0.7);
-      this.particles.push({
+      this.push({
         x: cx + 0.5,
         y: cy + 0.5,
         vx: Math.cos(a) * s,
@@ -131,17 +160,61 @@ export class Renderer {
     }
   }
 
+  /** Full explosion FX per blast cell: white flash, flames, rising smoke, and
+   *  a couple of flying burned-dollar $ icons. Plus a scorch decal + shake. */
   onExplosion(cells: Array<{ x: number; y: number }>): void {
+    const now = performance.now();
     for (const c of cells) {
-      this.burst(c.x, c.y, Math.random() < 0.5 ? "#ffce54" : "#ff7043", 5, 4);
+      const cx = c.x + 0.5;
+      const cy = c.y + 0.5;
+      // White flash core.
+      this.push({ x: cx, y: cy, vx: 0, vy: 0, life: 0.14, max: 0.14, size: this.tile * 0.62, color: "#fff6e0", shape: "flash" });
+      // Flames.
+      for (let i = 0; i < 7; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const s = 1.6 + Math.random() * 2.6;
+        this.push({
+          x: cx, y: cy, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.6,
+          life: 0.28 + Math.random() * 0.32, max: 0.6, drag: 0.9,
+          size: this.tile * (0.1 + Math.random() * 0.1),
+          color: Math.random() < 0.5 ? "#ffd24a" : "#ff7a30",
+        });
+      }
+      // Rising smoke.
+      for (let i = 0; i < 3; i++) {
+        this.push({
+          x: cx + (Math.random() - 0.5) * 0.4, y: cy, vx: (Math.random() - 0.5) * 0.6, vy: -0.8 - Math.random(),
+          life: 0.7 + Math.random() * 0.5, max: 1.2, drag: 0.95, grow: this.tile * 0.25,
+          size: this.tile * 0.18, color: "rgba(70,66,60,0.5)",
+        });
+      }
+      // Flying burned dollars.
+      if (Math.random() < 0.7) {
+        const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
+        const s = 2.2 + Math.random() * 2;
+        this.push({
+          x: cx, y: cy, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+          life: 0.8 + Math.random() * 0.4, max: 1.2, gravity: 9, drag: 0.99,
+          size: this.tile * 0.34, color: "#7bd66a", shape: "glyph", glyph: "$",
+          rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 10,
+        });
+      }
+      this.addDecal(c.x, c.y, "scorch");
     }
-    this.shake(Math.min(10, 3 + cells.length * 0.6));
+    this.shake(Math.min(11, 3.5 + cells.length * 0.7), 130);
+    this.flashUntil = now + 120;
+    this.flashStrength = Math.min(0.5, 0.18 + cells.length * 0.03);
   }
 
   onDeath(cx: number, cy: number, color: string): void {
     this.burst(cx, cy, color, 22, 5);
     this.burst(cx, cy, "#ffffff", 8, 3);
     this.shake(8, 260);
+  }
+
+  private addDecal(x: number, y: number, kind: Decal["kind"]): void {
+    this.decals.push({ x, y, born: this.lastTime, life: kind === "scorch" ? 6000 : 2600, kind, rot: Math.random() * Math.PI });
+    if (this.decals.length > MAX_DECALS) this.decals.shift();
   }
 
   // -- main draw -------------------------------------------------------------
@@ -152,6 +225,8 @@ export class Renderer {
     const now = performance.now();
     const dt = Math.min(0.05, (now - this.lastTime) / 1000);
     this.lastTime = now;
+    const W = t * GRID_W;
+    const H = t * GRID_H;
 
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -166,6 +241,17 @@ export class Renderer {
     }
 
     if (view.grid) {
+      // Detect soft-block breaks (SOFT -> not SOFT) to spray debris.
+      if (this.prevGrid && this.prevGrid.length === view.grid.length) {
+        for (let i = 0; i < view.grid.length; i++) {
+          if (this.prevGrid[i] === TileType.SOFT && view.grid[i] !== TileType.SOFT) {
+            this.emitDebris(i % GRID_W, (i / GRID_W) | 0);
+          }
+        }
+      }
+      this.prevGrid = (this.prevGrid && this.prevGrid.length === view.grid.length ? this.prevGrid : new Uint8Array(view.grid.length));
+      this.prevGrid.set(view.grid);
+
       for (let y = 0; y < GRID_H; y++) {
         for (let x = 0; x < GRID_W; x++) {
           const i = y * GRID_W + x;
@@ -180,15 +266,21 @@ export class Renderer {
       }
     }
 
+    this.drawDecals(now);
+    this.drawWind(now, W, H);
+
     for (const b of view.bombs) {
       const pulse = 1 - (b.fuseLeftMs / BOMB_TIMER_MS) * 0.25;
       const cx = (b.x + 0.5) * t;
       const cy = (b.y + 0.5) * t;
       const color = PLAYER_COLORS[b.ownerId % PLAYER_COLORS.length];
-      // Owner-colored glow under the bomb (pulses with the fuse).
-      const glow = t * 0.5 * (0.85 + 0.15 * Math.sin(now / 80));
+      this.drawShadow(cx, cy + t * 0.3, t * 0.34, t * 0.14, 0.28);
+      // Owner-colored glow under the bomb, pulsing faster as the fuse burns down.
+      const urgency = 1 - b.fuseLeftMs / BOMB_TIMER_MS; // 0 -> 1
+      const beat = Math.sin(now / (90 - urgency * 55));
+      const glow = t * (0.5 + urgency * 0.25) * (0.8 + 0.2 * beat);
       const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glow);
-      grad.addColorStop(0, color + "cc");
+      grad.addColorStop(0, color + (urgency > 0.7 ? "ee" : "cc"));
       grad.addColorStop(1, color + "00");
       ctx.fillStyle = grad;
       ctx.beginPath();
@@ -196,10 +288,10 @@ export class Renderer {
       ctx.fill();
       const img = this.assets?.img("bomb");
       if (img) {
-        const s = t * 0.9 * (0.95 + 0.05 * Math.sin(now / 80)) * pulse;
+        const s = t * 0.9 * (0.95 + 0.05 * beat) * pulse;
         ctx.drawImage(img, cx - s / 2, cy - s / 2, s, s);
       } else {
-        const r = t * 0.34 * (0.9 + 0.1 * Math.sin(now / 80)) * pulse;
+        const r = t * 0.34 * (0.9 + 0.1 * beat) * pulse;
         ctx.fillStyle = "#15151a";
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
@@ -210,11 +302,21 @@ export class Renderer {
         ctx.fillStyle = "#ff7043";
         ctx.fillRect(cx - 1.5, cy - r - t * 0.12, 3, t * 0.12);
       }
+      // Fuse sparks above the bomb.
+      if (Math.random() < 0.5) {
+        this.push({
+          x: b.x + 0.5 + (Math.random() - 0.5) * 0.18, y: b.y + 0.18, vx: (Math.random() - 0.5) * 0.8, vy: -1 - Math.random(),
+          life: 0.22 + Math.random() * 0.2, max: 0.42, drag: 0.9, size: t * 0.04,
+          color: Math.random() < 0.5 ? "#fff2a8" : "#ffae3a",
+        });
+      }
     }
 
     this.drawPlayers(view, myId, now);
     this.updateParticles(dt);
     ctx.restore();
+
+    this.drawOverlay(now, W, H);
   }
 
   private drawPlayers(view: RenderView, myId: number, now: number): void {
@@ -260,6 +362,25 @@ export class Renderer {
       const cy = rp.y * t;
       const r = t * 0.36 * scale;
       ctx.globalAlpha = alpha;
+
+      // Shadow grounding the player (under the feet).
+      if (p.alive) this.drawShadow(cx, cy + t * 0.34, t * 0.3 * scale, t * 0.12 * scale, 0.26);
+
+      // Kick up dust / trample grass while moving.
+      if (moving && p.alive) {
+        if (now - (this.lastDust.get(p.id) ?? 0) > 90) {
+          this.lastDust.set(p.id, now);
+          this.push({
+            x: rp.x + 0.5 + (Math.random() - 0.5) * 0.3, y: rp.y + 0.85, vx: (Math.random() - 0.5) * 1.2, vy: -0.5 - Math.random() * 0.5,
+            life: 0.3 + Math.random() * 0.2, max: 0.5, drag: 0.9, size: t * (0.04 + Math.random() * 0.04),
+            color: Math.random() < 0.5 ? "rgba(150,170,90,0.7)" : "rgba(120,100,70,0.7)",
+          });
+        }
+        if (now - (this.lastTrample.get(p.id) ?? 0) > 160) {
+          this.lastTrample.set(p.id, now);
+          this.addDecal(Math.floor(rp.x), Math.floor(rp.y), "trample");
+        }
+      }
 
       const sk = this.skinOf(p.id);
       const frame = moving && p.alive ? WALK_SEQ[Math.floor(now / 130) % WALK_SEQ.length] : 0;
@@ -338,8 +459,88 @@ export class Renderer {
       if (!seen.has(id)) {
         this.lastPos.delete(id);
         this.facing.delete(id);
+        this.lastDust.delete(id);
+        this.lastTrample.delete(id);
       }
     }
+  }
+
+  /** Brown/orange chunks flung out when a soft block is destroyed. */
+  private emitDebris(gx: number, gy: number): void {
+    const t = this.tile;
+    for (let i = 0; i < 10; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = 1.5 + Math.random() * 3;
+      this.push({
+        x: gx + 0.5, y: gy + 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1.5,
+        life: 0.4 + Math.random() * 0.35, max: 0.75, gravity: 16, drag: 0.99,
+        size: t * (0.06 + Math.random() * 0.07), shape: "rect",
+        rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 14,
+        color: ["#8a5a3c", "#a06b48", "#6e4a30", "#b5743f"][i % 4],
+      });
+    }
+  }
+
+  private drawShadow(cx: number, cy: number, rx: number, ry: number, alpha: number): void {
+    const ctx = this.ctx;
+    const prev = ctx.globalAlpha;
+    ctx.globalAlpha = prev * alpha;
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = prev;
+  }
+
+  private drawDecals(now: number): void {
+    const ctx = this.ctx;
+    const t = this.tile;
+    for (let i = this.decals.length - 1; i >= 0; i--) {
+      const d = this.decals[i];
+      const k = (now - d.born) / d.life;
+      if (k >= 1) {
+        this.decals.splice(i, 1);
+        continue;
+      }
+      const cx = (d.x + 0.5) * t;
+      const cy = (d.y + 0.5) * t;
+      if (d.kind === "scorch") {
+        const a = (1 - k) * 0.5;
+        const rad = t * 0.46;
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        g.addColorStop(0, `rgba(20,16,14,${a})`);
+        g.addColorStop(0.7, `rgba(30,24,20,${a * 0.7})`);
+        g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const a = (1 - k) * 0.22;
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(d.rot);
+        ctx.fillStyle = `rgba(60,80,40,${a})`;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, t * 0.3, t * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+
+  /** Subtle wind: a soft light band drifting diagonally across the field. */
+  private drawWind(now: number, W: number, H: number): void {
+    const ctx = this.ctx;
+    const span = W + H;
+    const pos = ((now / 5200) % 1) * span * 1.4 - H * 0.2;
+    const band = W * 0.5;
+    const g = ctx.createLinearGradient(pos - band, 0, pos + band, H);
+    g.addColorStop(0, "rgba(255,255,255,0)");
+    g.addColorStop(0.5, "rgba(230,255,210,0.05)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
   }
 
   private updateParticles(dt: number): void {
@@ -352,17 +553,82 @@ export class Renderer {
         this.particles.splice(i, 1);
         continue;
       }
+      if (p.gravity) p.vy += p.gravity * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vx *= 0.92;
-      p.vy *= 0.92;
-      ctx.globalAlpha = Math.max(0, p.life / p.max);
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x * t, p.y * t, p.size, 0, Math.PI * 2);
-      ctx.fill();
+      const drag = p.drag ?? 0.92;
+      p.vx *= drag;
+      p.vy *= drag;
+      if (p.grow) p.size += p.grow * dt;
+      if (p.spin) p.rot = (p.rot ?? 0) + p.spin * dt;
+
+      const a = Math.max(0, p.life / p.max);
+      const px = p.x * t;
+      const py = p.y * t;
+      if (p.shape === "flash") {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = a;
+        const g = ctx.createRadialGradient(px, py, 0, px, py, p.size);
+        g.addColorStop(0, p.color);
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(px, py, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = "source-over";
+      } else if (p.shape === "glyph") {
+        ctx.globalAlpha = a;
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(p.rot ?? 0);
+        ctx.fillStyle = p.color;
+        ctx.font = `bold ${Math.floor(p.size)}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(p.glyph ?? "$", 0, 0);
+        ctx.restore();
+      } else if (p.shape === "rect") {
+        ctx.globalAlpha = a;
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(p.rot ?? 0);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+        ctx.restore();
+      } else {
+        ctx.globalAlpha = a;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(px, py, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
     ctx.globalAlpha = 1;
+  }
+
+  /** Screen-space atmosphere: warm centre, edge vignette, explosion flash. */
+  private drawOverlay(now: number, W: number, H: number): void {
+    const ctx = this.ctx;
+    // Warm cozy centre.
+    const warm = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, Math.hypot(W, H) * 0.55);
+    warm.addColorStop(0, "rgba(255,196,120,0.07)");
+    warm.addColorStop(1, "rgba(255,196,120,0)");
+    ctx.fillStyle = warm;
+    ctx.fillRect(0, 0, W, H);
+    // Edge vignette.
+    const vig = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.62);
+    vig.addColorStop(0, "rgba(0,0,0,0)");
+    vig.addColorStop(1, "rgba(0,0,0,0.34)");
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+    // Explosion flash.
+    if (now < this.flashUntil) {
+      const k = (this.flashUntil - now) / 120;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.fillStyle = `rgba(255,240,210,${this.flashStrength * k})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "source-over";
+    }
   }
 
   // -- tiles -----------------------------------------------------------------
@@ -382,9 +648,11 @@ export class Renderer {
 
     switch (tile) {
       case TileType.HARD:
+        this.drawShadow(px + t / 2, py + t * 0.95, t * 0.42, t * 0.1, 0.3);
         this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
         break;
       case TileType.SOFT:
+        this.drawShadow(px + t / 2, py + t * 0.95, t * 0.4, t * 0.1, 0.26);
         this.drawTileSprite("soft", px, py) || this.drawSoft(px, py);
         break;
       case TileType.EXPLOSION: {
@@ -397,6 +665,7 @@ export class Renderer {
       }
       default: {
         const key = PU_SPRITE[tile];
+        if (key || PU_ICON[tile]) this.drawShadow(px + t / 2, py + t * 0.82, t * 0.26, t * 0.09, 0.24);
         if (key && this.drawTileSprite(key, px, py)) break;
         const icon = PU_ICON[tile];
         if (icon) {
