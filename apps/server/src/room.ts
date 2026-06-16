@@ -22,6 +22,7 @@ import {
   MatchPhase,
   TileType,
   BET_SIZES,
+  BotDifficulty,
   encodeSnapshot,
   encodePhase,
   encodeExplosion,
@@ -58,6 +59,7 @@ export class Room {
   readonly id: string; // also used as the shareable room code
   readonly isPublic: boolean;
   readonly practice: boolean; // fill with bots and auto-start
+  readonly botDifficulty: BotDifficulty; // difficulty of bots in a practice room
   stake: number; // chips wagered per player (0 = casual); host can change in lobby
   private pot = 0; // escrowed chips for the current match
   private contributors: string[] = []; // wallets that paid into the pot (for refunds)
@@ -90,11 +92,18 @@ export class Room {
 
   dead = false;
 
-  constructor(id: string, isPublic: boolean, practice = false, stake = 0) {
+  constructor(
+    id: string,
+    isPublic: boolean,
+    practice = false,
+    stake = 0,
+    botDifficulty: BotDifficulty = BotDifficulty.NORMAL,
+  ) {
     this.id = id;
     this.isPublic = isPublic;
     this.practice = practice;
     this.stake = stake;
+    this.botDifficulty = botDifficulty;
     this.spiral = buildSpiral();
   }
 
@@ -121,7 +130,7 @@ export class Room {
     const p = new Player(id, name, id % 4, spawn.x, spawn.y, () => {}, true);
     p.ready = true; // bots are always ready
     this.players.set(id, p);
-    this.bots.set(id, new BotController());
+    this.bots.set(id, new BotController(this.botDifficulty));
   }
 
   addPlayer(name: string, skin: number, send: SendFn, wallet: string | null = null): Player {

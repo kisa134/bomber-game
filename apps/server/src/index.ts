@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, BotDifficulty } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { store } from "./store.js";
@@ -158,15 +158,14 @@ app.get("/leaderboard", (res) => {
     .catch(() => sendJson(res, { rows: [] }));
 });
 
-async function parseBody(
-  res: uWS.HttpResponse,
-): Promise<{ name: string; code: string; skin: number; wallet: string | null; stake: number }> {
+async function parseBody(res: uWS.HttpResponse): Promise<Body> {
   const body = await readBody(res);
   let name = "Player";
   let code = "";
   let skin = 0;
   let wallet: string | null = null;
   let stake = 0;
+  let difficulty = BotDifficulty.NORMAL;
   try {
     const parsed = JSON.parse(body || "{}");
     if (typeof parsed.name === "string" && parsed.name.trim()) name = parsed.name.trim().slice(0, 16);
@@ -176,10 +175,13 @@ async function parseBody(
     if (Number.isFinite(parsed.stake) && (BET_SIZES as readonly number[]).includes(parsed.stake)) {
       stake = parsed.stake;
     }
+    if (parsed.difficulty === 0 || parsed.difficulty === 1 || parsed.difficulty === 2) {
+      difficulty = parsed.difficulty as BotDifficulty;
+    }
   } catch {
     // ignore malformed body
   }
-  return { name, code, skin, wallet, stake };
+  return { name, code, skin, wallet, stake, difficulty };
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
@@ -233,7 +235,14 @@ app.post("/auth/verify", (res, req) => {
   });
 });
 
-type Body = { name: string; code: string; skin: number; wallet: string | null; stake: number };
+type Body = {
+  name: string;
+  code: string;
+  skin: number;
+  wallet: string | null;
+  stake: number;
+  difficulty: BotDifficulty;
+};
 
 function withMatchmaking(
   res: uWS.HttpResponse,
@@ -284,7 +293,7 @@ app.post("/create", (res, req) =>
   withMatchmaking(res, req, (b) => mm.createTable(b.name, b.skin, b.wallet, b.stake)),
 );
 app.post("/practice", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet), () => 0),
+  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty), () => 0),
 );
 app.post("/join", (res, req) =>
   withMatchmaking(res, req, (b) => mm.joinByCode(b.code, b.name, b.skin, b.wallet), (b) => mm.getRoom(b.code)?.stake ?? 0),

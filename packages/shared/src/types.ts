@@ -66,6 +66,13 @@ export enum ServerMsg {
 /** Quick lobby/in-game reactions (no free text). */
 export const EMOTES = ["👍", "🔥", "😂", "💣", "😎", "😭"] as const;
 
+/** Practice bot difficulty (sent to the server when opening a practice room). */
+export enum BotDifficulty {
+  EASY = 0,
+  NORMAL = 1,
+  HARD = 2,
+}
+
 export enum MatchPhase {
   LOBBY = 0,
   COUNTDOWN = 1,

@@ -936,7 +936,7 @@ setupBackground();
 
 setupMenu({
   quickplay: (c) => { track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
-  practice: (c) => { track("play_start", { mode: "practice" }); connect(() => practiceRoom(c.name, c.skin)); },
+  practice: (c, difficulty) => { track("play_start", { mode: "practice", difficulty }); connect(() => practiceRoom(c.name, c.skin, difficulty)); },
   create: (c) => { track("play_start", { mode: "create", stake: c.stake }); connect(() => createRoom(c.name, c.skin, c.stake)); },
   join: (c, code) => { track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
   tables: () => {

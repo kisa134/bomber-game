@@ -1,10 +1,19 @@
-import { Direction, GRID_W, GRID_H } from "@bomberpump/shared";
+import { Direction, GRID_W, GRID_H, BotDifficulty } from "@bomberpump/shared";
 import type { Room } from "./room.js";
 import type { Player } from "./player.js";
 
-const THINK_MS = 120;
-const BOMB_CHANCE = 0.28; // lower = more cautious, longer rounds
-const ENGAGE_RANGE = 2; // only bomb enemies this close (don't snipe across map)
+interface BotConfig {
+  thinkMs: number; // how often the bot re-plans (lower = sharper)
+  bombChance: number; // per-plan chance to actually drop a bomb when useful
+  engageRange: number; // how far it will bomb an enemy in line
+  blunder: number; // chance to wander randomly instead of advancing optimally
+}
+
+const BOT_CONFIGS: Record<BotDifficulty, BotConfig> = {
+  [BotDifficulty.EASY]: { thinkMs: 300, bombChance: 0.14, engageRange: 1, blunder: 0.35 },
+  [BotDifficulty.NORMAL]: { thinkMs: 120, bombChance: 0.28, engageRange: 2, blunder: 0.08 },
+  [BotDifficulty.HARD]: { thinkMs: 60, bombChance: 0.55, engageRange: 4, blunder: 0 },
+};
 
 const DIRS = [
   { d: Direction.UP, dx: 0, dy: -1 },
@@ -16,13 +25,19 @@ const DIRS = [
 const idx = (x: number, y: number) => y * GRID_W + x;
 
 /**
- * Medium bot: BFS-based. Survives by fleeing any bomb blast it can be caught in,
- * only places a bomb when it has a guaranteed escape, otherwise advances toward
- * the nearest destructible block or enemy. This makes rounds last longer.
+ * BFS-based bot. Survives by fleeing any bomb blast it can be caught in, only
+ * places a bomb when it has a guaranteed escape, otherwise advances toward the
+ * nearest destructible block or enemy. Difficulty tunes how fast it thinks, how
+ * aggressively it bombs, its engage range, and how often it wanders (blunders).
  */
 export class BotController {
   private think = 0;
   private dir: Direction = Direction.NONE;
+  private readonly cfg: BotConfig;
+
+  constructor(difficulty: BotDifficulty = BotDifficulty.NORMAL) {
+    this.cfg = BOT_CONFIGS[difficulty] ?? BOT_CONFIGS[BotDifficulty.NORMAL];
+  }
 
   update(room: Room, me: Player, dt: number): void {
     this.think -= dt;
@@ -40,10 +55,14 @@ export class BotController {
       me.intent = this.dir;
       return;
     }
-    this.think = THINK_MS;
+    this.think = this.cfg.thinkMs;
 
     // 2. Bomb if it's useful AND we can still escape afterwards.
-    if (shouldBomb(room, me) && Math.random() < BOMB_CHANCE && hasEscapeAfterBomb(room, me)) {
+    if (
+      shouldBomb(room, me, this.cfg.engageRange) &&
+      Math.random() < this.cfg.bombChance &&
+      hasEscapeAfterBomb(room, me)
+    ) {
       room.placeBomb(me.id);
       const d2 = computeDanger(room);
       this.dir = bfsStep(room, cx, cy, (x, y) => !d2.has(idx(x, y))) ?? Direction.NONE;
@@ -52,9 +71,11 @@ export class BotController {
     }
 
     // 3. Advance toward the nearest target (soft block / enemy), avoiding danger.
+    //    Weaker bots sometimes wander instead of taking the optimal step.
     this.dir =
-      bfsStep(room, cx, cy, (x, y) => isTarget(room, x, y), danger) ??
-      randomDir(room, cx, cy);
+      Math.random() < this.cfg.blunder
+        ? randomDir(room, cx, cy)
+        : bfsStep(room, cx, cy, (x, y) => isTarget(room, x, y), danger) ?? randomDir(room, cx, cy);
     me.intent = this.dir;
   }
 }
@@ -135,12 +156,12 @@ function isTarget(room: Room, x: number, y: number): boolean {
   return false;
 }
 
-function shouldBomb(room: Room, me: Player): boolean {
+function shouldBomb(room: Room, me: Player, engageRange: number): boolean {
   for (const { dx, dy } of DIRS) {
     if (room.world.isSoft(me.cellX + dx, me.cellY + dy)) return true;
   }
   // enemy in line, but only when genuinely close (avoid constant trading)
-  const range = Math.min(me.power, ENGAGE_RANGE);
+  const range = Math.min(me.power, engageRange);
   for (const p of room.players.values()) {
     if (!p.alive || p.id === me.id) continue;
     if (p.cellX === me.cellX && Math.abs(p.cellY - me.cellY) <= range) return true;

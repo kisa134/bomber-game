@@ -46,7 +46,7 @@ export interface Choice {
 
 export interface MenuHandlers {
   quickplay: (c: Choice) => void;
-  practice: (c: Choice) => void;
+  practice: (c: Choice, difficulty: number) => void;
   create: (c: Choice) => void;
   join: (c: Choice, code: string) => void;
   tables: () => void; // open/refresh the public tables list
@@ -85,7 +85,9 @@ export function setupMenu(h: MenuHandlers): void {
     stakeGroup.classList.toggle("hidden");
   });
   document.getElementById("quickplay")!.addEventListener("click", () => h.quickplay(choice(0)));
-  document.getElementById("practice")!.addEventListener("click", () => h.practice(choice(0)));
+  document.getElementById("practice-easy")!.addEventListener("click", () => h.practice(choice(0), 0));
+  document.getElementById("practice-normal")!.addEventListener("click", () => h.practice(choice(0), 1));
+  document.getElementById("practice-hard")!.addEventListener("click", () => h.practice(choice(0), 2));
   document.getElementById("open-tables")!.addEventListener("click", () => h.tables());
   document.getElementById("join-room")!.addEventListener("click", () => {
     const code = joinCode.value.trim().toUpperCase();

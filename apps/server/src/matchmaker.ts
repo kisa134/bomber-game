@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { TICK_MS } from "@bomberpump/shared";
+import { TICK_MS, BotDifficulty } from "@bomberpump/shared";
 import { Room } from "./room.js";
 import type { SendFn } from "./player.js";
 
@@ -57,8 +57,13 @@ export class Matchmaker {
   }
 
   /** Solo practice room: fills with bots and auto-starts. Never staked. */
-  practice(name: string, skin: number, wallet: string | null): { code: string; token: string } {
-    const room = this.newRoom(false, true, 0);
+  practice(
+    name: string,
+    skin: number,
+    wallet: string | null,
+    difficulty: BotDifficulty = BotDifficulty.NORMAL,
+  ): { code: string; token: string } {
+    const room = this.newRoom(false, true, 0, difficulty);
     return this.reserve(room, name, skin, wallet);
   }
 
@@ -85,11 +90,16 @@ export class Matchmaker {
     return { code: room.id, token };
   }
 
-  private newRoom(isPublic: boolean, practice = false, stake = 0): Room {
+  private newRoom(
+    isPublic: boolean,
+    practice = false,
+    stake = 0,
+    botDifficulty: BotDifficulty = BotDifficulty.NORMAL,
+  ): Room {
     if (this.rooms.size >= MAX_ROOMS) throw new ServerFullError();
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
-    const room = new Room(code, isPublic, practice, stake);
+    const room = new Room(code, isPublic, practice, stake, botDifficulty);
     this.rooms.set(code, room);
     return room;
   }

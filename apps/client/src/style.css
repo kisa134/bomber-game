@@ -286,6 +286,19 @@ button.ghost {
   box-shadow: 0 0 10px rgba(255, 204, 51, 0.25);
 }
 
+/* Bot difficulty buttons (Solo section) */
+.diff-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.diff-row button {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  padding: 13px 6px;
+}
+
 /* Public tables filter chips */
 .tables-filter {
   display: flex;
@@ -853,12 +866,14 @@ button.ghost {
   width: 100%;
 }
 .menu-section .join-row input {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   width: auto;
+  min-width: 0;
 }
 .menu-section .join-row button {
-  width: 92px;
   flex: 0 0 auto;
+  width: auto;
+  min-width: 78px;
 }
 
 /* Big primary call to action */
