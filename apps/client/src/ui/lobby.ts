@@ -56,12 +56,17 @@ export function setupMenu(h: MenuHandlers): void {
   const nick = document.getElementById("nickname") as HTMLInputElement;
   const joinCode = document.getElementById("join-code") as HTMLInputElement;
   const stakeEl = document.getElementById("stake-picker")!;
+  const stakeGroup = document.getElementById("stake-group")!;
 
   nick.value = localStorage.getItem("bp_nick") ?? `pumper${(Math.random() * 1000) | 0}`;
-  let stake = Number(localStorage.getItem("bp_stake") ?? 0);
 
-  // Stake picker: Casual (0) + the bet sizes. Skin is now random (players are
-  // told apart by colour), so there's no skin picker.
+  const choice = (stake: number): Choice => {
+    const name = nick.value.trim() || "pumper";
+    localStorage.setItem("bp_nick", name);
+    return { name, skin: Math.floor(Math.random() * 4), stake };
+  };
+
+  // Stake buttons live under "Create a table" and each one creates immediately.
   const stakes: Array<{ v: number; label: string }> = [
     { v: 0, label: "Casual" },
     ...BET_SIZES.map((v) => ({ v, label: `🪙${v}` })),
@@ -69,25 +74,18 @@ export function setupMenu(h: MenuHandlers): void {
   stakeEl.innerHTML = "";
   for (const s of stakes) {
     const b = document.createElement("button");
-    b.className = "stake-btn" + (s.v === stake ? " selected" : "");
+    b.className = "stake-btn";
     b.textContent = s.label;
-    b.addEventListener("click", () => {
-      stake = s.v;
-      localStorage.setItem("bp_stake", String(stake));
-      stakeEl.querySelectorAll(".stake-btn").forEach((el, i) => el.classList.toggle("selected", stakes[i].v === stake));
-    });
+    b.addEventListener("click", () => h.create(choice(s.v)));
     stakeEl.appendChild(b);
   }
 
-  const choice = (): Choice => {
-    const name = nick.value.trim() || "pumper";
-    localStorage.setItem("bp_nick", name);
-    return { name, skin: Math.floor(Math.random() * 4), stake };
-  };
-
-  document.getElementById("quickplay")!.addEventListener("click", () => h.quickplay(choice()));
-  document.getElementById("practice")!.addEventListener("click", () => h.practice(choice()));
-  document.getElementById("create-room")!.addEventListener("click", () => h.create(choice()));
+  // "Create a table" reveals the stake choices (pick one = create at that stake).
+  document.getElementById("create-room")!.addEventListener("click", () => {
+    stakeGroup.classList.toggle("hidden");
+  });
+  document.getElementById("quickplay")!.addEventListener("click", () => h.quickplay(choice(0)));
+  document.getElementById("practice")!.addEventListener("click", () => h.practice(choice(0)));
   document.getElementById("open-tables")!.addEventListener("click", () => h.tables());
   document.getElementById("join-room")!.addEventListener("click", () => {
     const code = joinCode.value.trim().toUpperCase();
@@ -95,7 +93,7 @@ export function setupMenu(h: MenuHandlers): void {
       setMenuStatus("Enter a room code");
       return;
     }
-    h.join(choice(), code);
+    h.join(choice(0), code);
   });
 }
 

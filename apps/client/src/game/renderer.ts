@@ -91,8 +91,6 @@ export class Renderer {
   private prevGrid: Uint8Array | null = null;
   private lastDust = new Map<number, number>();
   private lastTrample = new Map<number, number>();
-  private flashUntil = 0;
-  private flashStrength = 0;
   private shakeUntil = 0;
   private shakeMag = 0;
   private lastTime = performance.now();
@@ -162,15 +160,13 @@ export class Renderer {
     }
   }
 
-  /** Full explosion FX per blast cell: white flash, flames, rising smoke, and
-   *  a couple of flying burned-dollar $ icons. Plus a scorch decal + shake. */
+  /** Explosion FX per blast cell: colored flames, rising smoke, and a couple of
+   *  flying burned-dollar $ icons. Plus a scorch decal + a light shake. No white
+   *  flashes (those were seizure-y). */
   onExplosion(cells: Array<{ x: number; y: number }>): void {
-    const now = performance.now();
     for (const c of cells) {
       const cx = c.x + 0.5;
       const cy = c.y + 0.5;
-      // White flash core.
-      this.push({ x: cx, y: cy, vx: 0, vy: 0, life: 0.14, max: 0.14, size: this.tile * 0.62, color: "#fff6e0", shape: "flash" });
       // Flames.
       for (let i = 0; i < 7; i++) {
         const a = Math.random() * Math.PI * 2;
@@ -203,9 +199,7 @@ export class Renderer {
       }
       this.addDecal(c.x, c.y, "scorch");
     }
-    this.shake(Math.min(11, 3.5 + cells.length * 0.7), 130);
-    this.flashUntil = now + 120;
-    this.flashStrength = Math.min(0.5, 0.18 + cells.length * 0.03);
+    this.shake(Math.min(8, 3 + cells.length * 0.5), 120);
   }
 
   onDeath(cx: number, cy: number, color: string): void {
@@ -317,8 +311,6 @@ export class Renderer {
     this.drawPlayers(view, myId, now);
     this.updateParticles(dt);
     ctx.restore();
-
-    this.drawOverlay(now, W, H);
   }
 
   private drawPlayers(view: RenderView, myId: number, now: number): void {
@@ -606,31 +598,6 @@ export class Renderer {
       }
     }
     ctx.globalAlpha = 1;
-  }
-
-  /** Screen-space atmosphere: warm centre, edge vignette, explosion flash. */
-  private drawOverlay(now: number, W: number, H: number): void {
-    const ctx = this.ctx;
-    // Warm cozy centre.
-    const warm = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, Math.hypot(W, H) * 0.55);
-    warm.addColorStop(0, "rgba(255,196,120,0.07)");
-    warm.addColorStop(1, "rgba(255,196,120,0)");
-    ctx.fillStyle = warm;
-    ctx.fillRect(0, 0, W, H);
-    // Edge vignette.
-    const vig = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.62);
-    vig.addColorStop(0, "rgba(0,0,0,0)");
-    vig.addColorStop(1, "rgba(0,0,0,0.34)");
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, W, H);
-    // Explosion flash.
-    if (now < this.flashUntil) {
-      const k = (this.flashUntil - now) / 120;
-      ctx.globalCompositeOperation = "lighter";
-      ctx.fillStyle = `rgba(255,240,210,${this.flashStrength * k})`;
-      ctx.fillRect(0, 0, W, H);
-      ctx.globalCompositeOperation = "source-over";
-    }
   }
 
   // -- tiles -----------------------------------------------------------------
