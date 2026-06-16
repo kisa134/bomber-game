@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { store } from "./store.js";
@@ -144,7 +144,7 @@ app.get("/profile", (res, req) => {
   const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
   store
     .getProfile(wallet)
-    .then((p) => sendJson(res, p ?? { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0 }))
+    .then((p) => sendJson(res, p ?? { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0, chips: STARTING_CHIPS }))
     .catch(() => sendJson(res, { error: "profile_failed" }, "500 Internal Server Error"));
 });
 
@@ -229,16 +229,19 @@ function withMatchmaking(
   fn: (b: { name: string; code: string; skin: number; wallet: string | null }) => unknown,
 ): void {
   if (!guard(res, req)) return;
-  void parseBody(res).then((b) => {
+  void parseBody(res).then(async (b) => {
     try {
       const result = fn(b);
       if (!result) {
         sendJson(res, { error: "room_not_found" }, "404 Not Found");
         return;
       }
+      // Grant/return the wallet's chip balance (simulated currency).
+      let chips: number | undefined;
+      if (b.wallet) chips = (await store.ensureProfile(b.wallet, b.name, b.skin)).chips;
       // Echo the wallet the server resolved from the session, so the client
       // can detect a stale session and re-sign before playing.
-      sendJson(res, { ...result, wallet: b.wallet });
+      sendJson(res, { ...result, wallet: b.wallet, chips });
     } catch (e) {
       if (e instanceof ServerFullError) sendJson(res, { error: "server_full" }, "503 Service Unavailable");
       else sendJson(res, { error: "internal" }, "500 Internal Server Error");

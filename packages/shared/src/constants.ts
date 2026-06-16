@@ -58,3 +58,7 @@ export const START_SPEED = PLAYER_BASE_SPEED;
 
 // Bomb kick travel speed (cells per second)
 export const KICK_SPEED = 6.0;
+
+// --- Economy (simulated currency; real token wired later) ------------------
+export const STARTING_CHIPS = 1000; // granted to a new wallet
+export const BET_SIZES = [100, 250, 500, 1000, 2500] as const; // table stakes

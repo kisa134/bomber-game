@@ -4,6 +4,7 @@
 // client can never inflate them.
 
 import pg from "pg";
+import { STARTING_CHIPS } from "@bomberpump/shared";
 
 export interface Profile {
   wallet: string;
@@ -17,6 +18,7 @@ export interface Profile {
   deaths: number;
   current_streak: number;
   best_streak: number;
+  chips: number; // simulated currency balance
 }
 
 export interface MatchResult {
@@ -42,13 +44,18 @@ export interface ProfileStore {
   recordMatch(results: MatchResult[]): Promise<void>;
   getProfile(wallet: string): Promise<Profile | null>;
   leaderboard(limit: number): Promise<Profile[]>;
+  /** Ensure a profile exists (granting starting chips), return it. */
+  ensureProfile(wallet: string, name: string, skin: number): Promise<Profile>;
+  /** Atomically add `delta` chips. Returns the new balance, or null if a
+   *  negative delta would overdraw (balance unchanged). */
+  adjustChips(wallet: string, delta: number): Promise<number | null>;
 }
 
-function blankProfile(r: MatchResult): Profile {
+function blankProfile(wallet: string, name: string, skin: number): Profile {
   return {
-    wallet: r.wallet,
-    name: r.name,
-    skin: r.skin,
+    wallet,
+    name,
+    skin,
     level: 1,
     xp: 0,
     matches: 0,
@@ -57,6 +64,7 @@ function blankProfile(r: MatchResult): Profile {
     deaths: 0,
     current_streak: 0,
     best_streak: 0,
+    chips: STARTING_CHIPS,
   };
 }
 
@@ -83,7 +91,7 @@ class InMemoryStore implements ProfileStore {
 
   async recordMatch(results: MatchResult[]): Promise<void> {
     for (const r of results) {
-      const p = this.map.get(r.wallet) ?? blankProfile(r);
+      const p = this.map.get(r.wallet) ?? blankProfile(r.wallet, r.name, r.skin);
       applyResult(p, r);
       this.map.set(r.wallet, p);
     }
@@ -95,6 +103,23 @@ class InMemoryStore implements ProfileStore {
 
   async leaderboard(limit: number): Promise<Profile[]> {
     return [...this.map.values()].sort((a, b) => b.xp - a.xp).slice(0, limit);
+  }
+
+  async ensureProfile(wallet: string, name: string, skin: number): Promise<Profile> {
+    let p = this.map.get(wallet);
+    if (!p) {
+      p = blankProfile(wallet, name, skin);
+      this.map.set(wallet, p);
+    }
+    return p;
+  }
+
+  async adjustChips(wallet: string, delta: number): Promise<number | null> {
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    if (delta < 0 && p.chips + delta < 0) return null;
+    p.chips += delta;
+    return p.chips;
   }
 }
 
@@ -170,6 +195,41 @@ class SupabaseStore implements ProfileStore {
       return [];
     }
   }
+
+  async ensureProfile(wallet: string, name: string, skin: number): Promise<Profile> {
+    const existing = await this.getProfile(wallet);
+    if (existing) return existing;
+    const p = blankProfile(wallet, name, skin);
+    try {
+      await fetch(`${this.url}/rest/v1/profiles`, {
+        method: "POST",
+        headers: { ...this.headers(), Prefer: "resolution=ignore-duplicates" },
+        body: JSON.stringify(p),
+      });
+    } catch (e) {
+      console.error("[store] ensureProfile failed", e);
+    }
+    return p;
+  }
+
+  async adjustChips(wallet: string, delta: number): Promise<number | null> {
+    // Best-effort read-modify-write (the Postgres path is the atomic one).
+    const p = await this.getProfile(wallet);
+    if (!p) return null;
+    const next = p.chips + delta;
+    if (next < 0) return null;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ chips: next }),
+      });
+    } catch (e) {
+      console.error("[store] adjustChips failed", e);
+      return null;
+    }
+    return next;
+  }
 }
 
 // Direct Postgres (any provider). Auto-creates the schema on boot, so the only
@@ -210,6 +270,10 @@ class PostgresStore implements ProfileStore {
         best_streak int not null default 0,
         updated_at timestamptz not null default now()
       )`);
+    // Additive migration for existing tables.
+    await this.pool.query(
+      `alter table profiles add column if not exists chips int not null default ${STARTING_CHIPS}`,
+    );
   }
 
   async recordMatch(results: MatchResult[]): Promise<void> {
@@ -258,6 +322,32 @@ class PostgresStore implements ProfileStore {
     } catch (e) {
       console.error("[store] pg leaderboard failed", e);
       return [];
+    }
+  }
+
+  async ensureProfile(wallet: string, name: string, skin: number): Promise<Profile> {
+    await this.ready;
+    await this.pool.query(
+      `insert into profiles (wallet,name,skin) values ($1,$2,$3) on conflict (wallet) do nothing`,
+      [wallet, name, skin],
+    );
+    const res = await this.pool.query("select * from profiles where wallet=$1", [wallet]);
+    return res.rows[0] as Profile;
+  }
+
+  async adjustChips(wallet: string, delta: number): Promise<number | null> {
+    try {
+      await this.ready;
+      // Atomic + overdraw-safe: the row only updates if the result stays >= 0.
+      const res = await this.pool.query(
+        `update profiles set chips = chips + $2, updated_at=now()
+         where wallet=$1 and chips + $2 >= 0 returning chips`,
+        [wallet, delta],
+      );
+      return res.rows[0] ? (res.rows[0].chips as number) : null;
+    } catch (e) {
+      console.error("[store] pg adjustChips failed", e);
+      return null;
     }
   }
 }

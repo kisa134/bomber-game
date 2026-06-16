@@ -162,6 +162,7 @@ async function connect(getJoin: () => Promise<JoinResponse>): Promise<void> {
       document.getElementById("loading-status")!.textContent = "verifying wallet…";
       if (await reauth()) res = await getJoin();
     }
+    if (typeof res.chips === "number") setBalance(res.chips);
     net.connect(res.token);
   } catch (err) {
     showScreen("menu");
@@ -751,6 +752,13 @@ function profCell(label: string, value: string | number): HTMLElement {
   return c;
 }
 
+/** Update + reveal the chip balance shown in the menu. */
+function setBalance(chips: number): void {
+  const amt = document.getElementById("chip-amount");
+  if (amt) amt.textContent = chips.toLocaleString();
+  document.getElementById("chip-balance")?.classList.remove("hidden");
+}
+
 async function openProfile(): Promise<void> {
   showScreen("profile");
   const body = document.getElementById("profile-body")!;
@@ -762,10 +770,15 @@ async function openProfile(): Promise<void> {
   body.innerHTML = '<p class="status">Loading…</p>';
   try {
     const p = await fetchProfile(w.address);
+    setBalance(p.chips);
     const into = p.xp % 200;
     const wr = p.matches ? Math.round((p.wins / p.matches) * 100) : 0;
     body.innerHTML = "";
-    body.append(el("div", "prof-addr", shortAddr(w.address)), el("div", "prof-level", `Level ${p.level}`));
+    body.append(
+      el("div", "prof-addr", shortAddr(w.address)),
+      el("div", "prof-level", `Level ${p.level}`),
+      el("div", "prof-chips", `🪙 ${p.chips.toLocaleString()} chips`),
+    );
     const bar = document.createElement("div");
     bar.className = "xp-bar";
     const fill = document.createElement("div");

@@ -17,6 +17,7 @@ export interface JoinResponse {
   code: string;
   token: string;
   wallet?: string | null; // wallet the server resolved from the session
+  chips?: number; // current balance (when wallet-authenticated)
 }
 
 async function post(path: string, body: Record<string, unknown>): Promise<Response> {
@@ -38,6 +39,7 @@ export interface ProfileData {
   frags: number;
   deaths: number;
   best_streak: number;
+  chips: number;
 }
 
 export async function fetchProfile(wallet: string): Promise<ProfileData> {
