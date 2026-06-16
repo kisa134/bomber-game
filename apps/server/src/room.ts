@@ -636,8 +636,8 @@ export class Room {
       this.world.fire[this.world.idx(x, y)] === 0 &&
       !this.bombs.some((b) => !b.exploded && b.x === x && b.y === y);
     for (const s of SPAWNS) if (ok(s.x, s.y)) return s;
-    for (let y = 1; y < GRID_H - 1; y++) {
-      for (let x = 1; x < GRID_W - 1; x++) {
+    for (let y = 0; y < GRID_H; y++) {
+      for (let x = 0; x < GRID_W; x++) {
         if (ok(x, y)) return { x, y };
       }
     }
@@ -757,10 +757,11 @@ export class Room {
 
 function buildSpiral(): Array<{ x: number; y: number }> {
   const cells: Array<{ x: number; y: number }> = [];
-  let top = 1;
-  let bottom = GRID_H - 2;
-  let left = 1;
-  let right = GRID_W - 2;
+  // No border ring now, so the closing walls start from the very edge.
+  let top = 0;
+  let bottom = GRID_H - 1;
+  let left = 0;
+  let right = GRID_W - 1;
   while (top <= bottom && left <= right) {
     for (let x = left; x <= right; x++) cells.push({ x, y: top });
     for (let y = top + 1; y <= bottom; y++) cells.push({ x: right, y });

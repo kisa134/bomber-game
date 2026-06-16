@@ -13,12 +13,13 @@ export interface Spawn {
   y: number;
 }
 
-/** The four corner spawns (cell centers handled by caller). */
+/** The four corner spawns (cell centers handled by caller). No border ring,
+ *  so spawns sit in the actual screen corners. */
 export const SPAWNS: Spawn[] = [
-  { x: 1, y: 1 },
-  { x: GRID_W - 2, y: 1 },
-  { x: 1, y: GRID_H - 2 },
-  { x: GRID_W - 2, y: GRID_H - 2 },
+  { x: 0, y: 0 },
+  { x: GRID_W - 1, y: 0 },
+  { x: 0, y: GRID_H - 1 },
+  { x: GRID_W - 1, y: GRID_H - 1 },
 ];
 
 const PU_TILE: Record<PowerUpType, TileType> = {
@@ -84,22 +85,22 @@ export class World {
     this.fire.fill(0);
     this.fireOwner.fill(-1);
 
-    // Border + interior pillars on even/even cells = HARD.
+    // Indestructible pillars on the classic odd/odd lattice. No border ring —
+    // the screen edge is the boundary (collision handled by inBounds), so the
+    // whole 17x11 field is playable and corners are open.
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
-        const border = x === 0 || y === 0 || x === GRID_W - 1 || y === GRID_H - 1;
-        const pillar = x % 2 === 0 && y % 2 === 0;
-        if (border || pillar) this.set(x, y, TileType.HARD);
+        if (x % 2 === 1 && y % 2 === 1) this.set(x, y, TileType.HARD);
       }
     }
 
-    // Carve safe zones (L-shape) around each spawn so players aren't boxed in.
+    // Carve safe zones (L-shape) around each corner spawn so players aren't boxed in.
     const safe = new Set<number>();
     for (const s of SPAWNS) {
       const cells = [
         [s.x, s.y],
-        [s.x + (s.x === 1 ? 1 : -1), s.y],
-        [s.x, s.y + (s.y === 1 ? 1 : -1)],
+        [s.x + (s.x === 0 ? 1 : -1), s.y],
+        [s.x, s.y + (s.y === 0 ? 1 : -1)],
       ];
       for (const [cx, cy] of cells) safe.add(this.idx(cx, cy));
     }
@@ -119,8 +120,8 @@ export class World {
         }
       }
     };
-    for (let y = 1; y <= midY; y++) {
-      for (let x = 1; x <= midX; x++) {
+    for (let y = 0; y <= midY; y++) {
+      for (let x = 0; x <= midX; x++) {
         const i = this.idx(x, y);
         if (this.grid[i] !== TileType.EMPTY || safe.has(i)) continue;
         if (rng() < density) placeSoftMirrored(x, y);
