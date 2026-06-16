@@ -10,6 +10,8 @@ import {
   SUDDEN_DEATH_AT_MS,
   PROTOCOL_VERSION,
   EMOTES,
+  leagueFor,
+  STARTING_RATING,
 } from "./net/protocol.js";
 import {
   Net,
@@ -341,21 +343,32 @@ function announceResult(winnerId: number): void {
     assets.play("defeat");
   }
   music("lobby");
-  // Staked table: settle happened server-side — refresh the wallet balance and
-  // show the chip swing.
+  // Settlement (chips) + rating update happened server-side. Refresh the wallet
+  // and show the chip swing AND the rating change on the result screen.
   const stake = state.roomStake;
+  const won = winnerId === state.myId;
+  const draw = winnerId === DRAW_WINNER_ID;
   let chipNote = "";
   if (stake > 0) {
-    const won = winnerId === state.myId;
-    const draw = winnerId === DRAW_WINNER_ID;
     chipNote = draw ? "Stake refunded" : won ? `Won the pot 🪙` : `Lost 🪙${stake}`;
-    const w = loadWallet();
-    if (w) void fetchProfile(w.address).then((p) => setBalance(p.chips)).catch(() => {});
+  }
+  const note = document.getElementById("result-chips");
+  if (note) note.textContent = chipNote;
+  const w = loadWallet();
+  const prevRating = lastRating;
+  if (w) {
+    void fetchProfile(w.address)
+      .then((p) => {
+        setStats(p.chips, p.rating);
+        const d = p.rating - prevRating;
+        const ratingNote =
+          d !== 0 ? `${leagueFor(p.rating).emoji} ${p.rating} (${d > 0 ? "+" : ""}${d})` : "";
+        if (note) note.textContent = [chipNote, ratingNote].filter(Boolean).join("  ·  ");
+      })
+      .catch(() => {});
   }
   setTimeout(() => {
     showResult(title);
-    const note = document.getElementById("result-chips");
-    if (note) note.textContent = chipNote;
     const fair = document.getElementById("result-fair")!;
     fair.textContent =
       state.seed && state.seedCommit
@@ -682,9 +695,9 @@ function refreshWalletBtn(): void {
   const btn = document.getElementById("wallet-btn")!;
   const w = loadWallet();
   btn.textContent = w ? `🟢 ${shortAddr(w.address)}` : "🔗 Connect Wallet";
-  // Show the chip balance in the menu whenever a wallet is connected.
-  if (w) void fetchProfile(w.address).then((p) => setBalance(p.chips)).catch(() => {});
-  else document.getElementById("chip-balance")?.classList.add("hidden");
+  // Show rating + chips in the menu whenever a wallet is connected.
+  if (w) void fetchProfile(w.address).then((p) => setStats(p.chips, p.rating)).catch(() => {});
+  else document.getElementById("player-stats")?.classList.add("hidden");
 }
 
 function openWalletModal(): void {
@@ -772,11 +785,25 @@ function profCell(label: string, value: string | number): HTMLElement {
   return c;
 }
 
-/** Update + reveal the chip balance shown in the menu. */
-function setBalance(chips: number): void {
+/** Last rating we've seen for the local wallet (to show the post-match swing). */
+let lastRating = STARTING_RATING;
+
+/** Update + reveal the rating + chips shown in the menu header. */
+function setStats(chips: number, rating: number): void {
   const amt = document.getElementById("chip-amount");
   if (amt) amt.textContent = chips.toLocaleString();
-  document.getElementById("chip-balance")?.classList.remove("hidden");
+  const badge = document.getElementById("rating-badge");
+  if (badge) {
+    const lg = leagueFor(rating);
+    badge.textContent = `${lg.emoji} ${rating}`;
+    badge.title = `${lg.name} · rating ${rating}`;
+  }
+  lastRating = rating;
+  document.getElementById("player-stats")?.classList.remove("hidden");
+}
+/** Chips-only update when we don't have a fresh rating (keeps the last one). */
+function setBalance(chips: number): void {
+  setStats(chips, lastRating);
 }
 
 async function openProfile(): Promise<void> {
@@ -790,13 +817,14 @@ async function openProfile(): Promise<void> {
   body.innerHTML = '<p class="status">Loading…</p>';
   try {
     const p = await fetchProfile(w.address);
-    setBalance(p.chips);
+    setStats(p.chips, p.rating);
     const into = p.xp % 200;
     const wr = p.matches ? Math.round((p.wins / p.matches) * 100) : 0;
     body.innerHTML = "";
+    const lg = leagueFor(p.rating);
     body.append(
       el("div", "prof-addr", shortAddr(w.address)),
-      el("div", "prof-level", `Level ${p.level}`),
+      el("div", "prof-level", `${lg.emoji} ${lg.name} · ${p.rating}`),
       el("div", "prof-chips", `🪙 ${p.chips.toLocaleString()} chips`),
     );
     const bar = document.createElement("div");
@@ -809,6 +837,8 @@ async function openProfile(): Promise<void> {
     const grid = document.createElement("div");
     grid.className = "prof-grid";
     grid.append(
+      profCell("Rating", p.rating),
+      profCell("Level", p.level),
       profCell("Matches", p.matches),
       profCell("Wins", p.wins),
       profCell("Win rate", `${wr}%`),
@@ -857,10 +887,11 @@ async function openLeaderboard(): Promise<void> {
     rows.forEach((r, i) => {
       const li = document.createElement("li");
       li.className = "lb-row";
+      const lg = leagueFor(r.rating);
       li.append(
         el("span", "lb-rank", `${i + 1}`),
-        el("span", "lb-name", r.name || shortAddr(r.wallet)),
-        el("span", "lb-xp", `Lv${r.level} · ${r.xp} XP`),
+        el("span", "lb-name", `${lg.emoji} ${r.name || shortAddr(r.wallet)}`),
+        el("span", "lb-xp", `${r.rating}`),
       );
       body.appendChild(li);
     });

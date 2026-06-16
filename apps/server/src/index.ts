@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, BET_SIZES } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { store } from "./store.js";
@@ -146,7 +146,7 @@ app.get("/profile", (res, req) => {
   const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
   store
     .getProfile(wallet)
-    .then((p) => sendJson(res, p ?? { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0, chips: STARTING_CHIPS }))
+    .then((p) => sendJson(res, p ?? { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING }))
     .catch(() => sendJson(res, { error: "profile_failed" }, "500 Internal Server Error"));
 });
 

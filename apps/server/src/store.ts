@@ -4,7 +4,7 @@
 // client can never inflate them.
 
 import pg from "pg";
-import { STARTING_CHIPS } from "@bomberpump/shared";
+import { STARTING_CHIPS, STARTING_RATING, eloDeltas } from "@bomberpump/shared";
 
 export interface Profile {
   wallet: string;
@@ -19,6 +19,7 @@ export interface Profile {
   current_streak: number;
   best_streak: number;
   chips: number; // simulated currency balance
+  rating: number; // chess-style Elo
 }
 
 export interface MatchResult {
@@ -65,7 +66,18 @@ function blankProfile(wallet: string, name: string, skin: number): Profile {
     current_streak: 0,
     best_streak: 0,
     chips: STARTING_CHIPS,
+    rating: STARTING_RATING,
   };
+}
+
+/** Map a finished match's results to a per-wallet Elo delta, keyed by wallet. */
+function ratingDeltas(results: MatchResult[], ratingOf: (w: string) => number): Map<string, number> {
+  const ratings = results.map((r) => ratingOf(r.wallet));
+  const winnerIdx = results.findIndex((r) => r.won);
+  const deltas = eloDeltas(ratings, winnerIdx);
+  const map = new Map<string, number>();
+  results.forEach((r, i) => map.set(r.wallet, deltas[i]));
+  return map;
 }
 
 function applyResult(p: Profile, r: MatchResult): void {
@@ -90,9 +102,11 @@ class InMemoryStore implements ProfileStore {
   }
 
   async recordMatch(results: MatchResult[]): Promise<void> {
+    const deltas = ratingDeltas(results, (w) => this.map.get(w)?.rating ?? STARTING_RATING);
     for (const r of results) {
       const p = this.map.get(r.wallet) ?? blankProfile(r.wallet, r.name, r.skin);
       applyResult(p, r);
+      p.rating = Math.max(0, p.rating + (deltas.get(r.wallet) ?? 0));
       this.map.set(r.wallet, p);
     }
   }
@@ -102,7 +116,7 @@ class InMemoryStore implements ProfileStore {
   }
 
   async leaderboard(limit: number): Promise<Profile[]> {
-    return [...this.map.values()].sort((a, b) => b.xp - a.xp).slice(0, limit);
+    return [...this.map.values()].sort((a, b) => b.rating - a.rating).slice(0, limit);
   }
 
   async ensureProfile(wallet: string, name: string, skin: number): Promise<Profile> {
@@ -186,7 +200,7 @@ class SupabaseStore implements ProfileStore {
   async leaderboard(limit: number): Promise<Profile[]> {
     try {
       const res = await fetch(
-        `${this.url}/rest/v1/profiles?select=*&order=xp.desc&limit=${limit}`,
+        `${this.url}/rest/v1/profiles?select=*&order=rating.desc&limit=${limit}`,
         { headers: this.headers() },
       );
       return (await res.json()) as Profile[];
@@ -270,20 +284,32 @@ class PostgresStore implements ProfileStore {
         best_streak int not null default 0,
         updated_at timestamptz not null default now()
       )`);
-    // Additive migration for existing tables.
+    // Additive migrations for existing tables.
     await this.pool.query(
       `alter table profiles add column if not exists chips int not null default ${STARTING_CHIPS}`,
+    );
+    await this.pool.query(
+      `alter table profiles add column if not exists rating int not null default ${STARTING_RATING}`,
     );
   }
 
   async recordMatch(results: MatchResult[]): Promise<void> {
     try {
       await this.ready;
+      // Read current ratings so the Elo swing uses pre-match values for everyone.
+      const wallets = results.map((r) => r.wallet);
+      const cur = await this.pool.query(
+        `select wallet, rating from profiles where wallet = any($1)`,
+        [wallets],
+      );
+      const ratingMap = new Map<string, number>(cur.rows.map((row) => [row.wallet, row.rating]));
+      const deltas = ratingDeltas(results, (w) => ratingMap.get(w) ?? STARTING_RATING);
       for (const r of results) {
         const xp = xpForMatch(r);
+        const dRating = deltas.get(r.wallet) ?? 0;
         await this.pool.query(
-          `insert into profiles (wallet,name,skin,xp,matches,wins,frags,deaths,current_streak,best_streak,level,updated_at)
-           values ($1,$2,$3,$4,1, case when $5 then 1 else 0 end, $6,$7, case when $5 then 1 else 0 end, case when $5 then 1 else 0 end, 1 + ($4/200), now())
+          `insert into profiles (wallet,name,skin,xp,matches,wins,frags,deaths,current_streak,best_streak,level,rating,updated_at)
+           values ($1,$2,$3,$4,1, case when $5 then 1 else 0 end, $6,$7, case when $5 then 1 else 0 end, case when $5 then 1 else 0 end, 1 + ($4/200), greatest(0, ${STARTING_RATING} + $8), now())
            on conflict (wallet) do update set
              name=excluded.name, skin=excluded.skin,
              xp=profiles.xp+$4,
@@ -294,8 +320,9 @@ class PostgresStore implements ProfileStore {
              current_streak=case when $5 then profiles.current_streak+1 else 0 end,
              best_streak=greatest(profiles.best_streak, case when $5 then profiles.current_streak+1 else 0 end),
              level=1 + ((profiles.xp+$4)/200),
+             rating=greatest(0, profiles.rating + $8),
              updated_at=now()`,
-          [r.wallet, r.name, r.skin, xp, r.won, r.frags, r.deaths],
+          [r.wallet, r.name, r.skin, xp, r.won, r.frags, r.deaths, dRating],
         );
       }
     } catch (e) {
@@ -317,7 +344,9 @@ class PostgresStore implements ProfileStore {
   async leaderboard(limit: number): Promise<Profile[]> {
     try {
       await this.ready;
-      const res = await this.pool.query("select * from profiles order by xp desc limit $1", [limit]);
+      const res = await this.pool.query("select * from profiles order by rating desc limit $1", [
+        limit,
+      ]);
       return res.rows as Profile[];
     } catch (e) {
       console.error("[store] pg leaderboard failed", e);

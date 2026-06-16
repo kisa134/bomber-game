@@ -40,6 +40,7 @@ export interface ProfileData {
   deaths: number;
   best_streak: number;
   chips: number;
+  rating: number;
 }
 
 export async function fetchProfile(wallet: string): Promise<ProfileData> {

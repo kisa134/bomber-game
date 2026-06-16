@@ -778,18 +778,28 @@ button.ghost {
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 4px 18px rgba(255, 204, 51, 0.35));
 }
-.wallet-row-top {
+/* Rating + chips: the player's two headline stats, shown under the wallet. */
+.player-stats {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 8px;
   width: 100%;
 }
-.wallet-row-top #wallet-btn {
-  flex: 1 1 auto;
-  width: auto;
+.stat-badge {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 1.05rem;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border);
 }
-.wallet-row-top .chip-balance {
-  flex: 0 0 auto;
+.stat-badge.chips {
+  color: var(--accent);
 }
 
 /* A grouped section with a small header label */

@@ -62,3 +62,48 @@ export const KICK_SPEED = 6.0;
 // --- Economy (simulated currency; real token wired later) ------------------
 export const STARTING_CHIPS = 1000; // granted to a new wallet
 export const BET_SIZES = [100, 250, 500, 1000, 2500] as const; // table stakes
+
+// --- Rating (chess-style Elo) ----------------------------------------------
+export const STARTING_RATING = 1000; // every new wallet starts here
+export const ELO_K = 32; // max swing per match; beating a stronger player pays more
+
+/** Leagues derived from rating (badge shown next to the name). */
+export interface League {
+  name: string;
+  emoji: string;
+  min: number;
+}
+export const LEAGUES: League[] = [
+  { name: "Champion", emoji: "👑", min: 1600 },
+  { name: "Pro", emoji: "💎", min: 1350 },
+  { name: "Advanced", emoji: "🔥", min: 1150 },
+  { name: "Beginner", emoji: "🌱", min: 0 },
+];
+export function leagueFor(rating: number): League {
+  return LEAGUES.find((l) => rating >= l.min) ?? LEAGUES[LEAGUES.length - 1];
+}
+
+/**
+ * Elo deltas for a finished match. The winner always gains, every loser always
+ * loses (per design), and the size scales with the rating gap: beating a much
+ * stronger field is worth a lot, losing to weaker players costs a lot. A draw
+ * (no winner) moves nobody. Returns a delta per input index.
+ */
+export function eloDeltas(ratings: number[], winnerIdx: number): number[] {
+  const n = ratings.length;
+  const deltas = new Array<number>(n).fill(0);
+  if (n < 2 || winnerIdx < 0 || winnerIdx >= n) return deltas;
+  const expected = (a: number, b: number): number => 1 / (1 + Math.pow(10, (b - a) / 400));
+  let winnerGain = 0;
+  for (let i = 0; i < n; i++) {
+    if (i === winnerIdx) continue;
+    // The loser's expected score against the winner; lose => -K * (that chance
+    // they "should" have won is small for a weak loser, large for a strong one).
+    const eLoser = expected(ratings[i], ratings[winnerIdx]);
+    const loss = Math.max(1, Math.round(ELO_K * eLoser));
+    deltas[i] = -loss;
+    winnerGain += loss;
+  }
+  deltas[winnerIdx] = Math.max(1, Math.round(winnerGain / (n - 1)));
+  return deltas;
+}
