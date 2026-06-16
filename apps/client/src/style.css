@@ -765,6 +765,80 @@ button.ghost {
   transform: scale(0.92);
 }
 
+/* --- Home menu: sectioned cards, bigger touch targets, brighter accents --- */
+.menu-panel {
+  width: min(400px, calc(100% - 24px));
+  gap: 12px;
+}
+.menu-panel .logo {
+  font-size: 2.8rem;
+  background: linear-gradient(180deg, #fff0a8, var(--accent) 60%, #ff9a3d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 18px rgba(255, 204, 51, 0.35));
+}
+.wallet-row-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.wallet-row-top #wallet-btn {
+  flex: 1 1 auto;
+  width: auto;
+}
+.wallet-row-top .chip-balance {
+  flex: 0 0 auto;
+}
+
+/* A grouped section with a small header label */
+.menu-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+.menu-section.accent {
+  background: linear-gradient(180deg, rgba(255, 204, 51, 0.08), rgba(255, 90, 95, 0.05));
+  border-color: rgba(255, 204, 51, 0.32);
+  box-shadow: 0 0 22px rgba(255, 204, 51, 0.08) inset;
+}
+.section-head {
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--accent);
+  text-align: left;
+}
+.menu-section button,
+.menu-section input,
+.menu-section .stake-picker,
+.menu-section .tables-list,
+.menu-section .join-row {
+  width: 100%;
+}
+.menu-section .join-row input {
+  flex: 1 1 auto;
+  width: auto;
+}
+.menu-section .join-row button {
+  width: 92px;
+  flex: 0 0 auto;
+}
+
+/* Big primary call to action */
+button.big {
+  font-size: 1.25rem;
+  padding: 18px 22px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 8px 26px rgba(255, 204, 51, 0.3);
+}
+
 /* Menu extras */
 .tagline {
   color: var(--muted);
@@ -1018,4 +1092,95 @@ button.ghost {
   height: 64px;
   background: radial-gradient(circle at 35% 30%, #ffe08a, #ffcc33);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+
+/* --- Rotate-to-landscape prompt (portrait phones only, while in game) --- */
+#rotate-hint {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(8, 10, 16, 0.96);
+  text-align: center;
+  padding: 24px;
+}
+.rotate-emoji {
+  font-size: 4rem;
+  animation: rotatePulse 1.6s ease-in-out infinite;
+}
+.rotate-text {
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+.rotate-sub {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+@keyframes rotatePulse {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(90deg);
+  }
+}
+/* Only show it on touch devices held in portrait. The #game section is hidden
+   unless a match is on, so this never appears on the menu. */
+@media (orientation: portrait) and (pointer: coarse) {
+  #game:not(.hidden) #rotate-hint {
+    display: flex;
+  }
+}
+
+/* --- In-game HUD panel: clearer, sectioned, a touch bigger --- */
+#hud-panel > div {
+  flex: 0 0 auto;
+}
+#hud-panel #players {
+  flex: 1 1 auto;
+}
+#timer {
+  color: var(--accent);
+}
+
+/* Compact, height-constrained landscape (mobile): keep the board tall and the
+   HUD slim so the play area dominates. */
+@media (orientation: landscape) and (max-height: 560px) {
+  #hud-panel {
+    padding: 3px 10px;
+    gap: 8px;
+  }
+  #timer {
+    font-size: 1.05rem;
+    padding: 2px 8px;
+  }
+  .kit .pu-ic {
+    width: 1.3em;
+    height: 1.3em;
+  }
+}
+
+/* --- Bigger, friendlier touch targets on phones --- */
+@media (pointer: coarse) {
+  button {
+    padding: 15px 22px;
+    font-size: 1.05rem;
+  }
+  .stake-btn {
+    min-width: 72px;
+    padding: 12px 8px;
+    font-size: 1rem;
+  }
+  .table-row {
+    padding: 12px 14px;
+  }
+  input {
+    padding: 15px 16px;
+    font-size: 1.05rem;
+  }
 }
