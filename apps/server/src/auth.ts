@@ -14,7 +14,7 @@ const nonces = new Map<string, number>(); // nonce -> expiry
 
 /** Exact message the wallet is asked to sign. Must match the client byte-for-byte. */
 export function messageFor(nonce: string): string {
-  return `Bomberpump\nSign in to verify wallet ownership.\n\nNonce: ${nonce}`;
+  return `Bombermeme\nSign in to verify wallet ownership.\n\nNonce: ${nonce}`;
 }
 
 export function createNonce(): string {

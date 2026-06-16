@@ -15,7 +15,6 @@ import {
   PROTOCOL_VERSION,
   MAX_PLAYERS_PER_ROOM,
   MIN_PLAYERS_TO_START,
-  IDLE_KICK_MS,
   KICK_SPEED,
   HIT_INVULN_MS,
   DRAW_WINNER_ID,
@@ -50,7 +49,9 @@ import { store, type MatchResult } from "./store.js";
 const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 
 const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
-const RECONNECT_GRACE_MS = 25_000; // hold a dropped player's slot this long
+const RECONNECT_GRACE_MS = 60_000; // hold a dropped player's slot this long
+// (generous: mobile browsers suspend a locked/backgrounded tab, so give it
+// plenty of time to come back before freeing the slot and ending the round)
 
 export class Room {
   readonly id: string; // also used as the shareable room code
@@ -474,10 +475,9 @@ export class Room {
       }
     }
 
-    const now = Date.now();
-    for (const p of this.players.values()) {
-      if (p.alive && now - p.lastMoveAtMs > IDLE_KICK_MS) this.hit(p, true);
-    }
+    // No idle-kick: standing still must never cost HP or end the round. A truly
+    // gone player is handled by the disconnect grace; a stalled round is forced
+    // to a finish by sudden death (which fills the map and squeezes everyone).
 
     if (this.matchElapsedMs >= SUDDEN_DEATH_AT_MS) {
       if (this.phase !== MatchPhase.SUDDEN_DEATH) this.setPhase(MatchPhase.SUDDEN_DEATH);

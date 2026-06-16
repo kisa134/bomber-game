@@ -60,7 +60,7 @@ export async function connectAndSignIn(wallet: StdWallet): Promise<ConnectedWall
 
   // Sign the exact message the server will reconstruct.
   const message = new TextEncoder().encode(
-    `Bomberpump\nSign in to verify wallet ownership.\n\nNonce: ${nonce}`,
+    `Bombermeme\nSign in to verify wallet ownership.\n\nNonce: ${nonce}`,
   );
   const signMessage = wallet.features[F_SIGN_MESSAGE] as {
     signMessage(input: { account: StdAccount; message: Uint8Array }): Promise<

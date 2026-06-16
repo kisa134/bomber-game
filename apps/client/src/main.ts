@@ -208,7 +208,8 @@ net.onMessage = (msg) => {
       if (count > prevPlayerCount && prevPlayerCount > 0) assets.play("join");
       prevPlayerCount = count;
       state.setRoomInfo(msg);
-      if (!inGame(state.phase)) {
+      // Don't yank the player off the result screen — they leave it via a button.
+      if (!inGame(state.phase) && !onResultScreen()) {
         showScreen("room");
         renderRoom(state);
         music("lobby");
@@ -244,9 +245,11 @@ net.onMessage = (msg) => {
         assets.play("sudden_death");
       } else if (msg.phase === MatchPhase.LOBBY) {
         prevSoftCount = -1;
-        showScreen("room");
-        renderRoom(state);
-        music("lobby");
+        if (!onResultScreen()) {
+          showScreen("room");
+          renderRoom(state);
+          music("lobby");
+        }
       }
       break;
     case ServerMsg.MATCH_END:
@@ -953,6 +956,11 @@ function showEmote(playerId: number, emote: number): void {
   }
 }
 
+/** True while the post-match result screen is showing (so we don't auto-leave it). */
+function onResultScreen(): boolean {
+  return document.getElementById("result")?.classList.contains("hidden") === false;
+}
+
 function leaveToMenu(): void {
   net.close();
   assets.stop("sudden_death");
@@ -966,6 +974,13 @@ function leaveToMenu(): void {
 }
 document.getElementById("leave-room")!.addEventListener("click", leaveToMenu);
 document.getElementById("result-leave")!.addEventListener("click", leaveToMenu);
+// Back to lobby: stay connected, just show the waiting room. The server keeps
+// the room alive after a match, so the same players regroup for a rematch.
+document.getElementById("result-lobby")!.addEventListener("click", () => {
+  showScreen("room");
+  renderRoom(state);
+  music("lobby");
+});
 
 // --- viral: invite links + result sharing ---------------------------------
 
@@ -990,11 +1005,11 @@ document.getElementById("result-share")?.addEventListener("click", () => {
   const won = state.winnerId === state.myId;
   const frags = me?.frags ?? 0;
   const text = won
-    ? `I just won a round of Bomberpump 💣🏆 with ${frags} frags. Come get blown up:`
-    : `Just dropped ${frags} frags in Bomberpump 💣 Think you can do better?`;
+    ? `I just won a round of Bombermeme 💣🏆 with ${frags} frags. Come get blown up:`
+    : `Just dropped ${frags} frags in Bombermeme 💣 Think you can do better?`;
   const url = `${location.origin}${location.pathname}`;
   if (navigator.share) {
-    void navigator.share({ title: "Bomberpump", text, url }).catch(() => {});
+    void navigator.share({ title: "Bombermeme", text, url }).catch(() => {});
   } else {
     const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
     window.open(intent, "_blank", "noopener");

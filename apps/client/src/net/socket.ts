@@ -131,8 +131,21 @@ export class Net {
     this.intentional = false;
     this.attempts = 0;
     this.reconnectToken = "";
+    document.addEventListener("visibilitychange", this.onVisible);
     this.open(`token=${encodeURIComponent(token)}`);
   }
+
+  // Mobile browsers freeze JS in a locked/backgrounded tab, so the retry
+  // timers below don't fire. The moment we're visible again, force an
+  // immediate reconnect if the socket dropped while we were away.
+  private onVisible = (): void => {
+    if (this.intentional || document.visibilityState !== "visible") return;
+    const closed = !this.ws || this.ws.readyState === WebSocket.CLOSED;
+    if (closed && this.reconnectToken) {
+      this.attempts = 0;
+      this.open(`reconnect=${encodeURIComponent(this.reconnectToken)}`);
+    }
+  };
 
   private open(query: string): void {
     const ws = new WebSocket(`${SERVER_WS}?${query}`);
@@ -211,6 +224,7 @@ export class Net {
 
   close(): void {
     this.intentional = true;
+    document.removeEventListener("visibilitychange", this.onVisible);
     this.cleanup();
     if (this.ws) {
       this.ws.onclose = null;
