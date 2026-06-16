@@ -423,20 +423,14 @@ button.ghost {
   transform: scale(0.9);
 }
 .emote-bar.in-game {
-  position: absolute;
-  left: 50%;
-  bottom: 64px;
-  transform: translateX(-50%);
-  z-index: 6;
-  pointer-events: none;
-  opacity: 0.85;
+  flex: 0 0 auto;
+  gap: 4px;
 }
 .emote-bar.in-game .emote-btn {
-  width: 38px;
-  height: 38px;
-  font-size: 1.15rem;
-  pointer-events: auto;
-  background: rgba(0, 0, 0, 0.5);
+  width: 34px;
+  height: 34px;
+  font-size: 1.05rem;
+  background: var(--panel);
 }
 .emote-pop {
   position: absolute;
@@ -473,6 +467,9 @@ button.ghost {
 #canvas {
   display: block;
   background: #0c0e14;
+  border: 3px solid #39405a;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 6px 24px rgba(0, 0, 0, 0.45);
 }
 /* Info panel under the board: timer, your kit, scoreboard, ping */
 #hud-panel {

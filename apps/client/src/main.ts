@@ -82,7 +82,7 @@ function puIcon(meta: PuMeta): HTMLElement {
   const img = document.createElement("img");
   img.className = "pu-ic";
   img.alt = meta.emoji;
-  const exts = [".webp", ".png"];
+  const exts = [".png", ".webp"];
   let i = 0;
   const next = () => {
     if (i >= exts.length) {
