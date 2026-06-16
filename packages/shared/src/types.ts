@@ -43,6 +43,7 @@ export enum ClientMsg {
   REQUEST_START = 4, // host asks to start the match early
   SET_READY = 5, // lobby ready-up toggle
   EMOTE = 6, // quick reaction (index into EMOTES)
+  SET_STAKE = 7, // host changes the table's stake (lobby only)
 }
 
 /** Server -> Client message ids. */

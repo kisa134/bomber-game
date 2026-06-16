@@ -281,7 +281,7 @@ app.post("/quickplay", (res, req) =>
   withMatchmaking(res, req, (b) => mm.quickplay(b.name, b.skin, b.wallet, b.stake)),
 );
 app.post("/create", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.createPrivate(b.name, b.skin, b.wallet, b.stake)),
+  withMatchmaking(res, req, (b) => mm.createTable(b.name, b.skin, b.wallet, b.stake)),
 );
 app.post("/practice", (res, req) =>
   withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet), () => 0),
@@ -369,6 +369,8 @@ app.ws<SocketData>("/ws", {
       room.setReady(ud.playerId, msg.ready);
     } else if (msg.type === ClientMsg.EMOTE) {
       room.emote(ud.playerId, msg.emote);
+    } else if (msg.type === ClientMsg.SET_STAKE) {
+      void room.setStake(ud.playerId, msg.stake);
     }
   },
   close: (ws) => {

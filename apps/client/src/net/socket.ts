@@ -8,6 +8,7 @@ import {
   encodeRequestStart,
   encodeSetReady,
   encodeEmote,
+  encodeSetStake,
   type ServerMessage,
 } from "./protocol.js";
 import { SERVER_HTTP, SERVER_WS } from "../config.js";
@@ -208,6 +209,10 @@ export class Net {
 
   sendReady(ready: boolean): void {
     this.send(encodeSetReady(ready));
+  }
+
+  sendSetStake(stake: number): void {
+    this.send(encodeSetStake(stake));
   }
 
   sendEmote(emote: number): void {

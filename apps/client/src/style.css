@@ -286,6 +286,26 @@ button.ghost {
   box-shadow: 0 0 10px rgba(255, 204, 51, 0.25);
 }
 
+/* Public tables filter chips */
+.tables-filter {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Host stake control in the waiting room */
+.room-stake {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(255, 204, 51, 0.06);
+  border: 1px solid rgba(255, 204, 51, 0.28);
+}
+
 /* Public tables list */
 .tables-list {
   display: flex;

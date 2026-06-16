@@ -21,6 +21,7 @@ import {
   Direction,
   MatchPhase,
   TileType,
+  BET_SIZES,
   encodeSnapshot,
   encodePhase,
   encodeExplosion,
@@ -57,7 +58,7 @@ export class Room {
   readonly id: string; // also used as the shareable room code
   readonly isPublic: boolean;
   readonly practice: boolean; // fill with bots and auto-start
-  readonly stake: number; // chips wagered per player (0 = casual)
+  stake: number; // chips wagered per player (0 = casual); host can change in lobby
   private pot = 0; // escrowed chips for the current match
   private contributors: string[] = []; // wallets that paid into the pot (for refunds)
   readonly world = new World();
@@ -647,17 +648,40 @@ export class Room {
     }
   }
 
-  /** Deduct each wallet player's stake into the pot at match start. */
+  /** Host changes the table stake while in the lobby. Rejected unless every
+   *  present wallet player can afford it (keeps the "everyone can pay" invariant
+   *  so the escrow at start never short-changes the pot). */
+  async setStake(id: number, stake: number): Promise<void> {
+    if (this.phase !== MatchPhase.LOBBY || id !== this.hostId) return;
+    if (stake !== 0 && !(BET_SIZES as readonly number[]).includes(stake)) return;
+    if (stake === this.stake) return;
+    if (stake > 0) {
+      for (const p of this.players.values()) {
+        if (p.isBot || !p.wallet) continue;
+        const prof = await store.getProfile(p.wallet);
+        if (!prof || prof.chips < stake) return; // someone can't afford -> reject
+      }
+    }
+    this.stake = stake;
+    this.broadcastRoomInfo();
+  }
+
+  /** Deduct each wallet player's stake into the pot at match start. Overdraw-safe:
+   *  only players who actually paid are counted into the pot and refund list. */
   private escrowStakes(): void {
     this.pot = 0;
     this.contributors = [];
     if (this.stake <= 0) return;
+    const amount = this.stake;
     for (const p of this.players.values()) {
       if (p.isBot || !p.wallet) continue;
       const wallet = p.wallet;
-      this.pot += this.stake;
-      this.contributors.push(wallet);
-      void store.adjustChips(wallet, -this.stake);
+      void store.adjustChips(wallet, -amount).then((bal) => {
+        if (bal !== null) {
+          this.pot += amount;
+          this.contributors.push(wallet);
+        }
+      });
     }
   }
 

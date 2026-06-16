@@ -97,20 +97,54 @@ export function setupMenu(h: MenuHandlers): void {
   });
 }
 
-/** Render the public tables list; each row joins via onJoin(code). */
+/** Stake filter for the public tables browser (-1 = show all). */
+let tableFilter = -1;
+let lastTables: TableInfo[] = [];
+let lastOnJoin: (code: string) => void = () => {};
+
+/** Render the public tables list with a stake filter; rows join via onJoin(code). */
 export function renderTables(tables: TableInfo[], onJoin: (code: string) => void): void {
+  lastTables = tables;
+  lastOnJoin = onJoin;
+  drawTables();
+}
+
+function drawTables(): void {
+  const filter = document.getElementById("tables-filter");
   const list = document.getElementById("tables-list");
-  if (!list) return;
+  if (!list || !filter) return;
+
+  // Filter chips: All + each stake currently present among open tables.
+  const stakes = Array.from(new Set(lastTables.map((t) => t.stake))).sort((a, b) => a - b);
+  const chips: Array<{ v: number; label: string }> = [
+    { v: -1, label: "All" },
+    ...stakes.map((s) => ({ v: s, label: s > 0 ? `🪙${s}` : "Casual" })),
+  ];
+  filter.classList.toggle("hidden", lastTables.length === 0);
+  filter.innerHTML = "";
+  for (const c of chips) {
+    const b = document.createElement("button");
+    b.className = "stake-btn" + (c.v === tableFilter ? " selected" : "");
+    b.textContent = c.label;
+    b.addEventListener("click", () => {
+      tableFilter = c.v;
+      drawTables();
+    });
+    filter.appendChild(b);
+  }
+
+  const shown = tableFilter === -1 ? lastTables : lastTables.filter((t) => t.stake === tableFilter);
   list.innerHTML = "";
-  if (tables.length === 0) {
-    list.innerHTML = '<div class="status">No open tables — start one!</div>';
+  if (shown.length === 0) {
+    list.innerHTML = '<div class="status">No open tables here — start one!</div>';
     return;
   }
-  for (const t of tables) {
+  for (const t of shown) {
     const row = document.createElement("button");
     row.className = "table-row";
-    row.innerHTML = `<span>${t.stake > 0 ? "🪙" + t.stake : "Casual"}</span><span>${t.players}/${t.max}</span><span>Join</span>`;
-    row.addEventListener("click", () => onJoin(t.code));
+    const pot = t.stake > 0 ? ` · pot 🪙${t.stake * t.players}` : "";
+    row.innerHTML = `<span>${t.stake > 0 ? "🪙" + t.stake : "Casual"}${pot}</span><span>${t.players}/${t.max}</span><span>Join</span>`;
+    row.addEventListener("click", () => lastOnJoin(t.code));
     list.appendChild(row);
   }
 }
@@ -118,6 +152,12 @@ export function renderTables(tables: TableInfo[], onJoin: (code: string) => void
 export function setMenuStatus(text: string): void {
   const el = document.getElementById("menu-status");
   if (el) el.textContent = text;
+}
+
+/** Set once: how the host's stake-change buttons reach the network layer. */
+let onSetStake: (stake: number) => void = () => {};
+export function setStakeHandler(fn: (stake: number) => void): void {
+  onSetStake = fn;
 }
 
 /** Refresh the waiting-room screen from current state. */
@@ -161,6 +201,30 @@ export function renderRoom(state: GameState): void {
     ready.style.marginLeft = state.hostId === p.id ? "8px" : "auto";
     li.appendChild(ready);
     list.appendChild(li);
+  }
+
+  // Host-only stake control: change the table stake for the next match.
+  const stakeBox = document.getElementById("room-stake");
+  if (stakeBox) {
+    if (state.isHost) {
+      stakeBox.classList.remove("hidden");
+      stakeBox.innerHTML = "";
+      const label = document.createElement("div");
+      label.className = "stake-label";
+      label.textContent = "Table stake (host) — winner takes the pot";
+      const row = document.createElement("div");
+      row.className = "stake-picker";
+      for (const v of [0, ...BET_SIZES]) {
+        const b = document.createElement("button");
+        b.className = "stake-btn" + (v === state.roomStake ? " selected" : "");
+        b.textContent = v === 0 ? "Casual" : `🪙${v}`;
+        b.addEventListener("click", () => onSetStake(v));
+        row.appendChild(b);
+      }
+      stakeBox.append(label, row);
+    } else {
+      stakeBox.classList.add("hidden");
+    }
   }
 
   const count = state.roomPlayers.length;

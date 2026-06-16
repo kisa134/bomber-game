@@ -44,14 +44,15 @@ export class Matchmaker {
     return this.reserve(room, name, skin, wallet);
   }
 
-  /** Open a fresh private room (optionally a staked table) with a shareable code. */
-  createPrivate(
+  /** Open a fresh public table at the given stake. It shows up in the public
+   *  tables browser AND has a shareable code so the host can invite friends. */
+  createTable(
     name: string,
     skin: number,
     wallet: string | null,
     stake = 0,
   ): { code: string; token: string } {
-    const room = this.newRoom(false, false, stake);
+    const room = this.newRoom(true, false, stake);
     return this.reserve(room, name, skin, wallet);
   }
 

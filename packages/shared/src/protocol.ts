@@ -86,13 +86,22 @@ export function encodeEmote(emote: number): Uint8Array {
   return new Uint8Array([ClientMsg.EMOTE, emote & 0xff]);
 }
 
+export function encodeSetStake(stake: number): Uint8Array {
+  const buf = new Uint8Array(3);
+  const dv = new DataView(buf.buffer);
+  dv.setUint8(0, ClientMsg.SET_STAKE);
+  dv.setUint16(1, stake & 0xffff, true);
+  return buf;
+}
+
 export type ClientMessage =
   | { type: ClientMsg.INPUT_MOVE; dir: Direction; tick: number }
   | { type: ClientMsg.INPUT_PLACE_BOMB; seq: number }
   | { type: ClientMsg.PING; timestamp: number }
   | { type: ClientMsg.REQUEST_START }
   | { type: ClientMsg.SET_READY; ready: boolean }
-  | { type: ClientMsg.EMOTE; emote: number };
+  | { type: ClientMsg.EMOTE; emote: number }
+  | { type: ClientMsg.SET_STAKE; stake: number };
 
 export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | null {
   const dv = asView(data);
@@ -116,6 +125,9 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
     case ClientMsg.EMOTE:
       if (dv.byteLength < 2) return null;
       return { type, emote: dv.getUint8(1) };
+    case ClientMsg.SET_STAKE:
+      if (dv.byteLength < 3) return null;
+      return { type, stake: dv.getUint16(1, true) };
     default:
       return null;
   }

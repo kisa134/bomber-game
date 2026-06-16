@@ -37,7 +37,7 @@ import {
   shortAddr,
   reauth,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setStakeHandler } from "./ui/lobby.js";
 import { track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 
@@ -949,6 +949,9 @@ setupMenu({
     );
   },
 });
+
+// Host can change the table stake from the waiting room (server re-broadcasts).
+setStakeHandler((stake) => net.sendSetStake(stake));
 
 document.getElementById("start-now")!.addEventListener("click", () => net.sendStart());
 
