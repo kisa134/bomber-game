@@ -879,6 +879,7 @@ async function openLeaderboard(): Promise<void> {
   body.innerHTML = '<li class="status">Loading…</li>';
   try {
     const rows = await fetchLeaderboard();
+    const myWallet = loadWallet()?.address ?? "";
     body.innerHTML = "";
     if (!rows.length) {
       body.innerHTML = '<li class="status">No players yet — be the first!</li>';
@@ -886,11 +887,13 @@ async function openLeaderboard(): Promise<void> {
     }
     rows.forEach((r, i) => {
       const li = document.createElement("li");
-      li.className = "lb-row";
+      const isMe = r.wallet === myWallet;
+      li.className = "lb-row" + (isMe ? " me" : "");
       const lg = leagueFor(r.rating);
+      const medal = ["🥇", "🥈", "🥉"][i] ?? `${i + 1}`;
       li.append(
-        el("span", "lb-rank", `${i + 1}`),
-        el("span", "lb-name", `${lg.emoji} ${r.name || shortAddr(r.wallet)}`),
+        el("span", "lb-rank", medal),
+        el("span", "lb-name", `${lg.emoji} ${r.name || shortAddr(r.wallet)}${isMe ? " (you)" : ""}`),
         el("span", "lb-xp", `${r.rating}`),
       );
       body.appendChild(li);
@@ -1008,6 +1011,11 @@ function leaveToMenu(): void {
 }
 document.getElementById("leave-room")!.addEventListener("click", leaveToMenu);
 document.getElementById("result-leave")!.addEventListener("click", leaveToMenu);
+// In-game leave: forfeits the round. Confirm only when chips are on the line.
+document.getElementById("game-leave")!.addEventListener("click", () => {
+  if (state.roomStake > 0 && !confirm("Leave the match? You forfeit your stake.")) return;
+  leaveToMenu();
+});
 // Back to lobby: stay connected, just show the waiting room. The server keeps
 // the room alive after a match, so the same players regroup for a rematch.
 document.getElementById("result-lobby")!.addEventListener("click", () => {

@@ -120,8 +120,12 @@ body {
 }
 
 h2 {
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: 1.7rem;
+  font-weight: 800;
+  background: linear-gradient(180deg, #fff0a8, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 input {
@@ -529,6 +533,26 @@ button.ghost {
   padding: 4px 12px;
   border-radius: 8px;
   flex: 0 0 auto;
+}
+
+/* In-game leave button (top-left of the board) */
+#game-leave {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 9;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+#game-leave:active {
+  transform: scale(0.92);
 }
 
 /* Killfeed (top-right, under HUD) */
@@ -950,16 +974,22 @@ button.big {
 /* Menu links + profile + leaderboard */
 .menu-links {
   display: flex;
-  gap: 18px;
+  gap: 10px;
   margin-top: 2px;
+  width: 100%;
 }
 .link {
+  flex: 1 1 0;
   width: auto;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 0.9rem;
-  padding: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 13px 8px;
+}
+.link:active {
+  transform: scale(0.97);
 }
 #profile-body {
   width: 100%;
@@ -1018,8 +1048,13 @@ button.big {
   gap: 10px;
   background: var(--bg2);
   border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 0.9rem;
+  padding: 10px 12px;
+  font-size: 0.95rem;
+  border: 1px solid transparent;
+}
+.lb-row.me {
+  border-color: var(--accent);
+  background: rgba(255, 204, 51, 0.1);
 }
 .lb-rank {
   width: 22px;
