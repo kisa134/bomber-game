@@ -1,4 +1,4 @@
-import { GRID_W, GRID_H, TileType, BOMB_TIMER_MS, EXPLOSION_LIFETIME_MS } from "../net/protocol.js";
+import { GRID_W, GRID_H, TileType, BOMB_TIMER_MS, EXPLOSION_LIFETIME_MS, START_LIVES } from "../net/protocol.js";
 import type { RenderView } from "./state.js";
 import type { Assets } from "./assets.js";
 
@@ -29,6 +29,7 @@ const PU_ICON: Partial<Record<TileType, string>> = {
   [TileType.PU_SPEED]: "👟",
   [TileType.PU_KICK]: "🦵",
   [TileType.PU_WALL]: "👻",
+  [TileType.PU_HEALTH]: "❤️",
 };
 
 const PU_SPRITE: Partial<Record<TileType, string>> = {
@@ -37,6 +38,7 @@ const PU_SPRITE: Partial<Record<TileType, string>> = {
   [TileType.PU_SPEED]: "pu_speed",
   [TileType.PU_KICK]: "pu_kick",
   [TileType.PU_WALL]: "pu_wall",
+  [TileType.PU_HEALTH]: "pu_health",
 };
 
 const DEATH_MS = 650;
@@ -287,6 +289,25 @@ export class Renderer {
         ctx.beginPath();
         ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
         ctx.stroke();
+      }
+
+      // HP bar above the player: START_LIVES segments, filled = current HP.
+      if (p.alive) {
+        ctx.globalAlpha = 1;
+        const segs = START_LIVES;
+        const bw = t * 0.62;
+        const gap = t * 0.04;
+        const sw = (bw - gap * (segs - 1)) / segs;
+        const sh = t * 0.1;
+        const bx = cx - bw / 2;
+        const byy = cy - r - t * 0.22;
+        for (let s = 0; s < segs; s++) {
+          ctx.fillStyle = s < p.lives ? "#5fd96a" : "rgba(0,0,0,0.55)";
+          ctx.fillRect(bx + s * (sw + gap), byy, sw, sh);
+        }
+        ctx.strokeStyle = "rgba(0,0,0,0.6)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx, byy, bw, sh);
       }
 
       // Reaction bubble above the player.

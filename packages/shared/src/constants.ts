@@ -1,7 +1,7 @@
 // All gameplay-balancing numbers live here. No magic numbers in logic.
 
 // Bump whenever the binary frame layout changes; client + server must match.
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 export const TICK_RATE = 60; // Hz — finest/most responsive base motion (2x server cost)
 export const TICK_MS = 1000 / TICK_RATE; // ~16.7
@@ -34,10 +34,12 @@ export const ROOM_LINGER_MS = 3_000;
 
 export const SOFT_BLOCK_DENSITY = 0.7; // share of free cells filled with soft blocks
 export const POWERUP_DROP_CHANCE = 0.3;
+export const HEALTH_DROP_CHANCE = 0.02; // very rare: a destroyed soft block drops +1 HP
 
-// Lives: each player has a few, respawning with brief invulnerability until out.
-export const START_LIVES = 2;
-export const RESPAWN_INVULN_MS = 2500;
+// Health: each player has 3 HP. A bomb hit removes one and gives a brief mercy
+// window (blink) instead of a respawn; at 0 HP the player is eliminated.
+export const START_LIVES = 3;
+export const HIT_INVULN_MS = 1200; // i-frames after taking damage (> fire lifetime)
 export const WALL_PASS_MS = 5000; // wall-pass powerup is temporary
 
 // Lobby / matchmaking (no bots — matches need real players)

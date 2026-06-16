@@ -73,6 +73,7 @@ const POWERUP_META: Record<PowerUpType, PuMeta> = {
   [PowerUpType.SPEED_UP]: { sprite: "powerup_speed", emoji: "👟", label: "Speed +" },
   [PowerUpType.KICK]: { sprite: "powerup_kick", emoji: "🦵", label: "Kick!" },
   [PowerUpType.WALL_PASS]: { sprite: "powerup_wall", emoji: "👻", label: "Wall Pass!" },
+  [PowerUpType.HEALTH]: { sprite: "powerup_health", emoji: "❤️", label: "+1 Health!" },
 };
 
 /** Small icon element using the shared sprite, falling back to emoji. */
@@ -97,6 +98,7 @@ interface KillLine {
 const killLines: KillLine[] = [];
 let toastUntil = 0;
 let hudSig = "";
+let prevMyLives = -1; // track HP to flash on damage
 
 const inGame = (p: MatchPhase) =>
   p === MatchPhase.COUNTDOWN || p === MatchPhase.PLAYING || p === MatchPhase.SUDDEN_DEATH;
@@ -207,7 +209,12 @@ net.onMessage = (msg) => {
     case ServerMsg.STATE_SNAPSHOT: {
       state.addSnapshot(msg);
       const me = msg.players.find((p) => p.id === state.myId);
-      if (me) predictor.onServerState(msg.tick, me.x, me.y, me.speed, me.alive, state.grid, me.wallPass);
+      if (me) {
+        predictor.onServerState(msg.tick, me.x, me.y, me.speed, me.alive, state.grid, me.wallPass);
+        // Took damage but survived -> hurt flash (elimination handled by death event).
+        if (me.alive && prevMyLives >= 0 && me.lives < prevMyLives) flashHit();
+        prevMyLives = me.lives;
+      }
       // Soft-block break sound (derived from the reconstructed grid).
       let soft = 0;
       for (let i = 0; i < state.grid.length; i++) if (state.grid[i] === TileType.SOFT) soft++;
@@ -296,6 +303,7 @@ function enterGame(): void {
   bottomSig = "";
   bottomEl.innerHTML = "";
   sdWarned = false;
+  prevMyLives = -1;
   myKillTimes = [];
   calloutEl.classList.add("hidden");
   spectatorEl.classList.add("hidden");

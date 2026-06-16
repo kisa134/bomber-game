@@ -17,7 +17,7 @@ import {
   MIN_PLAYERS_TO_START,
   IDLE_KICK_MS,
   KICK_SPEED,
-  RESPAWN_INVULN_MS,
+  HIT_INVULN_MS,
   DRAW_WINNER_ID,
   Direction,
   MatchPhase,
@@ -597,9 +597,17 @@ export class Room {
   private hit(p: Player, eliminate = false, killerId = -1): void {
     if (!p.alive) return;
     const now = Date.now();
-    if (!eliminate && now < p.invulnUntilMs) return; // protected after respawn
+    if (!eliminate && now < p.invulnUntilMs) return; // i-frames after a hit
 
-    // Frag accounting.
+    p.lives = eliminate ? 0 : p.lives - 1;
+
+    // Non-fatal hit: lose 1 HP, blink (i-frames), stay put — no respawn/teleport.
+    if (p.lives > 0) {
+      p.invulnUntilMs = now + HIT_INVULN_MS;
+      return;
+    }
+
+    // Fatal: eliminate. Credit the kill now (only real kills count as frags).
     if (killerId >= 0 && killerId !== p.id) {
       const killer = this.players.get(killerId);
       if (killer) killer.frags += 1;
@@ -607,41 +615,11 @@ export class Room {
       p.frags = Math.max(0, p.frags - 1); // suicide penalty
     }
     this.broadcast(encodeKill(killerId >= 0 ? killerId : 255, p.id));
-
     p.deaths += 1;
-    p.lives = eliminate ? 0 : p.lives - 1;
-    this.broadcast(encodeDeath(p.id)); // VFX/sound on every hit
-    if (p.lives <= 0) {
-      p.alive = false;
-      p.dir = Direction.NONE;
-      p.intent = Direction.NONE;
-    } else {
-      this.respawn(p, now);
-    }
-  }
-
-  private respawn(p: Player, now: number): void {
-    const cell = this.findSafeCell();
-    p.x = cell.x + 0.5;
-    p.y = cell.y + 0.5;
+    p.alive = false;
     p.dir = Direction.NONE;
     p.intent = Direction.NONE;
-    p.invulnUntilMs = now + RESPAWN_INVULN_MS;
-    p.lastMoveAtMs = now;
-  }
-
-  private findSafeCell(): { x: number; y: number } {
-    const ok = (x: number, y: number) =>
-      this.world.tile(x, y) === TileType.EMPTY &&
-      this.world.fire[this.world.idx(x, y)] === 0 &&
-      !this.bombs.some((b) => !b.exploded && b.x === x && b.y === y);
-    for (const s of SPAWNS) if (ok(s.x, s.y)) return s;
-    for (let y = 0; y < GRID_H; y++) {
-      for (let x = 0; x < GRID_W; x++) {
-        if (ok(x, y)) return { x, y };
-      }
-    }
-    return SPAWNS[0];
+    this.broadcast(encodeDeath(p.id));
   }
 
   private checkWin(timeUp = false): void {

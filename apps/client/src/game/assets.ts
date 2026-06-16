@@ -21,6 +21,7 @@ export const SPRITE_FILES: Record<string, string> = {
   pu_speed: "/sprites/powerup_speed.webp",
   pu_kick: "/sprites/powerup_kick.webp",
   pu_wall: "/sprites/powerup_wall.webp",
+  pu_health: "/sprites/powerup_health.webp",
   skin0: "/sprites/skin_0.webp",
   skin1: "/sprites/skin_1.webp",
   skin2: "/sprites/skin_2.webp",

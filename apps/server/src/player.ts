@@ -115,6 +115,9 @@ export class Player {
       case PowerUpType.WALL_PASS:
         this.wallPassUntilMs = now + WALL_PASS_MS; // temporary
         break;
+      case PowerUpType.HEALTH:
+        this.lives = Math.min(START_LIVES, this.lives + 1); // rare heal, capped
+        break;
     }
   }
 }

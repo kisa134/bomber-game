@@ -3,6 +3,7 @@ import {
   GRID_H,
   GRID_SIZE,
   POWERUP_DROP_CHANCE,
+  HEALTH_DROP_CHANCE,
   POWERUP_COUNT,
   TileType,
   PowerUpType,
@@ -28,6 +29,7 @@ const PU_TILE: Record<PowerUpType, TileType> = {
   [PowerUpType.SPEED_UP]: TileType.PU_SPEED,
   [PowerUpType.KICK]: TileType.PU_KICK,
   [PowerUpType.WALL_PASS]: TileType.PU_WALL,
+  [PowerUpType.HEALTH]: TileType.PU_HEALTH,
 };
 
 export function powerupOfTile(t: TileType): PowerUpType | null {
@@ -37,6 +39,7 @@ export function powerupOfTile(t: TileType): PowerUpType | null {
     case TileType.PU_SPEED: return PowerUpType.SPEED_UP;
     case TileType.PU_KICK: return PowerUpType.KICK;
     case TileType.PU_WALL: return PowerUpType.WALL_PASS;
+    case TileType.PU_HEALTH: return PowerUpType.HEALTH;
     default: return null;
   }
 }
@@ -85,12 +88,29 @@ export class World {
     this.fire.fill(0);
     this.fireOwner.fill(-1);
 
-    // Indestructible pillars on the classic odd/odd lattice. No border ring —
-    // the screen edge is the boundary (collision handled by inBounds), so the
-    // whole 17x11 field is playable and corners are open.
-    for (let y = 0; y < GRID_H; y++) {
-      for (let x = 0; x < GRID_W; x++) {
-        if (x % 2 === 1 && y % 2 === 1) this.set(x, y, TileType.HARD);
+    // Open plaza in the very center (no pillars/soft) — a free arena spot.
+    const ccx = (GRID_W - 1) / 2;
+    const ccy = (GRID_H - 1) / 2;
+    const openCenter = (x: number, y: number) =>
+      Math.abs(x - ccx) <= 1 && Math.abs(y - ccy) <= 1;
+
+    // Indestructible pillars: a 4-fold-symmetric RANDOM subset of the odd/odd
+    // lattice. Any subset keeps every even row/column open, so the field is
+    // always fully connected — but the pattern (and density) is unique per match.
+    // No border ring: the screen edge is the boundary (collision via inBounds).
+    const pillarKeep = 0.5 + rng() * 0.45; // 0.5..0.95 of lattice cells, per match
+    const setHardMirror = (x: number, y: number) => {
+      for (const ax of x === GRID_W - 1 - x ? [x] : [x, GRID_W - 1 - x]) {
+        for (const ay of y === GRID_H - 1 - y ? [y] : [y, GRID_H - 1 - y]) {
+          this.set(ax, ay, TileType.HARD);
+        }
+      }
+    };
+    const midX = Math.floor(GRID_W / 2);
+    const midY = Math.floor(GRID_H / 2);
+    for (let y = 1; y <= midY; y += 2) {
+      for (let x = 1; x <= midX; x += 2) {
+        if (!openCenter(x, y) && rng() < pillarKeep) setHardMirror(x, y);
       }
     }
 
@@ -108,8 +128,6 @@ export class World {
     // Procedural soft-block layout: randomized each match but 4-fold symmetric,
     // so every corner is equally fair. Density varies per match for variety.
     const density = 0.55 + rng() * 0.3; // 0.55 .. 0.85
-    const midX = Math.floor(GRID_W / 2);
-    const midY = Math.floor(GRID_H / 2);
     const placeSoftMirrored = (x: number, y: number) => {
       const xs = x === GRID_W - 1 - x ? [x] : [x, GRID_W - 1 - x];
       const ys = y === GRID_H - 1 - y ? [y] : [y, GRID_H - 1 - y];
@@ -123,7 +141,7 @@ export class World {
     for (let y = 0; y <= midY; y++) {
       for (let x = 0; x <= midX; x++) {
         const i = this.idx(x, y);
-        if (this.grid[i] !== TileType.EMPTY || safe.has(i)) continue;
+        if (this.grid[i] !== TileType.EMPTY || safe.has(i) || openCenter(x, y)) continue;
         if (rng() < density) placeSoftMirrored(x, y);
       }
     }
@@ -135,13 +153,14 @@ export class World {
    */
   destroySoft(x: number, y: number, rng: () => number = Math.random): PowerUpType | null {
     if (!this.isSoft(x, y)) return null;
-    if (rng() < POWERUP_DROP_CHANCE) {
-      const pu = Math.floor(rng() * POWERUP_COUNT) as PowerUpType;
-      this.set(x, y, PU_TILE[pu]);
-      return pu;
+    let pu: PowerUpType | null = null;
+    if (rng() < HEALTH_DROP_CHANCE) {
+      pu = PowerUpType.HEALTH; // very rare
+    } else if (rng() < POWERUP_DROP_CHANCE) {
+      pu = Math.floor(rng() * POWERUP_COUNT) as PowerUpType; // common pool (0..4)
     }
-    this.set(x, y, TileType.EMPTY);
-    return null;
+    this.set(x, y, pu === null ? TileType.EMPTY : PU_TILE[pu]);
+    return pu;
   }
 
   // Reused each tick (single-threaded) to avoid per-tick allocations.

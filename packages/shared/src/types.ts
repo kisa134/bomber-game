@@ -12,6 +12,7 @@ export enum TileType {
   PU_SPEED = 12,
   PU_KICK = 13,
   PU_WALL = 14,
+  PU_HEALTH = 15, // rare: restores one HP
 }
 
 export enum PowerUpType {
@@ -20,7 +21,9 @@ export enum PowerUpType {
   SPEED_UP = 2,
   KICK = 3,
   WALL_PASS = 4, // walk through destructible (soft) blocks
+  HEALTH = 5, // rare: +1 HP
 }
+// Common powerups eligible for the normal drop roll (HEALTH is rolled separately, rarely).
 export const POWERUP_COUNT = 5;
 
 /** Direction sent by the client. 0 = no movement. */
