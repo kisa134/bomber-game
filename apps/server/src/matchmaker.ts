@@ -31,28 +31,33 @@ export class Matchmaker {
   private lastTime = 0;
   private acc = 0;
 
-  /** Join (or open) a public room. */
-  quickplay(name: string, skin: number, wallet: string | null): { code: string; token: string } {
+  /** Join (or open) a public room at the given stake (0 = casual). */
+  quickplay(name: string, skin: number, wallet: string | null, stake = 0): { code: string; token: string } {
     let room: Room | undefined;
     for (const r of this.rooms.values()) {
-      if (r.isPublic && r.acceptsPlayers()) {
+      if (r.isPublic && r.stake === stake && r.acceptsPlayers()) {
         room = r;
         break;
       }
     }
-    if (!room) room = this.newRoom(true);
+    if (!room) room = this.newRoom(true, false, stake);
     return this.reserve(room, name, skin, wallet);
   }
 
-  /** Open a fresh private room with a shareable code. */
-  createPrivate(name: string, skin: number, wallet: string | null): { code: string; token: string } {
-    const room = this.newRoom(false);
+  /** Open a fresh private room (optionally a staked table) with a shareable code. */
+  createPrivate(
+    name: string,
+    skin: number,
+    wallet: string | null,
+    stake = 0,
+  ): { code: string; token: string } {
+    const room = this.newRoom(false, false, stake);
     return this.reserve(room, name, skin, wallet);
   }
 
-  /** Solo practice room: fills with bots and auto-starts. */
+  /** Solo practice room: fills with bots and auto-starts. Never staked. */
   practice(name: string, skin: number, wallet: string | null): { code: string; token: string } {
-    const room = this.newRoom(false, true);
+    const room = this.newRoom(false, true, 0);
     return this.reserve(room, name, skin, wallet);
   }
 
@@ -79,13 +84,24 @@ export class Matchmaker {
     return { code: room.id, token };
   }
 
-  private newRoom(isPublic: boolean, practice = false): Room {
+  private newRoom(isPublic: boolean, practice = false, stake = 0): Room {
     if (this.rooms.size >= MAX_ROOMS) throw new ServerFullError();
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
-    const room = new Room(code, isPublic, practice);
+    const room = new Room(code, isPublic, practice, stake);
     this.rooms.set(code, room);
     return room;
+  }
+
+  /** Open public tables (lobby, joinable) for the lobby browser. */
+  listTables(): Array<{ code: string; stake: number; players: number; max: number }> {
+    const out: Array<{ code: string; stake: number; players: number; max: number }> = [];
+    for (const r of this.rooms.values()) {
+      if (r.isPublic && !r.practice && r.acceptsPlayers()) {
+        out.push({ code: r.id, stake: r.stake, players: r.players.size, max: r.maxPlayers });
+      }
+    }
+    return out.sort((a, b) => a.stake - b.stake || b.players - a.players);
   }
 
   private genCode(): string {

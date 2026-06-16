@@ -53,28 +53,60 @@ export async function fetchLeaderboard(): Promise<ProfileData[]> {
   return rows ?? [];
 }
 
-export async function quickplay(name: string, skin: number): Promise<JoinResponse> {
-  const res = await post("/quickplay", { name, skin });
-  if (!res.ok) throw new Error(`quickplay failed: ${res.status}`);
+export interface TableInfo {
+  code: string;
+  stake: number;
+  players: number;
+  max: number;
+}
+
+export async function fetchTables(): Promise<TableInfo[]> {
+  try {
+    const res = await fetch(`${SERVER_HTTP}/tables`);
+    const { tables } = (await res.json()) as { tables: TableInfo[] };
+    return tables ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Turn a server error body into a friendly message (e.g. not enough chips). */
+async function joinError(res: Response): Promise<Error> {
+  let body: { error?: string; balance?: number; stake?: number } = {};
+  try {
+    body = await res.json();
+  } catch {
+    /* ignore */
+  }
+  if (body.error === "insufficient_chips")
+    return new Error(`Not enough chips: need ${body.stake}, you have ${body.balance}`);
+  if (body.error === "wallet_required") return new Error("Connect a wallet to play staked tables");
+  if (res.status === 404) return new Error("Room not found");
+  if (body.error === "server_full") return new Error("Server full — try again");
+  return new Error(`Failed (${res.status})`);
+}
+
+export async function quickplay(name: string, skin: number, stake = 0): Promise<JoinResponse> {
+  const res = await post("/quickplay", { name, skin, stake });
+  if (!res.ok) throw await joinError(res);
   return res.json();
 }
 
-export async function createRoom(name: string, skin: number): Promise<JoinResponse> {
-  const res = await post("/create", { name, skin });
-  if (!res.ok) throw new Error(`create failed: ${res.status}`);
+export async function createRoom(name: string, skin: number, stake = 0): Promise<JoinResponse> {
+  const res = await post("/create", { name, skin, stake });
+  if (!res.ok) throw await joinError(res);
   return res.json();
 }
 
 export async function practiceRoom(name: string, skin: number): Promise<JoinResponse> {
   const res = await post("/practice", { name, skin });
-  if (!res.ok) throw new Error(`practice failed: ${res.status}`);
+  if (!res.ok) throw await joinError(res);
   return res.json();
 }
 
 export async function joinRoom(name: string, code: string, skin: number): Promise<JoinResponse> {
   const res = await post("/join", { name, code, skin });
-  if (res.status === 404) throw new Error("Room not found");
-  if (!res.ok) throw new Error(`join failed: ${res.status}`);
+  if (!res.ok) throw await joinError(res);
   return res.json();
 }
 

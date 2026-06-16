@@ -51,6 +51,7 @@ export class GameState {
   roomCode = "";
   hostId = -1;
   isHost = false;
+  roomStake = 0; // chips wagered per player in this room (0 = casual)
   roomPlayers: RoomPlayerInfo[] = [];
   private lobbyCountdownMs = 0;
   private lobbySetAt = 0;
@@ -71,6 +72,7 @@ export class GameState {
     this.roomCode = msg.code;
     this.hostId = msg.hostId;
     this.isHost = msg.isHost;
+    this.roomStake = msg.stake;
     this.roomPlayers = msg.players;
     this.lobbyCountdownMs = msg.lobbyCountdownMs;
     this.lobbySetAt = performance.now();

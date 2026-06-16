@@ -1,6 +1,7 @@
-import { PLAYER_COLORS, SKIN_EMOJI, skinAvatar } from "../game/renderer.js";
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM } from "../net/protocol.js";
+import { PLAYER_COLORS, skinAvatar } from "../game/renderer.js";
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES } from "../net/protocol.js";
 import type { GameState } from "../game/state.js";
+import type { TableInfo } from "../net/socket.js";
 
 export type ScreenName =
   | "loading"
@@ -40,6 +41,7 @@ export function showScreen(name: ScreenName): void {
 export interface Choice {
   name: string;
   skin: number;
+  stake: number;
 }
 
 export interface MenuHandlers {
@@ -47,38 +49,46 @@ export interface MenuHandlers {
   practice: (c: Choice) => void;
   create: (c: Choice) => void;
   join: (c: Choice, code: string) => void;
+  tables: () => void; // open/refresh the public tables list
 }
 
 export function setupMenu(h: MenuHandlers): void {
   const nick = document.getElementById("nickname") as HTMLInputElement;
-  const skinsEl = document.getElementById("skins")!;
   const joinCode = document.getElementById("join-code") as HTMLInputElement;
+  const stakeEl = document.getElementById("stake-picker")!;
 
   nick.value = localStorage.getItem("bp_nick") ?? `pumper${(Math.random() * 1000) | 0}`;
-  let skin = Number(localStorage.getItem("bp_skin") ?? 0);
+  let stake = Number(localStorage.getItem("bp_stake") ?? 0);
 
-  skinsEl.innerHTML = "";
-  SKIN_EMOJI.forEach((_emoji, i) => {
-    const el = document.createElement("div");
-    el.className = "skin" + (i === skin ? " selected" : "");
-    el.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
-    el.addEventListener("click", () => {
-      skin = i;
-      skinsEl.querySelectorAll(".skin").forEach((s, j) => s.classList.toggle("selected", j === i));
+  // Stake picker: Casual (0) + the bet sizes. Skin is now random (players are
+  // told apart by colour), so there's no skin picker.
+  const stakes: Array<{ v: number; label: string }> = [
+    { v: 0, label: "Casual" },
+    ...BET_SIZES.map((v) => ({ v, label: `🪙${v}` })),
+  ];
+  stakeEl.innerHTML = "";
+  for (const s of stakes) {
+    const b = document.createElement("button");
+    b.className = "stake-btn" + (s.v === stake ? " selected" : "");
+    b.textContent = s.label;
+    b.addEventListener("click", () => {
+      stake = s.v;
+      localStorage.setItem("bp_stake", String(stake));
+      stakeEl.querySelectorAll(".stake-btn").forEach((el, i) => el.classList.toggle("selected", stakes[i].v === stake));
     });
-    skinsEl.appendChild(el);
-  });
+    stakeEl.appendChild(b);
+  }
 
   const choice = (): Choice => {
     const name = nick.value.trim() || "pumper";
     localStorage.setItem("bp_nick", name);
-    localStorage.setItem("bp_skin", String(skin));
-    return { name, skin };
+    return { name, skin: Math.floor(Math.random() * 4), stake };
   };
 
   document.getElementById("quickplay")!.addEventListener("click", () => h.quickplay(choice()));
   document.getElementById("practice")!.addEventListener("click", () => h.practice(choice()));
   document.getElementById("create-room")!.addEventListener("click", () => h.create(choice()));
+  document.getElementById("open-tables")!.addEventListener("click", () => h.tables());
   document.getElementById("join-room")!.addEventListener("click", () => {
     const code = joinCode.value.trim().toUpperCase();
     if (code.length < 3) {
@@ -87,6 +97,24 @@ export function setupMenu(h: MenuHandlers): void {
     }
     h.join(choice(), code);
   });
+}
+
+/** Render the public tables list; each row joins via onJoin(code). */
+export function renderTables(tables: TableInfo[], onJoin: (code: string) => void): void {
+  const list = document.getElementById("tables-list");
+  if (!list) return;
+  list.innerHTML = "";
+  if (tables.length === 0) {
+    list.innerHTML = '<div class="status">No open tables — start one!</div>';
+    return;
+  }
+  for (const t of tables) {
+    const row = document.createElement("button");
+    row.className = "table-row";
+    row.innerHTML = `<span>${t.stake > 0 ? "🪙" + t.stake : "Casual"}</span><span>${t.players}/${t.max}</span><span>Join</span>`;
+    row.addEventListener("click", () => onJoin(t.code));
+    list.appendChild(row);
+  }
 }
 
 export function setMenuStatus(text: string): void {
@@ -100,6 +128,13 @@ export function renderRoom(state: GameState): void {
   const codeEl = document.getElementById("room-code")!;
   codeEl.textContent = state.roomCode;
   codeBox.classList.toggle("hidden", !state.roomCode);
+
+  const title = document.getElementById("room-title");
+  if (title) {
+    const n = state.roomPlayers.length || 1;
+    title.textContent =
+      state.roomStake > 0 ? `🪙 ${state.roomStake} table · pot ${state.roomStake * n}` : "Waiting room";
+  }
 
   const seriesOn = state.roomPlayers.some((p) => p.wins > 0);
   const list = document.getElementById("room-players")!;

@@ -174,6 +174,7 @@ export interface RoomInfoMsg {
   isHost: boolean;
   /** ms left in the lobby auto-start countdown, 0 if not counting. */
   lobbyCountdownMs: number;
+  stake: number; // chips wagered per player (0 = casual table)
   players: RoomPlayerInfo[];
 }
 

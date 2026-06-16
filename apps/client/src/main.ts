@@ -19,6 +19,7 @@ import {
   practiceRoom,
   fetchProfile,
   fetchLeaderboard,
+  fetchTables,
   type JoinResponse,
 } from "./net/socket.js";
 import { GameState } from "./game/state.js";
@@ -34,7 +35,7 @@ import {
   shortAddr,
   reauth,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables } from "./ui/lobby.js";
 import { track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 
@@ -337,8 +338,21 @@ function announceResult(winnerId: number): void {
     assets.play("defeat");
   }
   music("lobby");
+  // Staked table: settle happened server-side — refresh the wallet balance and
+  // show the chip swing.
+  const stake = state.roomStake;
+  let chipNote = "";
+  if (stake > 0) {
+    const won = winnerId === state.myId;
+    const draw = winnerId === DRAW_WINNER_ID;
+    chipNote = draw ? "Stake refunded" : won ? `Won the pot 🪙` : `Lost 🪙${stake}`;
+    const w = loadWallet();
+    if (w) void fetchProfile(w.address).then((p) => setBalance(p.chips)).catch(() => {});
+  }
   setTimeout(() => {
     showResult(title);
+    const note = document.getElementById("result-chips");
+    if (note) note.textContent = chipNote;
     const fair = document.getElementById("result-fair")!;
     fair.textContent =
       state.seed && state.seedCommit
@@ -887,10 +901,19 @@ wireMenuLinks();
 setupBackground();
 
 setupMenu({
-  quickplay: (c) => { track("play_start", { mode: "quickplay" }); connect(() => quickplay(c.name, c.skin)); },
+  quickplay: (c) => { track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
   practice: (c) => { track("play_start", { mode: "practice" }); connect(() => practiceRoom(c.name, c.skin)); },
-  create: (c) => { track("play_start", { mode: "create" }); connect(() => createRoom(c.name, c.skin)); },
+  create: (c) => { track("play_start", { mode: "create", stake: c.stake }); connect(() => createRoom(c.name, c.skin, c.stake)); },
   join: (c, code) => { track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
+  tables: () => {
+    void fetchTables().then((tables) =>
+      renderTables(tables, (code) => {
+        const name = (localStorage.getItem("bp_nick") || "pumper").trim();
+        track("play_start", { mode: "table_join" });
+        void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
+      }),
+    );
+  },
 });
 
 document.getElementById("start-now")!.addEventListener("click", () => net.sendStart());

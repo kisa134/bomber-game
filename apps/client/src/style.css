@@ -257,6 +257,58 @@ button.ghost {
   padding: 6px 12px;
   text-align: center;
 }
+
+/* Stake picker */
+.stake-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+}
+.stake-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.stake-btn {
+  flex: 1 1 auto;
+  min-width: 60px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  font-weight: 700;
+  cursor: pointer;
+}
+.stake-btn.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 10px rgba(255, 204, 51, 0.25);
+}
+
+/* Public tables list */
+.tables-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.table-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-weight: 700;
+}
+.table-row:hover {
+  border-color: var(--accent);
+}
 .prof-chips {
   font-weight: 800;
   color: var(--accent);

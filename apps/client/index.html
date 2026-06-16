@@ -32,11 +32,14 @@
           <button id="wallet-btn">🔗 Connect Wallet</button>
           <div id="chip-balance" class="chip-balance hidden">🪙 <span id="chip-amount">0</span> chips</div>
           <input id="nickname" maxlength="16" placeholder="nickname" autocomplete="off" />
-          <div id="skins" class="skins"></div>
+          <div class="stake-label">Stake</div>
+          <div id="stake-picker" class="stake-picker"></div>
           <button id="quickplay" class="primary">⚡ Quickplay</button>
+          <button id="open-tables">🎰 Public tables</button>
+          <div id="tables-list" class="tables-list"></div>
           <button id="practice">🤖 Practice vs bots</button>
           <div class="divider"><span>play with friends</span></div>
-          <button id="create-room">➕ Create private room</button>
+          <button id="create-room">➕ Create private table</button>
           <div class="join-row">
             <input id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" />
             <button id="join-room">Join</button>
@@ -93,7 +96,7 @@
       <!-- Waiting room -->
       <section id="room" class="screen hidden">
         <div class="panel">
-          <h2>Waiting room</h2>
+          <h2 id="room-title">Waiting room</h2>
           <div id="room-code-box" class="hidden">
             <span class="label">Room code — share with friends</span>
             <div id="room-code" class="code"></div>
@@ -148,6 +151,7 @@
       <section id="result" class="screen hidden">
         <div class="panel">
           <h2 id="result-title"></h2>
+          <p id="result-chips" class="prof-chips"></p>
           <p class="status">back to the room for a rematch…</p>
           <p id="result-fair" class="status fair"></p>
           <button id="result-share" class="primary">🐦 Share result</button>

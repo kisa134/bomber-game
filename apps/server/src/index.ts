@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, BET_SIZES } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { store } from "./store.js";
@@ -158,22 +158,26 @@ app.get("/leaderboard", (res) => {
 
 async function parseBody(
   res: uWS.HttpResponse,
-): Promise<{ name: string; code: string; skin: number; wallet: string | null }> {
+): Promise<{ name: string; code: string; skin: number; wallet: string | null; stake: number }> {
   const body = await readBody(res);
   let name = "Player";
   let code = "";
   let skin = 0;
   let wallet: string | null = null;
+  let stake = 0;
   try {
     const parsed = JSON.parse(body || "{}");
     if (typeof parsed.name === "string" && parsed.name.trim()) name = parsed.name.trim().slice(0, 16);
     if (typeof parsed.code === "string") code = parsed.code.trim().toUpperCase().slice(0, 8);
     if (Number.isFinite(parsed.skin)) skin = Math.max(0, Math.min(3, Math.floor(parsed.skin)));
     if (typeof parsed.session === "string" && parsed.session) wallet = verifySession(parsed.session);
+    if (Number.isFinite(parsed.stake) && (BET_SIZES as readonly number[]).includes(parsed.stake)) {
+      stake = parsed.stake;
+    }
   } catch {
     // ignore malformed body
   }
-  return { name, code, skin, wallet };
+  return { name, code, skin, wallet, stake };
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
@@ -223,25 +227,38 @@ app.post("/auth/verify", (res, req) => {
   });
 });
 
+type Body = { name: string; code: string; skin: number; wallet: string | null; stake: number };
+
 function withMatchmaking(
   res: uWS.HttpResponse,
   req: uWS.HttpRequest,
-  fn: (b: { name: string; code: string; skin: number; wallet: string | null }) => unknown,
+  fn: (b: Body) => unknown,
+  stakeOf: (b: Body) => number = (b) => b.stake,
 ): void {
   if (!guard(res, req)) return;
   void parseBody(res).then(async (b) => {
     try {
+      // Staked table: require a wallet with enough chips before reserving a seat.
+      const stake = stakeOf(b);
+      if (stake > 0) {
+        if (!b.wallet) {
+          sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+          return;
+        }
+        const p = await store.ensureProfile(b.wallet, b.name, b.skin);
+        if (p.chips < stake) {
+          sendJson(res, { error: "insufficient_chips", balance: p.chips, stake }, "402 Payment Required");
+          return;
+        }
+      }
       const result = fn(b);
       if (!result) {
         sendJson(res, { error: "room_not_found" }, "404 Not Found");
         return;
       }
-      // Grant/return the wallet's chip balance (simulated currency).
       let chips: number | undefined;
       if (b.wallet) chips = (await store.ensureProfile(b.wallet, b.name, b.skin)).chips;
-      // Echo the wallet the server resolved from the session, so the client
-      // can detect a stale session and re-sign before playing.
-      sendJson(res, { ...result, wallet: b.wallet, chips });
+      sendJson(res, { ...result, wallet: b.wallet, chips, stake });
     } catch (e) {
       if (e instanceof ServerFullError) sendJson(res, { error: "server_full" }, "503 Service Unavailable");
       else sendJson(res, { error: "internal" }, "500 Internal Server Error");
@@ -249,17 +266,22 @@ function withMatchmaking(
   });
 }
 
+app.get("/tables", (res) => {
+  res.onAborted(() => {});
+  sendJson(res, { tables: mm.listTables() });
+});
+
 app.post("/quickplay", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.quickplay(b.name, b.skin, b.wallet)),
+  withMatchmaking(res, req, (b) => mm.quickplay(b.name, b.skin, b.wallet, b.stake)),
 );
 app.post("/create", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.createPrivate(b.name, b.skin, b.wallet)),
+  withMatchmaking(res, req, (b) => mm.createPrivate(b.name, b.skin, b.wallet, b.stake)),
 );
 app.post("/practice", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet)),
+  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet), () => 0),
 );
 app.post("/join", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.joinByCode(b.code, b.name, b.skin, b.wallet)),
+  withMatchmaking(res, req, (b) => mm.joinByCode(b.code, b.name, b.skin, b.wallet), (b) => mm.getRoom(b.code)?.stake ?? 0),
 );
 
 app.ws<SocketData>("/ws", {

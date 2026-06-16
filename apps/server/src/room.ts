@@ -56,6 +56,9 @@ export class Room {
   readonly id: string; // also used as the shareable room code
   readonly isPublic: boolean;
   readonly practice: boolean; // fill with bots and auto-start
+  readonly stake: number; // chips wagered per player (0 = casual)
+  private pot = 0; // escrowed chips for the current match
+  private contributors: string[] = []; // wallets that paid into the pot (for refunds)
   readonly world = new World();
   readonly players = new Map<number, Player>();
   private readonly bots = new Map<number, BotController>();
@@ -85,11 +88,16 @@ export class Room {
 
   dead = false;
 
-  constructor(id: string, isPublic: boolean, practice = false) {
+  constructor(id: string, isPublic: boolean, practice = false, stake = 0) {
     this.id = id;
     this.isPublic = isPublic;
     this.practice = practice;
+    this.stake = stake;
     this.spiral = buildSpiral();
+  }
+
+  get maxPlayers(): number {
+    return MAX_PLAYERS_PER_ROOM;
   }
 
   // -- membership -----------------------------------------------------------
@@ -373,6 +381,7 @@ export class Room {
       if (!p.isBot) p.ready = false; // require re-ready for the next round
       i++;
     }
+    this.escrowStakes();
     this.bombs = [];
     this.matchElapsedMs = 0;
     this.simTick = 0;
@@ -633,8 +642,39 @@ export class Room {
       this.setPhase(MatchPhase.END);
       this.broadcast(encodeMatchEnd(this.winnerId));
       this.broadcast(encodeMatchSeed(this.seedCommit, this.seed)); // reveal
+      this.settlePot(winner ?? null);
       this.recordStats();
     }
+  }
+
+  /** Deduct each wallet player's stake into the pot at match start. */
+  private escrowStakes(): void {
+    this.pot = 0;
+    this.contributors = [];
+    if (this.stake <= 0) return;
+    for (const p of this.players.values()) {
+      if (p.isBot || !p.wallet) continue;
+      const wallet = p.wallet;
+      this.pot += this.stake;
+      this.contributors.push(wallet);
+      void store.adjustChips(wallet, -this.stake);
+    }
+  }
+
+  /** Pay the pot to the winner; refund contributors on a draw / no eligible winner. */
+  private settlePot(winner: Player | null): void {
+    if (this.pot <= 0) {
+      this.pot = 0;
+      this.contributors = [];
+      return;
+    }
+    if (winner && !winner.isBot && winner.wallet) {
+      void store.adjustChips(winner.wallet, this.pot);
+    } else {
+      for (const wallet of this.contributors) void store.adjustChips(wallet, this.stake);
+    }
+    this.pot = 0;
+    this.contributors = [];
   }
 
   /** Persist ranked stats for wallet-authenticated humans (not practice/bots). */
@@ -671,7 +711,7 @@ export class Room {
     }));
     const countdown = this.lobbyCounting ? this.lobbyCountdownMs : 0;
     for (const p of this.players.values()) {
-      p.send(encodeRoomInfo(this.id, this.hostId, p.id === this.hostId, countdown, list));
+      p.send(encodeRoomInfo(this.id, this.hostId, p.id === this.hostId, countdown, this.stake, list));
     }
   }
 

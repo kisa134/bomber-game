@@ -308,11 +308,12 @@ export function encodeRoomInfo(
   hostId: number,
   isHost: boolean,
   lobbyCountdownMs: number,
+  stake: number,
   players: RoomPlayerInfo[],
 ): Uint8Array {
   const codeBytes = textEncoder.encode(code);
   const nameBytes = players.map((p) => textEncoder.encode(p.name.slice(0, 24)));
-  let size = 1 + 1 + 1 + 2 + 1 + codeBytes.length + 1;
+  let size = 1 + 1 + 1 + 2 + 2 + 1 + codeBytes.length + 1;
   // per player: id + skin + ready + wins + nameLen + name
   for (const nb of nameBytes) size += 1 + 1 + 1 + 1 + 1 + nb.length;
   const buf = new Uint8Array(size);
@@ -322,6 +323,7 @@ export function encodeRoomInfo(
   dv.setUint8(o, hostId); o += 1;
   dv.setUint8(o, isHost ? 1 : 0); o += 1;
   dv.setUint16(o, Math.max(0, Math.min(65535, Math.round(lobbyCountdownMs))), true); o += 2;
+  dv.setUint16(o, Math.max(0, Math.min(65535, stake)), true); o += 2;
   dv.setUint8(o, codeBytes.length); o += 1;
   buf.set(codeBytes, o); o += codeBytes.length;
   dv.setUint8(o, players.length); o += 1;
@@ -474,6 +476,7 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
       const hostId = dv.getUint8(o); o += 1;
       const isHost = dv.getUint8(o) !== 0; o += 1;
       const lobbyCountdownMs = dv.getUint16(o, true); o += 2;
+      const stake = dv.getUint16(o, true); o += 2;
       const codeLen = dv.getUint8(o); o += 1;
       const code = textDecoder.decode(bytes.subarray(o, o + codeLen)); o += codeLen;
       const count = dv.getUint8(o); o += 1;
@@ -487,7 +490,7 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
         const name = textDecoder.decode(bytes.subarray(o, o + nameLen)); o += nameLen;
         players.push({ id, name, skin, ready, wins });
       }
-      const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, players };
+      const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, stake, players };
       return msg;
     }
     case ServerMsg.EVENT_EMOTE: {
