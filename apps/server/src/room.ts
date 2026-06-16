@@ -559,7 +559,7 @@ export class Room {
         if (!this.world.inBounds(nx, ny)) break;
         if (this.world.isHard(nx, ny)) break;
         if (this.world.isSoft(nx, ny)) {
-          this.world.destroySoft(nx, ny, this.rng);
+          this.world.destroySoft(nx, ny);
           ignite(nx, ny);
           break;
         }

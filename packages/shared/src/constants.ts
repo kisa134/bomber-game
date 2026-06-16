@@ -1,7 +1,7 @@
 // All gameplay-balancing numbers live here. No magic numbers in logic.
 
 // Bump whenever the binary frame layout changes; client + server must match.
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 
 export const TICK_RATE = 60; // Hz — finest/most responsive base motion (2x server cost)
 export const TICK_MS = 1000 / TICK_RATE; // ~16.7
@@ -15,7 +15,7 @@ export const BOMB_TIMER_MS = 2500;
 export const EXPLOSION_LIFETIME_MS = 400;
 
 export const PLAYER_BASE_SPEED = 3.2; // cells per second
-export const SPEED_UP_DELTA = 0.6;
+export const SPEED_UP_DELTA = 0.42;
 export const PLAYER_HITBOX_RADIUS = 0.35; // ~0.7 cell wide
 // How much faster than walking a player slides onto the lane center when turning
 // (forgiving corner navigation). Same value on server + client prediction.
@@ -24,9 +24,9 @@ export const CORNER_ASSIST = 2.2;
 export const MAX_PLAYERS_PER_ROOM = 4;
 export const MIN_PLAYERS_TO_START = 2;
 
-export const MATCH_LENGTH_MS = 300_000; // 5 minutes
-export const SUDDEN_DEATH_AT_MS = 240_000; // last minute: walls close in
-export const SUDDEN_DEATH_STEP_MS = 2_000; // a new ring tile every 2s
+export const MATCH_LENGTH_MS = 180_000; // 3 minutes
+export const SUDDEN_DEATH_AT_MS = 120_000; // last minute (after 2:00): walls close in
+export const SUDDEN_DEATH_STEP_MS = 500; // a new ring tile every 0.5s (closes the 17x11 in the final minute)
 
 export const COUNTDOWN_MS = 3_000;
 export const END_SCREEN_MS = 5_000;
@@ -47,9 +47,9 @@ export const LOBBY_COUNTDOWN_MS = 15_000; // auto-start once >= MIN players pres
 export const IDLE_KICK_MS = 60_000; // generous; nobody to fill in, don't punish
 
 // Hard caps
-export const MAX_BOMBS = 8;
-export const MAX_POWER = 8;
-export const MAX_SPEED = 6.0;
+export const MAX_BOMBS = 10;
+export const MAX_POWER = 10;
+export const MAX_SPEED = 6.98; // base 3.2 + 9 * 0.42 -> 10 levels in the HUD
 
 // Starting stats
 export const START_BOMBS = 1;

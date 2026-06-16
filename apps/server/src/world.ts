@@ -2,9 +2,13 @@ import {
   GRID_W,
   GRID_H,
   GRID_SIZE,
-  POWERUP_DROP_CHANCE,
-  HEALTH_DROP_CHANCE,
-  POWERUP_COUNT,
+  MAX_BOMBS,
+  START_BOMBS,
+  MAX_POWER,
+  START_POWER,
+  MAX_SPEED,
+  START_SPEED,
+  SPEED_UP_DELTA,
   TileType,
   PowerUpType,
 } from "@bomberpump/shared";
@@ -51,6 +55,8 @@ export class World {
   readonly fire: Float32Array = new Float32Array(GRID_SIZE);
   // Owner (player id) of the fire on each cell, for kill attribution (-1 = none).
   readonly fireOwner: Int16Array = new Int16Array(GRID_SIZE).fill(-1);
+  // Powerups pre-seeded inside soft blocks (cell index -> type), revealed on break.
+  readonly hiddenPowerups = new Map<number, PowerUpType>();
 
   idx(x: number, y: number): number {
     return y * GRID_W + x;
@@ -127,7 +133,9 @@ export class World {
 
     // Procedural soft-block layout: randomized each match but 4-fold symmetric,
     // so every corner is equally fair. Density varies per match for variety.
-    const density = 0.55 + rng() * 0.3; // 0.55 .. 0.85
+    // Floor kept high enough that even the densest-pillar map has enough soft
+    // blocks to hold the full powerup supply (>= ~58).
+    const density = 0.7 + rng() * 0.2; // 0.70 .. 0.90
     const placeSoftMirrored = (x: number, y: number) => {
       const xs = x === GRID_W - 1 - x ? [x] : [x, GRID_W - 1 - x];
       const ys = y === GRID_H - 1 - y ? [y] : [y, GRID_H - 1 - y];
@@ -145,20 +153,42 @@ export class World {
         if (rng() < density) placeSoftMirrored(x, y);
       }
     }
+
+    // Pre-seed powerups into soft blocks. GUARANTEE enough core upgrades for
+    // two players to fully max bombs / fire / speed, plus a couple of utilities
+    // and an occasional rare heal. Deterministic from the match seed.
+    this.hiddenPowerups.clear();
+    const softCells: number[] = [];
+    for (let i = 0; i < GRID_SIZE; i++) if (this.grid[i] === TileType.SOFT) softCells.push(i);
+    for (let i = softCells.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [softCells[i], softCells[j]] = [softCells[j], softCells[i]];
+    }
+    const PLAYERS = 2;
+    const speedLevels = Math.round((MAX_SPEED - START_SPEED) / SPEED_UP_DELTA);
+    const want: PowerUpType[] = [];
+    const add = (pu: PowerUpType, n: number) => {
+      for (let k = 0; k < n; k++) want.push(pu);
+    };
+    add(PowerUpType.BOMB_UP, (MAX_BOMBS - START_BOMBS) * PLAYERS);
+    add(PowerUpType.FIRE_UP, (MAX_POWER - START_POWER) * PLAYERS);
+    add(PowerUpType.SPEED_UP, speedLevels * PLAYERS);
+    add(PowerUpType.KICK, 2);
+    add(PowerUpType.WALL_PASS, 2);
+    if (rng() < 0.5) add(PowerUpType.HEALTH, 1); // sometimes, very rare
+    const n = Math.min(want.length, softCells.length);
+    for (let i = 0; i < n; i++) this.hiddenPowerups.set(softCells[i], want[i]);
   }
 
   /**
    * Destroy a soft block, possibly revealing a powerup on the ground.
    * Returns the dropped powerup type, or null.
    */
-  destroySoft(x: number, y: number, rng: () => number = Math.random): PowerUpType | null {
+  destroySoft(x: number, y: number): PowerUpType | null {
     if (!this.isSoft(x, y)) return null;
-    let pu: PowerUpType | null = null;
-    if (rng() < HEALTH_DROP_CHANCE) {
-      pu = PowerUpType.HEALTH; // very rare
-    } else if (rng() < POWERUP_DROP_CHANCE) {
-      pu = Math.floor(rng() * POWERUP_COUNT) as PowerUpType; // common pool (0..4)
-    }
+    const i = this.idx(x, y);
+    const pu = this.hiddenPowerups.get(i) ?? null;
+    this.hiddenPowerups.delete(i);
     this.set(x, y, pu === null ? TileType.EMPTY : PU_TILE[pu]);
     return pu;
   }
