@@ -665,6 +665,9 @@ function refreshWalletBtn(): void {
   const btn = document.getElementById("wallet-btn")!;
   const w = loadWallet();
   btn.textContent = w ? `🟢 ${shortAddr(w.address)}` : "🔗 Connect Wallet";
+  // Show the chip balance in the menu whenever a wallet is connected.
+  if (w) void fetchProfile(w.address).then((p) => setBalance(p.chips)).catch(() => {});
+  else document.getElementById("chip-balance")?.classList.add("hidden");
 }
 
 function openWalletModal(): void {
