@@ -127,8 +127,10 @@ function serveStatic(res: uWS.HttpResponse, urlPath: string): void {
 const app = uWS.App();
 
 app.options("/*", (res) => {
-  writeCors(res);
-  res.endWithoutBody();
+  res.cork(() => {
+    writeCors(res);
+    res.endWithoutBody();
+  });
 });
 
 app.get("/health", (res) => {
@@ -181,11 +183,15 @@ async function parseBody(
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
-  // uWS requires writeStatus() before any writeHeader().
-  if (status) res.writeStatus(status);
-  writeCors(res);
-  res.writeHeader("Content-Type", "application/json");
-  res.end(JSON.stringify(obj));
+  const body = JSON.stringify(obj);
+  // uWS wants all response writes inside a corked callback (one syscall).
+  res.cork(() => {
+    // writeStatus() must come before any writeHeader().
+    if (status) res.writeStatus(status);
+    writeCors(res);
+    res.writeHeader("Content-Type", "application/json");
+    res.end(body);
+  });
 }
 
 /** Sets up a rate-limited handler. Returns false if the request was rejected. */
