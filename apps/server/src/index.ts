@@ -9,6 +9,7 @@ import {
   tokenBalance,
   withdraw,
   startDepositWatcher,
+  rescanDepositsSoon,
   TREASURY_ADDRESS,
   depositsEnabled,
   withdrawalsEnabled,
@@ -180,6 +181,7 @@ app.get("/leaderboard", (res, req) => {
 app.get("/bank", (res, req) => {
   res.onAborted(() => {});
   const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
+  rescanDepositsSoon(); // opening the Bank nudges a fresh deposit check
   Promise.all([store.getProfile(wallet), tokenBalance(wallet)])
     .then(([p, tok]) =>
       sendJson(res, {

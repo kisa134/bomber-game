@@ -99,52 +99,81 @@ export function startDepositWatcher(): void {
     return;
   }
   console.log(`[token] watching deposits to ${TREASURY_ADDRESS} (${treasuryAta.toBase58()})`);
-  const poll = async (): Promise<void> => {
-    try {
-      const sigs = await connection.getSignaturesForAddress(treasuryAta!, { limit: 25 });
-      for (const { signature, err } of sigs) {
-        if (err || seenSigs.has(signature)) continue;
-        seenSigs.add(signature);
-        await creditFromTx(signature);
-      }
-      if (seenSigs.size > 5000) seenSigs.clear(); // bound memory; DB dedupe is the source of truth
-    } catch (e) {
-      console.error("[token] deposit poll failed", e);
-    }
-  };
-  setInterval(() => void poll(), 15_000);
-  void poll();
+  setInterval(() => void rescanDeposits(), 15_000);
+  void rescanDeposits();
 }
 
-async function creditFromTx(signature: string): Promise<void> {
+let scanning = false;
+let lastScanAt = 0;
+
+/** Scan recent treasury transfers and credit any not-yet-credited deposits.
+ *  Safe to call repeatedly (DB dedupe by signature). Called on a timer and on
+ *  demand when a player opens the Bank. */
+export async function rescanDeposits(): Promise<void> {
+  if (!treasuryAta || scanning) return;
+  scanning = true;
   try {
-    const tx = await connection.getParsedTransaction(signature, { maxSupportedTransactionVersion: 0 });
-    if (!tx) return;
-    const instrs: ParsedInstruction[] = [
-      ...(tx.transaction.message.instructions as ParsedInstruction[]),
-      ...(tx.meta?.innerInstructions ?? []).flatMap((i) => i.instructions as ParsedInstruction[]),
-    ];
-    for (const ix of instrs) {
-      if (!("parsed" in ix) || ix.program !== "spl-token") continue;
-      const info = (ix.parsed as { type?: string; info?: Record<string, unknown> })?.info;
-      const type = (ix.parsed as { type?: string })?.type;
-      if (!info || (type !== "transfer" && type !== "transferChecked")) continue;
-      if (info.destination !== treasuryAta!.toBase58()) continue;
-      const sender = String(info.authority ?? info.owner ?? "");
-      const amount =
-        type === "transferChecked"
-          ? Number((info.tokenAmount as { amount?: string })?.amount ?? 0)
-          : Number(info.amount ?? 0);
-      if (!sender || amount <= 0) continue;
-      const credited = await store.creditDeposit(signature, sender, amount);
-      if (credited) {
-        cache.delete(sender);
-        console.log(`[token] deposit credited: ${fromBaseUnits(amount)} to ${sender} (${signature})`);
-      }
+    // Scan deep enough that a deposit can't scroll out of the window.
+    const sigs = await connection.getSignaturesForAddress(treasuryAta, { limit: 100 });
+    for (const { signature, err } of sigs) {
+      if (err || seenSigs.has(signature)) continue;
+      // Only mark a signature "seen" once we actually fetched & inspected it —
+      // a transient RPC failure must be retried, not silently skipped forever.
+      const fetched = await creditFromTx(signature);
+      if (fetched) seenSigs.add(signature);
     }
+    if (seenSigs.size > 5000) seenSigs.clear(); // bound memory; DB dedupe is the truth
+    lastScanAt = Date.now();
   } catch (e) {
-    console.error("[token] creditFromTx failed", signature, e);
+    console.error("[token] deposit scan failed", e);
+  } finally {
+    scanning = false;
   }
+}
+
+/** Debounced on-demand rescan (e.g. when a player opens the Bank). */
+export function rescanDepositsSoon(): void {
+  if (Date.now() - lastScanAt > 4000) void rescanDeposits();
+}
+
+/** Inspect one tx and credit any transfer into the treasury. Returns true if
+ *  the tx was fetched (so the caller can stop re-checking it), false on a
+ *  fetch failure (so it gets retried). */
+async function creditFromTx(signature: string): Promise<boolean> {
+  let tx;
+  try {
+    tx = await connection.getParsedTransaction(signature, { maxSupportedTransactionVersion: 0 });
+  } catch (e) {
+    console.error("[token] getParsedTransaction failed", signature, e);
+    return false; // retry next scan
+  }
+  if (!tx) return false; // not available yet -> retry
+  const instrs: ParsedInstruction[] = [
+    ...(tx.transaction.message.instructions as ParsedInstruction[]),
+    ...(tx.meta?.innerInstructions ?? []).flatMap((i) => i.instructions as ParsedInstruction[]),
+  ];
+  let foundDeposit = false;
+  for (const ix of instrs) {
+    if (!("parsed" in ix) || ix.program !== "spl-token") continue;
+    const info = (ix.parsed as { type?: string; info?: Record<string, unknown> })?.info;
+    const type = (ix.parsed as { type?: string })?.type;
+    if (!info || (type !== "transfer" && type !== "transferChecked")) continue;
+    if (info.destination !== treasuryAta!.toBase58()) continue;
+    const sender = String(info.authority ?? info.owner ?? "");
+    const amount =
+      type === "transferChecked"
+        ? Number((info.tokenAmount as { amount?: string })?.amount ?? 0)
+        : Number(info.amount ?? 0);
+    if (!sender || amount <= 0) continue;
+    foundDeposit = true;
+    const credited = await store.creditDeposit(signature, sender, amount);
+    if (credited) {
+      cache.delete(sender);
+      console.log(`[token] deposit credited: ${fromBaseUnits(amount)} to ${sender} (${signature})`);
+    }
+  }
+  if (!foundDeposit) console.log(`[token] tx ${signature} has no $token transfer into treasury (skipped)`);
+  return true; // fetched & inspected
 }
 
 // --- withdraw (signs out of the treasury) ----------------------------------
