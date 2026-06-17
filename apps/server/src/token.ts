@@ -219,7 +219,15 @@ async function creditFromTx(signature: string): Promise<boolean> {
  *  Returns which wallet it credited and how much, or a reason it couldn't. */
 export async function claimBySignature(
   signature: string,
-): Promise<{ ok: boolean; wallet?: string; amount?: number; already?: boolean; reason?: string }> {
+): Promise<{
+  ok: boolean;
+  wallet?: string;
+  amount?: number;
+  already?: boolean;
+  reason?: string;
+  expected?: string;
+  seen?: string[];
+}> {
   await initToken();
   if (!treasuryAta) return { ok: false, reason: "deposits_disabled" };
   let tx;
@@ -233,11 +241,13 @@ export async function claimBySignature(
     ...(tx.transaction.message.instructions as ParsedInstruction[]),
     ...(tx.meta?.innerInstructions ?? []).flatMap((i) => i.instructions as ParsedInstruction[]),
   ];
+  const seen: string[] = [];
   for (const ix of instrs) {
     if (!("parsed" in ix) || (ix.program !== "spl-token" && ix.program !== "spl-token-2022")) continue;
     const info = (ix.parsed as { type?: string; info?: Record<string, unknown> })?.info;
     const type = (ix.parsed as { type?: string })?.type;
     if (!info || (type !== "transfer" && type !== "transferChecked")) continue;
+    if (typeof info.destination === "string") seen.push(info.destination);
     if (info.destination !== treasuryAta.toBase58()) continue;
     const sender = String(info.authority ?? info.owner ?? "");
     const amount =
@@ -249,7 +259,12 @@ export async function claimBySignature(
     if (credited) cache.delete(sender);
     return { ok: true, wallet: sender, amount: fromBaseUnits(amount), already: !credited };
   }
-  return { ok: false, reason: "no_token_transfer_to_treasury" };
+  return {
+    ok: false,
+    reason: "no_token_transfer_to_treasury",
+    expected: treasuryAta.toBase58(),
+    seen,
+  };
 }
 
 // --- deposit (server builds it, the player's wallet signs & sends) ----------

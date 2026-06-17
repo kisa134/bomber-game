@@ -995,13 +995,16 @@ function wireBank(): void {
           status.textContent = `This deposit belongs to wallet ${short}. Connect THAT wallet to use it.`;
         }
       } else {
-        const why =
-          r.reason === "no_token_transfer_to_treasury"
-            ? "This transaction didn't send $" + TOKEN_TICKER + " to the game treasury."
-            : r.reason === "tx_not_found"
+        if (r.reason === "no_token_transfer_to_treasury") {
+          const exp = r.expected ? `${r.expected.slice(0, 6)}…${r.expected.slice(-6)}` : "?";
+          const seen = (r.seen ?? []).map((s) => `${s.slice(0, 6)}…${s.slice(-6)}`).join(", ") || "none";
+          status.textContent = `No match. Treasury expects ${exp}; this tx sent to: ${seen}.`;
+        } else {
+          status.textContent =
+            r.reason === "tx_not_found"
               ? "Transaction not found yet — wait a few seconds and retry."
               : `Couldn't claim (${r.reason ?? "error"}).`;
-        status.textContent = why;
+        }
       }
     } catch {
       status.textContent = "Network error — try again.";
