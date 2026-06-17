@@ -13,6 +13,8 @@ import {
   leagueFor,
   STARTING_RATING,
   SPECTATOR_ID,
+  TOKEN_MINT,
+  TOKEN_TICKER,
 } from "./net/protocol.js";
 import {
   Net,
@@ -383,6 +385,7 @@ function announceResult(winnerId: number): void {
     void fetchProfile(w.address)
       .then((p) => {
         setStats(p.chips, p.rating);
+        setTokenBadge(p.tokenBalance);
         const d = p.rating - prevRating;
         const ratingNote =
           d !== 0 ? `${leagueFor(p.rating).emoji} ${p.rating} (${d > 0 ? "+" : ""}${d})` : "";
@@ -718,9 +721,18 @@ function refreshWalletBtn(): void {
   const btn = document.getElementById("wallet-btn")!;
   const w = loadWallet();
   btn.textContent = w ? `🟢 ${shortAddr(w.address)}` : "🔗 Connect Wallet";
-  // Show rating + chips in the menu whenever a wallet is connected.
-  if (w) void fetchProfile(w.address).then((p) => setStats(p.chips, p.rating)).catch(() => {});
-  else document.getElementById("player-stats")?.classList.add("hidden");
+  // Show rating + chips + token balance whenever a wallet is connected.
+  if (w) {
+    void fetchProfile(w.address)
+      .then((p) => {
+        setStats(p.chips, p.rating);
+        setTokenBadge(p.tokenBalance);
+      })
+      .catch(() => {});
+  } else {
+    document.getElementById("player-stats")?.classList.add("hidden");
+    setTokenBadge(undefined);
+  }
 }
 
 function openWalletModal(): void {
@@ -829,6 +841,22 @@ function setBalance(chips: number): void {
   setStats(chips, lastRating);
 }
 
+/** Show the live on-chain token balance badge (links to the coin on pump.fun). */
+function setTokenBadge(balance: number | undefined): void {
+  const badge = document.getElementById("token-badge") as HTMLAnchorElement | null;
+  if (!badge) return;
+  if (balance === undefined) {
+    badge.classList.add("hidden");
+    return;
+  }
+  const amt = document.getElementById("token-amount");
+  const tick = document.getElementById("token-ticker");
+  if (amt) amt.textContent = balance.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  if (tick) tick.textContent = TOKEN_TICKER;
+  badge.href = `https://pump.fun/coin/${TOKEN_MINT}`;
+  badge.classList.remove("hidden");
+}
+
 async function openProfile(): Promise<void> {
   showScreen("profile");
   const body = document.getElementById("profile-body")!;
@@ -841,6 +869,7 @@ async function openProfile(): Promise<void> {
   try {
     const p = await fetchProfile(w.address);
     setStats(p.chips, p.rating);
+    setTokenBadge(p.tokenBalance);
     const into = p.xp % 200;
     const wr = p.matches ? Math.round((p.wins / p.matches) * 100) : 0;
     body.innerHTML = "";
@@ -849,6 +878,7 @@ async function openProfile(): Promise<void> {
       el("div", "prof-addr", shortAddr(w.address)),
       el("div", "prof-level", `${lg.emoji} ${lg.name} · ${p.rating}`),
       el("div", "prof-chips", `🪙 ${p.chips.toLocaleString()} chips`),
+      el("div", "prof-chips", `💎 ${(p.tokenBalance ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} $${TOKEN_TICKER}`),
     );
     const bar = document.createElement("div");
     bar.className = "xp-bar";

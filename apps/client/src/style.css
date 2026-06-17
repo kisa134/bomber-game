@@ -864,6 +864,14 @@ button.ghost {
 .stat-badge.chips {
   color: var(--accent);
 }
+.stat-badge.token {
+  width: 100%;
+  margin-top: -4px;
+  color: #c9b3ff;
+  text-decoration: none;
+  border-color: rgba(160, 130, 255, 0.4);
+  background: rgba(160, 130, 255, 0.1);
+}
 
 /* A grouped section with a small header label */
 .menu-section {

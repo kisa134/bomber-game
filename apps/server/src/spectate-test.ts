@@ -11,7 +11,7 @@ async function post(path: string): Promise<{ token: string }> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name: "p", skin: 0 }),
   });
-  return r.json();
+  return (await r.json()) as { token: string };
 }
 
 function player(token: string): WebSocket {
@@ -32,7 +32,7 @@ async function main(): Promise<void> {
   // wait for the match to be live
   await new Promise((r) => setTimeout(r, 4000));
 
-  const watch = await fetch(`${BASE}/watch`).then((r) => r.json());
+  const watch = (await fetch(`${BASE}/watch`).then((r) => r.json())) as { token?: string };
   if (!watch.token) throw new Error("no /watch token: " + JSON.stringify(watch));
 
   let welcomeId = -1;

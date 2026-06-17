@@ -43,6 +43,7 @@ export interface ProfileData {
   chips: number;
   rating: number;
   week_points: number;
+  tokenBalance?: number; // live on-chain balance of the real token
 }
 
 export async function fetchProfile(wallet: string): Promise<ProfileData> {

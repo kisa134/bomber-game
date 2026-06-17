@@ -64,7 +64,11 @@ export const KICK_SPEED = 6.0;
 export const STARTING_CHIPS = 1000; // granted to a new wallet
 export const BET_SIZES = [100, 250, 500, 1000, 2500] as const; // table stakes
 
-// --- Rating (chess-style Elo) ----------------------------------------------
+// --- Token (real pump.fun SPL token; read-only hold-to-play for now) --------
+// Public mint address — safe to ship to the client (used for display + links).
+export const TOKEN_MINT = "2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump";
+export const TOKEN_TICKER = "BMEME";
+export const HOLDER_MIN = 1; // min token balance (ui amount) to count as a holder
 export const STARTING_RATING = 1000; // every new wallet starts here
 export const ELO_K = 32; // max swing per match; beating a stronger player pays more
 

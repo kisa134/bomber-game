@@ -5,6 +5,7 @@ import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHI
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { store } from "./store.js";
+import { tokenBalance } from "./token.js";
 import type { SendFn } from "./player.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -144,9 +145,9 @@ app.get("/health", (res) => {
 app.get("/profile", (res, req) => {
   res.onAborted(() => {});
   const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
-  store
-    .getProfile(wallet)
-    .then((p) => sendJson(res, p ?? { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0 }))
+  const blank = { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0 };
+  Promise.all([store.getProfile(wallet), tokenBalance(wallet)])
+    .then(([p, tok]) => sendJson(res, { ...(p ?? blank), tokenBalance: tok }))
     .catch(() => sendJson(res, { error: "profile_failed" }, "500 Internal Server Error"));
 });
 
