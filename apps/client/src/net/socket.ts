@@ -70,6 +70,16 @@ export async function withdrawTokens(amount: number): Promise<{ signature?: stri
   return res.json();
 }
 
+export async function fetchPrice(): Promise<number> {
+  try {
+    const res = await fetch(`${SERVER_HTTP}/price`);
+    const { usd } = (await res.json()) as { usd: number };
+    return Number(usd) || 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function prepareDeposit(amount: number): Promise<{ tx?: string; error?: string }> {
   const res = await post("/deposit/prepare", { amount });
   return res.json();

@@ -384,6 +384,17 @@ button.ghost {
   color: var(--muted);
   font-size: 0.85rem;
 }
+.rb-win {
+  font-weight: 800;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.rb-win.up {
+  color: var(--good, #5fd96a);
+}
+.rb-win.down {
+  color: var(--accent2);
+}
 .result-actions {
   display: flex;
   gap: 8px;

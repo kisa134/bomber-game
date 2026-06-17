@@ -11,7 +11,6 @@ import {
   SUDDEN_DEATH_STEP_MS,
   END_SCREEN_MS,
   ROOM_LINGER_MS,
-  LOBBY_COUNTDOWN_MS,
   PROTOCOL_VERSION,
   MAX_PLAYERS_PER_ROOM,
   MIN_PLAYERS_TO_START,
@@ -296,7 +295,7 @@ export class Room {
   requestStart(id: number): void {
     if (id !== this.hostId) return;
     if (this.phase !== MatchPhase.LOBBY) return;
-    if (this.players.size < MIN_PLAYERS_TO_START) return;
+    if (!this.allReady()) return; // every player must be ready first
     this.start();
   }
 
@@ -348,7 +347,7 @@ export class Room {
 
     switch (this.phase) {
       case MatchPhase.LOBBY:
-        this.tickLobby(dt);
+        this.tickLobby();
         break;
       case MatchPhase.COUNTDOWN:
         this.phaseTimerMs -= dt;
@@ -370,35 +369,17 @@ export class Room {
     if (this.phase !== MatchPhase.LOBBY) this.broadcastSnapshot();
   }
 
-  private tickLobby(dt: number): void {
+  private tickLobby(): void {
     // Practice room: fill with bots and start as soon as a human is present.
     if (this.practice && this.humanCount >= 1) {
       while (this.players.size < MAX_PLAYERS_PER_ROOM) this.addBot();
       this.start();
       return;
     }
-    if (this.players.size >= MAX_PLAYERS_PER_ROOM) {
-      this.start();
-      return;
-    }
-    // Everyone readied up -> start immediately (no waiting on the countdown).
-    if (this.allReady()) {
-      this.start();
-      return;
-    }
-    if (this.players.size >= MIN_PLAYERS_TO_START) {
-      if (!this.lobbyCounting) {
-        this.lobbyCounting = true;
-        this.lobbyCountdownMs = LOBBY_COUNTDOWN_MS;
-        this.broadcastRoomInfo();
-      }
-      this.lobbyCountdownMs -= dt;
-      if (this.lobbyCountdownMs <= 0) this.start();
-    } else if (this.lobbyCounting) {
-      this.lobbyCounting = false;
-      this.lobbyCountdownMs = 0;
-      this.broadcastRoomInfo();
-    }
+    // The match starts ONLY when every present player has readied up — no timed
+    // auto-start, no "start because the room is full". This guarantees nobody is
+    // dropped into a match (especially a staked one) without confirming.
+    if (this.allReady()) this.start();
   }
 
   private setPhase(phase: MatchPhase): void {

@@ -1,6 +1,6 @@
 // Throwaway end-to-end check: two clients quickplay into one room, host starts,
 // match runs, snapshots flow. No bots involved.
-import { ServerMsg, MatchPhase, decodeServer, encodeRequestStart } from "@bomberpump/shared";
+import { ServerMsg, MatchPhase, decodeServer, encodeSetReady } from "@bomberpump/shared";
 
 const BASE = process.env.BASE ?? "http://localhost:8799";
 
@@ -17,9 +17,10 @@ function openClient(token: string, stat: ClientStat): WebSocket {
   ws.onmessage = (ev) => {
     const msg = decodeServer(ev.data as ArrayBuffer);
     if (!msg) return;
-    if (msg.type === ServerMsg.ROOM_INFO && msg.isHost && msg.players.length >= 2 && !stat.startSent) {
+    // Everyone readies up -> the match auto-starts (no timed/host auto-start).
+    if (msg.type === ServerMsg.ROOM_INFO && msg.players.length >= 2 && !stat.startSent) {
       stat.startSent = true;
-      ws.send(encodeRequestStart());
+      ws.send(encodeSetReady(true));
     }
     if (msg.type === ServerMsg.MATCH_PHASE && msg.phase === MatchPhase.PLAYING) {
       stat.reachedPlaying = true;

@@ -26,6 +26,7 @@ import {
   fetchLeaderboard,
   fetchTables,
   fetchBank,
+  fetchPrice,
   withdrawTokens,
   claimDeposit,
   prepareDeposit,
@@ -46,7 +47,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd } from "./ui/lobby.js";
 import { track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 
@@ -402,13 +403,15 @@ function announceResult(winnerId: number): void {
   }
   setTimeout(() => {
     showResult(title);
+    // Render the board here (not earlier): by now the final snapshot — the one
+    // carrying the killing blow's frag — has arrived, so kill counts are right.
+    renderResultBoard(winnerId);
     const fair = document.getElementById("result-fair")!;
     fair.textContent =
       state.seed && state.seedCommit
         ? `🔒 provably fair · seed ${state.seed.slice(0, 10)}… · commit ${state.seedCommit.slice(0, 8)}…`
         : "";
   }, 1000);
-  renderResultBoard(winnerId);
 }
 
 /** Final scoreboard on the result screen: placement, frags, your row marked. */
@@ -422,6 +425,11 @@ function renderResultBoard(winnerId: number): void {
     if (b.id === winnerId) return 1;
     return Number(b.alive) - Number(a.alive) || b.frags - a.frags;
   });
+  // Per-player stake swing (who won/lost how much in this room's currency).
+  const stake = state.roomStake;
+  const draw = winnerId === DRAW_WINNER_ID;
+  const sym = state.roomCurrency === 1 ? "💎" : "🪙";
+  const n = ranked.length;
   board.innerHTML = "";
   ranked.forEach((p, i) => {
     const li = document.createElement("li");
@@ -432,6 +440,16 @@ function renderResultBoard(winnerId: number): void {
       el("span", "rb-name", state.nameOf(p.id) + (p.id === state.myId ? " (you)" : "")),
       el("span", "rb-frags", `💀 ${p.frags}`),
     );
+    if (stake > 0 && !draw) {
+      const net = p.id === winnerId ? stake * (n - 1) : -stake;
+      const usd = state.roomCurrency === 1 ? usdOf(Math.abs(net)) : "";
+      const w = el(
+        "span",
+        "rb-win " + (net > 0 ? "up" : "down"),
+        `${net > 0 ? "+" : "−"}${sym}${Math.abs(net).toLocaleString()}${usd}`,
+      );
+      li.append(w);
+    }
     board.appendChild(li);
   });
 }
@@ -874,6 +892,16 @@ function setBalance(chips: number): void {
   setStats(chips, lastRating);
 }
 
+/** Live USD price of one token (0 = unknown). Refreshed periodically. */
+let tokenUsd = 0;
+/** "≈$1.23" for a token amount, or "" when the price is unknown. */
+function usdOf(tokens: number): string {
+  if (!tokenUsd || tokens <= 0) return "";
+  const v = tokens * tokenUsd;
+  const s = v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v.toPrecision(2);
+  return ` ≈$${s}`;
+}
+
 /** Show the in-game (custodial) token balance badge; tap to open the Bank. */
 function setTokenBadge(balance: number | undefined): void {
   const badge = document.getElementById("token-badge") as HTMLAnchorElement | null;
@@ -904,8 +932,8 @@ async function openBank(): Promise<void> {
   (document.getElementById("bank-pump") as HTMLAnchorElement).href = `https://pump.fun/coin/${TOKEN_MINT}`;
   try {
     const b = await fetchBank(w.address);
-    (document.getElementById("bank-game") as HTMLElement).textContent = b.gameTokens.toLocaleString();
-    (document.getElementById("bank-wallet") as HTMLElement).textContent = b.walletTokens.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    (document.getElementById("bank-game") as HTMLElement).textContent = b.gameTokens.toLocaleString() + usdOf(b.gameTokens);
+    (document.getElementById("bank-wallet") as HTMLElement).textContent = b.walletTokens.toLocaleString(undefined, { maximumFractionDigits: 2 }) + usdOf(b.walletTokens);
     (document.getElementById("bank-treasury") as HTMLElement).textContent = b.depositsEnabled ? b.treasury : "deposits not enabled yet";
     const wbtn = document.getElementById("bank-withdraw") as HTMLButtonElement;
     wbtn.disabled = !b.withdrawalsEnabled;
@@ -1139,10 +1167,45 @@ async function openLeaderboard(): Promise<void> {
         el("span", "lb-name", `${lg.emoji} ${r.name || shortAddr(r.wallet)}${isMe ? " (you)" : ""}`),
         el("span", "lb-xp", score),
       );
+      li.style.cursor = "pointer";
+      li.addEventListener("click", () => void openPublicProfile(r.wallet));
       body.appendChild(li);
     });
   } catch {
     body.innerHTML = '<li class="status">Failed to load.</li>';
+  }
+}
+
+/** Public player card (stats by wallet), opened from the leaderboard etc. */
+async function openPublicProfile(wallet: string): Promise<void> {
+  if (!wallet) return;
+  const modal = document.getElementById("pubprofile-modal")!;
+  const body = document.getElementById("pubprofile-body")!;
+  body.innerHTML = '<p class="status">Loading…</p>';
+  modal.classList.remove("hidden");
+  try {
+    const p = await fetchProfile(wallet);
+    const lg = leagueFor(p.rating);
+    const wr = p.matches ? Math.round((p.wins / p.matches) * 100) : 0;
+    body.innerHTML = "";
+    body.append(
+      el("div", "prof-addr", p.name || shortAddr(wallet)),
+      el("div", "prof-level", `${lg.emoji} ${lg.name} · ${p.rating}`),
+    );
+    const grid = document.createElement("div");
+    grid.className = "prof-grid";
+    grid.append(
+      profCell("Rating", p.rating),
+      profCell("Matches", p.matches),
+      profCell("Wins", p.wins),
+      profCell("Win rate", `${wr}%`),
+      profCell("Frags", p.frags),
+      profCell("Best streak", p.best_streak),
+    );
+    body.append(grid);
+    body.append(el("div", "status fair", shortAddr(wallet)));
+  } catch {
+    body.innerHTML = '<p class="status">Failed to load.</p>';
   }
 }
 
@@ -1181,7 +1244,20 @@ wireSettings();
 wireWallet();
 wireMenuLinks();
 wireBank();
+document.getElementById("pubprofile-close")!.addEventListener("click", () =>
+  document.getElementById("pubprofile-modal")!.classList.add("hidden"),
+);
 setupBackground();
+
+// Live token→USD price for the in-game $ converter (refresh every 60s).
+function refreshPrice(): void {
+  void fetchPrice().then((usd) => {
+    tokenUsd = usd;
+    setTokenUsd(usd);
+  });
+}
+refreshPrice();
+setInterval(refreshPrice, 60_000);
 
 setupMenu({
   quickplay: (c) => { track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },

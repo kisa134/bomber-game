@@ -127,6 +127,29 @@ export async function isHolder(wallet: string): Promise<boolean> {
   return (await tokenBalance(wallet)) >= HOLDER_MIN;
 }
 
+// --- USD price (Dexscreener, keyless, cached) ------------------------------
+let priceUsd = 0;
+let priceAt = 0;
+/** USD price of one whole token (0 if unknown). Cached ~60s. */
+export async function tokenPriceUsd(): Promise<number> {
+  if (Date.now() - priceAt < 60_000) return priceUsd;
+  try {
+    const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${TOKEN_MINT}`);
+    const j = (await res.json()) as { pairs?: Array<{ priceUsd?: string; liquidity?: { usd?: number } }> };
+    const pairs = (j.pairs ?? []).filter((p) => p.priceUsd);
+    // Pick the deepest-liquidity pair for a sane price.
+    pairs.sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0));
+    const p = Number(pairs[0]?.priceUsd ?? 0);
+    if (Number.isFinite(p) && p > 0) {
+      priceUsd = p;
+      priceAt = Date.now();
+    }
+  } catch (e) {
+    console.error("[token] price fetch failed", e);
+  }
+  return priceUsd;
+}
+
 // --- deposit watcher -------------------------------------------------------
 const seenSigs = new Set<string>();
 

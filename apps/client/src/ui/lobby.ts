@@ -6,6 +6,17 @@ function stakeLabel(stake: number, currency: number): string {
   if (stake <= 0) return "Casual";
   return `${currency === 1 ? "💎" : "🪙"}${stake.toLocaleString()}`;
 }
+
+/** Live token→USD price, set from main; 0 = unknown. */
+let tokenUsd = 0;
+export function setTokenUsd(v: number): void {
+  tokenUsd = v;
+}
+function usdSuffix(tokens: number): string {
+  if (!tokenUsd || tokens <= 0) return "";
+  const v = tokens * tokenUsd;
+  return ` ≈$${v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v.toPrecision(2)}`;
+}
 import type { GameState } from "../game/state.js";
 import type { TableInfo } from "../net/socket.js";
 
@@ -199,9 +210,11 @@ export function renderRoom(state: GameState): void {
   if (title) {
     const n = state.roomPlayers.length || 1;
     const sym = state.roomCurrency === 1 ? "💎" : "🪙";
+    const pot = state.roomStake * n;
+    const potUsd = state.roomCurrency === 1 ? usdSuffix(pot) : "";
     title.textContent =
       state.roomStake > 0
-        ? `${stakeLabel(state.roomStake, state.roomCurrency)} table · pot ${sym}${(state.roomStake * n).toLocaleString()}`
+        ? `${stakeLabel(state.roomStake, state.roomCurrency)} table · pot ${sym}${pot.toLocaleString()}${potUsd}`
         : "Waiting room";
   }
 
@@ -240,13 +253,13 @@ export function renderRoom(state: GameState): void {
   const count = state.roomPlayers.length;
   const readyCount = state.roomPlayers.filter((p) => p.ready).length;
   const status = document.getElementById("room-status")!;
-  const countdown = Math.ceil(state.lobbyCountdownLeft() / 1000);
+  const allReady = count >= MIN_PLAYERS_TO_START && readyCount === count;
   if (count < MIN_PLAYERS_TO_START) {
     status.textContent = `Waiting for players… ${count}/${MAX_PLAYERS_PER_ROOM}`;
-  } else if (countdown > 0) {
-    status.textContent = `Starting in ${countdown}… (${readyCount}/${count} ready)`;
+  } else if (allReady) {
+    status.textContent = `All ready — starting!`;
   } else {
-    status.textContent = `${readyCount}/${count} ready — all ready to start`;
+    status.textContent = `${readyCount}/${count} ready — waiting for everyone to ready up`;
   }
 
   // Ready button reflects the local player's state.
@@ -259,7 +272,7 @@ export function renderRoom(state: GameState): void {
 
   const startBtn = document.getElementById("start-now") as HTMLButtonElement;
   startBtn.classList.toggle("hidden", !state.isHost);
-  startBtn.disabled = count < MIN_PLAYERS_TO_START;
+  startBtn.disabled = !allReady; // start only once everyone has readied up
 }
 
 export function showResult(title: string): void {

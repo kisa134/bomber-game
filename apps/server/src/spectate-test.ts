@@ -1,6 +1,6 @@
 // Throwaway: 2 players start a match, then a spectator attaches and must
 // receive the SPECTATOR welcome id + flowing snapshots. Not a player.
-import { ServerMsg, MatchPhase, SPECTATOR_ID, decodeServer, encodeRequestStart } from "@bomberpump/shared";
+import { ServerMsg, MatchPhase, SPECTATOR_ID, decodeServer, encodeSetReady } from "@bomberpump/shared";
 
 const BASE = process.env.BASE ?? "http://localhost:8799";
 const WS = BASE.replace(/^http/, "ws");
@@ -19,7 +19,7 @@ function player(token: string): WebSocket {
   ws.binaryType = "arraybuffer";
   ws.onmessage = (ev) => {
     const m = decodeServer(ev.data as ArrayBuffer);
-    if (m?.type === ServerMsg.ROOM_INFO && m.isHost && m.players.length >= 2) ws.send(encodeRequestStart());
+    if (m?.type === ServerMsg.ROOM_INFO && m.players.length >= 2) ws.send(encodeSetReady(true));
   };
   return ws;
 }
