@@ -188,12 +188,6 @@ export function setMenuStatus(text: string): void {
   if (el) el.textContent = text;
 }
 
-/** Set once: how the host's stake-change buttons reach the network layer. */
-let onSetStake: (stake: number) => void = () => {};
-export function setStakeHandler(fn: (stake: number) => void): void {
-  onSetStake = fn;
-}
-
 /** Refresh the waiting-room screen from current state. */
 export function renderRoom(state: GameState): void {
   const codeBox = document.getElementById("room-code-box")!;
@@ -240,30 +234,8 @@ export function renderRoom(state: GameState): void {
     list.appendChild(li);
   }
 
-  // Host-only stake control: change the table stake for the next match.
-  const stakeBox = document.getElementById("room-stake");
-  if (stakeBox) {
-    if (state.isHost) {
-      stakeBox.classList.remove("hidden");
-      stakeBox.innerHTML = "";
-      const label = document.createElement("div");
-      label.className = "stake-label";
-      label.textContent = "Table stake (host) — winner takes the pot";
-      const row = document.createElement("div");
-      row.className = "stake-picker";
-      const tiers = state.roomCurrency === 1 ? [...TOKEN_BET_SIZES] : [0, ...BET_SIZES];
-      for (const v of tiers) {
-        const b = document.createElement("button");
-        b.className = "stake-btn" + (v === state.roomStake ? " selected" : "");
-        b.textContent = stakeLabel(v, state.roomCurrency);
-        b.addEventListener("click", () => onSetStake(v));
-        row.appendChild(b);
-      }
-      stakeBox.append(label, row);
-    } else {
-      stakeBox.classList.add("hidden");
-    }
-  }
+  // The stake is fixed when the table is created — shown read-only in the title.
+  document.getElementById("room-stake")?.classList.add("hidden");
 
   const count = state.roomPlayers.length;
   const readyCount = state.roomPlayers.filter((p) => p.ready).length;

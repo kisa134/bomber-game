@@ -650,9 +650,11 @@ export class Room {
       const cell = this.spiral[this.suddenDeathIdx++];
       this.world.set(cell.x, cell.y, TileType.HARD);
       this.bombs = this.bombs.filter((b) => !(b.x === cell.x && b.y === cell.y));
-      for (const p of this.players.values()) {
-        if (p.alive && p.cellX === cell.x && p.cellY === cell.y) this.hit(p, true);
-      }
+    }
+    // Anyone standing inside a closed-in wall dies (covers players who were
+    // mid-cell when the wall landed, not just those on the exact cell).
+    for (const p of this.players.values()) {
+      if (p.alive && this.world.isHard(p.cellX, p.cellY)) this.hit(p, true);
     }
   }
 

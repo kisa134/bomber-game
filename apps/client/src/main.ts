@@ -43,7 +43,7 @@ import {
   shortAddr,
   reauth,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setStakeHandler } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables } from "./ui/lobby.js";
 import { track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 
@@ -405,6 +405,32 @@ function announceResult(winnerId: number): void {
         ? `🔒 provably fair · seed ${state.seed.slice(0, 10)}… · commit ${state.seedCommit.slice(0, 8)}…`
         : "";
   }, 1000);
+  renderResultBoard(winnerId);
+}
+
+/** Final scoreboard on the result screen: placement, frags, your row marked. */
+function renderResultBoard(winnerId: number): void {
+  const board = document.getElementById("result-board");
+  if (!board) return;
+  const players = state.latest()?.players ?? [];
+  // Winner first, then by frags, then survivors above the fallen.
+  const ranked = [...players].sort((a, b) => {
+    if (a.id === winnerId) return -1;
+    if (b.id === winnerId) return 1;
+    return Number(b.alive) - Number(a.alive) || b.frags - a.frags;
+  });
+  board.innerHTML = "";
+  ranked.forEach((p, i) => {
+    const li = document.createElement("li");
+    li.className = "rb-row" + (p.id === state.myId ? " me" : "") + (p.id === winnerId ? " win" : "");
+    const place = p.id === winnerId ? "👑" : `${i + 1}`;
+    li.append(
+      el("span", "rb-rank", place),
+      el("span", "rb-name", state.nameOf(p.id) + (p.id === state.myId ? " (you)" : "")),
+      el("span", "rb-frags", `💀 ${p.frags}`),
+    );
+    board.appendChild(li);
+  });
 }
 
 input.onBomb = () => {
@@ -1098,9 +1124,6 @@ setupMenu({
   },
 });
 
-// Host can change the table stake from the waiting room (server re-broadcasts).
-setStakeHandler((stake) => net.sendSetStake(stake));
-
 document.getElementById("start-now")!.addEventListener("click", () => net.sendStart());
 
 // Ready-up toggle (reads the authoritative state from the latest room info).
@@ -1186,6 +1209,20 @@ document.getElementById("copy-invite")?.addEventListener("click", () => {
   };
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(done);
   else done();
+});
+
+// Invite from the result screen: share the room link, or copy it as a fallback.
+document.getElementById("result-invite")?.addEventListener("click", () => {
+  const btn = document.getElementById("result-invite") as HTMLButtonElement;
+  const url = state.roomCode ? inviteUrl(state.roomCode) : `${location.origin}${location.pathname}`;
+  if (navigator.share) {
+    void navigator.share({ title: "Bombermeme", text: "Come play Bombermeme with me 💣", url }).catch(() => {});
+  } else if (navigator.clipboard?.writeText) {
+    void navigator.clipboard.writeText(url).then(() => {
+      btn.textContent = "✅ Link copied!";
+      setTimeout(() => (btn.textContent = "👥 Invite friends"), 1500);
+    });
+  }
 });
 
 document.getElementById("result-share")?.addEventListener("click", () => {

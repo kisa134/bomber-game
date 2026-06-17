@@ -344,6 +344,56 @@ button.ghost {
   min-width: 96px;
 }
 
+/* Post-match scoreboard */
+.result-board {
+  width: 100%;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg2);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 0.95rem;
+}
+.rb-row.win {
+  border-color: var(--accent);
+  background: rgba(255, 204, 51, 0.1);
+}
+.rb-row.me .rb-name {
+  font-weight: 800;
+}
+.rb-rank {
+  width: 26px;
+  font-weight: 800;
+  color: var(--accent);
+}
+.rb-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rb-frags {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.result-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.result-actions button {
+  flex: 1 1 0;
+  width: auto;
+}
+
 /* Bot difficulty buttons (Solo section) */
 .diff-row {
   display: flex;
