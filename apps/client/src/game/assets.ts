@@ -96,6 +96,7 @@ export class Assets {
   private images = new Map<string, HTMLImageElement>();
   private sounds = new Map<string, string>();
   private music = new Map<string, HTMLAudioElement>();
+  private fadeTimers = new Map<HTMLAudioElement, ReturnType<typeof setInterval>>();
   private active = new Map<string, HTMLAudioElement>(); // last-played instance per key
 
   private sfxEnabled = true;
@@ -174,9 +175,35 @@ export class Assets {
     if (!this.desiredMusic) return;
     const a = this.music.get(this.desiredMusic);
     if (!a) return;
-    a.volume = volume;
     a.loop = true;
-    void a.play().catch(() => {});
+    if (a.paused) {
+      // (Re)starting a paused track — resume from where it left off and fade in
+      // smoothly (e.g. the menu theme returning after a match).
+      a.volume = 0;
+      void a
+        .play()
+        .then(() => this.fadeVolume(a, volume, 1200))
+        .catch(() => {});
+    } else {
+      a.volume = volume; // already playing — keep it steady
+    }
+  }
+
+  /** Ramp an audio element's volume to `target` over `ms` (cancels any prior fade). */
+  private fadeVolume(a: HTMLAudioElement, target: number, ms: number): void {
+    const prev = this.fadeTimers.get(a);
+    if (prev) clearInterval(prev);
+    const start = a.volume;
+    const t0 = performance.now();
+    const id = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / ms);
+      a.volume = start + (target - start) * k;
+      if (k >= 1) {
+        clearInterval(id);
+        this.fadeTimers.delete(a);
+      }
+    }, 50);
+    this.fadeTimers.set(a, id);
   }
 
   // -- loading --------------------------------------------------------------
