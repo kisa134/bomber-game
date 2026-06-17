@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { store } from "./store.js";
@@ -234,6 +234,7 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
   let skin = 0;
   let wallet: string | null = null;
   let stake = 0;
+  let currency = Currency.CHIPS;
   let difficulty = BotDifficulty.NORMAL;
   try {
     const parsed = JSON.parse(body || "{}");
@@ -241,7 +242,9 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
     if (typeof parsed.code === "string") code = parsed.code.trim().toUpperCase().slice(0, 8);
     if (Number.isFinite(parsed.skin)) skin = Math.max(0, Math.min(3, Math.floor(parsed.skin)));
     if (typeof parsed.session === "string" && parsed.session) wallet = verifySession(parsed.session);
-    if (Number.isFinite(parsed.stake) && (BET_SIZES as readonly number[]).includes(parsed.stake)) {
+    if (parsed.currency === 1) currency = Currency.TOKEN;
+    const tiers = currency === Currency.TOKEN ? TOKEN_BET_SIZES : BET_SIZES;
+    if (Number.isFinite(parsed.stake) && (tiers as readonly number[]).includes(parsed.stake)) {
       stake = parsed.stake;
     }
     if (parsed.difficulty === 0 || parsed.difficulty === 1 || parsed.difficulty === 2) {
@@ -250,7 +253,7 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
   } catch {
     // ignore malformed body
   }
-  return { name, code, skin, wallet, stake, difficulty };
+  return { name, code, skin, wallet, stake, currency, difficulty };
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
@@ -310,6 +313,7 @@ type Body = {
   skin: number;
   wallet: string | null;
   stake: number;
+  currency: Currency;
   difficulty: BotDifficulty;
 };
 
@@ -317,20 +321,26 @@ function withMatchmaking(
   res: uWS.HttpResponse,
   req: uWS.HttpRequest,
   fn: (b: Body) => unknown,
-  stakeOf: (b: Body) => number = (b) => b.stake,
+  costOf: (b: Body) => { stake: number; currency: Currency } = (b) => ({ stake: b.stake, currency: b.currency }),
 ): void {
   if (!guard(res, req)) return;
   void parseBody(res).then(async (b) => {
     try {
-      // Staked table: require a wallet with enough chips before reserving a seat.
-      const stake = stakeOf(b);
+      // Staked table: require a wallet with enough of the right balance first.
+      const { stake, currency } = costOf(b);
       if (stake > 0) {
         if (!b.wallet) {
           sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
           return;
         }
         const p = await store.ensureProfile(b.wallet, b.name, b.skin);
-        if (p.chips < stake) {
+        if (currency === Currency.TOKEN) {
+          const needBase = toBaseUnits(stake);
+          if ((p.token_balance ?? 0) < needBase) {
+            sendJson(res, { error: "insufficient_tokens", balance: fromBaseUnits(p.token_balance ?? 0), stake }, "402 Payment Required");
+            return;
+          }
+        } else if (p.chips < stake) {
           sendJson(res, { error: "insufficient_chips", balance: p.chips, stake }, "402 Payment Required");
           return;
         }
@@ -341,8 +351,13 @@ function withMatchmaking(
         return;
       }
       let chips: number | undefined;
-      if (b.wallet) chips = (await store.ensureProfile(b.wallet, b.name, b.skin)).chips;
-      sendJson(res, { ...result, wallet: b.wallet, chips, stake });
+      let gameTokens: number | undefined;
+      if (b.wallet) {
+        const p = await store.ensureProfile(b.wallet, b.name, b.skin);
+        chips = p.chips;
+        gameTokens = fromBaseUnits(p.token_balance ?? 0);
+      }
+      sendJson(res, { ...result, wallet: b.wallet, chips, gameTokens, stake, currency });
     } catch (e) {
       if (e instanceof ServerFullError) sendJson(res, { error: "server_full" }, "503 Service Unavailable");
       else sendJson(res, { error: "internal" }, "500 Internal Server Error");
@@ -365,16 +380,29 @@ app.get("/watch", (res, req) => {
 });
 
 app.post("/quickplay", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.quickplay(b.name, b.skin, b.wallet, b.stake)),
+  withMatchmaking(
+    res,
+    req,
+    (b) => mm.quickplay(b.name, b.skin, b.wallet, b.stake),
+    (b) => ({ stake: b.stake, currency: Currency.CHIPS }),
+  ),
 );
 app.post("/create", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.createTable(b.name, b.skin, b.wallet, b.stake)),
+  withMatchmaking(res, req, (b) => mm.createTable(b.name, b.skin, b.wallet, b.stake, b.currency)),
 );
 app.post("/practice", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty), () => 0),
+  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty), () => ({ stake: 0, currency: Currency.CHIPS })),
 );
 app.post("/join", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.joinByCode(b.code, b.name, b.skin, b.wallet), (b) => mm.getRoom(b.code)?.stake ?? 0),
+  withMatchmaking(
+    res,
+    req,
+    (b) => mm.joinByCode(b.code, b.name, b.skin, b.wallet),
+    (b) => {
+      const r = mm.getRoom(b.code);
+      return { stake: r?.stake ?? 0, currency: r?.currency ?? Currency.CHIPS };
+    },
+  ),
 );
 
 app.ws<SocketData>("/ws", {

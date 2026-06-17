@@ -1,5 +1,11 @@
 import { PLAYER_COLORS, skinAvatar } from "../game/renderer.js";
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES } from "../net/protocol.js";
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES } from "../net/protocol.js";
+
+/** Format a stake with its currency symbol (💎 token / 🪙 chips). */
+function stakeLabel(stake: number, currency: number): string {
+  if (stake <= 0) return "Casual";
+  return `${currency === 1 ? "💎" : "🪙"}${stake.toLocaleString()}`;
+}
 import type { GameState } from "../game/state.js";
 import type { TableInfo } from "../net/socket.js";
 
@@ -42,6 +48,7 @@ export interface Choice {
   name: string;
   skin: number;
   stake: number;
+  currency: number; // 0 = chips, 1 = token
 }
 
 export interface MenuHandlers {
@@ -60,25 +67,40 @@ export function setupMenu(h: MenuHandlers): void {
 
   nick.value = localStorage.getItem("bp_nick") ?? `pumper${(Math.random() * 1000) | 0}`;
 
-  const choice = (stake: number): Choice => {
+  const choice = (stake: number, currency = 0): Choice => {
     const name = nick.value.trim() || "pumper";
     localStorage.setItem("bp_nick", name);
-    return { name, skin: Math.floor(Math.random() * 4), stake };
+    return { name, skin: Math.floor(Math.random() * 4), stake, currency };
   };
 
-  // Stake buttons live under "Create a table" and each one creates immediately.
-  const stakes: Array<{ v: number; label: string }> = [
-    { v: 0, label: "Casual" },
-    ...BET_SIZES.map((v) => ({ v, label: `🪙${v}` })),
-  ];
-  stakeEl.innerHTML = "";
-  for (const s of stakes) {
-    const b = document.createElement("button");
-    b.className = "stake-btn";
-    b.textContent = s.label;
-    b.addEventListener("click", () => h.create(choice(s.v)));
-    stakeEl.appendChild(b);
-  }
+  // Create flow: pick a currency (chips/token) then a stake = create at that stake.
+  let createCurrency = 0;
+  const renderStakes = (): void => {
+    const tiers =
+      createCurrency === 1
+        ? TOKEN_BET_SIZES.map((v) => ({ v, label: `💎${v.toLocaleString()}` }))
+        : [{ v: 0, label: "Casual" }, ...BET_SIZES.map((v) => ({ v, label: `🪙${v}` }))];
+    stakeEl.innerHTML = "";
+    for (const s of tiers) {
+      const b = document.createElement("button");
+      b.className = "stake-btn";
+      b.textContent = s.label;
+      b.addEventListener("click", () => h.create(choice(s.v, createCurrency)));
+      stakeEl.appendChild(b);
+    }
+  };
+  renderStakes();
+
+  const curChips = document.getElementById("cur-chips")!;
+  const curToken = document.getElementById("cur-token")!;
+  const setCurrency = (c: number): void => {
+    createCurrency = c;
+    curChips.classList.toggle("active", c === 0);
+    curToken.classList.toggle("active", c === 1);
+    renderStakes();
+  };
+  curChips.addEventListener("click", () => setCurrency(0));
+  curToken.addEventListener("click", () => setCurrency(1));
 
   // "Create a table" reveals the stake choices (pick one = create at that stake).
   document.getElementById("create-room")!.addEventListener("click", () => {
@@ -151,9 +173,10 @@ function drawTables(): void {
   for (const t of shown) {
     const row = document.createElement("button");
     row.className = "table-row" + (t.live ? " live" : "");
-    const pot = t.stake > 0 ? ` · pot 🪙${t.stake * t.players}` : "";
+    const sym = t.currency === 1 ? "💎" : "🪙";
+    const pot = t.stake > 0 ? ` · pot ${sym}${(t.stake * t.players).toLocaleString()}` : "";
     const action = t.live ? "👁 Watch" : "Join";
-    const label = t.live ? "🔴 LIVE" : t.stake > 0 ? "🪙" + t.stake : "Casual";
+    const label = t.live ? "🔴 LIVE" : stakeLabel(t.stake, t.currency);
     row.innerHTML = `<span>${label}${pot}</span><span>${t.players}/${t.max}</span><span>${action}</span>`;
     row.addEventListener("click", () => (t.live ? lastOnWatch(t.code) : lastOnJoin(t.code)));
     list.appendChild(row);
@@ -181,8 +204,11 @@ export function renderRoom(state: GameState): void {
   const title = document.getElementById("room-title");
   if (title) {
     const n = state.roomPlayers.length || 1;
+    const sym = state.roomCurrency === 1 ? "💎" : "🪙";
     title.textContent =
-      state.roomStake > 0 ? `🪙 ${state.roomStake} table · pot ${state.roomStake * n}` : "Waiting room";
+      state.roomStake > 0
+        ? `${stakeLabel(state.roomStake, state.roomCurrency)} table · pot ${sym}${(state.roomStake * n).toLocaleString()}`
+        : "Waiting room";
   }
 
   const seriesOn = state.roomPlayers.some((p) => p.wins > 0);
@@ -225,10 +251,11 @@ export function renderRoom(state: GameState): void {
       label.textContent = "Table stake (host) — winner takes the pot";
       const row = document.createElement("div");
       row.className = "stake-picker";
-      for (const v of [0, ...BET_SIZES]) {
+      const tiers = state.roomCurrency === 1 ? [...TOKEN_BET_SIZES] : [0, ...BET_SIZES];
+      for (const v of tiers) {
         const b = document.createElement("button");
         b.className = "stake-btn" + (v === state.roomStake ? " selected" : "");
-        b.textContent = v === 0 ? "Casual" : `🪙${v}`;
+        b.textContent = stakeLabel(v, state.roomCurrency);
         b.addEventListener("click", () => onSetStake(v));
         row.appendChild(b);
       }

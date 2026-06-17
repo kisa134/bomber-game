@@ -87,10 +87,10 @@ export function encodeEmote(emote: number): Uint8Array {
 }
 
 export function encodeSetStake(stake: number): Uint8Array {
-  const buf = new Uint8Array(3);
+  const buf = new Uint8Array(5);
   const dv = new DataView(buf.buffer);
   dv.setUint8(0, ClientMsg.SET_STAKE);
-  dv.setUint16(1, stake & 0xffff, true);
+  dv.setUint32(1, stake >>> 0, true);
   return buf;
 }
 
@@ -126,8 +126,8 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
       if (dv.byteLength < 2) return null;
       return { type, emote: dv.getUint8(1) };
     case ClientMsg.SET_STAKE:
-      if (dv.byteLength < 3) return null;
-      return { type, stake: dv.getUint16(1, true) };
+      if (dv.byteLength < 5) return null;
+      return { type, stake: dv.getUint32(1, true) };
     default:
       return null;
   }
@@ -321,11 +321,12 @@ export function encodeRoomInfo(
   isHost: boolean,
   lobbyCountdownMs: number,
   stake: number,
+  currency: number,
   players: RoomPlayerInfo[],
 ): Uint8Array {
   const codeBytes = textEncoder.encode(code);
   const nameBytes = players.map((p) => textEncoder.encode(p.name.slice(0, 24)));
-  let size = 1 + 1 + 1 + 2 + 2 + 1 + codeBytes.length + 1;
+  let size = 1 + 1 + 1 + 2 + 4 + 1 + 1 + codeBytes.length + 1;
   // per player: id + skin + ready + wins + nameLen + name
   for (const nb of nameBytes) size += 1 + 1 + 1 + 1 + 1 + nb.length;
   const buf = new Uint8Array(size);
@@ -335,7 +336,8 @@ export function encodeRoomInfo(
   dv.setUint8(o, hostId); o += 1;
   dv.setUint8(o, isHost ? 1 : 0); o += 1;
   dv.setUint16(o, Math.max(0, Math.min(65535, Math.round(lobbyCountdownMs))), true); o += 2;
-  dv.setUint16(o, Math.max(0, Math.min(65535, stake)), true); o += 2;
+  dv.setUint32(o, Math.max(0, Math.min(0xffffffff, stake)), true); o += 4;
+  dv.setUint8(o, currency & 0xff); o += 1;
   dv.setUint8(o, codeBytes.length); o += 1;
   buf.set(codeBytes, o); o += codeBytes.length;
   dv.setUint8(o, players.length); o += 1;
@@ -488,7 +490,8 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
       const hostId = dv.getUint8(o); o += 1;
       const isHost = dv.getUint8(o) !== 0; o += 1;
       const lobbyCountdownMs = dv.getUint16(o, true); o += 2;
-      const stake = dv.getUint16(o, true); o += 2;
+      const stake = dv.getUint32(o, true); o += 4;
+      const currency = dv.getUint8(o); o += 1;
       const codeLen = dv.getUint8(o); o += 1;
       const code = textDecoder.decode(bytes.subarray(o, o + codeLen)); o += codeLen;
       const count = dv.getUint8(o); o += 1;
@@ -502,7 +505,7 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
         const name = textDecoder.decode(bytes.subarray(o, o + nameLen)); o += nameLen;
         players.push({ id, name, skin, ready, wins });
       }
-      const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, stake, players };
+      const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, stake, currency, players };
       return msg;
     }
     case ServerMsg.EVENT_EMOTE: {

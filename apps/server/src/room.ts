@@ -23,6 +23,10 @@ import {
   MatchPhase,
   TileType,
   BET_SIZES,
+  TOKEN_BET_SIZES,
+  TOKEN_DECIMALS,
+  HOUSE_RAKE_BP,
+  Currency,
   BotDifficulty,
   encodeSnapshot,
   encodePhase,
@@ -61,8 +65,9 @@ export class Room {
   readonly isPublic: boolean;
   readonly practice: boolean; // fill with bots and auto-start
   readonly botDifficulty: BotDifficulty; // difficulty of bots in a practice room
-  stake: number; // chips wagered per player (0 = casual); host can change in lobby
-  private pot = 0; // escrowed chips for the current match
+  stake: number; // amount wagered per player (0 = casual); host can change in lobby
+  readonly currency: Currency; // what the stake is denominated in
+  private pot = 0; // escrowed amount for the current match (base units for tokens)
   private contributors: string[] = []; // wallets that paid into the pot (for refunds)
   readonly world = new World();
   readonly players = new Map<number, Player>();
@@ -101,11 +106,13 @@ export class Room {
     practice = false,
     stake = 0,
     botDifficulty: BotDifficulty = BotDifficulty.NORMAL,
+    currency: Currency = Currency.CHIPS,
   ) {
     this.id = id;
     this.isPublic = isPublic;
     this.practice = practice;
     this.stake = stake;
+    this.currency = currency;
     this.botDifficulty = botDifficulty;
     this.spiral = buildSpiral();
   }
@@ -696,18 +703,36 @@ export class Room {
     }
   }
 
+  /** Per-player stake in the currency's smallest unit (base units for tokens). */
+  private stakeBase(): number {
+    return this.currency === Currency.TOKEN
+      ? Math.round(this.stake * 10 ** TOKEN_DECIMALS)
+      : this.stake;
+  }
+
+  /** Move a wallet's balance in this room's currency. */
+  private adjustBalance(wallet: string, delta: number): Promise<number | null> {
+    return this.currency === Currency.TOKEN
+      ? store.adjustToken(wallet, delta)
+      : store.adjustChips(wallet, delta);
+  }
+
   /** Host changes the table stake while in the lobby. Rejected unless every
    *  present wallet player can afford it (keeps the "everyone can pay" invariant
    *  so the escrow at start never short-changes the pot). */
   async setStake(id: number, stake: number): Promise<void> {
     if (this.phase !== MatchPhase.LOBBY || id !== this.hostId) return;
-    if (stake !== 0 && !(BET_SIZES as readonly number[]).includes(stake)) return;
+    const tiers = this.currency === Currency.TOKEN ? TOKEN_BET_SIZES : BET_SIZES;
+    if (stake !== 0 && !(tiers as readonly number[]).includes(stake)) return;
     if (stake === this.stake) return;
     if (stake > 0) {
+      const needBase =
+        this.currency === Currency.TOKEN ? Math.round(stake * 10 ** TOKEN_DECIMALS) : stake;
       for (const p of this.players.values()) {
         if (p.isBot || !p.wallet) continue;
         const prof = await store.getProfile(p.wallet);
-        if (!prof || prof.chips < stake) return; // someone can't afford -> reject
+        const bal = this.currency === Currency.TOKEN ? (prof?.token_balance ?? 0) : (prof?.chips ?? 0);
+        if (bal < needBase) return; // someone can't afford -> reject
       }
     }
     this.stake = stake;
@@ -720,11 +745,11 @@ export class Room {
     this.pot = 0;
     this.contributors = [];
     if (this.stake <= 0) return;
-    const amount = this.stake;
+    const amount = this.stakeBase();
     for (const p of this.players.values()) {
       if (p.isBot || !p.wallet) continue;
       const wallet = p.wallet;
-      void store.adjustChips(wallet, -amount).then((bal) => {
+      void this.adjustBalance(wallet, -amount).then((bal) => {
         if (bal !== null) {
           this.pot += amount;
           this.contributors.push(wallet);
@@ -733,7 +758,8 @@ export class Room {
     }
   }
 
-  /** Pay the pot to the winner; refund contributors on a draw / no eligible winner. */
+  /** Pay the pot to the winner (minus the house rake); refund contributors on a
+   *  draw / no eligible winner. */
   private settlePot(winner: Player | null): void {
     if (this.pot <= 0) {
       this.pot = 0;
@@ -741,9 +767,12 @@ export class Room {
       return;
     }
     if (winner && !winner.isBot && winner.wallet) {
-      void store.adjustChips(winner.wallet, this.pot);
+      const rakeBp = Number(process.env.HOUSE_RAKE_BP ?? HOUSE_RAKE_BP) || 0;
+      const rake = Math.floor((this.pot * rakeBp) / 10000);
+      void this.adjustBalance(winner.wallet, this.pot - rake);
     } else {
-      for (const wallet of this.contributors) void store.adjustChips(wallet, this.stake);
+      const refund = this.stakeBase();
+      for (const wallet of this.contributors) void this.adjustBalance(wallet, refund);
     }
     this.pot = 0;
     this.contributors = [];
@@ -784,7 +813,7 @@ export class Room {
     }));
     const countdown = this.lobbyCounting ? this.lobbyCountdownMs : 0;
     for (const p of this.players.values()) {
-      p.send(encodeRoomInfo(this.id, this.hostId, p.id === this.hostId, countdown, this.stake, list));
+      p.send(encodeRoomInfo(this.id, this.hostId, p.id === this.hostId, countdown, this.stake, this.currency, list));
     }
   }
 

@@ -1,7 +1,7 @@
 // All gameplay-balancing numbers live here. No magic numbers in logic.
 
 // Bump whenever the binary frame layout changes; client + server must match.
-export const PROTOCOL_VERSION = 10;
+export const PROTOCOL_VERSION = 11;
 
 export const TICK_RATE = 60; // Hz — finest/most responsive base motion (2x server cost)
 export const TICK_MS = 1000 / TICK_RATE; // ~16.7
@@ -62,7 +62,10 @@ export const KICK_SPEED = 6.0;
 
 // --- Economy (simulated currency; real token wired later) ------------------
 export const STARTING_CHIPS = 1000; // granted to a new wallet
-export const BET_SIZES = [100, 250, 500, 1000, 2500] as const; // table stakes
+export const BET_SIZES = [100, 250, 500, 1000, 2500] as const; // chip table stakes
+// Token table stakes (whole tokens). Host picks; winner takes the pot.
+export const TOKEN_BET_SIZES = [1000, 5000, 25000, 100000, 500000] as const;
+export const HOUSE_RAKE_BP = 0; // house rake in basis points (server env can override)
 
 // --- Token (real pump.fun SPL token; read-only hold-to-play for now) --------
 // Public mint address — safe to ship to the client (used for display + links).

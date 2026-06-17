@@ -18,7 +18,8 @@ export interface JoinResponse {
   code: string;
   token: string;
   wallet?: string | null; // wallet the server resolved from the session
-  chips?: number; // current balance (when wallet-authenticated)
+  chips?: number; // current chip balance (when wallet-authenticated)
+  gameTokens?: number; // custodial in-game token balance
 }
 
 async function post(path: string, body: Record<string, unknown>): Promise<Response> {
@@ -83,6 +84,7 @@ export async function fetchLeaderboard(period: "all" | "week" = "all"): Promise<
 export interface TableInfo {
   code: string;
   stake: number;
+  currency: number; // 0 = chips, 1 = token
   players: number;
   max: number;
   live: boolean; // a match is in progress -> watch instead of join
@@ -115,6 +117,8 @@ async function joinError(res: Response): Promise<Error> {
   }
   if (body.error === "insufficient_chips")
     return new Error(`Not enough chips: need ${body.stake}, you have ${body.balance}`);
+  if (body.error === "insufficient_tokens")
+    return new Error(`Not enough tokens: need ${body.stake}, you have ${body.balance}. Deposit in the Bank.`);
   if (body.error === "wallet_required") return new Error("Connect a wallet to play staked tables");
   if (res.status === 404) return new Error("Room not found");
   if (body.error === "server_full") return new Error("Server full — try again");
@@ -127,8 +131,13 @@ export async function quickplay(name: string, skin: number, stake = 0): Promise<
   return res.json();
 }
 
-export async function createRoom(name: string, skin: number, stake = 0): Promise<JoinResponse> {
-  const res = await post("/create", { name, skin, stake });
+export async function createRoom(
+  name: string,
+  skin: number,
+  stake = 0,
+  currency = 0,
+): Promise<JoinResponse> {
+  const res = await post("/create", { name, skin, stake, currency });
   if (!res.ok) throw await joinError(res);
   return res.json();
 }

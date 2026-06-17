@@ -172,6 +172,7 @@ async function connect(getJoin: () => Promise<JoinResponse>): Promise<void> {
       if (await reauth()) res = await getJoin();
     }
     if (typeof res.chips === "number") setBalance(res.chips);
+    if (typeof res.gameTokens === "number") setTokenBadge(res.gameTokens);
     net.connect(res.token);
   } catch (err) {
     showScreen("menu");
@@ -375,9 +376,10 @@ function announceResult(winnerId: number): void {
   const stake = state.roomStake;
   const won = winnerId === state.myId;
   const draw = winnerId === DRAW_WINNER_ID;
+  const sym = state.roomCurrency === 1 ? "💎" : "🪙";
   let chipNote = "";
   if (stake > 0) {
-    chipNote = draw ? "Stake refunded" : won ? `Won the pot 🪙` : `Lost 🪙${stake}`;
+    chipNote = draw ? "Stake refunded" : won ? `Won the pot ${sym}` : `Lost ${sym}${stake.toLocaleString()}`;
   }
   const note = document.getElementById("result-chips");
   if (note) note.textContent = chipNote;
@@ -1076,7 +1078,7 @@ setupBackground();
 setupMenu({
   quickplay: (c) => { track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
   practice: (c, difficulty) => { track("play_start", { mode: "practice", difficulty }); connect(() => practiceRoom(c.name, c.skin, difficulty)); },
-  create: (c) => { track("play_start", { mode: "create", stake: c.stake }); connect(() => createRoom(c.name, c.skin, c.stake)); },
+  create: (c) => { track("play_start", { mode: "create", stake: c.stake, currency: c.currency }); connect(() => createRoom(c.name, c.skin, c.stake, c.currency)); },
   join: (c, code) => { track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
   tables: () => {
     void fetchTables().then((tables) =>

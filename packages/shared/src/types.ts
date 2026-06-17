@@ -182,8 +182,15 @@ export interface RoomInfoMsg {
   isHost: boolean;
   /** ms left in the lobby auto-start countdown, 0 if not counting. */
   lobbyCountdownMs: number;
-  stake: number; // chips wagered per player (0 = casual table)
+  stake: number; // amount wagered per player (0 = casual table)
+  currency: Currency; // what the stake is denominated in
   players: RoomPlayerInfo[];
+}
+
+/** What a table's stake is denominated in. */
+export enum Currency {
+  CHIPS = 0, // simulated, free play money
+  TOKEN = 1, // the real pump.fun token (custodial off-chain balance)
 }
 
 export interface ReconnectTokenMsg {

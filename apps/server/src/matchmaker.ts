@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { TICK_MS, BotDifficulty } from "@bomberpump/shared";
+import { TICK_MS, BotDifficulty, Currency } from "@bomberpump/shared";
 import { Room } from "./room.js";
 import type { SendFn } from "./player.js";
 
@@ -54,8 +54,9 @@ export class Matchmaker {
     skin: number,
     wallet: string | null,
     stake = 0,
+    currency: Currency = Currency.CHIPS,
   ): { code: string; token: string } {
-    const room = this.newRoom(true, false, stake);
+    const room = this.newRoom(true, false, stake, BotDifficulty.NORMAL, currency);
     return this.reserve(room, name, skin, wallet);
   }
 
@@ -117,25 +118,25 @@ export class Matchmaker {
     practice = false,
     stake = 0,
     botDifficulty: BotDifficulty = BotDifficulty.NORMAL,
+    currency: Currency = Currency.CHIPS,
   ): Room {
     if (this.rooms.size >= MAX_ROOMS) throw new ServerFullError();
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
-    const room = new Room(code, isPublic, practice, stake, botDifficulty);
+    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency);
     this.rooms.set(code, room);
     return room;
   }
 
   /** Public tables for the browser: joinable (lobby) ones AND live ones to watch. */
-  listTables(): Array<{ code: string; stake: number; players: number; max: number; live: boolean }> {
-    const out: Array<{ code: string; stake: number; players: number; max: number; live: boolean }> = [];
+  listTables(): Array<{ code: string; stake: number; currency: Currency; players: number; max: number; live: boolean }> {
+    type Row = { code: string; stake: number; currency: Currency; players: number; max: number; live: boolean };
+    const out: Row[] = [];
     for (const r of this.rooms.values()) {
       if (!r.isPublic || r.practice) continue;
-      if (r.acceptsPlayers()) {
-        out.push({ code: r.id, stake: r.stake, players: r.players.size, max: r.maxPlayers, live: false });
-      } else if (r.watchable && r.humanCount > 0) {
-        out.push({ code: r.id, stake: r.stake, players: r.players.size, max: r.maxPlayers, live: true });
-      }
+      const base = { code: r.id, stake: r.stake, currency: r.currency, players: r.players.size, max: r.maxPlayers };
+      if (r.acceptsPlayers()) out.push({ ...base, live: false });
+      else if (r.watchable && r.humanCount > 0) out.push({ ...base, live: true });
     }
     // Joinable first, then live; within each, by stake then fullness.
     return out.sort((a, b) => Number(a.live) - Number(b.live) || a.stake - b.stake || b.players - a.players);
