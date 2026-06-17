@@ -70,7 +70,7 @@ export const HOUSE_RAKE_BP = 0; // house rake in basis points (server env can ov
 // --- Token (real pump.fun SPL token; read-only hold-to-play for now) --------
 // Public mint address — safe to ship to the client (used for display + links).
 export const TOKEN_MINT = "2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump";
-export const TOKEN_TICKER = "BMEME";
+export const TOKEN_TICKER = "BGDF";
 export const TOKEN_DECIMALS = 6; // pump.fun tokens use 6 decimals
 export const HOLDER_MIN = 1; // min token balance (ui amount) to count as a holder
 // Withdraw bounds (whole tokens) — guardrails on the custodial cash-out.
