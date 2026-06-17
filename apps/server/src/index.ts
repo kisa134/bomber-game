@@ -554,8 +554,7 @@ app.listen(PORT, (listenSocket) => {
       `[bomberpump] server listening on :${PORT}` +
         (SERVE_STATIC ? ` (serving client from ${CLIENT_DIST})` : " (api only)"),
     );
-    startDepositWatcher(); // no-op unless TREASURY_ADDRESS is set
-  } else {
+    startDepositWatcher(); // no-op unless TREASURY_ADDRESS is set  } else {
     console.error(`[bomberpump] failed to listen on :${PORT}`);
     process.exit(1);
   }

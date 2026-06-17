@@ -24,6 +24,8 @@ import {
   getOrCreateAssociatedTokenAccount,
   createTransferInstruction,
   createTransferCheckedInstruction,
+  TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 import bs58 from "bs58";
 import { TOKEN_MINT, TOKEN_DECIMALS, HOLDER_MIN } from "@bomberpump/shared";
@@ -41,15 +43,50 @@ const treasuryKeypair = process.env.TREASURY_SECRET
 const treasuryPubkey = process.env.TREASURY_ADDRESS
   ? new PublicKey(process.env.TREASURY_ADDRESS.trim())
   : treasuryKeypair?.publicKey ?? null;
-const treasuryAta = treasuryPubkey ? getAssociatedTokenAddressSync(MINT, treasuryPubkey, true) : null;
+
+// The mint may be a classic SPL token OR Token-2022 — they use different
+// program ids and therefore different associated-token-account addresses. We
+// detect the real one at startup; until then assume classic.
+let tokenProgram = TOKEN_PROGRAM_ID;
+let mintDecimals = TOKEN_DECIMALS;
+let treasuryAta = treasuryPubkey
+  ? getAssociatedTokenAddressSync(MINT, treasuryPubkey, true, tokenProgram)
+  : null;
 
 export const TREASURY_ADDRESS = treasuryPubkey?.toBase58() ?? "";
-export const depositsEnabled = !!treasuryAta;
-export const withdrawalsEnabled = !!treasuryKeypair && !!treasuryAta;
+export const depositsEnabled = !!treasuryPubkey;
+export const withdrawalsEnabled = !!treasuryKeypair && !!treasuryPubkey;
 
-const POW = 10 ** TOKEN_DECIMALS;
-export const toBaseUnits = (whole: number): number => Math.round(whole * POW);
-export const fromBaseUnits = (base: number): number => base / POW;
+export const toBaseUnits = (whole: number): number => Math.round(whole * 10 ** mintDecimals);
+export const fromBaseUnits = (base: number): number => base / 10 ** mintDecimals;
+
+let inited = false;
+/** Detect the mint's token program (classic vs Token-2022) + decimals, and
+ *  recompute the treasury ATA for that program. Idempotent. */
+async function initToken(): Promise<void> {
+  if (inited) return;
+  inited = true;
+  try {
+    const info = await connection.getParsedAccountInfo(MINT);
+    const owner = info.value?.owner;
+    if (owner && owner.equals(TOKEN_2022_PROGRAM_ID)) tokenProgram = TOKEN_2022_PROGRAM_ID;
+    const data = info.value?.data;
+    if (data && typeof data === "object" && "parsed" in data) {
+      const dec = (data.parsed as { info?: { decimals?: number } })?.info?.decimals;
+      if (Number.isFinite(dec)) mintDecimals = dec as number;
+    }
+    if (treasuryPubkey) {
+      treasuryAta = getAssociatedTokenAddressSync(MINT, treasuryPubkey, true, tokenProgram);
+    }
+    console.log(
+      `[token] mint program=${tokenProgram.equals(TOKEN_2022_PROGRAM_ID) ? "token-2022" : "spl-token"}` +
+        ` decimals=${mintDecimals} treasuryAta=${treasuryAta?.toBase58() ?? "-"}`,
+    );
+  } catch (e) {
+    inited = false; // allow retry on a transient RPC failure
+    console.error("[token] initToken failed (will retry)", e);
+  }
+}
 
 // --- read-only balance (display / holder gating) ---------------------------
 const TTL_MS = 60_000;
@@ -94,12 +131,13 @@ export async function isHolder(wallet: string): Promise<boolean> {
 const seenSigs = new Set<string>();
 
 /** Poll the treasury token account for incoming transfers and credit senders. */
-export function startDepositWatcher(): void {
-  if (!treasuryAta) {
+export async function startDepositWatcher(): Promise<void> {
+  if (!treasuryPubkey) {
     console.log("[token] deposits disabled (set TREASURY_ADDRESS to enable)");
     return;
   }
-  console.log(`[token] watching deposits to ${TREASURY_ADDRESS} (${treasuryAta.toBase58()})`);
+  await initToken();
+  console.log(`[token] watching deposits to ${TREASURY_ADDRESS} (${treasuryAta?.toBase58()})`);
   setInterval(() => void rescanDeposits(), 15_000);
   void rescanDeposits();
 }
@@ -155,7 +193,7 @@ async function creditFromTx(signature: string): Promise<boolean> {
   ];
   let foundDeposit = false;
   for (const ix of instrs) {
-    if (!("parsed" in ix) || ix.program !== "spl-token") continue;
+    if (!("parsed" in ix) || (ix.program !== "spl-token" && ix.program !== "spl-token-2022")) continue;
     const info = (ix.parsed as { type?: string; info?: Record<string, unknown> })?.info;
     const type = (ix.parsed as { type?: string })?.type;
     if (!info || (type !== "transfer" && type !== "transferChecked")) continue;
@@ -182,6 +220,7 @@ async function creditFromTx(signature: string): Promise<boolean> {
 export async function claimBySignature(
   signature: string,
 ): Promise<{ ok: boolean; wallet?: string; amount?: number; already?: boolean; reason?: string }> {
+  await initToken();
   if (!treasuryAta) return { ok: false, reason: "deposits_disabled" };
   let tx;
   try {
@@ -195,7 +234,7 @@ export async function claimBySignature(
     ...(tx.meta?.innerInstructions ?? []).flatMap((i) => i.instructions as ParsedInstruction[]),
   ];
   for (const ix of instrs) {
-    if (!("parsed" in ix) || ix.program !== "spl-token") continue;
+    if (!("parsed" in ix) || (ix.program !== "spl-token" && ix.program !== "spl-token-2022")) continue;
     const info = (ix.parsed as { type?: string; info?: Record<string, unknown> })?.info;
     const type = (ix.parsed as { type?: string })?.type;
     if (!info || (type !== "transfer" && type !== "transferChecked")) continue;
@@ -218,17 +257,20 @@ export async function claimBySignature(
  *  to the treasury. Returned base64 is handed to the wallet to sign+send, so we
  *  never need crypto libs (or the user's key) in the browser. */
 export async function buildDepositTx(wallet: string, amountBase: number): Promise<string> {
+  await initToken();
   if (!treasuryAta) throw new Error("deposits_disabled");
   if (!Number.isInteger(amountBase) || amountBase <= 0) throw new Error("bad_amount");
   const owner = new PublicKey(wallet);
-  const sourceAta = getAssociatedTokenAddressSync(MINT, owner);
+  const sourceAta = getAssociatedTokenAddressSync(MINT, owner, false, tokenProgram);
   const ix = createTransferCheckedInstruction(
     sourceAta,
     MINT,
     treasuryAta,
     owner,
     amountBase,
-    TOKEN_DECIMALS,
+    mintDecimals,
+    [],
+    tokenProgram,
   );
   const { blockhash } = await connection.getLatestBlockhash("finalized");
   const tx = new Transaction().add(ix);
@@ -241,6 +283,7 @@ export async function buildDepositTx(wallet: string, amountBase: number): Promis
 /** Debit the off-chain balance and send the tokens on-chain to the wallet.
  *  Refunds the off-chain balance if the transfer fails. Returns the signature. */
 export async function withdraw(wallet: string, amountBase: number): Promise<string> {
+  await initToken();
   if (!treasuryKeypair || !treasuryAta) throw new Error("withdrawals_disabled");
   if (!Number.isInteger(amountBase) || amountBase <= 0) throw new Error("bad_amount");
 
@@ -249,8 +292,24 @@ export async function withdraw(wallet: string, amountBase: number): Promise<stri
   if (after === null) throw new Error("insufficient_balance");
 
   try {
-    const destAta = await getOrCreateAssociatedTokenAccount(connection, treasuryKeypair, MINT, owner);
-    const ix = createTransferInstruction(treasuryAta, destAta.address, treasuryKeypair.publicKey, amountBase);
+    const destAta = await getOrCreateAssociatedTokenAccount(
+      connection,
+      treasuryKeypair,
+      MINT,
+      owner,
+      false,
+      undefined,
+      undefined,
+      tokenProgram,
+    );
+    const ix = createTransferInstruction(
+      treasuryAta,
+      destAta.address,
+      treasuryKeypair.publicKey,
+      amountBase,
+      [],
+      tokenProgram,
+    );
     const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [treasuryKeypair]);
     cache.delete(wallet);
     console.log(`[token] withdraw ${fromBaseUnits(amountBase)} to ${wallet} (${sig})`);
