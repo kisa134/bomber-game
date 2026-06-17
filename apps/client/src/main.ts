@@ -27,6 +27,7 @@ import {
   fetchTables,
   fetchBank,
   withdrawTokens,
+  claimDeposit,
   watchMatch,
   type JoinResponse,
 } from "./net/socket.js";
@@ -928,6 +929,41 @@ function wireBank(): void {
         btn.textContent = "Copied!";
         setTimeout(() => (btn.textContent = "Copy"), 1500);
       });
+    }
+  });
+  document.getElementById("bank-claim")!.addEventListener("click", async () => {
+    const input = document.getElementById("bank-claim-sig") as HTMLInputElement;
+    const status = document.getElementById("bank-claim-status")!;
+    const sig = input.value.trim();
+    if (sig.length < 32) {
+      status.textContent = "Paste a transaction signature.";
+      return;
+    }
+    status.textContent = "Checking…";
+    try {
+      const r = await claimDeposit(sig);
+      if (r.ok && r.wallet) {
+        const me = loadWallet()?.address;
+        const short = `${r.wallet.slice(0, 4)}…${r.wallet.slice(-4)}`;
+        if (me && r.wallet === me) {
+          status.textContent = r.already
+            ? `Already credited: ${r.amount} $${TOKEN_TICKER}. Reopen the Bank.`
+            : `✅ Credited ${r.amount} $${TOKEN_TICKER}!`;
+          void openBank();
+        } else {
+          status.textContent = `This deposit belongs to wallet ${short}. Connect THAT wallet to use it.`;
+        }
+      } else {
+        const why =
+          r.reason === "no_token_transfer_to_treasury"
+            ? "This transaction didn't send $" + TOKEN_TICKER + " to the game treasury."
+            : r.reason === "tx_not_found"
+              ? "Transaction not found yet — wait a few seconds and retry."
+              : `Couldn't claim (${r.reason ?? "error"}).`;
+        status.textContent = why;
+      }
+    } catch {
+      status.textContent = "Network error — try again.";
     }
   });
   document.getElementById("bank-withdraw")!.addEventListener("click", async () => {

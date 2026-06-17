@@ -15,6 +15,7 @@ import {
   withdrawalsEnabled,
   toBaseUnits,
   fromBaseUnits,
+  claimBySignature,
 } from "./token.js";
 import type { SendFn } from "./player.js";
 
@@ -197,6 +198,26 @@ app.get("/bank", (res, req) => {
       }),
     )
     .catch(() => sendJson(res, { error: "bank_failed" }, "500 Internal Server Error"));
+});
+
+// Claim a deposit by its transaction signature (self-serve, when the watcher
+// hasn't picked it up). Credits the SENDER wallet of that transfer.
+app.post("/deposit/claim", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    let sig = "";
+    try {
+      const j = JSON.parse(body || "{}");
+      if (typeof j.signature === "string") sig = j.signature.trim();
+    } catch {
+      // ignore
+    }
+    if (sig.length < 32 || sig.length > 100) {
+      return sendJson(res, { ok: false, reason: "bad_signature" }, "400 Bad Request");
+    }
+    const r = await claimBySignature(sig);
+    sendJson(res, r);
+  });
 });
 
 // Cash out: sign tokens out of the treasury to the player's wallet.

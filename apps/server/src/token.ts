@@ -176,6 +176,42 @@ async function creditFromTx(signature: string): Promise<boolean> {
   return true; // fetched & inspected
 }
 
+/** Credit a single deposit by its transaction signature (user-initiated claim).
+ *  Returns which wallet it credited and how much, or a reason it couldn't. */
+export async function claimBySignature(
+  signature: string,
+): Promise<{ ok: boolean; wallet?: string; amount?: number; already?: boolean; reason?: string }> {
+  if (!treasuryAta) return { ok: false, reason: "deposits_disabled" };
+  let tx;
+  try {
+    tx = await connection.getParsedTransaction(signature, { maxSupportedTransactionVersion: 0 });
+  } catch {
+    return { ok: false, reason: "rpc_error" };
+  }
+  if (!tx) return { ok: false, reason: "tx_not_found" };
+  const instrs: ParsedInstruction[] = [
+    ...(tx.transaction.message.instructions as ParsedInstruction[]),
+    ...(tx.meta?.innerInstructions ?? []).flatMap((i) => i.instructions as ParsedInstruction[]),
+  ];
+  for (const ix of instrs) {
+    if (!("parsed" in ix) || ix.program !== "spl-token") continue;
+    const info = (ix.parsed as { type?: string; info?: Record<string, unknown> })?.info;
+    const type = (ix.parsed as { type?: string })?.type;
+    if (!info || (type !== "transfer" && type !== "transferChecked")) continue;
+    if (info.destination !== treasuryAta.toBase58()) continue;
+    const sender = String(info.authority ?? info.owner ?? "");
+    const amount =
+      type === "transferChecked"
+        ? Number((info.tokenAmount as { amount?: string })?.amount ?? 0)
+        : Number(info.amount ?? 0);
+    if (!sender || amount <= 0) continue;
+    const credited = await store.creditDeposit(signature, sender, amount);
+    if (credited) cache.delete(sender);
+    return { ok: true, wallet: sender, amount: fromBaseUnits(amount), already: !credited };
+  }
+  return { ok: false, reason: "no_token_transfer_to_treasury" };
+}
+
 // --- withdraw (signs out of the treasury) ----------------------------------
 /** Debit the off-chain balance and send the tokens on-chain to the wallet.
  *  Refunds the off-chain balance if the transfer fails. Returns the signature. */

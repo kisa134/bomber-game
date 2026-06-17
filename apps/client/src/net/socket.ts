@@ -70,6 +70,13 @@ export async function withdrawTokens(amount: number): Promise<{ signature?: stri
   return res.json();
 }
 
+export async function claimDeposit(
+  signature: string,
+): Promise<{ ok: boolean; wallet?: string; amount?: number; already?: boolean; reason?: string }> {
+  const res = await post("/deposit/claim", { signature });
+  return res.json();
+}
+
 export async function fetchProfile(wallet: string): Promise<ProfileData> {
   const res = await fetch(`${SERVER_HTTP}/profile?wallet=${encodeURIComponent(wallet)}`);
   return res.json();

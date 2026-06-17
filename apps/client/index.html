@@ -220,6 +220,16 @@
           </div>
 
           <div class="bank-section">
+            <div class="section-head">🧾 Deposit not showing? Claim by transaction</div>
+            <p class="status fair">Paste your deposit transaction signature (from Phantom history / solscan). Credits the wallet that sent it.</p>
+            <div class="join-row">
+              <input id="bank-claim-sig" placeholder="transaction signature" />
+              <button id="bank-claim">Claim</button>
+            </div>
+            <p id="bank-claim-status" class="status"></p>
+          </div>
+
+          <div class="bank-section">
             <div class="section-head">⬆️ Withdraw (cash out)</div>
             <div class="join-row">
               <input id="bank-amount" type="number" min="1" placeholder="amount" />
