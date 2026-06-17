@@ -995,7 +995,9 @@ function wireBank(): void {
           status.textContent = `This deposit belongs to wallet ${short}. Connect THAT wallet to use it.`;
         }
       } else {
-        if (r.reason === "no_token_transfer_to_treasury") {
+        if (r.reason === "matched_but_unparsed") {
+          status.textContent = `Matched but couldn't read it: ${r.debug ?? ""}`;
+        } else if (r.reason === "no_token_transfer_to_treasury") {
           const exp = r.expected ? `${r.expected.slice(0, 6)}…${r.expected.slice(-6)}` : "?";
           const seen = (r.seen ?? []).map((s) => `${s.slice(0, 6)}…${s.slice(-6)}`).join(", ") || "none";
           status.textContent = `No match. Treasury expects ${exp}; this tx sent to: ${seen}.`;

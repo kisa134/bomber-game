@@ -77,7 +77,7 @@ export async function prepareDeposit(amount: number): Promise<{ tx?: string; err
 
 export async function claimDeposit(
   signature: string,
-): Promise<{ ok: boolean; wallet?: string; amount?: number; already?: boolean; reason?: string; expected?: string; seen?: string[] }> {
+): Promise<{ ok: boolean; wallet?: string; amount?: number; already?: boolean; reason?: string; expected?: string; seen?: string[]; debug?: string }> {
   const res = await post("/deposit/claim", { signature });
   return res.json();
 }

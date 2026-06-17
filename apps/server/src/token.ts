@@ -227,6 +227,7 @@ export async function claimBySignature(
   reason?: string;
   expected?: string;
   seen?: string[];
+  debug?: string;
 }> {
   await initToken();
   if (!treasuryAta) return { ok: false, reason: "deposits_disabled" };
@@ -242,28 +243,30 @@ export async function claimBySignature(
     ...(tx.meta?.innerInstructions ?? []).flatMap((i) => i.instructions as ParsedInstruction[]),
   ];
   const seen: string[] = [];
+  let dbg = "";
   for (const ix of instrs) {
     if (!("parsed" in ix) || (ix.program !== "spl-token" && ix.program !== "spl-token-2022")) continue;
-    const info = (ix.parsed as { type?: string; info?: Record<string, unknown> })?.info;
-    const type = (ix.parsed as { type?: string })?.type;
+    const p = ix.parsed as { type?: string; info?: Record<string, unknown> };
+    const info = p?.info;
+    const type = p?.type;
     if (!info || (type !== "transfer" && type !== "transferChecked")) continue;
     if (typeof info.destination === "string") seen.push(info.destination);
     if (info.destination !== treasuryAta.toBase58()) continue;
-    const sender = String(info.authority ?? info.owner ?? "");
-    const amount =
-      type === "transferChecked"
-        ? Number((info.tokenAmount as { amount?: string })?.amount ?? 0)
-        : Number(info.amount ?? 0);
-    if (!sender || amount <= 0) continue;
+    const sender = String(info.authority ?? info.owner ?? info.multisigAuthority ?? "");
+    const ta = info.tokenAmount as { amount?: string } | undefined;
+    const amount = Number(ta?.amount ?? info.amount ?? 0);
+    dbg = `type=${type} sender=${sender || "?"} amount=${amount} keys=${Object.keys(info).join(",")}`;
+    if (!sender || !Number.isFinite(amount) || amount <= 0) continue;
     const credited = await store.creditDeposit(signature, sender, amount);
     if (credited) cache.delete(sender);
     return { ok: true, wallet: sender, amount: fromBaseUnits(amount), already: !credited };
   }
   return {
     ok: false,
-    reason: "no_token_transfer_to_treasury",
+    reason: dbg ? "matched_but_unparsed" : "no_token_transfer_to_treasury",
     expected: treasuryAta.toBase58(),
     seen,
+    debug: dbg,
   };
 }
 
