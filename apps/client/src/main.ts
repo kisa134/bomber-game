@@ -28,6 +28,7 @@ import {
   fetchBank,
   withdrawTokens,
   claimDeposit,
+  prepareDeposit,
   watchMatch,
   type JoinResponse,
 } from "./net/socket.js";
@@ -43,6 +44,7 @@ import {
   disconnectWallet,
   shortAddr,
   reauth,
+  signAndSendBase64,
 } from "./net/wallet.js";
 import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables } from "./ui/lobby.js";
 import { track, identifyWallet, initErrorTracking } from "./analytics.js";
@@ -929,6 +931,45 @@ function wireBank(): void {
         btn.textContent = "Copied!";
         setTimeout(() => (btn.textContent = "Copy"), 1500);
       });
+    }
+  });
+  document.getElementById("bank-deposit")!.addEventListener("click", async () => {
+    const input = document.getElementById("bank-dep-amount") as HTMLInputElement;
+    const status = document.getElementById("bank-dep-status")!;
+    const amount = Math.floor(Number(input.value));
+    if (!amount || amount <= 0) {
+      status.textContent = "Enter an amount.";
+      return;
+    }
+    status.textContent = "Building transaction…";
+    try {
+      const prep = await prepareDeposit(amount);
+      if (prep.error || !prep.tx) {
+        status.textContent = prep.error === "deposits_disabled" ? "Deposits not enabled yet." : `Failed: ${prep.error ?? "error"}`;
+        return;
+      }
+      status.textContent = "Approve in your wallet…";
+      await signAndSendBase64(prep.tx);
+      status.textContent = "Sent! Crediting your in-game balance…";
+      input.value = "";
+      // The deposit watcher credits within ~15s; poll the Bank to reflect it.
+      let tries = 0;
+      const w = loadWallet();
+      const poll = async (): Promise<void> => {
+        if (!w || tries++ > 10) return;
+        const b = await fetchBank(w.address).catch(() => null);
+        if (b && b.gameTokens > 0) {
+          (document.getElementById("bank-game") as HTMLElement).textContent = b.gameTokens.toLocaleString();
+          (document.getElementById("bank-wallet") as HTMLElement).textContent = b.walletTokens.toLocaleString(undefined, { maximumFractionDigits: 2 });
+          setTokenBadge(b.gameTokens);
+          status.textContent = `✅ In game: ${b.gameTokens.toLocaleString()} $${TOKEN_TICKER}`;
+          return;
+        }
+        setTimeout(() => void poll(), 3000);
+      };
+      void poll();
+    } catch (e) {
+      status.textContent = `Failed: ${(e as Error).message}`;
     }
   });
   document.getElementById("bank-claim")!.addEventListener("click", async () => {

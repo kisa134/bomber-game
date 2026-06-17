@@ -215,8 +215,16 @@
 
           <div class="bank-section">
             <div class="section-head">⬇️ Deposit (play with it)</div>
-            <p class="status fair">Send the token from your wallet to this address. It's credited to your in-game balance automatically (~15–30s).</p>
-            <div class="bank-addr"><code id="bank-treasury">—</code><button id="bank-copy" class="ghost">Copy</button></div>
+            <p class="status fair">Move tokens from your wallet to your in-game balance. Your wallet will ask you to approve.</p>
+            <div class="join-row">
+              <input id="bank-dep-amount" type="number" min="1" placeholder="amount" />
+              <button id="bank-deposit">Deposit</button>
+            </div>
+            <p id="bank-dep-status" class="status"></p>
+            <details class="bank-manual">
+              <summary>or deposit manually (send to this address)</summary>
+              <div class="bank-addr"><code id="bank-treasury">—</code><button id="bank-copy" class="ghost">Copy</button></div>
+            </details>
           </div>
 
           <div class="bank-section">

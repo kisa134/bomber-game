@@ -70,6 +70,11 @@ export async function withdrawTokens(amount: number): Promise<{ signature?: stri
   return res.json();
 }
 
+export async function prepareDeposit(amount: number): Promise<{ tx?: string; error?: string }> {
+  const res = await post("/deposit/prepare", { amount });
+  return res.json();
+}
+
 export async function claimDeposit(
   signature: string,
 ): Promise<{ ok: boolean; wallet?: string; amount?: number; already?: boolean; reason?: string }> {

@@ -9,6 +9,7 @@ import { SERVER_HTTP } from "../config.js";
 // Wallet Standard feature keys (namespaced strings).
 const F_CONNECT = "standard:connect";
 const F_SIGN_MESSAGE = "solana:signMessage";
+const F_SIGN_SEND = "solana:signAndSendTransaction";
 
 // Minimal structural typing over the Wallet Standard objects we touch.
 interface StdAccount {
@@ -100,6 +101,30 @@ export async function reauth(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Sign & send a server-built (base64) transaction with the connected wallet.
+ *  Pops the wallet's approval UI; we never see the private key. */
+export async function signAndSendBase64(base64Tx: string): Promise<void> {
+  const stored = loadWallet();
+  if (!stored) throw new Error("Connect a wallet first");
+  const { get } = getWallets();
+  const wallet = get().find((w) => w.name === stored.walletName) as unknown as StdWallet | undefined;
+  if (!wallet || !(F_SIGN_SEND in wallet.features)) {
+    throw new Error("This wallet can't send transactions in-app — use the deposit address instead");
+  }
+  const account =
+    wallet.accounts.find((a) => a.address === stored.address) ?? wallet.accounts[0];
+  if (!account) throw new Error("Reconnect your wallet");
+  const bytes = Uint8Array.from(atob(base64Tx), (c) => c.charCodeAt(0));
+  const feature = wallet.features[F_SIGN_SEND] as {
+    signAndSendTransaction(input: {
+      account: StdAccount;
+      transaction: Uint8Array;
+      chain: string;
+    }): Promise<Array<{ signature: Uint8Array }>>;
+  };
+  await feature.signAndSendTransaction({ account, transaction: bytes, chain: "solana:mainnet" });
 }
 
 export function loadWallet(): ConnectedWallet | null {

@@ -16,6 +16,7 @@ import {
   toBaseUnits,
   fromBaseUnits,
   claimBySignature,
+  buildDepositTx,
 } from "./token.js";
 import type { SendFn } from "./player.js";
 
@@ -198,6 +199,31 @@ app.get("/bank", (res, req) => {
       }),
     )
     .catch(() => sendJson(res, { error: "bank_failed" }, "500 Internal Server Error"));
+});
+
+// Build an unsigned deposit transaction for the player's wallet to sign & send.
+app.post("/deposit/prepare", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    let wallet: string | null = null;
+    let amount = 0;
+    try {
+      const j = JSON.parse(body || "{}");
+      if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+      if (Number.isFinite(j.amount)) amount = Math.floor(j.amount);
+    } catch {
+      // ignore
+    }
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    if (!depositsEnabled) return sendJson(res, { error: "deposits_disabled" }, "503 Service Unavailable");
+    if (amount <= 0) return sendJson(res, { error: "bad_amount" }, "400 Bad Request");
+    try {
+      const tx = await buildDepositTx(wallet, toBaseUnits(amount));
+      sendJson(res, { tx });
+    } catch (e) {
+      sendJson(res, { error: (e as Error).message }, "500 Internal Server Error");
+    }
+  });
 });
 
 // Claim a deposit by its transaction signature (self-serve, when the watcher

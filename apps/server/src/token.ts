@@ -23,6 +23,7 @@ import {
   getAssociatedTokenAddressSync,
   getOrCreateAssociatedTokenAccount,
   createTransferInstruction,
+  createTransferCheckedInstruction,
 } from "@solana/spl-token";
 import bs58 from "bs58";
 import { TOKEN_MINT, TOKEN_DECIMALS, HOLDER_MIN } from "@bomberpump/shared";
@@ -210,6 +211,30 @@ export async function claimBySignature(
     return { ok: true, wallet: sender, amount: fromBaseUnits(amount), already: !credited };
   }
   return { ok: false, reason: "no_token_transfer_to_treasury" };
+}
+
+// --- deposit (server builds it, the player's wallet signs & sends) ----------
+/** Build an UNSIGNED transfer of `amountBase` tokens from the player's wallet
+ *  to the treasury. Returned base64 is handed to the wallet to sign+send, so we
+ *  never need crypto libs (or the user's key) in the browser. */
+export async function buildDepositTx(wallet: string, amountBase: number): Promise<string> {
+  if (!treasuryAta) throw new Error("deposits_disabled");
+  if (!Number.isInteger(amountBase) || amountBase <= 0) throw new Error("bad_amount");
+  const owner = new PublicKey(wallet);
+  const sourceAta = getAssociatedTokenAddressSync(MINT, owner);
+  const ix = createTransferCheckedInstruction(
+    sourceAta,
+    MINT,
+    treasuryAta,
+    owner,
+    amountBase,
+    TOKEN_DECIMALS,
+  );
+  const { blockhash } = await connection.getLatestBlockhash("finalized");
+  const tx = new Transaction().add(ix);
+  tx.feePayer = owner;
+  tx.recentBlockhash = blockhash;
+  return Buffer.from(tx.serialize({ requireAllSignatures: false, verifySignatures: false })).toString("base64");
 }
 
 // --- withdraw (signs out of the treasury) ----------------------------------
