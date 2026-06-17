@@ -28,7 +28,9 @@ import bs58 from "bs58";
 import { TOKEN_MINT, TOKEN_DECIMALS, HOLDER_MIN } from "@bomberpump/shared";
 import { store } from "./store.js";
 
-const RPC = process.env.SOLANA_RPC || "https://rpc.ankr.com/solana";
+// Default to the public mainnet RPC (rate-limited but keyless). For anything
+// real, set SOLANA_RPC to a provider with a key (Helius/QuickNode/Alchemy).
+const RPC = process.env.SOLANA_RPC || "https://api.mainnet-beta.solana.com";
 const connection = new Connection(RPC, "confirmed");
 const MINT = new PublicKey(TOKEN_MINT);
 
