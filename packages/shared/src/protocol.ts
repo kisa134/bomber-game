@@ -326,9 +326,10 @@ export function encodeRoomInfo(
 ): Uint8Array {
   const codeBytes = textEncoder.encode(code);
   const nameBytes = players.map((p) => textEncoder.encode(p.name.slice(0, 24)));
+  const walletBytes = players.map((p) => textEncoder.encode(p.wallet ?? ""));
   let size = 1 + 1 + 1 + 2 + 4 + 1 + 1 + codeBytes.length + 1;
-  // per player: id + skin + ready + wins + nameLen + name
-  for (const nb of nameBytes) size += 1 + 1 + 1 + 1 + 1 + nb.length;
+  // per player: id + skin + ready + wins + nameLen + name + walletLen + wallet
+  for (let i = 0; i < players.length; i++) size += 1 + 1 + 1 + 1 + 1 + nameBytes[i].length + 1 + walletBytes[i].length;
   const buf = new Uint8Array(size);
   const dv = new DataView(buf.buffer);
   let o = 0;
@@ -348,6 +349,8 @@ export function encodeRoomInfo(
     dv.setUint8(o, Math.min(255, players[i].wins) & 0xff); o += 1;
     dv.setUint8(o, nameBytes[i].length); o += 1;
     buf.set(nameBytes[i], o); o += nameBytes[i].length;
+    dv.setUint8(o, Math.min(255, walletBytes[i].length)); o += 1;
+    buf.set(walletBytes[i], o); o += walletBytes[i].length;
   }
   return buf;
 }
@@ -503,7 +506,9 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
         const wins = dv.getUint8(o); o += 1;
         const nameLen = dv.getUint8(o); o += 1;
         const name = textDecoder.decode(bytes.subarray(o, o + nameLen)); o += nameLen;
-        players.push({ id, name, skin, ready, wins });
+        const walletLen = dv.getUint8(o); o += 1;
+        const wallet = textDecoder.decode(bytes.subarray(o, o + walletLen)); o += walletLen;
+        players.push({ id, name, skin, ready, wins, wallet });
       }
       const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, stake, currency, players };
       return msg;

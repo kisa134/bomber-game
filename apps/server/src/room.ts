@@ -793,6 +793,7 @@ export class Room {
       skin: p.skin,
       ready: p.ready,
       wins: p.wins,
+      wallet: p.wallet ?? "",
     }));
     const countdown = this.lobbyCounting ? this.lobbyCountdownMs : 0;
     for (const p of this.players.values()) {

@@ -12,6 +12,12 @@ let tokenUsd = 0;
 export function setTokenUsd(v: number): void {
   tokenUsd = v;
 }
+
+/** How the room screen opens a public profile (wired from main). */
+let onOpenProfile: (wallet: string) => void = () => {};
+export function setProfileHandler(fn: (wallet: string) => void): void {
+  onOpenProfile = fn;
+}
 function usdSuffix(tokens: number): string {
   if (!tokenUsd || tokens <= 0) return "";
   const v = tokens * tokenUsd;
@@ -227,6 +233,11 @@ export function renderRoom(state: GameState): void {
     const name = document.createElement("span");
     name.textContent = p.name + (p.id === state.myId ? " (you)" : "");
     li.appendChild(name);
+    if (p.wallet) {
+      li.style.cursor = "pointer";
+      li.title = "View profile";
+      li.addEventListener("click", () => onOpenProfile(p.wallet));
+    }
     if (seriesOn) {
       const wins = document.createElement("span");
       wins.className = "win-tag";

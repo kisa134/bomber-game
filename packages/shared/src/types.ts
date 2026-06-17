@@ -173,6 +173,7 @@ export interface RoomPlayerInfo {
   skin: number;
   ready: boolean; // lobby ready-up state
   wins: number; // matches won in this room's series
+  wallet: string; // on-chain address ("" for bots/guests) — for public profiles
 }
 
 export interface RoomInfoMsg {

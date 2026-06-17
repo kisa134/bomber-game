@@ -47,7 +47,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler } from "./ui/lobby.js";
 import { track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 
@@ -430,6 +430,7 @@ function renderResultBoard(winnerId: number): void {
   const draw = winnerId === DRAW_WINNER_ID;
   const sym = state.roomCurrency === 1 ? "💎" : "🪙";
   const n = ranked.length;
+  const walletOf = new Map(state.roomPlayers.map((rp) => [rp.id, rp.wallet]));
   board.innerHTML = "";
   ranked.forEach((p, i) => {
     const li = document.createElement("li");
@@ -440,15 +441,21 @@ function renderResultBoard(winnerId: number): void {
       el("span", "rb-name", state.nameOf(p.id) + (p.id === state.myId ? " (you)" : "")),
       el("span", "rb-frags", `💀 ${p.frags}`),
     );
+    const pw = walletOf.get(p.id);
+    if (pw) {
+      li.style.cursor = "pointer";
+      li.title = "View profile";
+      li.addEventListener("click", () => void openPublicProfile(pw));
+    }
     if (stake > 0 && !draw) {
       const net = p.id === winnerId ? stake * (n - 1) : -stake;
       const usd = state.roomCurrency === 1 ? usdOf(Math.abs(net)) : "";
-      const w = el(
+      const win = el(
         "span",
         "rb-win " + (net > 0 ? "up" : "down"),
         `${net > 0 ? "+" : "−"}${sym}${Math.abs(net).toLocaleString()}${usd}`,
       );
-      li.append(w);
+      li.append(win);
     }
     board.appendChild(li);
   });
@@ -1244,6 +1251,7 @@ wireSettings();
 wireWallet();
 wireMenuLinks();
 wireBank();
+setProfileHandler((wallet) => void openPublicProfile(wallet));
 document.getElementById("pubprofile-close")!.addEventListener("click", () =>
   document.getElementById("pubprofile-modal")!.classList.add("hidden"),
 );
