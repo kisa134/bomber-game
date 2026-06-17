@@ -1,14 +1,58 @@
-// Read-only on-chain reads for the real pump.fun token. No keys, no custody:
-// we only query a wallet's SPL balance via JSON-RPC (cached) so the game can
-// show holdings and (optionally) gate access. Wagering/custody is separate.
+// Real pump.fun token integration (custodial, Model A).
+//
+// READS (no keys): a wallet's on-chain balance, for display/holder checks.
+// CUSTODY (treasury key): deposits are watched on the treasury token account and
+// credited to an off-chain balance; withdrawals are signed out of the treasury.
+//
+// All custody features are inert unless the treasury env vars are set:
+//   TREASURY_ADDRESS  - public key that receives deposits (required for deposits)
+//   TREASURY_SECRET   - base58 secret key, signs withdrawals (required to cash out)
+//   SOLANA_RPC        - an RPC that supports tx submission (Ankr/SolanaTracker/etc)
+//
+// SECRETS NEVER LIVE IN THE REPO — only in the host's env.
 
-import { TOKEN_MINT, HOLDER_MIN } from "@bomberpump/shared";
+import {
+  Connection,
+  Keypair,
+  PublicKey,
+  Transaction,
+  sendAndConfirmTransaction,
+  type ParsedInstruction,
+} from "@solana/web3.js";
+import {
+  getAssociatedTokenAddressSync,
+  getOrCreateAssociatedTokenAccount,
+  createTransferInstruction,
+} from "@solana/spl-token";
+import bs58 from "bs58";
+import { TOKEN_MINT, TOKEN_DECIMALS, HOLDER_MIN } from "@bomberpump/shared";
+import { store } from "./store.js";
 
 const RPC = process.env.SOLANA_RPC || "https://rpc.ankr.com/solana";
+const connection = new Connection(RPC, "confirmed");
+const MINT = new PublicKey(TOKEN_MINT);
+
+const treasuryKeypair = process.env.TREASURY_SECRET
+  ? Keypair.fromSecretKey(bs58.decode(process.env.TREASURY_SECRET.trim()))
+  : null;
+const treasuryPubkey = process.env.TREASURY_ADDRESS
+  ? new PublicKey(process.env.TREASURY_ADDRESS.trim())
+  : treasuryKeypair?.publicKey ?? null;
+const treasuryAta = treasuryPubkey ? getAssociatedTokenAddressSync(MINT, treasuryPubkey, true) : null;
+
+export const TREASURY_ADDRESS = treasuryPubkey?.toBase58() ?? "";
+export const depositsEnabled = !!treasuryAta;
+export const withdrawalsEnabled = !!treasuryKeypair && !!treasuryAta;
+
+const POW = 10 ** TOKEN_DECIMALS;
+export const toBaseUnits = (whole: number): number => Math.round(whole * POW);
+export const fromBaseUnits = (base: number): number => base / POW;
+
+// --- read-only balance (display / holder gating) ---------------------------
 const TTL_MS = 60_000;
 const cache = new Map<string, { balance: number; at: number }>();
 
-/** A wallet's total balance of TOKEN_MINT (ui amount), cached for a minute. */
+/** A wallet's total on-chain balance of TOKEN_MINT (ui amount), cached. */
 export async function tokenBalance(wallet: string): Promise<number> {
   if (!wallet) return 0;
   const hit = cache.get(wallet);
@@ -41,4 +85,87 @@ export async function tokenBalance(wallet: string): Promise<number> {
 
 export async function isHolder(wallet: string): Promise<boolean> {
   return (await tokenBalance(wallet)) >= HOLDER_MIN;
+}
+
+// --- deposit watcher -------------------------------------------------------
+const seenSigs = new Set<string>();
+
+/** Poll the treasury token account for incoming transfers and credit senders. */
+export function startDepositWatcher(): void {
+  if (!treasuryAta) {
+    console.log("[token] deposits disabled (set TREASURY_ADDRESS to enable)");
+    return;
+  }
+  console.log(`[token] watching deposits to ${TREASURY_ADDRESS} (${treasuryAta.toBase58()})`);
+  const poll = async (): Promise<void> => {
+    try {
+      const sigs = await connection.getSignaturesForAddress(treasuryAta!, { limit: 25 });
+      for (const { signature, err } of sigs) {
+        if (err || seenSigs.has(signature)) continue;
+        seenSigs.add(signature);
+        await creditFromTx(signature);
+      }
+      if (seenSigs.size > 5000) seenSigs.clear(); // bound memory; DB dedupe is the source of truth
+    } catch (e) {
+      console.error("[token] deposit poll failed", e);
+    }
+  };
+  setInterval(() => void poll(), 15_000);
+  void poll();
+}
+
+async function creditFromTx(signature: string): Promise<void> {
+  try {
+    const tx = await connection.getParsedTransaction(signature, { maxSupportedTransactionVersion: 0 });
+    if (!tx) return;
+    const instrs: ParsedInstruction[] = [
+      ...(tx.transaction.message.instructions as ParsedInstruction[]),
+      ...(tx.meta?.innerInstructions ?? []).flatMap((i) => i.instructions as ParsedInstruction[]),
+    ];
+    for (const ix of instrs) {
+      if (!("parsed" in ix) || ix.program !== "spl-token") continue;
+      const info = (ix.parsed as { type?: string; info?: Record<string, unknown> })?.info;
+      const type = (ix.parsed as { type?: string })?.type;
+      if (!info || (type !== "transfer" && type !== "transferChecked")) continue;
+      if (info.destination !== treasuryAta!.toBase58()) continue;
+      const sender = String(info.authority ?? info.owner ?? "");
+      const amount =
+        type === "transferChecked"
+          ? Number((info.tokenAmount as { amount?: string })?.amount ?? 0)
+          : Number(info.amount ?? 0);
+      if (!sender || amount <= 0) continue;
+      const credited = await store.creditDeposit(signature, sender, amount);
+      if (credited) {
+        cache.delete(sender);
+        console.log(`[token] deposit credited: ${fromBaseUnits(amount)} to ${sender} (${signature})`);
+      }
+    }
+  } catch (e) {
+    console.error("[token] creditFromTx failed", signature, e);
+  }
+}
+
+// --- withdraw (signs out of the treasury) ----------------------------------
+/** Debit the off-chain balance and send the tokens on-chain to the wallet.
+ *  Refunds the off-chain balance if the transfer fails. Returns the signature. */
+export async function withdraw(wallet: string, amountBase: number): Promise<string> {
+  if (!treasuryKeypair || !treasuryAta) throw new Error("withdrawals_disabled");
+  if (!Number.isInteger(amountBase) || amountBase <= 0) throw new Error("bad_amount");
+
+  const owner = new PublicKey(wallet); // throws on a malformed address
+  const after = await store.adjustToken(wallet, -amountBase);
+  if (after === null) throw new Error("insufficient_balance");
+
+  try {
+    const destAta = await getOrCreateAssociatedTokenAccount(connection, treasuryKeypair, MINT, owner);
+    const ix = createTransferInstruction(treasuryAta, destAta.address, treasuryKeypair.publicKey, amountBase);
+    const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [treasuryKeypair]);
+    cache.delete(wallet);
+    console.log(`[token] withdraw ${fromBaseUnits(amountBase)} to ${wallet} (${sig})`);
+    return sig;
+  } catch (e) {
+    await store.adjustToken(wallet, amountBase); // refund on failure
+    console.error("[token] withdraw failed, refunded", e);
+    throw new Error("withdraw_failed");
+  }
 }

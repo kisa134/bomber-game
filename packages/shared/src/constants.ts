@@ -68,7 +68,11 @@ export const BET_SIZES = [100, 250, 500, 1000, 2500] as const; // table stakes
 // Public mint address — safe to ship to the client (used for display + links).
 export const TOKEN_MINT = "2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump";
 export const TOKEN_TICKER = "BMEME";
+export const TOKEN_DECIMALS = 6; // pump.fun tokens use 6 decimals
 export const HOLDER_MIN = 1; // min token balance (ui amount) to count as a holder
+// Withdraw bounds (whole tokens) — guardrails on the custodial cash-out.
+export const MIN_WITHDRAW = 1;
+export const MAX_WITHDRAW = 10_000_000;
 export const STARTING_RATING = 1000; // every new wallet starts here
 export const ELO_K = 32; // max swing per match; beating a stronger player pays more
 

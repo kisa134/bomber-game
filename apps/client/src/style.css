@@ -290,6 +290,60 @@ button.ghost {
   box-shadow: 0 0 10px rgba(255, 204, 51, 0.25);
 }
 
+/* Bank modal (deposit/withdraw the real token) */
+.bank-balances {
+  display: flex;
+  gap: 8px;
+}
+.bank-balances .stat-badge {
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 1rem;
+}
+.bank-balances .stat-badge span {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.bank-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  text-align: left;
+}
+.bank-addr {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.bank-addr code {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+}
+.bank-addr button {
+  width: auto;
+}
+.bank-section .join-row input {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+.bank-section .join-row button {
+  width: auto;
+  flex: 0 0 auto;
+  min-width: 96px;
+}
+
 /* Bot difficulty buttons (Solo section) */
 .diff-row {
   display: flex;

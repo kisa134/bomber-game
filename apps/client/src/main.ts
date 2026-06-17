@@ -25,6 +25,8 @@ import {
   fetchProfile,
   fetchLeaderboard,
   fetchTables,
+  fetchBank,
+  withdrawTokens,
   watchMatch,
   type JoinResponse,
 } from "./net/socket.js";
@@ -385,7 +387,7 @@ function announceResult(winnerId: number): void {
     void fetchProfile(w.address)
       .then((p) => {
         setStats(p.chips, p.rating);
-        setTokenBadge(p.tokenBalance);
+        setTokenBadge(p.gameTokens);
         const d = p.rating - prevRating;
         const ratingNote =
           d !== 0 ? `${leagueFor(p.rating).emoji} ${p.rating} (${d > 0 ? "+" : ""}${d})` : "";
@@ -726,7 +728,7 @@ function refreshWalletBtn(): void {
     void fetchProfile(w.address)
       .then((p) => {
         setStats(p.chips, p.rating);
-        setTokenBadge(p.tokenBalance);
+        setTokenBadge(p.gameTokens);
       })
       .catch(() => {});
   } else {
@@ -841,7 +843,7 @@ function setBalance(chips: number): void {
   setStats(chips, lastRating);
 }
 
-/** Show the live on-chain token balance badge (links to the coin on pump.fun). */
+/** Show the in-game (custodial) token balance badge; tap to open the Bank. */
 function setTokenBadge(balance: number | undefined): void {
   const badge = document.getElementById("token-badge") as HTMLAnchorElement | null;
   if (!badge) return;
@@ -852,9 +854,79 @@ function setTokenBadge(balance: number | undefined): void {
   const amt = document.getElementById("token-amount");
   const tick = document.getElementById("token-ticker");
   if (amt) amt.textContent = balance.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  if (tick) tick.textContent = TOKEN_TICKER;
-  badge.href = `https://pump.fun/coin/${TOKEN_MINT}`;
+  if (tick) tick.textContent = `$${TOKEN_TICKER}`;
   badge.classList.remove("hidden");
+}
+
+/** Open the Bank modal: deposit address + balances + withdraw. */
+async function openBank(): Promise<void> {
+  const w = loadWallet();
+  const modal = document.getElementById("bank-modal")!;
+  const status = document.getElementById("bank-status")!;
+  if (!w) {
+    setMenuStatus("Connect a wallet first");
+    return;
+  }
+  status.textContent = "";
+  modal.classList.remove("hidden");
+  (document.getElementById("bank-ticker") as HTMLElement).textContent = `$${TOKEN_TICKER}`;
+  (document.getElementById("bank-pump") as HTMLAnchorElement).href = `https://pump.fun/coin/${TOKEN_MINT}`;
+  try {
+    const b = await fetchBank(w.address);
+    (document.getElementById("bank-game") as HTMLElement).textContent = b.gameTokens.toLocaleString();
+    (document.getElementById("bank-wallet") as HTMLElement).textContent = b.walletTokens.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    (document.getElementById("bank-treasury") as HTMLElement).textContent = b.depositsEnabled ? b.treasury : "deposits not enabled yet";
+    const wbtn = document.getElementById("bank-withdraw") as HTMLButtonElement;
+    wbtn.disabled = !b.withdrawalsEnabled;
+    if (!b.withdrawalsEnabled) status.textContent = "Withdrawals open once the treasury is live.";
+  } catch {
+    status.textContent = "Couldn't load bank info.";
+  }
+}
+
+function wireBank(): void {
+  document.getElementById("token-badge")!.addEventListener("click", (e) => {
+    e.preventDefault();
+    void openBank();
+  });
+  document.getElementById("bank-close")!.addEventListener("click", () =>
+    document.getElementById("bank-modal")!.classList.add("hidden"),
+  );
+  document.getElementById("bank-copy")!.addEventListener("click", () => {
+    const addr = document.getElementById("bank-treasury")!.textContent ?? "";
+    const btn = document.getElementById("bank-copy") as HTMLButtonElement;
+    if (navigator.clipboard?.writeText && addr.length > 20) {
+      void navigator.clipboard.writeText(addr).then(() => {
+        btn.textContent = "Copied!";
+        setTimeout(() => (btn.textContent = "Copy"), 1500);
+      });
+    }
+  });
+  document.getElementById("bank-withdraw")!.addEventListener("click", async () => {
+    const input = document.getElementById("bank-amount") as HTMLInputElement;
+    const status = document.getElementById("bank-status")!;
+    const amount = Math.floor(Number(input.value));
+    if (!amount || amount <= 0) {
+      status.textContent = "Enter an amount.";
+      return;
+    }
+    status.textContent = "Sending…";
+    try {
+      const r = await withdrawTokens(amount);
+      if (r.error) {
+        status.textContent = `Failed: ${r.error}`;
+      } else {
+        status.textContent = `Sent! ${amount} $${TOKEN_TICKER} on the way.`;
+        if (typeof r.gameTokens === "number") {
+          (document.getElementById("bank-game") as HTMLElement).textContent = r.gameTokens.toLocaleString();
+          setTokenBadge(r.gameTokens);
+        }
+        input.value = "";
+      }
+    } catch {
+      status.textContent = "Failed: network error.";
+    }
+  });
 }
 
 async function openProfile(): Promise<void> {
@@ -869,7 +941,7 @@ async function openProfile(): Promise<void> {
   try {
     const p = await fetchProfile(w.address);
     setStats(p.chips, p.rating);
-    setTokenBadge(p.tokenBalance);
+    setTokenBadge(p.gameTokens);
     const into = p.xp % 200;
     const wr = p.matches ? Math.round((p.wins / p.matches) * 100) : 0;
     body.innerHTML = "";
@@ -878,7 +950,7 @@ async function openProfile(): Promise<void> {
       el("div", "prof-addr", shortAddr(w.address)),
       el("div", "prof-level", `${lg.emoji} ${lg.name} · ${p.rating}`),
       el("div", "prof-chips", `🪙 ${p.chips.toLocaleString()} chips`),
-      el("div", "prof-chips", `💎 ${(p.tokenBalance ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} $${TOKEN_TICKER}`),
+      el("div", "prof-chips", `💎 ${(p.gameTokens ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} $${TOKEN_TICKER} in game`),
     );
     const bar = document.createElement("div");
     bar.className = "xp-bar";
@@ -998,6 +1070,7 @@ applySettings();
 wireSettings();
 wireWallet();
 wireMenuLinks();
+wireBank();
 setupBackground();
 
 setupMenu({

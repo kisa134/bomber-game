@@ -1,11 +1,20 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, BotDifficulty } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { store } from "./store.js";
-import { tokenBalance } from "./token.js";
+import {
+  tokenBalance,
+  withdraw,
+  startDepositWatcher,
+  TREASURY_ADDRESS,
+  depositsEnabled,
+  withdrawalsEnabled,
+  toBaseUnits,
+  fromBaseUnits,
+} from "./token.js";
 import type { SendFn } from "./player.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -145,9 +154,16 @@ app.get("/health", (res) => {
 app.get("/profile", (res, req) => {
   res.onAborted(() => {});
   const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
-  const blank = { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0 };
+  const blank = { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0, token_balance: 0 };
   Promise.all([store.getProfile(wallet), tokenBalance(wallet)])
-    .then(([p, tok]) => sendJson(res, { ...(p ?? blank), tokenBalance: tok }))
+    .then(([p, tok]) => {
+      const prof = p ?? blank;
+      sendJson(res, {
+        ...prof,
+        walletTokens: tok, // on-chain balance in the player's wallet (ui amount)
+        gameTokens: fromBaseUnits(prof.token_balance), // custodial in-game balance (whole)
+      });
+    })
     .catch(() => sendJson(res, { error: "profile_failed" }, "500 Internal Server Error"));
 });
 
@@ -158,6 +174,57 @@ app.get("/leaderboard", (res, req) => {
     .leaderboard(100, period)
     .then((rows) => sendJson(res, { rows }))
     .catch(() => sendJson(res, { rows: [] }));
+});
+
+// Custodial bank: where to deposit + current balances + capabilities.
+app.get("/bank", (res, req) => {
+  res.onAborted(() => {});
+  const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
+  Promise.all([store.getProfile(wallet), tokenBalance(wallet)])
+    .then(([p, tok]) =>
+      sendJson(res, {
+        treasury: TREASURY_ADDRESS,
+        ticker: TOKEN_TICKER,
+        mint: TOKEN_MINT,
+        depositsEnabled,
+        withdrawalsEnabled,
+        minWithdraw: MIN_WITHDRAW,
+        maxWithdraw: MAX_WITHDRAW,
+        gameTokens: fromBaseUnits(p?.token_balance ?? 0),
+        walletTokens: tok,
+      }),
+    )
+    .catch(() => sendJson(res, { error: "bank_failed" }, "500 Internal Server Error"));
+});
+
+// Cash out: sign tokens out of the treasury to the player's wallet.
+app.post("/withdraw", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    let wallet: string | null = null;
+    let amount = 0;
+    try {
+      const j = JSON.parse(body || "{}");
+      if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+      if (Number.isFinite(j.amount)) amount = Math.floor(j.amount);
+    } catch {
+      // ignore
+    }
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    if (!withdrawalsEnabled) return sendJson(res, { error: "withdrawals_disabled" }, "503 Service Unavailable");
+    if (amount < MIN_WITHDRAW || amount > MAX_WITHDRAW) {
+      return sendJson(res, { error: "bad_amount", min: MIN_WITHDRAW, max: MAX_WITHDRAW }, "400 Bad Request");
+    }
+    try {
+      const signature = await withdraw(wallet, toBaseUnits(amount));
+      const p = await store.getProfile(wallet);
+      sendJson(res, { signature, gameTokens: fromBaseUnits(p?.token_balance ?? 0) });
+    } catch (e) {
+      const msg = (e as Error).message;
+      const code = msg === "insufficient_balance" ? "402 Payment Required" : "500 Internal Server Error";
+      sendJson(res, { error: msg }, code);
+    }
+  });
 });
 
 async function parseBody(res: uWS.HttpResponse): Promise<Body> {
@@ -410,6 +477,7 @@ app.listen(PORT, (listenSocket) => {
       `[bomberpump] server listening on :${PORT}` +
         (SERVE_STATIC ? ` (serving client from ${CLIENT_DIST})` : " (api only)"),
     );
+    startDepositWatcher(); // no-op unless TREASURY_ADDRESS is set
   } else {
     console.error(`[bomberpump] failed to listen on :${PORT}`);
     process.exit(1);

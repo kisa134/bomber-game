@@ -196,6 +196,35 @@
           <button id="result-leave" class="ghost">Leave to menu</button>
         </div>
       </section>
+      <!-- Bank modal: deposit / withdraw the real token -->
+      <div id="bank-modal" class="modal hidden">
+        <div class="modal-card">
+          <h3>💎 Bank · <span id="bank-ticker">$TOKEN</span></h3>
+          <div class="bank-balances">
+            <div class="stat-badge token"><span>In game</span><b id="bank-game">0</b></div>
+            <div class="stat-badge"><span>In wallet</span><b id="bank-wallet">0</b></div>
+          </div>
+
+          <div class="bank-section">
+            <div class="section-head">⬇️ Deposit (play with it)</div>
+            <p class="status fair">Send the token from your wallet to this address. It's credited to your in-game balance automatically (~15–30s).</p>
+            <div class="bank-addr"><code id="bank-treasury">—</code><button id="bank-copy" class="ghost">Copy</button></div>
+          </div>
+
+          <div class="bank-section">
+            <div class="section-head">⬆️ Withdraw (cash out)</div>
+            <div class="join-row">
+              <input id="bank-amount" type="number" min="1" placeholder="amount" />
+              <button id="bank-withdraw">Withdraw</button>
+            </div>
+            <p id="bank-status" class="status"></p>
+          </div>
+
+          <a id="bank-pump" class="link" target="_blank" rel="noopener">View on pump.fun ↗</a>
+          <button id="bank-close" class="ghost">Close</button>
+        </div>
+      </div>
+
       <!-- Wallet picker modal -->
       <div id="wallet-modal" class="modal hidden">
         <div class="modal-card">

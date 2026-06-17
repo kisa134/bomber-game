@@ -43,7 +43,30 @@ export interface ProfileData {
   chips: number;
   rating: number;
   week_points: number;
-  tokenBalance?: number; // live on-chain balance of the real token
+  gameTokens?: number; // custodial in-game token balance (whole tokens)
+  walletTokens?: number; // live on-chain balance in the player's wallet
+}
+
+export interface BankInfo {
+  treasury: string;
+  ticker: string;
+  mint: string;
+  depositsEnabled: boolean;
+  withdrawalsEnabled: boolean;
+  minWithdraw: number;
+  maxWithdraw: number;
+  gameTokens: number;
+  walletTokens: number;
+}
+
+export async function fetchBank(wallet: string): Promise<BankInfo> {
+  const res = await fetch(`${SERVER_HTTP}/bank?wallet=${encodeURIComponent(wallet)}`);
+  return res.json();
+}
+
+export async function withdrawTokens(amount: number): Promise<{ signature?: string; gameTokens?: number; error?: string }> {
+  const res = await post("/withdraw", { amount });
+  return res.json();
 }
 
 export async function fetchProfile(wallet: string): Promise<ProfileData> {

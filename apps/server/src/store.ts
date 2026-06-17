@@ -22,6 +22,7 @@ export interface Profile {
   rating: number; // chess-style Elo
   week_key: string; // ISO week this player's weekly score belongs to
   week_points: number; // resets each ISO week
+  token_balance: number; // real token, in base units (custodial off-chain balance)
 }
 
 /** ISO-8601 week key like "2026-W25" (UTC). Weekly tops reset on the boundary. */
@@ -68,6 +69,12 @@ export interface ProfileStore {
   /** Atomically add `delta` chips. Returns the new balance, or null if a
    *  negative delta would overdraw (balance unchanged). */
   adjustChips(wallet: string, delta: number): Promise<number | null>;
+  /** Atomically add `delta` token base units. Returns the new balance, or null
+   *  if a negative delta would overdraw (balance unchanged). */
+  adjustToken(wallet: string, delta: number): Promise<number | null>;
+  /** Credit a deposit exactly once (deduped by tx signature). Returns true if
+   *  this signature was newly applied, false if already processed. */
+  creditDeposit(signature: string, wallet: string, amount: number): Promise<boolean>;
 }
 
 function blankProfile(wallet: string, name: string, skin: number): Profile {
@@ -87,6 +94,7 @@ function blankProfile(wallet: string, name: string, skin: number): Profile {
     rating: STARTING_RATING,
     week_key: "",
     week_points: 0,
+    token_balance: 0,
   };
 }
 
@@ -173,6 +181,22 @@ class InMemoryStore implements ProfileStore {
     if (delta < 0 && p.chips + delta < 0) return null;
     p.chips += delta;
     return p.chips;
+  }
+
+  async adjustToken(wallet: string, delta: number): Promise<number | null> {
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    if (delta < 0 && p.token_balance + delta < 0) return null;
+    p.token_balance += delta;
+    return p.token_balance;
+  }
+
+  private deposits = new Set<string>();
+  async creditDeposit(signature: string, wallet: string, amount: number): Promise<boolean> {
+    if (this.deposits.has(signature)) return false;
+    this.deposits.add(signature);
+    await this.adjustToken(wallet, amount);
+    return true;
   }
 }
 
@@ -286,6 +310,42 @@ class SupabaseStore implements ProfileStore {
     }
     return next;
   }
+
+  async adjustToken(wallet: string, delta: number): Promise<number | null> {
+    const p = await this.getProfile(wallet);
+    if (!p) return null;
+    const next = (p.token_balance ?? 0) + delta;
+    if (next < 0) return null;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ token_balance: next }),
+      });
+    } catch (e) {
+      console.error("[store] adjustToken failed", e);
+      return null;
+    }
+    return next;
+  }
+
+  async creditDeposit(signature: string, wallet: string, amount: number): Promise<boolean> {
+    // Best-effort dedupe via a processed_deposits table (Postgres path is atomic).
+    try {
+      const ins = await fetch(`${this.url}/rest/v1/processed_deposits`, {
+        method: "POST",
+        headers: { ...this.headers(), Prefer: "resolution=ignore-duplicates,return=representation" },
+        body: JSON.stringify({ signature, wallet, amount }),
+      });
+      const rows = (await ins.json()) as unknown[];
+      if (!Array.isArray(rows) || rows.length === 0) return false; // already processed
+      await this.adjustToken(wallet, amount);
+      return true;
+    } catch (e) {
+      console.error("[store] creditDeposit failed", e);
+      return false;
+    }
+  }
 }
 
 // Direct Postgres (any provider). Auto-creates the schema on boot, so the only
@@ -335,6 +395,15 @@ class PostgresStore implements ProfileStore {
     );
     await this.pool.query(`alter table profiles add column if not exists week_key text not null default ''`);
     await this.pool.query(`alter table profiles add column if not exists week_points int not null default 0`);
+    // Custodial real-token balance (base units) + deposit dedupe ledger.
+    await this.pool.query(`alter table profiles add column if not exists token_balance bigint not null default 0`);
+    await this.pool.query(`
+      create table if not exists processed_deposits (
+        signature text primary key,
+        wallet text not null,
+        amount bigint not null,
+        at timestamptz not null default now()
+      )`);
   }
 
   async recordMatch(results: MatchResult[]): Promise<void> {
@@ -378,11 +447,17 @@ class PostgresStore implements ProfileStore {
     }
   }
 
+  // pg returns bigint columns as strings — coerce token_balance back to a number.
+  private norm(row: Record<string, unknown> | undefined): Profile | null {
+    if (!row) return null;
+    return { ...(row as unknown as Profile), token_balance: Number(row.token_balance ?? 0) };
+  }
+
   async getProfile(wallet: string): Promise<Profile | null> {
     try {
       await this.ready;
       const res = await this.pool.query("select * from profiles where wallet=$1", [wallet]);
-      return (res.rows[0] as Profile) ?? null;
+      return this.norm(res.rows[0]);
     } catch (e) {
       console.error("[store] pg getProfile failed", e);
       return null;
@@ -399,7 +474,7 @@ class PostgresStore implements ProfileStore {
               [limit, isoWeekKey()],
             )
           : await this.pool.query("select * from profiles order by rating desc limit $1", [limit]);
-      return res.rows as Profile[];
+      return res.rows.map((r) => this.norm(r)!) as Profile[];
     } catch (e) {
       console.error("[store] pg leaderboard failed", e);
       return [];
@@ -413,7 +488,7 @@ class PostgresStore implements ProfileStore {
       [wallet, name, skin],
     );
     const res = await this.pool.query("select * from profiles where wallet=$1", [wallet]);
-    return res.rows[0] as Profile;
+    return this.norm(res.rows[0])!;
   }
 
   async adjustChips(wallet: string, delta: number): Promise<number | null> {
@@ -429,6 +504,59 @@ class PostgresStore implements ProfileStore {
     } catch (e) {
       console.error("[store] pg adjustChips failed", e);
       return null;
+    }
+  }
+
+  async adjustToken(wallet: string, delta: number): Promise<number | null> {
+    try {
+      await this.ready;
+      // Ensure the row exists, then atomically move the balance (overdraw-safe).
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
+      const res = await this.pool.query(
+        `update profiles set token_balance = token_balance + $2, updated_at=now()
+         where wallet=$1 and token_balance + $2 >= 0 returning token_balance`,
+        [wallet, delta],
+      );
+      return res.rows[0] ? Number(res.rows[0].token_balance) : null;
+    } catch (e) {
+      console.error("[store] pg adjustToken failed", e);
+      return null;
+    }
+  }
+
+  async creditDeposit(signature: string, wallet: string, amount: number): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await this.ready;
+      await client.query("begin");
+      const ins = await client.query(
+        `insert into processed_deposits (signature, wallet, amount) values ($1,$2,$3)
+         on conflict (signature) do nothing`,
+        [signature, wallet, amount],
+      );
+      if (ins.rowCount === 0) {
+        await client.query("rollback");
+        return false; // already processed
+      }
+      await client.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
+      await client.query(
+        `update profiles set token_balance = token_balance + $2, updated_at=now() where wallet=$1`,
+        [wallet, amount],
+      );
+      await client.query("commit");
+      return true;
+    } catch (e) {
+      await client.query("rollback").catch(() => {});
+      console.error("[store] pg creditDeposit failed", e);
+      return false;
+    } finally {
+      client.release();
     }
   }
 }
