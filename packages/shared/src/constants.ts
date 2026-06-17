@@ -23,6 +23,7 @@ export const CORNER_ASSIST = 2.2;
 
 export const MAX_PLAYERS_PER_ROOM = 4;
 export const MIN_PLAYERS_TO_START = 2;
+export const SPECTATOR_ID = 255; // welcome id sent to a spectator (not a real seat)
 
 export const MATCH_LENGTH_MS = 180_000; // 3 minutes
 export const SUDDEN_DEATH_AT_MS = 120_000; // last minute (after 2:00): walls close in

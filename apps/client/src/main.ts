@@ -12,6 +12,7 @@ import {
   EMOTES,
   leagueFor,
   STARTING_RATING,
+  SPECTATOR_ID,
 } from "./net/protocol.js";
 import {
   Net,
@@ -22,6 +23,7 @@ import {
   fetchProfile,
   fetchLeaderboard,
   fetchTables,
+  watchMatch,
   type JoinResponse,
 } from "./net/socket.js";
 import { GameState } from "./game/state.js";
@@ -194,6 +196,17 @@ net.onOpen = () => {
   toastEl.classList.add("hidden"); // clear any "reconnecting…" banner
 };
 
+let spectating = false;
+
+/** Enter watch-only view: show the board, hide controls, show a banner. */
+function enterSpectator(): void {
+  enterGame();
+  document.getElementById("touch-controls")?.classList.add("hidden");
+  const banner = document.getElementById("spectator")!;
+  banner.textContent = "👁 SPECTATING — live match";
+  banner.classList.remove("hidden");
+}
+
 net.onMessage = (msg) => {
   switch (msg.type) {
     case ServerMsg.WELCOME:
@@ -204,6 +217,8 @@ net.onMessage = (msg) => {
         return;
       }
       state.myId = msg.playerId;
+      spectating = msg.playerId === SPECTATOR_ID;
+      if (spectating) enterSpectator();
       break;
     case ServerMsg.ROOM_INFO: {
       const count = msg.players.length;
@@ -211,7 +226,7 @@ net.onMessage = (msg) => {
       prevPlayerCount = count;
       state.setRoomInfo(msg);
       // Don't yank the player off the result screen — they leave it via a button.
-      if (!inGame(state.phase) && !onResultScreen()) {
+      if (!inGame(state.phase) && !onResultScreen() && !spectating) {
         showScreen("room");
         renderRoom(state);
         music("lobby");
@@ -247,7 +262,7 @@ net.onMessage = (msg) => {
         assets.play("sudden_death");
       } else if (msg.phase === MatchPhase.LOBBY) {
         prevSoftCount = -1;
-        if (!onResultScreen()) {
+        if (!onResultScreen() && !spectating) {
           showScreen("room");
           renderRoom(state);
           music("lobby");
@@ -257,7 +272,15 @@ net.onMessage = (msg) => {
     case ServerMsg.MATCH_END:
       state.winnerId = msg.winnerId;
       assets.stop("sudden_death"); // kill the last-minute track
-      announceResult(msg.winnerId);
+      if (spectating) {
+        const banner = document.getElementById("spectator")!;
+        banner.textContent =
+          msg.winnerId === DRAW_WINNER_ID ? "🤝 Draw — match over" : `🏆 ${state.nameOf(msg.winnerId)} wins`;
+        banner.classList.remove("hidden");
+        setTimeout(leaveToMenu, 4000);
+      } else {
+        announceResult(msg.winnerId);
+      }
       break;
     case ServerMsg.PONG:
       state.pingMs = Math.round(performance.now() - msg.timestamp);
@@ -954,11 +977,18 @@ setupMenu({
   join: (c, code) => { track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
   tables: () => {
     void fetchTables().then((tables) =>
-      renderTables(tables, (code) => {
-        const name = (localStorage.getItem("bp_nick") || "pumper").trim();
-        track("play_start", { mode: "table_join" });
-        void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
-      }),
+      renderTables(
+        tables,
+        (code) => {
+          const name = (localStorage.getItem("bp_nick") || "pumper").trim();
+          track("play_start", { mode: "table_join" });
+          void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
+        },
+        (code) => {
+          track("spectate", { code });
+          void connect(() => watchMatch(code));
+        },
+      ),
     );
   },
 });
@@ -1009,6 +1039,7 @@ function onResultScreen(): boolean {
 }
 
 function leaveToMenu(): void {
+  spectating = false;
   net.close();
   assets.stop("sudden_death");
   state.reset();

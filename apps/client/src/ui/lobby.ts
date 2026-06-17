@@ -104,10 +104,17 @@ let tableFilter = -1;
 let lastTables: TableInfo[] = [];
 let lastOnJoin: (code: string) => void = () => {};
 
-/** Render the public tables list with a stake filter; rows join via onJoin(code). */
-export function renderTables(tables: TableInfo[], onJoin: (code: string) => void): void {
+let lastOnWatch: (code: string) => void = () => {};
+
+/** Render the public tables list with a stake filter; rows join/watch by code. */
+export function renderTables(
+  tables: TableInfo[],
+  onJoin: (code: string) => void,
+  onWatch: (code: string) => void = () => {},
+): void {
   lastTables = tables;
   lastOnJoin = onJoin;
+  lastOnWatch = onWatch;
   drawTables();
 }
 
@@ -143,10 +150,12 @@ function drawTables(): void {
   }
   for (const t of shown) {
     const row = document.createElement("button");
-    row.className = "table-row";
+    row.className = "table-row" + (t.live ? " live" : "");
     const pot = t.stake > 0 ? ` · pot 🪙${t.stake * t.players}` : "";
-    row.innerHTML = `<span>${t.stake > 0 ? "🪙" + t.stake : "Casual"}${pot}</span><span>${t.players}/${t.max}</span><span>Join</span>`;
-    row.addEventListener("click", () => lastOnJoin(t.code));
+    const action = t.live ? "👁 Watch" : "Join";
+    const label = t.live ? "🔴 LIVE" : t.stake > 0 ? "🪙" + t.stake : "Casual";
+    row.innerHTML = `<span>${label}${pot}</span><span>${t.players}/${t.max}</span><span>${action}</span>`;
+    row.addEventListener("click", () => (t.live ? lastOnWatch(t.code) : lastOnJoin(t.code)));
     list.appendChild(row);
   }
 }

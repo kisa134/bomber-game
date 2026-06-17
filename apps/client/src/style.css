@@ -346,6 +346,12 @@ button.ghost {
 .table-row:hover {
   border-color: var(--accent);
 }
+.table-row.live {
+  border-color: var(--accent2);
+}
+.table-row.live span:first-child {
+  color: var(--accent2);
+}
 .prof-chips {
   font-weight: 800;
   color: var(--accent);

@@ -15,6 +15,7 @@ import {
   PROTOCOL_VERSION,
   MAX_PLAYERS_PER_ROOM,
   MIN_PLAYERS_TO_START,
+  SPECTATOR_ID,
   KICK_SPEED,
   HIT_INVULN_MS,
   DRAW_WINNER_ID,
@@ -66,6 +67,8 @@ export class Room {
   readonly world = new World();
   readonly players = new Map<number, Player>();
   private readonly bots = new Map<number, BotController>();
+  private readonly spectators = new Map<number, SendFn>(); // watch-only connections
+  private nextSpectatorId = 200; // spectator ids live above player/bot ids
   bombs: Bomb[] = [];
 
   phase: MatchPhase = MatchPhase.LOBBY;
@@ -160,6 +163,25 @@ export class Room {
     return p;
   }
 
+  /** A match is in progress and can be watched. */
+  get watchable(): boolean {
+    return this.phase === MatchPhase.PLAYING || this.phase === MatchPhase.SUDDEN_DEATH;
+  }
+
+  /** Attach a watch-only connection. Returns the internal spectator id. */
+  addSpectator(send: SendFn): number {
+    const id = this.nextSpectatorId++;
+    this.spectators.set(id, send);
+    this.needKeyframe.add(id); // owe them a full grid on the next snapshot
+    send(encodeWelcome(SPECTATOR_ID, GRID_W, GRID_H, PROTOCOL_VERSION));
+    send(encodePhase(this.phase, this.phaseTimer()));
+    return id;
+  }
+
+  isSpectator(id: number): boolean {
+    return this.spectators.has(id);
+  }
+
   removePlayer(id: number): void {
     const existed = this.players.delete(id);
     if (!existed) return;
@@ -183,6 +205,10 @@ export class Room {
   /** Socket dropped. During an active match, hold the slot for a grace window
    *  so the player can reconnect; otherwise remove immediately. */
   handleDisconnect(id: number): void {
+    if (this.spectators.delete(id)) {
+      this.needKeyframe.delete(id);
+      return;
+    }
     const p = this.players.get(id);
     if (!p) return;
     const active =
@@ -745,6 +771,7 @@ export class Room {
 
   private broadcast(bytes: Uint8Array): void {
     for (const p of this.players.values()) p.send(bytes);
+    for (const send of this.spectators.values()) send(bytes);
   }
 
   private broadcastRoomInfo(): void {
@@ -805,14 +832,14 @@ export class Room {
     const tick = this.simTick;
     const deltaMsg = encodeSnapshot(tick, players, bombs, section);
     let fullMsg: Uint8Array | null = null;
+    const fk = (): Uint8Array =>
+      (fullMsg ??= encodeSnapshot(tick, players, bombs, gridSectionFull(cur)));
     for (const p of this.players.values()) {
       if (p.isBot) continue;
-      if (this.needKeyframe.has(p.id)) {
-        if (!fullMsg) fullMsg = encodeSnapshot(tick, players, bombs, gridSectionFull(cur));
-        p.send(fullMsg);
-      } else {
-        p.send(deltaMsg);
-      }
+      p.send(this.needKeyframe.has(p.id) ? fk() : deltaMsg);
+    }
+    for (const [id, send] of this.spectators) {
+      send(this.needKeyframe.has(id) ? fk() : deltaMsg);
     }
     this.needKeyframe.clear();
     this.lastSentGrid.set(cur);

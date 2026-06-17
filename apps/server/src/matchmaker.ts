@@ -9,6 +9,7 @@ interface Pending {
   skin: number;
   wallet: string | null;
   createdAt: number;
+  spectator: boolean;
 }
 
 const TOKEN_TTL_MS = 60_000;
@@ -87,10 +88,28 @@ export class Matchmaker {
     name: string,
     skin: number,
     wallet: string | null,
+    spectator = false,
   ): { code: string; token: string } {
     const token = randomUUID();
-    this.pending.set(token, { roomId: room.id, name, skin, wallet, createdAt: Date.now() });
+    this.pending.set(token, { roomId: room.id, name, skin, wallet, createdAt: Date.now(), spectator });
     return { code: room.id, token };
+  }
+
+  /** Reserve a watch-only seat in a specific live match. */
+  spectate(code: string): { code: string; token: string } | null {
+    const room = this.rooms.get(code.toUpperCase());
+    if (!room || !room.watchable) return null;
+    return this.reserve(room, "spectator", 0, null, true);
+  }
+
+  /** Reserve a watch-only seat in any live public match (for a quick "watch"). */
+  spectateAny(): { code: string; token: string } | null {
+    for (const r of this.rooms.values()) {
+      if (r.isPublic && !r.practice && r.watchable && r.humanCount > 0) {
+        return this.reserve(r, "spectator", 0, null, true);
+      }
+    }
+    return null;
   }
 
   private newRoom(
@@ -107,15 +126,19 @@ export class Matchmaker {
     return room;
   }
 
-  /** Open public tables (lobby, joinable) for the lobby browser. */
-  listTables(): Array<{ code: string; stake: number; players: number; max: number }> {
-    const out: Array<{ code: string; stake: number; players: number; max: number }> = [];
+  /** Public tables for the browser: joinable (lobby) ones AND live ones to watch. */
+  listTables(): Array<{ code: string; stake: number; players: number; max: number; live: boolean }> {
+    const out: Array<{ code: string; stake: number; players: number; max: number; live: boolean }> = [];
     for (const r of this.rooms.values()) {
-      if (r.isPublic && !r.practice && r.acceptsPlayers()) {
-        out.push({ code: r.id, stake: r.stake, players: r.players.size, max: r.maxPlayers });
+      if (!r.isPublic || r.practice) continue;
+      if (r.acceptsPlayers()) {
+        out.push({ code: r.id, stake: r.stake, players: r.players.size, max: r.maxPlayers, live: false });
+      } else if (r.watchable && r.humanCount > 0) {
+        out.push({ code: r.id, stake: r.stake, players: r.players.size, max: r.maxPlayers, live: true });
       }
     }
-    return out.sort((a, b) => a.stake - b.stake || b.players - a.players);
+    // Joinable first, then live; within each, by stake then fullness.
+    return out.sort((a, b) => Number(a.live) - Number(b.live) || a.stake - b.stake || b.players - a.players);
   }
 
   private genCode(): string {
@@ -132,6 +155,13 @@ export class Matchmaker {
     const p = this.pending.get(token);
     if (!p) return null;
     this.pending.delete(token);
+    // Spectators attach watch-only to their live room (no seat, no reconnect).
+    if (p.spectator) {
+      const room = this.rooms.get(p.roomId);
+      if (!room || !room.watchable) return null;
+      const playerId = room.addSpectator(send);
+      return { roomId: room.id, playerId, reconnectToken: "" };
+    }
     let room = this.rooms.get(p.roomId);
     if (!room || !room.acceptsPlayers()) {
       // Room filled/closed while connecting: drop into any open public room

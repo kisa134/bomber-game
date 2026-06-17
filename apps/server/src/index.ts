@@ -287,6 +287,15 @@ app.get("/tables", (res) => {
   sendJson(res, { tables: mm.listTables() });
 });
 
+// Watch a live match (spectator). ?code=XXXX for a specific one, else any.
+app.get("/watch", (res, req) => {
+  if (!guard(res, req)) return;
+  const code = new URLSearchParams(req.getQuery()).get("code") ?? "";
+  const result = code ? mm.spectate(code) : mm.spectateAny();
+  if (!result) sendJson(res, { error: "no_live_match" }, "404 Not Found");
+  else sendJson(res, result);
+});
+
 app.post("/quickplay", (res, req) =>
   withMatchmaking(res, req, (b) => mm.quickplay(b.name, b.skin, b.wallet, b.stake)),
 );

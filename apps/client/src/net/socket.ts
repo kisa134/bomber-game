@@ -61,6 +61,14 @@ export interface TableInfo {
   stake: number;
   players: number;
   max: number;
+  live: boolean; // a match is in progress -> watch instead of join
+}
+
+/** Reserve a watch-only token for a live match (specific code, or any). */
+export async function watchMatch(code?: string): Promise<JoinResponse> {
+  const res = await fetch(`${SERVER_HTTP}/watch${code ? `?code=${encodeURIComponent(code)}` : ""}`);
+  if (!res.ok) throw new Error("No live match to watch right now.");
+  return res.json();
 }
 
 export async function fetchTables(): Promise<TableInfo[]> {
