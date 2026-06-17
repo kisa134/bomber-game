@@ -1033,6 +1033,13 @@ button.big {
 .prof-cell b {
   color: var(--text);
 }
+.lb-period {
+  width: 100%;
+}
+.lb-period .seg-btn {
+  flex: 1 1 0;
+  width: auto;
+}
 .lb-list {
   width: 100%;
   list-style: none;

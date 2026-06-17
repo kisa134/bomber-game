@@ -20,6 +20,23 @@ export interface Profile {
   best_streak: number;
   chips: number; // simulated currency balance
   rating: number; // chess-style Elo
+  week_key: string; // ISO week this player's weekly score belongs to
+  week_points: number; // resets each ISO week
+}
+
+/** ISO-8601 week key like "2026-W25" (UTC). Weekly tops reset on the boundary. */
+export function isoWeekKey(d = new Date()): string {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const week = Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${date.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+/** Weekly score for one match: a win is worth more, frags add a little. */
+export function weekPointsFor(r: MatchResult): number {
+  return (r.won ? 3 : 1) + r.frags;
 }
 
 export interface MatchResult {
@@ -44,7 +61,8 @@ export interface ProfileStore {
   ping(): Promise<boolean>;
   recordMatch(results: MatchResult[]): Promise<void>;
   getProfile(wallet: string): Promise<Profile | null>;
-  leaderboard(limit: number): Promise<Profile[]>;
+  /** Top players, all-time (by rating) or this week (by weekly points). */
+  leaderboard(limit: number, period?: "all" | "week"): Promise<Profile[]>;
   /** Ensure a profile exists (granting starting chips), return it. */
   ensureProfile(wallet: string, name: string, skin: number): Promise<Profile>;
   /** Atomically add `delta` chips. Returns the new balance, or null if a
@@ -67,7 +85,18 @@ function blankProfile(wallet: string, name: string, skin: number): Profile {
     best_streak: 0,
     chips: STARTING_CHIPS,
     rating: STARTING_RATING,
+    week_key: "",
+    week_points: 0,
   };
+}
+
+/** Apply this match's weekly points, resetting the tally on a new ISO week. */
+function applyWeekly(p: Profile, r: MatchResult, week: string): void {
+  if (p.week_key !== week) {
+    p.week_key = week;
+    p.week_points = 0;
+  }
+  p.week_points += weekPointsFor(r);
 }
 
 /** Map a finished match's results to a per-wallet Elo delta, keyed by wallet. */
@@ -103,10 +132,12 @@ class InMemoryStore implements ProfileStore {
 
   async recordMatch(results: MatchResult[]): Promise<void> {
     const deltas = ratingDeltas(results, (w) => this.map.get(w)?.rating ?? STARTING_RATING);
+    const week = isoWeekKey();
     for (const r of results) {
       const p = this.map.get(r.wallet) ?? blankProfile(r.wallet, r.name, r.skin);
       applyResult(p, r);
       p.rating = Math.max(0, p.rating + (deltas.get(r.wallet) ?? 0));
+      applyWeekly(p, r, week);
       this.map.set(r.wallet, p);
     }
   }
@@ -115,8 +146,16 @@ class InMemoryStore implements ProfileStore {
     return this.map.get(wallet) ?? null;
   }
 
-  async leaderboard(limit: number): Promise<Profile[]> {
-    return [...this.map.values()].sort((a, b) => b.rating - a.rating).slice(0, limit);
+  async leaderboard(limit: number, period: "all" | "week" = "all"): Promise<Profile[]> {
+    const all = [...this.map.values()];
+    if (period === "week") {
+      const week = isoWeekKey();
+      return all
+        .filter((p) => p.week_key === week && p.week_points > 0)
+        .sort((a, b) => b.week_points - a.week_points)
+        .slice(0, limit);
+    }
+    return all.sort((a, b) => b.rating - a.rating).slice(0, limit);
   }
 
   async ensureProfile(wallet: string, name: string, skin: number): Promise<Profile> {
@@ -197,12 +236,15 @@ class SupabaseStore implements ProfileStore {
     }
   }
 
-  async leaderboard(limit: number): Promise<Profile[]> {
+  async leaderboard(limit: number, period: "all" | "week" = "all"): Promise<Profile[]> {
     try {
-      const res = await fetch(
-        `${this.url}/rest/v1/profiles?select=*&order=rating.desc&limit=${limit}`,
-        { headers: this.headers() },
-      );
+      const query =
+        period === "week"
+          ? `week_key=eq.${isoWeekKey()}&order=week_points.desc`
+          : `order=rating.desc`;
+      const res = await fetch(`${this.url}/rest/v1/profiles?select=*&${query}&limit=${limit}`, {
+        headers: this.headers(),
+      });
       return (await res.json()) as Profile[];
     } catch (e) {
       console.error("[store] leaderboard failed", e);
@@ -291,6 +333,8 @@ class PostgresStore implements ProfileStore {
     await this.pool.query(
       `alter table profiles add column if not exists rating int not null default ${STARTING_RATING}`,
     );
+    await this.pool.query(`alter table profiles add column if not exists week_key text not null default ''`);
+    await this.pool.query(`alter table profiles add column if not exists week_points int not null default 0`);
   }
 
   async recordMatch(results: MatchResult[]): Promise<void> {
@@ -304,12 +348,14 @@ class PostgresStore implements ProfileStore {
       );
       const ratingMap = new Map<string, number>(cur.rows.map((row) => [row.wallet, row.rating]));
       const deltas = ratingDeltas(results, (w) => ratingMap.get(w) ?? STARTING_RATING);
+      const week = isoWeekKey();
       for (const r of results) {
         const xp = xpForMatch(r);
         const dRating = deltas.get(r.wallet) ?? 0;
+        const wkPts = weekPointsFor(r);
         await this.pool.query(
-          `insert into profiles (wallet,name,skin,xp,matches,wins,frags,deaths,current_streak,best_streak,level,rating,updated_at)
-           values ($1,$2,$3,$4,1, case when $5 then 1 else 0 end, $6,$7, case when $5 then 1 else 0 end, case when $5 then 1 else 0 end, 1 + ($4/200), greatest(0, ${STARTING_RATING} + $8), now())
+          `insert into profiles (wallet,name,skin,xp,matches,wins,frags,deaths,current_streak,best_streak,level,rating,week_key,week_points,updated_at)
+           values ($1,$2,$3,$4,1, case when $5 then 1 else 0 end, $6,$7, case when $5 then 1 else 0 end, case when $5 then 1 else 0 end, 1 + ($4/200), greatest(0, ${STARTING_RATING} + $8), $9, $10, now())
            on conflict (wallet) do update set
              name=excluded.name, skin=excluded.skin,
              xp=profiles.xp+$4,
@@ -321,8 +367,10 @@ class PostgresStore implements ProfileStore {
              best_streak=greatest(profiles.best_streak, case when $5 then profiles.current_streak+1 else 0 end),
              level=1 + ((profiles.xp+$4)/200),
              rating=greatest(0, profiles.rating + $8),
+             week_points=case when profiles.week_key = $9 then profiles.week_points + $10 else $10 end,
+             week_key=$9,
              updated_at=now()`,
-          [r.wallet, r.name, r.skin, xp, r.won, r.frags, r.deaths, dRating],
+          [r.wallet, r.name, r.skin, xp, r.won, r.frags, r.deaths, dRating, week, wkPts],
         );
       }
     } catch (e) {
@@ -341,12 +389,16 @@ class PostgresStore implements ProfileStore {
     }
   }
 
-  async leaderboard(limit: number): Promise<Profile[]> {
+  async leaderboard(limit: number, period: "all" | "week" = "all"): Promise<Profile[]> {
     try {
       await this.ready;
-      const res = await this.pool.query("select * from profiles order by rating desc limit $1", [
-        limit,
-      ]);
+      const res =
+        period === "week"
+          ? await this.pool.query(
+              "select * from profiles where week_key=$2 and week_points>0 order by week_points desc limit $1",
+              [limit, isoWeekKey()],
+            )
+          : await this.pool.query("select * from profiles order by rating desc limit $1", [limit]);
       return res.rows as Profile[];
     } catch (e) {
       console.error("[store] pg leaderboard failed", e);

@@ -146,14 +146,15 @@ app.get("/profile", (res, req) => {
   const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
   store
     .getProfile(wallet)
-    .then((p) => sendJson(res, p ?? { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING }))
+    .then((p) => sendJson(res, p ?? { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0 }))
     .catch(() => sendJson(res, { error: "profile_failed" }, "500 Internal Server Error"));
 });
 
-app.get("/leaderboard", (res) => {
+app.get("/leaderboard", (res, req) => {
   res.onAborted(() => {});
+  const period = new URLSearchParams(req.getQuery()).get("period") === "week" ? "week" : "all";
   store
-    .leaderboard(100)
+    .leaderboard(100, period)
     .then((rows) => sendJson(res, { rows }))
     .catch(() => sendJson(res, { rows: [] }));
 });

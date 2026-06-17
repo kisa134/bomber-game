@@ -42,6 +42,7 @@ export interface ProfileData {
   best_streak: number;
   chips: number;
   rating: number;
+  week_points: number;
 }
 
 export async function fetchProfile(wallet: string): Promise<ProfileData> {
@@ -49,8 +50,8 @@ export async function fetchProfile(wallet: string): Promise<ProfileData> {
   return res.json();
 }
 
-export async function fetchLeaderboard(): Promise<ProfileData[]> {
-  const res = await fetch(`${SERVER_HTTP}/leaderboard`);
+export async function fetchLeaderboard(period: "all" | "week" = "all"): Promise<ProfileData[]> {
+  const res = await fetch(`${SERVER_HTTP}/leaderboard?period=${period}`);
   const { rows } = (await res.json()) as { rows: ProfileData[] };
   return rows ?? [];
 }

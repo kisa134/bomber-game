@@ -873,16 +873,23 @@ async function openProfile(): Promise<void> {
   }
 }
 
+let lbPeriod: "all" | "week" = "all";
+
 async function openLeaderboard(): Promise<void> {
   showScreen("leaderboard");
   const body = document.getElementById("leaderboard-body")!;
   body.innerHTML = '<li class="status">Loading…</li>';
+  document.getElementById("lb-alltime")?.classList.toggle("active", lbPeriod === "all");
+  document.getElementById("lb-week")?.classList.toggle("active", lbPeriod === "week");
   try {
-    const rows = await fetchLeaderboard();
+    const rows = await fetchLeaderboard(lbPeriod);
     const myWallet = loadWallet()?.address ?? "";
     body.innerHTML = "";
     if (!rows.length) {
-      body.innerHTML = '<li class="status">No players yet — be the first!</li>';
+      body.innerHTML =
+        lbPeriod === "week"
+          ? '<li class="status">No games this week yet — play to climb!</li>'
+          : '<li class="status">No players yet — be the first!</li>';
       return;
     }
     rows.forEach((r, i) => {
@@ -891,10 +898,11 @@ async function openLeaderboard(): Promise<void> {
       li.className = "lb-row" + (isMe ? " me" : "");
       const lg = leagueFor(r.rating);
       const medal = ["🥇", "🥈", "🥉"][i] ?? `${i + 1}`;
+      const score = lbPeriod === "week" ? `${r.week_points} pts` : `${r.rating}`;
       li.append(
         el("span", "lb-rank", medal),
         el("span", "lb-name", `${lg.emoji} ${r.name || shortAddr(r.wallet)}${isMe ? " (you)" : ""}`),
-        el("span", "lb-xp", `${r.rating}`),
+        el("span", "lb-xp", score),
       );
       body.appendChild(li);
     });
@@ -905,9 +913,11 @@ async function openLeaderboard(): Promise<void> {
 
 function wireMenuLinks(): void {
   document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
-  document.getElementById("open-leaderboard")!.addEventListener("click", () => void openLeaderboard());
+  document.getElementById("open-leaderboard")!.addEventListener("click", () => { lbPeriod = "all"; void openLeaderboard(); });
   document.getElementById("profile-back")!.addEventListener("click", () => showScreen("menu"));
   document.getElementById("leaderboard-back")!.addEventListener("click", () => showScreen("menu"));
+  document.getElementById("lb-alltime")!.addEventListener("click", () => { lbPeriod = "all"; void openLeaderboard(); });
+  document.getElementById("lb-week")!.addEventListener("click", () => { lbPeriod = "week"; void openLeaderboard(); });
 }
 
 // --- background video -----------------------------------------------------

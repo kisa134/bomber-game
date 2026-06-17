@@ -123,6 +123,19 @@ export class Room {
     return n;
   }
 
+  /** Distinct human wallets currently seated (for anti-abuse checks). */
+  get walletCount(): number {
+    const s = new Set<string>();
+    for (const p of this.players.values()) if (!p.isBot && p.wallet) s.add(p.wallet);
+    return s.size;
+  }
+
+  /** True if this wallet already holds a seat here (block self-stake / dual-seat). */
+  hasWallet(wallet: string): boolean {
+    for (const p of this.players.values()) if (!p.isBot && p.wallet === wallet) return true;
+    return false;
+  }
+
   private addBot(): void {
     const id = this.nextPlayerId++;
     const spawn = SPAWNS[this.players.size % SPAWNS.length];

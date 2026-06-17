@@ -35,6 +35,8 @@ export class Matchmaker {
   quickplay(name: string, skin: number, wallet: string | null, stake = 0): { code: string; token: string } {
     let room: Room | undefined;
     for (const r of this.rooms.values()) {
+      // Skip rooms where this wallet already sits (no playing yourself).
+      if (wallet && r.hasWallet(wallet)) continue;
       if (r.isPublic && r.stake === stake && r.acceptsPlayers()) {
         room = r;
         break;
@@ -76,6 +78,7 @@ export class Matchmaker {
   ): { code: string; token: string } | null {
     const room = this.rooms.get(code.toUpperCase());
     if (!room || !room.acceptsPlayers()) return null;
+    if (wallet && room.hasWallet(wallet)) return null; // already seated here
     return this.reserve(room, name, skin, wallet);
   }
 
@@ -131,9 +134,11 @@ export class Matchmaker {
     this.pending.delete(token);
     let room = this.rooms.get(p.roomId);
     if (!room || !room.acceptsPlayers()) {
-      // Room filled/closed while connecting: drop into any open public room.
+      // Room filled/closed while connecting: drop into any open public room
+      // this wallet isn't already seated in.
       room = undefined;
       for (const r of this.rooms.values()) {
+        if (p.wallet && r.hasWallet(p.wallet)) continue;
         if (r.isPublic && r.acceptsPlayers()) {
           room = r;
           break;
