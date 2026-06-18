@@ -4,6 +4,7 @@ import uWS from "uWebSockets.js";
 import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
+import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./tgrelay.js";
 import { store } from "./store.js";
 import {
   tokenBalance,
@@ -363,6 +364,35 @@ app.post("/auth/verify", (res, req) => {
     } else {
       sendJson(res, { error: "invalid_signature" }, "401 Unauthorized");
     }
+  });
+});
+
+// --- Telegram Mini App <-> Phantom deeplink relay ---
+app.post("/tg/relay/new", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(() => sendJson(res, { state: newRelayState() }));
+});
+
+app.get("/tg/relay/:state", (res, req) => {
+  if (!guard(res, req)) return;
+  const state = req.getParameter(0) ?? "";
+  const payload = takeRelayPayload(state);
+  if (payload) sendJson(res, { payload });
+  else sendJson(res, { error: "pending" }, "404 Not Found");
+});
+
+// Phantom redirects here after the user approves; stash the blob and bounce back
+// into the Mini App. Served as HTML (not JSON) so the browser runs the redirect.
+app.get("/tg/cb", (res, req) => {
+  res.onAborted(() => {});
+  const query = req.getQuery() ?? "";
+  const state = new URLSearchParams(query).get("state") ?? "";
+  if (state) putRelayPayload(state, query);
+  const html = reopenHtml(state);
+  res.cork(() => {
+    res.writeHeader("Content-Type", "text/html; charset=utf-8");
+    res.writeHeader("Cache-Control", "no-cache");
+    res.end(html);
   });
 });
 

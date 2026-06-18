@@ -52,6 +52,11 @@ import { track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram } from "./platform/telegram.js";
 import { enterImmersive } from "./platform/fullscreen.js";
+import {
+  startTelegramConnect,
+  resumeTelegramWallet,
+  disconnectTelegramWallet,
+} from "./net/telegram-wallet.js";
 import { registerSW } from "virtual:pwa-register";
 
 const state = new GameState();
@@ -806,6 +811,25 @@ function openWalletModal(): void {
   const status = document.getElementById("wallet-modal-status")!;
   status.textContent = "";
   list.innerHTML = "";
+
+  // Inside Telegram there is no in-page wallet: connect via Phantom deeplink
+  // (leaves the app and resumes on return). Hide the QR / open-in-browser block.
+  if (isTelegram) {
+    empty.classList.add("hidden");
+    document.querySelector(".wc-section")?.classList.add("hidden");
+    const row = document.createElement("button");
+    row.className = "wallet-row";
+    row.textContent = "👻 Connect with Phantom";
+    row.addEventListener("click", () => {
+      status.textContent = "Opening Phantom…";
+      track("wallet_connect_start", { provider: "telegram-phantom" });
+      void startTelegramConnect();
+    });
+    list.appendChild(row);
+    modal.classList.remove("hidden");
+    return;
+  }
+
   const wallets = listWallets();
   empty.classList.toggle("hidden", wallets.length > 0);
   for (const w of wallets) {
@@ -857,6 +881,7 @@ function wireWallet(): void {
   btn.addEventListener("click", () => {
     if (loadWallet()) {
       disconnectWallet();
+      disconnectTelegramWallet();
       refreshWalletBtn();
     } else {
       openWalletModal();
@@ -1261,6 +1286,22 @@ wireWallet();
 wireMenuLinks();
 wireBank();
 setProfileHandler((wallet) => void openPublicProfile(wallet));
+// Finish a Phantom deeplink flow if we just returned from one (Telegram only).
+if (isTelegram) {
+  void resumeTelegramWallet({
+    onConnected: (address) => {
+      identifyWallet(address);
+      refreshWalletBtn();
+      track("wallet_connected", { provider: "telegram-phantom" });
+      setMenuStatus("Wallet connected ✅");
+    },
+    onDeposit: () => {
+      refreshWalletBtn();
+      setMenuStatus("Deposit sent — crediting your balance shortly…");
+    },
+    onError: (m) => setMenuStatus(`Wallet: ${m}`),
+  });
+}
 document.getElementById("pubprofile-close")!.addEventListener("click", () =>
   document.getElementById("pubprofile-modal")!.classList.add("hidden"),
 );
