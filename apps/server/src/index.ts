@@ -167,6 +167,30 @@ function adminAuthed(req: uWS.HttpRequest): boolean {
   return q.get("token") === ADMIN_TOKEN;
 }
 
+// Presence: clients heartbeat here while the app is open (menu, lobby, or match),
+// so "online" reflects everyone with the game open — not just players in a live
+// room (a WS connection only exists once a match is joined).
+const PRESENCE_TTL_MS = 45_000;
+const presence = new Map<string, number>();
+function onlineCount(): number {
+  const cutoff = Date.now() - PRESENCE_TTL_MS;
+  let n = 0;
+  for (const [id, ts] of presence) {
+    if (ts < cutoff) presence.delete(id);
+    else n++;
+  }
+  return n;
+}
+app.get("/presence", (res, req) => {
+  res.onAborted(() => {});
+  const id = new URLSearchParams(req.getQuery()).get("id") ?? "";
+  if (id) presence.set(id, Date.now());
+  res.cork(() => {
+    res.writeHeader("Access-Control-Allow-Origin", "*");
+    res.writeStatus("204 No Content").end();
+  });
+});
+
 // Live JSON metrics for the dashboard. Polled by /admin.
 app.get("/admin/stats", (res, req) => {
   res.onAborted(() => {});
@@ -175,6 +199,7 @@ app.get("/admin/stats", (res, req) => {
     .leaderboard(10, "all")
     .then((top) => {
       sendJson(res, {
+        online: onlineCount(),
         live: mm.adminStats,
         totals: analytics.snapshot(),
         store: store.kind,

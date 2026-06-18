@@ -62,7 +62,8 @@ async function poll(){
     $("#gate").style.display="none";$("#board").style.display="block";$("#msg").textContent="";$("#dot").className="live";
     $("#meta").textContent="store: "+d.store+" · uptime "+dur(d.totals.uptimeMs)+" · "+new Date(d.now).toLocaleTimeString();
     $("#live").innerHTML=
-      tile("Players online",fmt(d.live.humans),fmt(d.live.bots)+" bots")+
+      tile("Players online",fmt(d.online),"app open now")+
+      tile("In match",fmt(d.live.humans),fmt(d.live.bots)+" bots")+
       tile("Rooms",fmt(d.live.rooms),fmt(d.live.playing)+" playing · "+fmt(d.live.lobby)+" lobby");
     $("#totals").innerHTML=
       tile("Matches",fmt(d.totals.matches),fmt(d.totals.practiceMatches)+" practice")+

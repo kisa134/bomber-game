@@ -63,8 +63,6 @@
               <div id="stake-picker" class="stake-picker"></div>
             </div>
             <button id="open-tables">🔎 Browse public tables</button>
-            <div id="tables-filter" class="tables-filter hidden"></div>
-            <div id="tables-list" class="tables-list"></div>
             <div class="join-row">
               <input id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" />
               <button id="join-room">Join</button>
@@ -89,6 +87,18 @@
           <p id="menu-status" class="status"></p>
         </div>
       </section>
+
+      <!-- Public tables browser -->
+      <div id="tables-modal" class="modal hidden">
+        <div class="modal-card">
+          <h3>🔎 Public tables</h3>
+          <div id="tables-sort" class="tables-sort"></div>
+          <div id="tables-filter" class="tables-filter hidden"></div>
+          <div id="tables-list" class="tables-list"></div>
+          <button id="tables-refresh" class="ghost">↻ Refresh</button>
+          <button id="tables-close" class="ghost">Close</button>
+        </div>
+      </div>
 
       <!-- Profile -->
       <section id="profile" class="screen hidden">
@@ -145,6 +155,7 @@
             <button id="copy-invite" class="ghost">🔗 Copy invite link</button>
           </div>
           <ul id="room-players" class="players-list"></ul>
+          <div id="bal-room" class="bal-bar hidden"></div>
           <div id="room-stake" class="room-stake hidden"></div>
           <p id="room-status" class="status"></p>
           <div id="room-emotes" class="emote-bar"></div>
@@ -171,6 +182,7 @@
         <div id="hud-panel">
           <div id="timer">3:00</div>
           <div id="hud-bottom"></div>
+          <div id="bal-hud" class="bal-bar hidden"></div>
           <div id="players"></div>
           <div id="game-emotes" class="emote-bar in-game"></div>
           <div id="ping">0 ms</div>

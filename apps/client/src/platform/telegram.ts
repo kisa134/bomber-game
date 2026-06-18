@@ -13,7 +13,10 @@ interface TgWebApp {
   expand(): void;
   isVersionAtLeast?(v: string): boolean;
   requestFullscreen?(): void;
-  lockOrientation?(o: string): void;
+  lockOrientation?(): void; // NOTE: takes NO argument — pins the CURRENT orientation
+  unlockOrientation?(): void;
+  isOrientationLocked?: boolean;
+  onEvent?(event: string, cb: (...a: unknown[]) => void): void;
   disableVerticalSwipes?(): void;
   setHeaderColor?(c: string): void;
   setBackgroundColor?(c: string): void;
@@ -39,7 +42,7 @@ export function initTelegram(): void {
     tg.expand();
     if (tg.isVersionAtLeast?.("8.0")) {
       tg.requestFullscreen?.();
-      tg.lockOrientation?.("landscape");
+      tg.onEvent?.("fullscreenChanged", syncOrientation);
     }
     // Critical for a game: otherwise dragging the joystick swipes the app closed.
     tg.disableVerticalSwipes?.();
@@ -47,8 +50,38 @@ export function initTelegram(): void {
     tg.setBackgroundColor?.(BG);
     tg.setBottomBarColor?.(BG);
     applyContentSafeArea();
+    // Telegram CANNOT force landscape — lockOrientation() only pins whatever
+    // orientation the device is currently in (the old "landscape" argument was
+    // silently ignored and, called in portrait, pinned it to portrait — that was
+    // the bug). So: keep it unlocked while portrait so the user can rotate, and
+    // lock only once they're actually in landscape (stops it flipping back
+    // mid-game). The rotate-hint overlay prompts portrait users to turn the phone.
+    window.addEventListener("orientationchange", () => setTimeout(syncOrientation, 200));
+    window.addEventListener("resize", syncOrientation);
+    syncOrientation();
   } catch {
     /* old Telegram client — ignore unsupported methods */
+  }
+}
+
+function isLandscape(): boolean {
+  const t = screen.orientation?.type;
+  if (t) return t.startsWith("landscape");
+  return window.innerWidth > window.innerHeight;
+}
+
+/** Lock the orientation once we're in landscape; unlock while portrait so the
+ *  device can still rotate into landscape. */
+function syncOrientation(): void {
+  if (!tg || !tg.isVersionAtLeast?.("8.0")) return;
+  try {
+    if (isLandscape()) {
+      if (!tg.isOrientationLocked) tg.lockOrientation?.();
+    } else if (tg.isOrientationLocked) {
+      tg.unlockOrientation?.();
+    }
+  } catch {
+    /* ignore */
   }
 }
 

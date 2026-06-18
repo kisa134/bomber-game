@@ -57,6 +57,7 @@ import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTab
 import { initAnalytics, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram } from "./platform/telegram.js";
+import { startPresence } from "./platform/presence.js";
 import { enterImmersive } from "./platform/fullscreen.js";
 import {
   startTelegramConnect,
@@ -252,6 +253,7 @@ net.onMessage = (msg) => {
       if (count > prevPlayerCount && prevPlayerCount > 0) assets.play("join");
       prevPlayerCount = count;
       state.setRoomInfo(msg);
+      updateBalanceBars(); // reflect this table's stake in the balance bars
       // Don't yank the player off the result screen — they leave it via a button.
       if (!inGame(state.phase) && !onResultScreen() && !spectating) {
         showScreen("room");
@@ -380,6 +382,7 @@ function enterGame(): void {
   toastUntil = 0;
   toastEl.classList.add("hidden");
   showScreen("game");
+  updateBalanceBars(); // show the balance bar in the in-game HUD
   music("battle");
   predictor.reset();
 }
@@ -943,11 +946,45 @@ function setStats(chips: number, rating: number): void {
     badge.title = `${lg.name} · rating ${rating}`;
   }
   lastRating = rating;
+  lastChips = chips;
   document.getElementById("player-stats")?.classList.remove("hidden");
+  updateBalanceBars();
 }
 /** Chips-only update when we don't have a fresh rating (keeps the last one). */
 function setBalance(chips: number): void {
   setStats(chips, lastRating);
+}
+
+let lastChips: number | undefined;
+let lastTokens: number | undefined;
+
+/** Render the always-on balance bars (waiting room + in-game HUD) so a player
+ *  always sees their chips/tokens, with a warning when they can't cover the
+ *  table's stake. */
+function updateBalanceBars(): void {
+  const parts: string[] = [];
+  if (lastChips !== undefined)
+    parts.push(`<span class="bal-chip">🪙 ${lastChips.toLocaleString()}</span>`);
+  if (lastTokens !== undefined)
+    parts.push(
+      `<span class="bal-chip token">💎 ${lastTokens.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${TOKEN_TICKER}</span>`,
+    );
+  let warn = "";
+  const stake = state.roomStake;
+  if (stake > 0) {
+    const isToken = state.roomCurrency === 1;
+    const have = (isToken ? lastTokens : lastChips) ?? 0;
+    if (have < stake)
+      warn = `<span class="bal-warn">⚠ Not enough — need ${isToken ? "💎" : "🪙"}${stake.toLocaleString()}, top up in Bank</span>`;
+  }
+  const html = parts.join("") + warn;
+  for (const id of ["bal-room", "bal-hud"]) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.innerHTML = html;
+    el.classList.toggle("hidden", parts.length === 0);
+    el.classList.toggle("low", warn !== "");
+  }
 }
 
 /** Live USD price of one token (0 = unknown). Refreshed periodically. */
@@ -963,6 +1000,8 @@ function usdOf(tokens: number): string {
 /** Show the in-game (custodial) token balance badge; tap to open the Bank. */
 function setTokenBadge(balance: number | undefined): void {
   const badge = document.getElementById("token-badge") as HTMLAnchorElement | null;
+  lastTokens = balance;
+  updateBalanceBars();
   if (!badge) return;
   if (balance === undefined) {
     badge.classList.add("hidden");
@@ -1406,6 +1445,7 @@ initTelegram();
 // Register the service worker (PWA). Auto-applies updates on next navigation.
 registerSW({ immediate: true });
 initAnalytics({ platform: isTelegram ? "telegram" : "web" });
+startPresence();
 initErrorTracking();
 track("app_loaded", { platform: isTelegram ? "telegram" : "web" });
 input.attach();
@@ -1453,21 +1493,36 @@ setupMenu({
   create: (c) => { practiceMode = false; track("play_start", { mode: "create", stake: c.stake, currency: c.currency }); connect(() => createRoom(c.name, c.skin, c.stake, c.currency)); },
   join: (c, code) => { practiceMode = false; track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
   tables: () => {
-    void fetchTables().then((tables) =>
-      renderTables(
-        tables,
-        (code) => {
-          const name = (localStorage.getItem("bp_nick") || "pumper").trim();
-          track("play_start", { mode: "table_join" });
-          void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
-        },
-        (code) => {
-          track("spectate", { code });
-          void connect(() => watchMatch(code));
-        },
-      ),
-    );
+    document.getElementById("tables-modal")!.classList.remove("hidden");
+    void loadTables();
   },
+});
+
+/** Fetch + render the public tables into the browser modal. */
+function loadTables(): Promise<void> {
+  return fetchTables().then((tables) =>
+    renderTables(
+      tables,
+      (code) => {
+        document.getElementById("tables-modal")!.classList.add("hidden");
+        const name = (localStorage.getItem("bp_nick") || "pumper").trim();
+        track("play_start", { mode: "table_join" });
+        void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
+      },
+      (code) => {
+        document.getElementById("tables-modal")!.classList.add("hidden");
+        track("spectate", { code });
+        void connect(() => watchMatch(code));
+      },
+    ),
+  );
+}
+
+document.getElementById("tables-close")!.addEventListener("click", () => {
+  document.getElementById("tables-modal")!.classList.add("hidden");
+});
+document.getElementById("tables-refresh")!.addEventListener("click", () => {
+  void loadTables();
 });
 
 document.getElementById("start-now")!.addEventListener("click", () => net.sendStart());

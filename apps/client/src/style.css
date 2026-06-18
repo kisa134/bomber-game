@@ -426,11 +426,15 @@ button.ghost {
 }
 
 /* Public tables filter chips */
-.tables-filter {
+.tables-filter,
+.tables-sort {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   justify-content: center;
+}
+.tables-sort {
+  margin-bottom: 4px;
 }
 
 /* Host stake control in the waiting room */
@@ -450,7 +454,7 @@ button.ghost {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 180px;
+  max-height: 50vh;
   overflow-y: auto;
 }
 .table-row {
@@ -988,6 +992,40 @@ button.ghost {
   padding: 4px 8px;
   border-radius: 8px;
   flex: 0 0 auto;
+}
+
+/* Always-on balance bar (waiting room + in-game HUD). */
+.bal-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.bal-chip {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.bal-chip.token {
+  color: var(--accent);
+}
+.bal-warn {
+  color: #ff7a7e;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.bal-bar.low .bal-chip {
+  border-color: #ff7a7e;
+}
+/* Keep the HUD copy compact and on one line; it lives in the slim top strip. */
+#bal-hud {
+  flex: 0 0 auto;
+  font-size: 0.8rem;
 }
 
 /* Touch controls */
