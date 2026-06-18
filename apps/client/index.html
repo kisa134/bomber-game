@@ -25,6 +25,16 @@
         <video id="bg-video" autoplay muted loop playsinline></video>
       </div>
 
+      <!-- First-launch onboarding (also re-openable via the ❓ menu button) -->
+      <div id="onboard" class="hidden">
+        <div class="onboard-card">
+          <button id="onboard-skip" class="onboard-skip" title="Skip">✕</button>
+          <div id="onboard-body" class="onboard-body"></div>
+          <div id="onboard-dots" class="onboard-dots"></div>
+          <button id="onboard-next" class="primary big">Next →</button>
+        </div>
+      </div>
+
       <!-- Loading -->
       <section id="loading" class="screen">
         <div class="logo">Bombermeme</div>
@@ -35,6 +45,7 @@
       <!-- Home menu -->
       <section id="menu" class="screen hidden">
         <button id="open-settings" class="icon-btn" title="Settings">⚙</button>
+        <button id="open-help" class="icon-btn icon-btn-2" title="How to play / Как играть">❓</button>
         <div class="panel menu-panel">
           <div class="logo">Bombermeme</div>
           <p class="tagline">blow up your friends · pump.fun arena</p>

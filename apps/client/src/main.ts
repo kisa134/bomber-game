@@ -1446,7 +1446,99 @@ function openSkinShop(): void {
   void refreshSkinShop();
 }
 
+// --- first-launch onboarding -----------------------------------------------
+
+const ONBOARD_KEY = "bp_onboarded_v1";
+const ONBOARD_TOUCH =
+  typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+const ONBOARD: Array<{ icon: string; title: string; text: string; ru: string; pu?: string[] }> = [
+  {
+    icon: "🎯",
+    title: "Last one standing",
+    text: "Blow up your rivals and survive. 2–4 players, 3-minute match.",
+    ru: "Взорви соперников и останься последним. 2–4 игрока, 3 минуты.",
+  },
+  {
+    icon: "🎮",
+    title: "Controls",
+    text: ONBOARD_TOUCH
+      ? "Joystick / d-pad to move, the bomb button to drop bombs."
+      : "Arrows or WASD to move, Space to drop a bomb.",
+    ru: ONBOARD_TOUCH
+      ? "Джойстик/крестовина — движение, кнопка — бомба."
+      : "Стрелки/WASD — движение, Пробел — бомба.",
+  },
+  {
+    icon: "💣",
+    title: "Bombs & HP",
+    text: "Break crates, catch rivals in the blast. You have 3 ❤️ — a hit costs one.",
+    ru: "Ломай ящики, лови соперников взрывом. 3 ❤️, попадание −1.",
+  },
+  {
+    icon: "⚡",
+    title: "Power-ups",
+    pu: ["💣 +bomb", "🔥 +range", "👟 speed", "🦵 kick", "👻 ghost", "❤️ +life"],
+    text: "Grab them from destroyed crates.",
+    ru: "Выпадают из разрушенных ящиков.",
+  },
+  {
+    icon: "🩸",
+    title: "Ready?",
+    text: "Hit PLAY NOW for an instant match. First to hit a rival = First Blood!",
+    ru: "Жми PLAY NOW — быстрый матч. Первый, кто заденет — First Blood!",
+  },
+];
+let onboardIdx = 0;
+
+function renderOnboard(): void {
+  const c = ONBOARD[onboardIdx];
+  const pu = c.pu ? `<div class="onboard-pu">${c.pu.map((p) => `<span>${p}</span>`).join("")}</div>` : "";
+  document.getElementById("onboard-body")!.innerHTML =
+    `<div class="onboard-icon">${c.icon}</div><div class="onboard-title">${c.title}</div>${pu}` +
+    `<div class="onboard-text">${c.text}</div><div class="onboard-text ru">${c.ru}</div>`;
+  document.getElementById("onboard-dots")!.innerHTML = ONBOARD.map(
+    (_, i) => `<i class="${i === onboardIdx ? "on" : ""}"></i>`,
+  ).join("");
+  document.getElementById("onboard-next")!.textContent =
+    onboardIdx >= ONBOARD.length - 1 ? "Let's go ⚡" : "Next →";
+}
+
+function showOnboarding(): void {
+  onboardIdx = 0;
+  renderOnboard();
+  document.getElementById("onboard")!.classList.remove("hidden");
+}
+
+function closeOnboarding(): void {
+  document.getElementById("onboard")!.classList.add("hidden");
+  try {
+    localStorage.setItem(ONBOARD_KEY, "1");
+  } catch {
+    // ignore (private mode)
+  }
+}
+
+function setupOnboarding(): void {
+  document.getElementById("onboard-next")!.addEventListener("click", () => {
+    if (onboardIdx >= ONBOARD.length - 1) closeOnboarding();
+    else {
+      onboardIdx++;
+      renderOnboard();
+    }
+  });
+  document.getElementById("onboard-skip")!.addEventListener("click", closeOnboarding);
+  document.getElementById("open-help")!.addEventListener("click", showOnboarding);
+  let seen = false;
+  try {
+    seen = !!localStorage.getItem(ONBOARD_KEY);
+  } catch {
+    // ignore
+  }
+  if (!seen) showOnboarding();
+}
+
 function wireMenuLinks(): void {
+  setupOnboarding();
   document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
   document.getElementById("open-leaderboard")!.addEventListener("click", () => { lbPeriod = "all"; void openLeaderboard(); });
   document.getElementById("open-skins")!.addEventListener("click", openSkinShop);

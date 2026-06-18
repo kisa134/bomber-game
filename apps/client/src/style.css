@@ -1254,6 +1254,100 @@ button.big {
   padding: 0;
   background: var(--panel);
 }
+.icon-btn-2 {
+  right: auto;
+  left: 16px;
+}
+
+/* --- First-launch onboarding overlay --- */
+#onboard {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 10, 16, 0.84);
+}
+#onboard.hidden {
+  display: none;
+}
+.onboard-card {
+  position: relative;
+  width: min(420px, 92vw);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 30px 22px 22px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+}
+.onboard-skip {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: auto;
+  height: auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  cursor: pointer;
+}
+.onboard-body {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.onboard-icon {
+  font-size: 54px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+.onboard-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--accent);
+  margin: 0 0 10px;
+}
+.onboard-text {
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 3px 0;
+}
+.onboard-text.ru {
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.onboard-pu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: center;
+  margin: 14px 6px 4px;
+}
+.onboard-pu span {
+  font-size: 14px;
+  color: var(--text);
+}
+.onboard-dots {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 18px 0;
+}
+.onboard-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.onboard-dots i.on {
+  background: var(--accent);
+}
 
 /* Settings */
 .setting-row {
