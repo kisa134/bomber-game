@@ -37,8 +37,18 @@ interface Btn {
   web_app?: { url: string };
 }
 
+// Launch link for the Mini App. A t.me deep link is the most robust "open the
+// app" button — it never makes sendMessage fail (unlike an inline web_app button
+// when the Mini App domain isn't registered). Falls back to a web_app button.
+const BOT_NAME = process.env.TG_BOT ?? "";
+const APP_NAME = process.env.TG_APP ?? "";
+const PLAY_URL = BOT_NAME ? `https://t.me/${APP_NAME ? `${BOT_NAME}/${APP_NAME}` : BOT_NAME}?startapp=play` : "";
+
 function keyboard(): { inline_keyboard: Btn[][] } {
-  const rows: Btn[][] = [[{ text: "🎮 Play / Играть", web_app: { url: APP_URL } }]];
+  const play: Btn = PLAY_URL
+    ? { text: "🎮 Play / Играть", url: PLAY_URL }
+    : { text: "🎮 Play / Играть", web_app: { url: APP_URL } };
+  const rows: Btn[][] = [[play]];
   // Optional social/site buttons — only shown when their env URL is set.
   const links: Array<[string | undefined, string]> = [
     [process.env.TG_LINK_SITE, "🌐 Website"],
