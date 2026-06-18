@@ -229,6 +229,12 @@ app.get("/admin/stats", (res, req) => {
       sendJson(res, {
         online: onlineCount(),
         events: recentEvents(30),
+        config: {
+          rakePct: (Number(process.env.HOUSE_RAKE_BP ?? 0) || 0) / 100,
+          referralRoot: REFERRAL_ROOT ? shortWallet(REFERRAL_ROOT) : "",
+          deposits: depositsEnabled,
+          withdrawals: withdrawalsEnabled,
+        },
         live: mm.adminStats,
         load: mm.load,
         totals: analytics.snapshot(),

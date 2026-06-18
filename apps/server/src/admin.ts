@@ -30,6 +30,10 @@ export function adminPageHtml(): string {
   th{color:var(--muted);font-weight:600}
   .muted{color:var(--muted)}
   .err{color:#ff7a7e}
+  .cfg{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+  .cfg .pill{padding:5px 10px;border-radius:999px;font-size:.8rem;font-weight:700;border:1px solid var(--border)}
+  .cfg .ok{background:rgba(95,217,106,.15);border-color:#2f6b37;color:#bdf0c4}
+  .cfg .bad{background:rgba(192,57,43,.18);border-color:#7a2a22;color:#ffb3ad}
   .feed{display:flex;flex-direction:column;gap:2px;max-height:240px;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:8px 12px}
   .feed .ev{display:flex;gap:8px;font-size:.85rem;padding:3px 0;border-bottom:1px solid var(--border)}
   .feed .ev time{color:var(--muted);flex:0 0 60px;font-variant-numeric:tabular-nums}
@@ -40,6 +44,7 @@ export function adminPageHtml(): string {
 </style></head><body>
 <header><span id="dot"></span><h1>🎮 Bombermeme — Admin</h1><span id="meta" class="muted"></span></header>
 <main>
+  <div id="config" class="cfg"></div>
   <div class="gate" id="gate">
     <input id="token" type="password" placeholder="Admin token" autocomplete="off">
     <button id="go">Connect</button>
@@ -84,6 +89,14 @@ async function poll(){
     const d=await r.json();
     $("#gate").style.display="none";$("#board").style.display="block";$("#msg").textContent="";$("#dot").className="live";
     $("#meta").textContent="store: "+d.store+" · uptime "+dur(d.totals.uptimeMs)+" · "+new Date(d.now).toLocaleTimeString();
+    // Config pills — at a glance: is the economy/referral actually turned on?
+    var cf=d.config||{};
+    var pill=function(ok,label){return '<span class="pill '+(ok?'ok':'bad')+'">'+(ok?'✅ ':'⚠ ')+label+'</span>';};
+    $("#config").innerHTML=
+      pill(cf.rakePct>0, cf.rakePct>0?('Rake '+cf.rakePct+'%'):'Rake 0% — set HOUSE_RAKE_BP')+
+      pill(!!cf.referralRoot, cf.referralRoot?('Referral root '+cf.referralRoot):'Referral root NOT SET')+
+      pill(!!cf.deposits,'Deposits '+(cf.deposits?'on':'off'))+
+      pill(!!cf.withdrawals,'Withdrawals '+(cf.withdrawals?'on':'off'));
     // Live activity feed
     const ev=d.events||[];
     $("#feed").innerHTML = ev.length
