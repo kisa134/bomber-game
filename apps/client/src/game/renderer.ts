@@ -242,23 +242,33 @@ export class Renderer {
    *  text once (rendered low-res, blitted up with smoothing off). */
   firstBlood(): void {
     this.firstBloodAt = performance.now();
-    const lowH = 22;
+    const lowH = 30;
     const text = "FIRST BLOOD";
+    const font = `900 ${lowH}px "Arial Black", "Arial", sans-serif`;
     const measure = document.createElement("canvas").getContext("2d")!;
-    measure.font = `900 ${lowH}px "Arial Black", system-ui, sans-serif`;
-    const w = Math.ceil(measure.measureText(text).width) + 6;
-    const h = lowH + 8;
+    measure.font = font;
+    const pad = 6;
     const c = document.createElement("canvas");
-    c.width = w;
-    c.height = h;
+    c.width = Math.ceil(measure.measureText(text).width) + pad * 2;
+    c.height = lowH + pad * 2;
     const g = c.getContext("2d")!;
-    g.font = `900 ${lowH}px "Arial Black", system-ui, sans-serif`;
+    g.font = font;
     g.textAlign = "center";
     g.textBaseline = "middle";
-    g.fillStyle = "#3a0000";
-    g.fillText(text, w / 2 + 1, h / 2 + 1);
-    g.fillStyle = "#e21414";
-    g.fillText(text, w / 2, h / 2);
+    const mx = c.width / 2;
+    const my = c.height / 2;
+    // Thick black pixel outline so the red reads on ANY background.
+    g.fillStyle = "#140000";
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dy = -2; dy <= 2; dy++) {
+        if (dx || dy) g.fillText(text, mx + dx, my + dy);
+      }
+    }
+    // Blood-red fill with a darker lower half for depth.
+    g.fillStyle = "#7a0000";
+    g.fillText(text, mx, my + 1);
+    g.fillStyle = "#e60000";
+    g.fillText(text, mx, my);
     this.fbCanvas = c;
   }
 
@@ -683,7 +693,7 @@ export class Renderer {
   /** Center-screen FIRST BLOOD: chunky pixel text + falling pixel blood drips. */
   private drawFirstBlood(now: number): void {
     if (!this.fbCanvas || this.firstBloodAt === 0) return;
-    const dur = 3400;
+    const dur = 3000;
     const k = (now - this.firstBloodAt) / dur;
     if (k >= 1) {
       this.firstBloodAt = 0;
@@ -705,14 +715,14 @@ export class Renderer {
     ctx.drawImage(this.fbCanvas, cx - dw / 2, cy - dh / 2, dw, dh);
     ctx.imageSmoothingEnabled = smooth;
     // Falling pixel blood drips from under the text.
-    const pu = Math.max(3, Math.round(this.tile / 7));
-    ctx.fillStyle = "#c20d0d";
-    for (let i = 0; i < 16; i++) {
-      const fx = cx + (((i * 53) % 100) / 100 - 0.5) * dw;
-      const delay = (i % 8) * 0.045;
+    const pu = Math.max(4, Math.round(this.tile / 6));
+    for (let i = 0; i < 22; i++) {
+      const fx = cx + (((i * 53) % 100) / 100 - 0.5) * dw * 0.95;
+      const delay = (i % 9) * 0.04;
       const dk = Math.max(0, k - delay);
-      const dy = cy + dh * 0.4 + dk * dk * H * 0.55;
-      const h = pu * (2 + (i % 3));
+      const dy = cy + dh * 0.42 + dk * dk * H * 0.6;
+      const h = pu * (2 + (i % 4));
+      ctx.fillStyle = i % 3 === 0 ? "#9e0000" : "#d40d0d";
       ctx.fillRect(Math.round(fx / pu) * pu, Math.round(dy / pu) * pu, pu, h);
     }
     ctx.restore();
