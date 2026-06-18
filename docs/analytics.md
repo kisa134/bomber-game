@@ -20,6 +20,9 @@ Everything is optional — each integration stays inert until its key is set.
 | `POSTHOG_HOST` | server (runtime) | optional | defaults to `https://us.i.posthog.com` |
 | `ADMIN_TOKEN` | server (runtime) | Render env | password(s) for `/admin` — comma-separate for several people, e.g. `me123,friend456` |
 | `POSTHOG_EMBED_URL` | server (runtime) | Render env | PostHog shared dashboard embed URL — embeds the whole PostHog dashboard inside `/admin` |
+| `GA_DASHBOARD_URL` | server (runtime) | Render env | Google Analytics link (a button in `/admin`; GA can't be iframed) |
+| `GA_EMBED_URL` | server (runtime) | Render env | optional Looker Studio (GA4) report URL — this *can* be iframed inside `/admin` |
+| `CLARITY_DASHBOARD_URL` | server (runtime) | Render env | Microsoft Clarity link (a button in `/admin`; Clarity can't be iframed) |
 
 > `VITE_*` are **build-time**: the Dockerfile declares matching `ARG`s, and
 > Render passes a service env var of the same name as a Docker build arg, so the

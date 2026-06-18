@@ -181,6 +181,14 @@ function adminAuthed(req: uWS.HttpRequest): boolean {
 // PostHog and paste the embed URL here.
 const POSTHOG_EMBED_URL = process.env.POSTHOG_EMBED_URL ?? "";
 
+// Quick-jump links to the other analytics tools. Google Analytics & Microsoft
+// Clarity cannot be iframed (they block embedding + require login), so /admin
+// shows one-click buttons instead. GA_EMBED_URL is optional: a Looker Studio
+// report (GA4) CAN be iframed, so set it to embed GA inline too.
+const GA_DASHBOARD_URL = process.env.GA_DASHBOARD_URL ?? "https://analytics.google.com/analytics/web/";
+const GA_EMBED_URL = process.env.GA_EMBED_URL ?? "";
+const CLARITY_DASHBOARD_URL = process.env.CLARITY_DASHBOARD_URL ?? "https://clarity.microsoft.com/projects/view/x8x8jqaz1b/";
+
 // Presence: clients heartbeat here while the app is open (menu, lobby, or match),
 // so "online" reflects everyone with the game open — not just players in a live
 // room (a WS connection only exists once a match is joined).
@@ -218,6 +226,9 @@ app.get("/admin/stats", (res, req) => {
         totals: analytics.snapshot(),
         store: store.kind,
         embedUrl: POSTHOG_EMBED_URL,
+        gaUrl: GA_DASHBOARD_URL,
+        gaEmbedUrl: GA_EMBED_URL,
+        clarityUrl: CLARITY_DASHBOARD_URL,
         top: top.map((p) => ({
           name: p.name,
           wallet: p.wallet,

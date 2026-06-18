@@ -30,6 +30,9 @@ export function adminPageHtml(): string {
   th{color:var(--muted);font-weight:600}
   .muted{color:var(--muted)}
   .err{color:#ff7a7e}
+  .ext-links{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+  .ext-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--text);text-decoration:none;font-weight:700}
+  .ext-btn:hover{border-color:var(--accent)}
 </style></head><body>
 <header><span id="dot"></span><h1>🎮 Bombermeme — Admin</h1><span id="meta" class="muted"></span></header>
 <main>
@@ -46,9 +49,11 @@ export function adminPageHtml(): string {
     <h3>Top players</h3>
     <table id="top"><thead><tr><th>#</th><th>Player</th><th>Rating</th><th>Matches</th><th>Wins</th><th>Chips</th></tr></thead><tbody></tbody></table>
     <h3>Analytics <span class="muted" style="font-weight:400;font-size:.8rem">· PostHog</span></h3>
+    <div id="ext-links"></div>
     <div id="analytics">
       <p id="analytics-hint" class="muted">Embed the PostHog dashboard here: open it in PostHog → <b>Share</b> → enable sharing → copy the <b>embed URL</b> → set it as the <code>POSTHOG_EMBED_URL</code> env var. Then everything lives in this one panel.</p>
       <iframe id="ph-frame" style="display:none;width:100%;height:1400px;border:1px solid var(--border);border-radius:12px;background:#fff" allow="fullscreen"></iframe>
+      <iframe id="ga-frame" style="display:none;width:100%;height:900px;border:1px solid var(--border);border-radius:12px;background:#fff;margin-top:12px" allow="fullscreen"></iframe>
     </div>
   </div>
 </main>
@@ -78,6 +83,15 @@ async function poll(){
     d.top.forEach((p,i)=>{const tr=document.createElement("tr");tr.innerHTML="<td>"+(i+1)+"</td><td>"+(p.name||p.wallet.slice(0,6))+"</td><td>"+fmt(p.rating)+"</td><td>"+fmt(p.matches)+"</td><td>"+fmt(p.wins)+"</td><td>"+fmt(p.chips)+"</td>";tb.appendChild(tr);});
     const fr=$("#ph-frame");
     if(d.embedUrl){if(fr.src!==d.embedUrl)fr.src=d.embedUrl;fr.style.display="block";$("#analytics-hint").style.display="none";}
+    // GA4 (Looker Studio) can be iframed if provided; otherwise just a button.
+    const gf=$("#ga-frame");
+    if(d.gaEmbedUrl){if(gf.src!==d.gaEmbedUrl)gf.src=d.gaEmbedUrl;gf.style.display="block";}
+    // One-click jump buttons to GA / Clarity / PostHog (these can't be iframed).
+    const links=[];
+    if(d.gaUrl)links.push('<a class="ext-btn" target="_blank" rel="noopener" href="'+d.gaUrl+'">📈 Google Analytics</a>');
+    if(d.clarityUrl)links.push('<a class="ext-btn" target="_blank" rel="noopener" href="'+d.clarityUrl+'">🎥 Microsoft Clarity</a>');
+    if(d.embedUrl)links.push('<a class="ext-btn" target="_blank" rel="noopener" href="'+d.embedUrl+'">📊 PostHog</a>');
+    $("#ext-links").innerHTML=links.join("");
   }catch(e){$("#msg").innerHTML='<span class="err">'+e+'</span>';$("#dot").className="";}
 }
 $("#go").onclick=()=>{token=$("#token").value.trim();localStorage.setItem("bp_admin_token",token);poll();};

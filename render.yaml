@@ -49,3 +49,9 @@ services:
         sync: false
       - key: POSTHOG_EMBED_URL # PostHog shared dashboard embed URL (shown inside /admin)
         sync: false
+      - key: GA_DASHBOARD_URL # Google Analytics link (button in /admin)
+        sync: false
+      - key: GA_EMBED_URL # optional Looker Studio (GA4) report URL to iframe in /admin
+        sync: false
+      - key: CLARITY_DASHBOARD_URL # Microsoft Clarity link (button in /admin)
+        sync: false
