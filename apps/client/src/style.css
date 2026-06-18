@@ -443,6 +443,29 @@ button.ghost {
   margin-bottom: 4px;
 }
 
+/* Live stake-raise vote banner in the waiting room */
+.stake-vote {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 204, 51, 0.1);
+  border: 1px solid rgba(255, 204, 51, 0.4);
+  text-align: center;
+  font-weight: 700;
+}
+.stake-vote .sv-actions {
+  display: flex;
+  gap: 8px;
+}
+.stake-vote .sv-actions button {
+  flex: 1 1 0;
+  width: auto;
+  padding: 9px;
+}
+
 /* Host stake control in the waiting room */
 .room-stake {
   width: 100%;

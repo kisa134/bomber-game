@@ -39,6 +39,7 @@ import {
   encodeKill,
   encodePickup,
   encodeCallout,
+  encodeStakeVote,
   encodeMatchEnd,
   encodeWelcome,
   encodeRoomInfo,
@@ -76,6 +77,9 @@ export class Room {
   readonly currency: Currency; // what the stake is denominated in
   private pot = 0; // escrowed amount for the current match (base units for tokens)
   private contributors: string[] = []; // wallets that paid into the pot (for refunds)
+  // Active stake-raise proposal: anyone can propose a higher stake; all humans
+  // must accept within the window or it's cancelled.
+  private stakeProposal: { stake: number; by: number; votes: Map<number, boolean>; deadlineMs: number } | null = null;
   readonly world = new World();
   readonly players = new Map<number, Player>();
   private readonly bots = new Map<number, BotController>();
@@ -239,6 +243,8 @@ export class Room {
     // A seat freed up in the lobby — re-run dedupe so players can reclaim their
     // preferred skin. (Never during a live match: that would swap skins mid-game.)
     if (this.phase === MatchPhase.LOBBY) this.dedupeSkins();
+    // The voter roster changed — cancel any in-flight stake vote.
+    if (this.stakeProposal) this.closeProposal(false);
     this.broadcastRoomInfo();
   }
 
@@ -423,6 +429,8 @@ export class Room {
   }
 
   private tickLobby(): void {
+    // Expire a stake proposal that nobody fully accepted in time.
+    if (this.stakeProposal && Date.now() > this.stakeProposal.deadlineMs) this.closeProposal(false);
     // Practice room: fill with bots and auto-start the FIRST match as soon as a
     // human is present. After that the player starts each rematch with a button
     // (requestStart) — no more starting itself.
@@ -438,6 +446,8 @@ export class Room {
 
   private setPhase(phase: MatchPhase): void {
     this.phase = phase;
+    // Any pending stake vote is moot once we leave the lobby.
+    if (phase !== MatchPhase.LOBBY && this.stakeProposal) this.closeProposal(false);
     if (phase === MatchPhase.COUNTDOWN) this.phaseTimerMs = COUNTDOWN_MS;
     if (phase === MatchPhase.END) this.endElapsedMs = 0;
     this.broadcast(encodePhase(phase, this.phaseTimer()));
@@ -801,6 +811,87 @@ export class Room {
     }
     this.stake = stake;
     this.broadcastRoomInfo();
+  }
+
+  // -- stake-raise proposals (any player; everyone votes within the window) ---
+
+  private humanPlayers(): Player[] {
+    return [...this.players.values()].filter((p) => !p.isBot);
+  }
+
+  /** A player proposes raising the stake. Opens a vote (proposer auto-accepts). */
+  proposeStake(id: number, stake: number): void {
+    if (this.phase !== MatchPhase.LOBBY || this.stakeProposal) return;
+    const p = this.players.get(id);
+    if (!p || p.isBot) return;
+    const tiers = this.currency === Currency.TOKEN ? TOKEN_BET_SIZES : BET_SIZES;
+    if (!(tiers as readonly number[]).includes(stake)) return;
+    if (stake <= this.stake) return; // proposals are raises only
+    this.stakeProposal = { stake, by: id, votes: new Map([[id, true]]), deadlineMs: Date.now() + 30_000 };
+    this.broadcastStakeVote(false, false);
+    void this.maybeResolveProposal();
+  }
+
+  /** Accept or decline the active proposal. A single decline cancels it. */
+  voteStake(id: number, accept: boolean): void {
+    const pr = this.stakeProposal;
+    if (!pr) return;
+    const p = this.players.get(id);
+    if (!p || p.isBot) return;
+    if (!accept) {
+      this.closeProposal(false);
+      return;
+    }
+    pr.votes.set(id, true);
+    this.broadcastStakeVote(false, false);
+    void this.maybeResolveProposal();
+  }
+
+  private async maybeResolveProposal(): Promise<void> {
+    const pr = this.stakeProposal;
+    if (!pr) return;
+    const humans = this.humanPlayers();
+    if (!humans.every((p) => pr.votes.get(p.id) === true)) return; // still waiting
+    // Everyone agreed — verify affordability, then apply.
+    const stake = pr.stake;
+    const needBase =
+      this.currency === Currency.TOKEN ? Math.round(stake * 10 ** TOKEN_DECIMALS) : stake;
+    for (const p of humans) {
+      if (!p.wallet) continue;
+      const prof = await store.getProfile(p.wallet);
+      const bal = this.currency === Currency.TOKEN ? (prof?.token_balance ?? 0) : (prof?.chips ?? 0);
+      if (bal < needBase) {
+        this.closeProposal(false); // someone can't afford the raise
+        return;
+      }
+    }
+    if (this.phase !== MatchPhase.LOBBY || this.stakeProposal !== pr) return; // changed mid-await
+    this.stake = stake;
+    this.closeProposal(true);
+    this.broadcastRoomInfo();
+  }
+
+  private closeProposal(accepted: boolean): void {
+    if (this.stakeProposal) this.broadcastStakeVote(true, accepted);
+    this.stakeProposal = null;
+  }
+
+  private broadcastStakeVote(closed: boolean, accepted: boolean): void {
+    const pr = this.stakeProposal;
+    if (!pr) return;
+    let yes = 0;
+    for (const v of pr.votes.values()) if (v) yes++;
+    this.broadcast(
+      encodeStakeVote({
+        stake: pr.stake,
+        by: pr.by,
+        msLeft: Math.max(0, pr.deadlineMs - Date.now()),
+        yes,
+        total: this.humanPlayers().length,
+        closed,
+        accepted,
+      }),
+    );
   }
 
   /** Deduct each wallet player's stake into the pot at match start. Overdraw-safe:

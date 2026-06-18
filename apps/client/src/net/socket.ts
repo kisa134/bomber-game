@@ -9,6 +9,8 @@ import {
   encodeSetReady,
   encodeEmote,
   encodeSetStake,
+  encodeProposeStake,
+  encodeVoteStake,
   type ServerMessage,
 } from "./protocol.js";
 import { SERVER_HTTP, SERVER_WS } from "../config.js";
@@ -322,6 +324,14 @@ export class Net {
 
   sendSetStake(stake: number): void {
     this.send(encodeSetStake(stake));
+  }
+
+  sendProposeStake(stake: number): void {
+    this.send(encodeProposeStake(stake));
+  }
+
+  sendVoteStake(accept: boolean): void {
+    this.send(encodeVoteStake(accept));
   }
 
   sendEmote(emote: number): void {

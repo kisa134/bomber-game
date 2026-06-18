@@ -20,6 +20,8 @@ import {
   SKIN_COUNT,
   SKIN_PRICES,
   DEFAULT_SKINS,
+  BET_SIZES,
+  TOKEN_BET_SIZES,
 } from "./net/protocol.js";
 import {
   Net,
@@ -291,6 +293,8 @@ net.onMessage = (msg) => {
       if (!inGame(state.phase) && !onResultScreen() && !spectating) {
         showScreen("room");
         renderRoom(state);
+        // Stake raising only makes sense in real (non-practice) rooms.
+        document.getElementById("propose-stake")?.classList.toggle("hidden", practiceMode);
         music("lobby");
       }
       break;
@@ -385,6 +389,9 @@ net.onMessage = (msg) => {
         renderer?.firstBlood(); // pixel "FIRST BLOOD" text + blood drips
         void assets.playReverb("first_blood"); // echo + reverb
       }
+      break;
+    case ServerMsg.STAKE_VOTE:
+      onStakeVote(msg);
       break;
     default:
       break;
@@ -1773,6 +1780,58 @@ document.getElementById("start-now")!.addEventListener("click", () => net.sendSt
 document.getElementById("ready-btn")!.addEventListener("click", () => {
   const me = state.roomPlayers.find((p) => p.id === state.myId);
   net.sendReady(!(me?.ready ?? false));
+});
+
+// --- stake-raise vote (anyone proposes; everyone votes within 30s) ----------
+const stakeSym = (): string => (state.roomCurrency === 1 ? "💎" : "🪙");
+let stakeVoteTimer: ReturnType<typeof setInterval> | null = null;
+
+function onStakeVote(msg: {
+  stake: number; by: number; msLeft: number; yes: number; total: number; closed: boolean; accepted: boolean;
+}): void {
+  const banner = document.getElementById("stake-vote")!;
+  if (stakeVoteTimer) { clearInterval(stakeVoteTimer); stakeVoteTimer = null; }
+  if (msg.closed) {
+    banner.classList.add("hidden");
+    document.getElementById("propose-picker")!.classList.add("hidden");
+    showBanner(msg.accepted ? `Stake raised to ${stakeSym()}${msg.stake.toLocaleString()}` : "Stake raise declined");
+    return;
+  }
+  const deadline = Date.now() + msg.msLeft;
+  const mine = msg.by === state.myId;
+  const who = mine ? "You propose" : `${state.nameOf(msg.by)} proposes`;
+  const render = (): void => {
+    const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    banner.innerHTML =
+      `<div class="sv-text">${who} raising to <b>${stakeSym()}${msg.stake.toLocaleString()}</b> · ${left}s · ${msg.yes}/${msg.total} ✅</div>` +
+      (mine ? "" : `<div class="sv-actions"><button id="sv-yes" class="primary">✅ Accept</button><button id="sv-no" class="ghost">❌ Decline</button></div>`);
+    document.getElementById("sv-yes")?.addEventListener("click", () => { net.sendVoteStake(true); banner.classList.add("hidden"); });
+    document.getElementById("sv-no")?.addEventListener("click", () => { net.sendVoteStake(false); banner.classList.add("hidden"); });
+  };
+  banner.classList.remove("hidden");
+  render();
+  stakeVoteTimer = setInterval(() => {
+    if (Date.now() >= deadline) { clearInterval(stakeVoteTimer!); stakeVoteTimer = null; banner.classList.add("hidden"); return; }
+    render();
+  }, 1000);
+}
+
+// Propose a higher stake: reveal the tiers above the current one.
+document.getElementById("propose-stake")?.addEventListener("click", () => {
+  if (practiceMode) return;
+  const picker = document.getElementById("propose-picker")!;
+  if (!picker.classList.contains("hidden")) { picker.classList.add("hidden"); return; }
+  const tiers = (state.roomCurrency === 1 ? TOKEN_BET_SIZES : BET_SIZES).filter((v) => v > state.roomStake);
+  if (!tiers.length) { showBanner("Already at the top stake"); return; }
+  picker.innerHTML = "";
+  for (const v of tiers) {
+    const b = document.createElement("button");
+    b.className = "stake-btn";
+    b.textContent = `${stakeSym()}${v.toLocaleString()}`;
+    b.addEventListener("click", () => { net.sendProposeStake(v); picker.classList.add("hidden"); });
+    picker.appendChild(b);
+  }
+  picker.classList.remove("hidden");
 });
 
 // Build both emote bars (lobby + in-game) from the shared EMOTES list.

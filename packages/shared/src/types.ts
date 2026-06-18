@@ -44,6 +44,8 @@ export enum ClientMsg {
   SET_READY = 5, // lobby ready-up toggle
   EMOTE = 6, // quick reaction (index into EMOTES)
   SET_STAKE = 7, // host changes the table's stake (lobby only)
+  PROPOSE_STAKE = 8, // any player proposes raising the stake (lobby only)
+  VOTE_STAKE = 9, // accept/decline an active stake proposal
 }
 
 /** Server -> Client message ids. */
@@ -62,6 +64,7 @@ export enum ServerMsg {
   MATCH_SEED = 21, // provably-fair: commit at start, seed revealed at end
   EVENT_EMOTE = 22, // a player sent a quick reaction
   EVENT_CALLOUT = 23, // big announcement (e.g. first blood) tied to a player
+  STAKE_VOTE = 24, // an active stake-raise proposal + its live vote tally
 }
 
 /** Big mid-screen announcements broadcast by the server. */
@@ -163,6 +166,17 @@ export interface CalloutEvent {
   playerId: number; // the player the callout is about (255 = none)
 }
 
+export interface StakeVoteEvent {
+  type: ServerMsg.STAKE_VOTE;
+  stake: number; // proposed new stake
+  by: number; // proposer player id
+  msLeft: number; // time left to vote (0 once closed)
+  yes: number; // accept votes so far
+  total: number; // human players whose vote is needed
+  closed: boolean; // proposal has ended
+  accepted: boolean; // result (only meaningful when closed)
+}
+
 export interface PickupEvent {
   type: ServerMsg.EVENT_PICKUP;
   playerId: number;
@@ -237,4 +251,5 @@ export type ServerMessage =
   | ReconnectTokenMsg
   | MatchSeedMsg
   | EmoteEventMsg
-  | CalloutEvent;
+  | CalloutEvent
+  | StakeVoteEvent;

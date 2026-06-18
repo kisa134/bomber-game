@@ -29,6 +29,7 @@ import {
   type PongMsg,
   type EmoteEventMsg,
   type CalloutEvent,
+  type StakeVoteEvent,
 } from "./types.js";
 
 const POS_SCALE = 100;
@@ -95,6 +96,18 @@ export function encodeSetStake(stake: number): Uint8Array {
   return buf;
 }
 
+export function encodeProposeStake(stake: number): Uint8Array {
+  const buf = new Uint8Array(5);
+  const dv = new DataView(buf.buffer);
+  dv.setUint8(0, ClientMsg.PROPOSE_STAKE);
+  dv.setUint32(1, stake >>> 0, true);
+  return buf;
+}
+
+export function encodeVoteStake(accept: boolean): Uint8Array {
+  return new Uint8Array([ClientMsg.VOTE_STAKE, accept ? 1 : 0]);
+}
+
 export type ClientMessage =
   | { type: ClientMsg.INPUT_MOVE; dir: Direction; tick: number }
   | { type: ClientMsg.INPUT_PLACE_BOMB; seq: number }
@@ -102,7 +115,9 @@ export type ClientMessage =
   | { type: ClientMsg.REQUEST_START }
   | { type: ClientMsg.SET_READY; ready: boolean }
   | { type: ClientMsg.EMOTE; emote: number }
-  | { type: ClientMsg.SET_STAKE; stake: number };
+  | { type: ClientMsg.SET_STAKE; stake: number }
+  | { type: ClientMsg.PROPOSE_STAKE; stake: number }
+  | { type: ClientMsg.VOTE_STAKE; accept: boolean };
 
 export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | null {
   const dv = asView(data);
@@ -129,6 +144,12 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
     case ClientMsg.SET_STAKE:
       if (dv.byteLength < 5) return null;
       return { type, stake: dv.getUint32(1, true) };
+    case ClientMsg.PROPOSE_STAKE:
+      if (dv.byteLength < 5) return null;
+      return { type, stake: dv.getUint32(1, true) };
+    case ClientMsg.VOTE_STAKE:
+      if (dv.byteLength < 2) return null;
+      return { type, accept: dv.getUint8(1) !== 0 };
     default:
       return null;
   }
@@ -364,6 +385,27 @@ export function encodeCallout(kind: number, playerId: number): Uint8Array {
   return new Uint8Array([ServerMsg.EVENT_CALLOUT, kind & 0xff, playerId & 0xff]);
 }
 
+export function encodeStakeVote(p: {
+  stake: number;
+  by: number;
+  msLeft: number;
+  yes: number;
+  total: number;
+  closed: boolean;
+  accepted: boolean;
+}): Uint8Array {
+  const buf = new Uint8Array(11);
+  const dv = new DataView(buf.buffer);
+  dv.setUint8(0, ServerMsg.STAKE_VOTE);
+  dv.setUint32(1, p.stake >>> 0, true);
+  dv.setUint8(5, p.by & 0xff);
+  dv.setUint16(6, Math.max(0, Math.min(65535, p.msLeft)), true);
+  dv.setUint8(8, p.yes & 0xff);
+  dv.setUint8(9, p.total & 0xff);
+  dv.setUint8(10, (p.closed ? 1 : 0) | (p.accepted ? 2 : 0));
+  return buf;
+}
+
 // ---------------------------------------------------------------------------
 // Server -> Client decoder (client side)
 // ---------------------------------------------------------------------------
@@ -526,6 +568,21 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
     case ServerMsg.EVENT_CALLOUT: {
       if (dv.byteLength < 3) return null;
       const msg: CalloutEvent = { type, kind: dv.getUint8(1), playerId: dv.getUint8(2) };
+      return msg;
+    }
+    case ServerMsg.STAKE_VOTE: {
+      if (dv.byteLength < 11) return null;
+      const flags = dv.getUint8(10);
+      const msg: StakeVoteEvent = {
+        type,
+        stake: dv.getUint32(1, true),
+        by: dv.getUint8(5),
+        msLeft: dv.getUint16(6, true),
+        yes: dv.getUint8(8),
+        total: dv.getUint8(9),
+        closed: (flags & 1) !== 0,
+        accepted: (flags & 2) !== 0,
+      };
       return msg;
     }
     default:

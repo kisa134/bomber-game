@@ -780,6 +780,10 @@ app.ws<SocketData>("/ws", {
       room.emote(ud.playerId, msg.emote);
     } else if (msg.type === ClientMsg.SET_STAKE) {
       void room.setStake(ud.playerId, msg.stake);
+    } else if (msg.type === ClientMsg.PROPOSE_STAKE) {
+      room.proposeStake(ud.playerId, msg.stake);
+    } else if (msg.type === ClientMsg.VOTE_STAKE) {
+      room.voteStake(ud.playerId, msg.accept);
     }
   },
   close: (ws) => {
