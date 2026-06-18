@@ -495,6 +495,49 @@ app.get("/referral/stats", (res, req) => {
     .catch(() => sendJson(res, blank));
 });
 
+// Admin wallet lookup: see who a wallet is under, balances, referral earnings.
+app.get("/admin/wallet", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const wallet = (new URLSearchParams(req.getQuery()).get("wallet") ?? "").trim();
+  if (!wallet) return sendJson(res, { error: "no_wallet" }, "400 Bad Request");
+  void Promise.all([store.getProfile(wallet), store.referralStats(wallet)])
+    .then(([p, s]) =>
+      sendJson(res, {
+        found: !!p,
+        wallet,
+        isRoot: !!REFERRAL_ROOT && wallet === REFERRAL_ROOT,
+        referredBy: p?.referred_by ?? "",
+        rootMatches: !!REFERRAL_ROOT && p?.referred_by === REFERRAL_ROOT,
+        chips: p?.chips ?? 0,
+        gameTokens: fromBaseUnits(p?.token_balance ?? 0),
+        referralEarned: fromBaseUnits(p?.referral_earned ?? 0),
+        directRefs: s.direct,
+        network: s.network,
+      }),
+    )
+    .catch(() => sendJson(res, { error: "lookup_failed" }, "500 Internal Server Error"));
+});
+
+// Admin override: force a wallet's referrer (empty ref = attach under the root).
+app.get("/admin/set-referrer", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const q = new URLSearchParams(req.getQuery());
+  const wallet = (q.get("wallet") ?? "").trim();
+  let ref = (q.get("ref") ?? "").trim();
+  if (!ref) ref = REFERRAL_ROOT; // default: attach under the owner
+  if (!wallet) return sendJson(res, { error: "no_wallet" }, "400 Bad Request");
+  if (!ref || ref === wallet) return sendJson(res, { ok: false, error: "bad_ref" });
+  void store
+    .setReferrerAdmin(wallet, ref)
+    .then((ok) => {
+      if (ok) logEvent("🛠", `${shortWallet(wallet)} set under ${shortWallet(ref)} (admin)`);
+      sendJson(res, { ok });
+    })
+    .catch(() => sendJson(res, { error: "failed" }, "500 Internal Server Error"));
+});
+
 async function parseBody(res: uWS.HttpResponse): Promise<Body> {
   const body = await readBody(res);
   let name = "Player";

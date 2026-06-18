@@ -38,6 +38,8 @@ export function adminPageHtml(): string {
   .feed .ev{display:flex;gap:8px;font-size:.85rem;padding:3px 0;border-bottom:1px solid var(--border)}
   .feed .ev time{color:var(--muted);flex:0 0 60px;font-variant-numeric:tabular-nums}
   .feed .empty{color:var(--muted);font-size:.85rem}
+  .wl{display:flex;gap:8px}
+  .wl input{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0c0e14;color:var(--text);font-size:.85rem}
   .ext-links{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
   .ext-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--text);text-decoration:none;font-weight:700}
   .ext-btn:hover{border-color:var(--accent)}
@@ -55,6 +57,9 @@ export function adminPageHtml(): string {
     <div class="grid" id="live"></div>
     <h3>Activity feed <span class="muted" style="font-weight:400;font-size:.8rem">· live</span></h3>
     <div id="feed" class="feed"></div>
+    <h3>Wallet lookup</h3>
+    <div class="wl"><input id="wl-input" placeholder="paste a wallet address"><button id="wl-go">Look up</button><button id="wl-attach">Attach under you</button></div>
+    <div id="wl-out" class="muted" style="margin-top:6px"></div>
     <h3>Since restart</h3>
     <div class="grid" id="totals"></div>
     <h3>Top players</h3>
@@ -149,6 +154,31 @@ async function poll(){
 }
 $("#go").onclick=()=>{token=$("#token").value.trim();localStorage.setItem("bp_admin_token",token);poll();};
 $("#token").value=token;
+$("#wl-go").onclick=async()=>{
+  const w=$("#wl-input").value.trim();if(!w)return;
+  $("#wl-out").textContent="Loading…";
+  try{
+    const r=await fetch("/admin/wallet?token="+encodeURIComponent(token)+"&wallet="+encodeURIComponent(w));
+    const d=await r.json();
+    if(d.error){$("#wl-out").innerHTML='<span class="err">'+d.error+'</span>';return;}
+    if(!d.found){$("#wl-out").innerHTML='<span class="err">Not in DB — this wallet never connected / has no profile.</span>';return;}
+    const under=d.isRoot?'<b>ROOT</b> (top — under no one)':(d.referredBy?('under <b>'+d.referredBy.slice(0,4)+'…'+d.referredBy.slice(-4)+'</b>'+(d.rootMatches?' = YOU ✅':'')):'<span class="err">NOBODY — not attributed ⚠</span>');
+    $("#wl-out").innerHTML=
+      'Referred by: '+under+'<br>'+
+      'Game tokens: '+fmt(d.gameTokens)+' · Chips: '+fmt(d.chips)+'<br>'+
+      'Referral earned: '+fmt(d.referralEarned)+' '+'${TOKEN_TICKER}'+' · Direct refs: '+fmt(d.directRefs);
+  }catch(e){$("#wl-out").innerHTML='<span class="err">'+e+'</span>';}
+};
+$("#wl-attach").onclick=async()=>{
+  const w=$("#wl-input").value.trim();if(!w){return;}
+  $("#wl-out").textContent="Attaching…";
+  try{
+    const r=await fetch("/admin/set-referrer?token="+encodeURIComponent(token)+"&wallet="+encodeURIComponent(w));
+    const d=await r.json();
+    if(d.ok){$("#wl-out").innerHTML='✅ Attached under root (you). Re-look up to confirm.';$("#wl-go").click();}
+    else{$("#wl-out").innerHTML='<span class="err">Failed'+(d.error?(' — '+d.error+(d.error==="bad_ref"?" (set REFERRAL_ROOT first)":"")):'')+'</span>';}
+  }catch(e){$("#wl-out").innerHTML='<span class="err">'+e+'</span>';}
+};
 if(token)poll();
 setInterval(poll,5000);
 </script>

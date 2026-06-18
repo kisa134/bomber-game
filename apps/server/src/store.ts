@@ -87,6 +87,9 @@ export interface ProfileStore {
   /** Bind a referrer to this wallet — only if it has none yet and isn't self.
    *  Returns true if newly set. (Both profiles are ensured to exist.) */
   setReferrer(wallet: string, referrer: string): Promise<boolean>;
+  /** Admin override: force this wallet's referrer (overwrites any existing one).
+   *  Returns true on success. */
+  setReferrerAdmin(wallet: string, referrer: string): Promise<boolean>;
   /** Credit a referral reward: add `amount` token base units to both the live
    *  balance and the lifetime `referral_earned` counter. */
   creditReferral(wallet: string, amount: number): Promise<void>;
@@ -258,6 +261,14 @@ class InMemoryStore implements ProfileStore {
     this.map.set(wallet, p);
     if (p.referred_by) return false; // already attributed
     p.referred_by = referrer;
+    return true;
+  }
+
+  async setReferrerAdmin(wallet: string, referrer: string): Promise<boolean> {
+    if (!wallet) return false;
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    p.referred_by = referrer; // force
     return true;
   }
 
@@ -517,6 +528,20 @@ class SupabaseStore implements ProfileStore {
     if (!wallet || !referrer || wallet === referrer) return false;
     const p = await this.getProfile(wallet);
     if (p?.referred_by) return false;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ referred_by: referrer }),
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async setReferrerAdmin(wallet: string, referrer: string): Promise<boolean> {
+    if (!wallet) return false;
     try {
       await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
         method: "PATCH",
@@ -905,6 +930,25 @@ class PostgresStore implements ProfileStore {
       return (res.rowCount ?? 0) > 0;
     } catch (e) {
       console.error("[store] pg setReferrer failed", e);
+      return false;
+    }
+  }
+
+  async setReferrerAdmin(wallet: string, referrer: string): Promise<boolean> {
+    if (!wallet) return false;
+    try {
+      await this.ready;
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1), ($2) on conflict (wallet) do nothing`,
+        [wallet, referrer],
+      );
+      await this.pool.query(`update profiles set referred_by=$2, updated_at=now() where wallet=$1`, [
+        wallet,
+        referrer,
+      ]);
+      return true;
+    } catch (e) {
+      console.error("[store] pg setReferrerAdmin failed", e);
       return false;
     }
   }
