@@ -19,6 +19,7 @@ Everything is optional — each integration stays inert until its key is set.
 | `POSTHOG_KEY` | server (runtime) | Render env | server-side PostHog key (same project) |
 | `POSTHOG_HOST` | server (runtime) | optional | defaults to `https://us.i.posthog.com` |
 | `ADMIN_TOKEN` | server (runtime) | Render env | password(s) for `/admin` — comma-separate for several people, e.g. `me123,friend456` |
+| `POSTHOG_EMBED_URL` | server (runtime) | Render env | PostHog shared dashboard embed URL — embeds the whole PostHog dashboard inside `/admin` |
 
 > `VITE_*` are **build-time**: the Dockerfile declares matching `ARG`s, and
 > Render passes a service env var of the same name as a Docker build arg, so the
@@ -43,6 +44,14 @@ every 5s and shows: players online (+bots), rooms (playing/lobby), matches since
 restart, deposit/withdraw volume, and the top players. Token is stored in the
 browser's localStorage. Counters labelled "since restart" reset on redeploy;
 all-time depth lives in PostHog.
+
+### Embedding PostHog inside /admin (single control center)
+
+To see the PostHog charts inside our own `/admin` (no second login): open the
+dashboard in PostHog → **Share** → enable sharing → copy the **embed URL** (looks
+like `https://us.posthog.com/embedded/<token>`) → set it as `POSTHOG_EMBED_URL`
+in Render. The iframe is only revealed to authed admins (the URL is served via
+the token-gated `/admin/stats`, not the public page).
 
 ## PostHog dashboard
 

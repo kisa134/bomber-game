@@ -45,6 +45,11 @@ export function adminPageHtml(): string {
     <div class="grid" id="totals"></div>
     <h3>Top players</h3>
     <table id="top"><thead><tr><th>#</th><th>Player</th><th>Rating</th><th>Matches</th><th>Wins</th><th>Chips</th></tr></thead><tbody></tbody></table>
+    <h3>Analytics <span class="muted" style="font-weight:400;font-size:.8rem">· PostHog</span></h3>
+    <div id="analytics">
+      <p id="analytics-hint" class="muted">Embed the PostHog dashboard here: open it in PostHog → <b>Share</b> → enable sharing → copy the <b>embed URL</b> → set it as the <code>POSTHOG_EMBED_URL</code> env var. Then everything lives in this one panel.</p>
+      <iframe id="ph-frame" style="display:none;width:100%;height:1400px;border:1px solid var(--border);border-radius:12px;background:#fff" allow="fullscreen"></iframe>
+    </div>
   </div>
 </main>
 <script>
@@ -71,6 +76,8 @@ async function poll(){
       tile("Withdrawals","${TOKEN_TICKER} "+fmt(d.totals.withdrawVolume),fmt(d.totals.withdrawals)+" tx");
     const tb=$("#top tbody");tb.innerHTML="";
     d.top.forEach((p,i)=>{const tr=document.createElement("tr");tr.innerHTML="<td>"+(i+1)+"</td><td>"+(p.name||p.wallet.slice(0,6))+"</td><td>"+fmt(p.rating)+"</td><td>"+fmt(p.matches)+"</td><td>"+fmt(p.wins)+"</td><td>"+fmt(p.chips)+"</td>";tb.appendChild(tr);});
+    const fr=$("#ph-frame");
+    if(d.embedUrl){if(fr.src!==d.embedUrl)fr.src=d.embedUrl;fr.style.display="block";$("#analytics-hint").style.display="none";}
   }catch(e){$("#msg").innerHTML='<span class="err">'+e+'</span>';$("#dot").className="";}
 }
 $("#go").onclick=()=>{token=$("#token").value.trim();localStorage.setItem("bp_admin_token",token);poll();};

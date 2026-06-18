@@ -174,6 +174,12 @@ function adminAuthed(req: uWS.HttpRequest): boolean {
   return ADMIN_TOKENS.has(q.get("token") ?? "");
 }
 
+// Optional: a PostHog *shared/embedded* dashboard URL. Revealed only to authed
+// admins (via /admin/stats), so the whole PostHog dashboard shows inside /admin
+// — one place for analytics + live ops. Enable sharing on the dashboard in
+// PostHog and paste the embed URL here.
+const POSTHOG_EMBED_URL = process.env.POSTHOG_EMBED_URL ?? "";
+
 // Presence: clients heartbeat here while the app is open (menu, lobby, or match),
 // so "online" reflects everyone with the game open — not just players in a live
 // room (a WS connection only exists once a match is joined).
@@ -210,6 +216,7 @@ app.get("/admin/stats", (res, req) => {
         live: mm.adminStats,
         totals: analytics.snapshot(),
         store: store.kind,
+        embedUrl: POSTHOG_EMBED_URL,
         top: top.map((p) => ({
           name: p.name,
           wallet: p.wallet,

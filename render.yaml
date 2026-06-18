@@ -30,5 +30,7 @@ services:
         sync: false
       - key: POSTHOG_KEY # server-side PostHog key (for authoritative events)
         sync: false
-      - key: ADMIN_TOKEN # protects /admin live dashboard
+      - key: ADMIN_TOKEN # protects /admin live dashboard (comma-separate for several passwords)
+        sync: false
+      - key: POSTHOG_EMBED_URL # PostHog shared dashboard embed URL (shown inside /admin)
         sync: false
