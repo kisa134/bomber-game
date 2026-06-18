@@ -57,8 +57,11 @@ export function takeRelayPayload(state: string): string | null {
 
 /** Tiny HTML page that bounces the user back into the Mini App. */
 export function reopenHtml(state: string): string {
-  const link =
-    BOT && APP ? `https://t.me/${BOT}/${APP}?startapp=${encodeURIComponent(state)}` : "";
+  // Named Mini App (BotFather /newapp): t.me/<bot>/<app>. Main Mini App
+  // (Bot Settings -> Enable Mini App, no short name): t.me/<bot>. Both accept
+  // ?startapp=<state>, surfaced to the client as start_param.
+  const path = APP ? `${BOT}/${APP}` : BOT;
+  const link = BOT ? `https://t.me/${path}?startapp=${encodeURIComponent(state)}` : "";
   const safe = JSON.stringify(link);
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
