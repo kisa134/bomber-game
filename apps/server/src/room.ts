@@ -14,6 +14,7 @@ import {
   PROTOCOL_VERSION,
   MAX_PLAYERS_PER_ROOM,
   MIN_PLAYERS_TO_START,
+  SKIN_COUNT,
   SPECTATOR_ID,
   KICK_SPEED,
   HIT_INVULN_MS,
@@ -157,10 +158,11 @@ export class Room {
     const id = this.nextPlayerId++;
     const spawn = SPAWNS[this.players.size % SPAWNS.length];
     const name = BOT_NAMES[id % BOT_NAMES.length];
-    const p = new Player(id, name, id % 4, spawn.x, spawn.y, () => {}, true);
+    const p = new Player(id, name, id % SKIN_COUNT, spawn.x, spawn.y, () => {}, true);
     p.ready = true; // bots are always ready
     this.players.set(id, p);
     this.bots.set(id, new BotController(this.botDifficulty));
+    this.dedupeSkins();
   }
 
   addPlayer(name: string, skin: number, send: SendFn, wallet: string | null = null): Player {
@@ -171,10 +173,30 @@ export class Room {
     this.players.set(id, p);
     this.needKeyframe.add(id);
     if (this.hostId < 0) this.hostId = id;
+    this.dedupeSkins();
     send(encodeWelcome(id, GRID_W, GRID_H, PROTOCOL_VERSION));
     send(encodePhase(this.phase, this.phaseTimer()));
     this.broadcastRoomInfo();
     return p;
+  }
+
+  /** Give every seated player a distinct skin so no two look alike in a match.
+   *  Earlier seats (by join order) keep their picked skin; later collisions get
+   *  the lowest free index. SKIN_COUNT === MAX_PLAYERS_PER_ROOM, so the set is
+   *  always fully unique. */
+  private dedupeSkins(): void {
+    const taken = new Set<number>();
+    const ordered = [...this.players.values()].sort((a, b) => a.id - b.id);
+    for (const p of ordered) {
+      let s = p.preferredSkin;
+      if (taken.has(s)) {
+        s = 0;
+        while (s < SKIN_COUNT && taken.has(s)) s++;
+        if (s >= SKIN_COUNT) s = p.preferredSkin; // safety: more players than skins
+      }
+      p.skin = s;
+      taken.add(s);
+    }
   }
 
   /** A match is in progress and can be watched. */
@@ -213,6 +235,9 @@ export class Room {
     if (this.phase === MatchPhase.PLAYING || this.phase === MatchPhase.SUDDEN_DEATH) {
       this.checkWin();
     }
+    // A seat freed up in the lobby — re-run dedupe so players can reclaim their
+    // preferred skin. (Never during a live match: that would swap skins mid-game.)
+    if (this.phase === MatchPhase.LOBBY) this.dedupeSkins();
     this.broadcastRoomInfo();
   }
 
@@ -449,6 +474,7 @@ export class Room {
       if (!p.isBot) p.ready = false; // require re-ready for the next round
       i++;
     }
+    this.dedupeSkins(); // guarantee no two players share a skin this match
     this.escrowStakes();
     this.bombs = [];
     this.matchElapsedMs = 0;

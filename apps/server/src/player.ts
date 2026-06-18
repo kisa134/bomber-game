@@ -17,7 +17,8 @@ export type SendFn = (bytes: Uint8Array) => void;
 export class Player {
   readonly id: number;
   name: string;
-  skin: number;
+  skin: number; // effective skin shown in-match (deduped so it's unique per room)
+  preferredSkin: number; // the skin the player actually picked
   isBot: boolean;
   wallet: string | null = null; // verified Solana address, for ranked stats
 
@@ -63,6 +64,7 @@ export class Player {
     this.id = id;
     this.name = name;
     this.skin = skin;
+    this.preferredSkin = skin;
     this.x = spawnX + 0.5;
     this.y = spawnY + 0.5;
     this.send = send;
