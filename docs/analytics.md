@@ -18,7 +18,7 @@ Everything is optional — each integration stays inert until its key is set.
 | `VITE_CLARITY_ID` | client (build) | Render env (build arg) | Microsoft Clarity project id |
 | `POSTHOG_KEY` | server (runtime) | Render env | server-side PostHog key (same project) |
 | `POSTHOG_HOST` | server (runtime) | optional | defaults to `https://us.i.posthog.com` |
-| `ADMIN_TOKEN` | server (runtime) | Render env | password for the `/admin` dashboard |
+| `ADMIN_TOKEN` | server (runtime) | Render env | password(s) for `/admin` — comma-separate for several people, e.g. `me123,friend456` |
 
 > `VITE_*` are **build-time**: the Dockerfile declares matching `ARG`s, and
 > Render passes a service env var of the same name as a Docker build arg, so the

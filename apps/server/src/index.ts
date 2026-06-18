@@ -160,11 +160,18 @@ app.get("/health", (res) => {
 });
 
 // --- admin live panel (token-gated) ---
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? "";
+// ADMIN_TOKEN may hold several passwords separated by commas, so multiple people
+// (e.g. you + a friend) can each have their own.
+const ADMIN_TOKENS = new Set(
+  (process.env.ADMIN_TOKEN ?? "")
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean),
+);
 function adminAuthed(req: uWS.HttpRequest): boolean {
-  if (!ADMIN_TOKEN) return false; // disabled until a token is configured
+  if (ADMIN_TOKENS.size === 0) return false; // disabled until a token is configured
   const q = new URLSearchParams(req.getQuery());
-  return q.get("token") === ADMIN_TOKEN;
+  return ADMIN_TOKENS.has(q.get("token") ?? "");
 }
 
 // Presence: clients heartbeat here while the app is open (menu, lobby, or match),
