@@ -1443,7 +1443,24 @@ function setupBackground(): void {
 
 initTelegram();
 // Register the service worker (PWA). Auto-applies updates on next navigation.
-registerSW({ immediate: true });
+// Register the service worker and AUTO-APPLY updates. Without this, mobile /
+// Telegram users keep running a stale cached bundle long after a deploy (you
+// can't Ctrl+Shift+R there), which can leave the app in a broken half-updated
+// state. We skip waiting on a new SW and reload the page once it takes control.
+const updateSW = registerSW({
+  immediate: true,
+  onNeedRefresh() {
+    void updateSW(true); // activate the new SW immediately
+  },
+});
+if ("serviceWorker" in navigator) {
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (refreshing) return;
+    refreshing = true;
+    window.location.reload();
+  });
+}
 initAnalytics({ platform: isTelegram ? "telegram" : "web" });
 startPresence();
 initErrorTracking();
