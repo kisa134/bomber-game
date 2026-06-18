@@ -1640,6 +1640,21 @@ button.big {
 #tables-modal .modal-card {
   width: min(560px, calc(100% - 24px));
 }
+/* Play hub: title + close stay put, the options list scrolls between them. */
+#play-modal .modal-card {
+  max-height: calc(100% - 32px);
+}
+.play-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-height: 0; /* let this flex child shrink so overflow can scroll */
+  overflow-y: auto;
+}
+.play-scroll::-webkit-scrollbar {
+  width: 0;
+}
 #wallet-list {
   display: flex;
   flex-direction: column;

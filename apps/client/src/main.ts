@@ -1773,14 +1773,28 @@ setInterval(() => {
 }, 20_000);
 
 setupMenu({
-  quickplay: (c) => { if (!walletGate(c.stake)) return; practiceMode = false; track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
-  practice: (c, difficulty) => { practiceMode = true; track("play_start", { mode: "practice", difficulty }); connect(() => practiceRoom(c.name, c.skin, difficulty)); },
-  create: (c) => { if (!walletGate(c.stake, c.currency)) return; practiceMode = false; track("play_start", { mode: "create", stake: c.stake, currency: c.currency }); connect(() => createRoom(c.name, c.skin, c.stake, c.currency)); },
-  join: (c, code) => { practiceMode = false; track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
+  quickplay: (c) => { if (!walletGate(c.stake)) return; closePlay(); practiceMode = false; track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
+  practice: (c, difficulty) => { closePlay(); practiceMode = true; track("play_start", { mode: "practice", difficulty }); connect(() => practiceRoom(c.name, c.skin, difficulty)); },
+  create: (c) => { if (!walletGate(c.stake, c.currency)) return; closePlay(); practiceMode = false; track("play_start", { mode: "create", stake: c.stake, currency: c.currency }); connect(() => createRoom(c.name, c.skin, c.stake, c.currency)); },
+  join: (c, code) => { closePlay(); practiceMode = false; track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
   tables: () => {
+    closePlay();
     document.getElementById("tables-modal")!.classList.remove("hidden");
     void loadTables();
   },
+});
+
+// Play hub modal: the home PLAY button opens it; any action inside closes it.
+function closePlay(): void {
+  document.getElementById("play-modal")!.classList.add("hidden");
+}
+document.getElementById("open-play")!.addEventListener("click", () => {
+  document.getElementById("stake-group")?.classList.add("hidden"); // start collapsed
+  document.getElementById("play-modal")!.classList.remove("hidden");
+});
+document.getElementById("play-close")!.addEventListener("click", closePlay);
+document.getElementById("play-modal")!.addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closePlay(); // tap the backdrop to dismiss
 });
 
 /** Fetch + render the public tables into the browser modal. */
