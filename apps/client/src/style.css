@@ -1206,22 +1206,61 @@ button.ghost {
 }
 
 /* A grouped section with a small header label */
+/* Collapsible secondary section (<details>) — keeps the home screen calm:
+   only the header row shows until tapped, so PLAY NOW stays the hero. */
 .menu-section {
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 14px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 16px;
+  overflow: hidden;
 }
 .menu-section.accent {
   background: linear-gradient(180deg, rgba(255, 204, 51, 0.08), rgba(255, 90, 95, 0.05));
   border-color: rgba(255, 204, 51, 0.32);
   box-shadow: 0 0 22px rgba(255, 204, 51, 0.08) inset;
 }
-.section-head {
+/* The header row doubles as the expand/collapse toggle. */
+.menu-section > summary.section-head {
+  font-size: 0.92rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  color: var(--accent);
+  text-align: left;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  transition: background 0.15s ease;
+}
+.menu-section > summary.section-head::-webkit-details-marker {
+  display: none;
+}
+.menu-section > summary.section-head::after {
+  content: "▾";
+  font-size: 0.78rem;
+  color: var(--muted);
+  transition: transform 0.18s ease;
+}
+.menu-section[open] > summary.section-head::after {
+  transform: rotate(180deg);
+}
+.menu-section > summary.section-head:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+/* Body revealed when the section is open. */
+.section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 14px 14px;
+}
+/* Non-collapsible heads elsewhere (kept for any plain .section-head use). */
+.section-head:not(summary) {
   font-size: 0.92rem;
   font-weight: 800;
   letter-spacing: 0.3px;
@@ -1413,14 +1452,18 @@ button.big {
 
 /* Menu links + profile + leaderboard */
 .menu-links {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
   margin-top: 2px;
   width: 100%;
 }
+/* Odd one out (e.g. "Invite & earn") spans the full row — no lonely gap. */
+.menu-links .link:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
 .link {
-  flex: 1 1 0;
-  width: auto;
+  width: 100%;
   background: rgba(0, 0, 0, 0.25);
   border: 1px solid var(--border);
   color: var(--text);

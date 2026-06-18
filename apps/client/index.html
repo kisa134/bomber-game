@@ -61,34 +61,38 @@
 
           <button id="quickplay" class="primary big">⚡ PLAY NOW</button>
 
-          <!-- Play-for-chips section -->
-          <div class="menu-section accent">
-            <div class="section-head">🎰 Play for chips</div>
-            <button id="create-room">➕ Create a table</button>
-            <div id="stake-group" class="hidden">
-              <div class="seg" id="currency-seg">
-                <button id="cur-chips" class="seg-btn active">🪙 Chips</button>
-                <button id="cur-token" class="seg-btn">💎 Token</button>
+          <!-- Play-for-chips section (collapsible — secondary action) -->
+          <details class="menu-section accent">
+            <summary class="section-head">🎰 Play for chips</summary>
+            <div class="section-body">
+              <button id="create-room">➕ Create a table</button>
+              <div id="stake-group" class="hidden">
+                <div class="seg" id="currency-seg">
+                  <button id="cur-chips" class="seg-btn active">🪙 Chips</button>
+                  <button id="cur-token" class="seg-btn">💎 Token</button>
+                </div>
+                <div class="stake-label">Pick a stake — winner takes the pot</div>
+                <div id="stake-picker" class="stake-picker"></div>
               </div>
-              <div class="stake-label">Pick a stake — winner takes the pot</div>
-              <div id="stake-picker" class="stake-picker"></div>
+              <button id="open-tables">🔎 Browse public tables</button>
+              <div class="join-row">
+                <input id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" />
+                <button id="join-room">Join</button>
+              </div>
             </div>
-            <button id="open-tables">🔎 Browse public tables</button>
-            <div class="join-row">
-              <input id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" />
-              <button id="join-room">Join</button>
-            </div>
-          </div>
+          </details>
 
-          <!-- Solo section -->
-          <div class="menu-section">
-            <div class="section-head">🤖 Solo · practice vs bots</div>
-            <div class="diff-row">
-              <button id="practice-easy">😴 Easy</button>
-              <button id="practice-normal">🤖 Normal</button>
-              <button id="practice-hard">💀 Hard</button>
+          <!-- Solo section (collapsible — secondary action) -->
+          <details class="menu-section">
+            <summary class="section-head">🤖 Solo · practice vs bots</summary>
+            <div class="section-body">
+              <div class="diff-row">
+                <button id="practice-easy">😴 Easy</button>
+                <button id="practice-normal">🤖 Normal</button>
+                <button id="practice-hard">💀 Hard</button>
+              </div>
             </div>
-          </div>
+          </details>
 
           <div class="menu-links">
             <button id="open-profile" class="link">👤 Profile</button>
