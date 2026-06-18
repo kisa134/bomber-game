@@ -197,6 +197,15 @@ const CLARITY_DASHBOARD_URL = process.env.CLARITY_DASHBOARD_URL ?? "https://clar
 // un-invited player. Leave empty to attach un-invited players to nobody.
 const REFERRAL_ROOT = (process.env.REFERRAL_ROOT ?? "").trim();
 
+// Daily growth targets shown in the /admin cockpit (a tile lights green when
+// met). Tunable via env without a code change; 0 = no target (info only).
+const GROWTH_TARGETS = {
+  paying: Number(process.env.GROWTH_TARGET_PAYING ?? 10) || 0,
+  dau: Number(process.env.GROWTH_TARGET_DAU ?? 30) || 0,
+  matches: Number(process.env.GROWTH_TARGET_MATCHES ?? 0) || 0,
+  depositors: Number(process.env.GROWTH_TARGET_DEPOSITORS ?? 0) || 0,
+};
+
 // Presence: clients heartbeat here while the app is open (menu, lobby, or match),
 // so "online" reflects everyone with the game open — not just players in a live
 // room (a WS connection only exists once a match is joined).
@@ -233,6 +242,7 @@ app.get("/admin/stats", (res, req) => {
       sendJson(res, {
         online: onlineCount(),
         growth: metrics.snapshot(),
+        growthTargets: GROWTH_TARGETS,
         events: recentEvents(30),
         config: {
           rakePct: (Number(process.env.HOUSE_RAKE_BP ?? 0) || 0) / 100,

@@ -111,12 +111,13 @@ async function poll(){
       return '<div class="tile'+(ok?' goal':'')+'"><div class="label">'+label+'</div><div class="value">'+fmt(value)+(target>0?'<span class="muted" style="font-size:.45em;font-weight:400"> / '+target+'</span>':'')+'</div><div class="sub">'+(ok?'✅ ':'')+sub+'</div></div>';
     };
     var g=d.growth||{dau:0,players:0,payingPlayers:0,matches:0,tokenMatches:0,deposits:0,depositVolume:0,depositors:0};
+    var gt=d.growthTargets||{paying:10,dau:30,matches:0,depositors:0};
     $("#growth").innerHTML=
-      goalTile("🎯 Paying players",g.payingPlayers,10,"played for tokens today")+
-      goalTile("DAU",g.dau,30,"unique devices today")+
+      goalTile("🎯 Paying players",g.payingPlayers,gt.paying,"played for tokens today")+
+      goalTile("DAU",g.dau,gt.dau,"unique devices today")+
       goalTile("Players",g.players,0,"any match today")+
-      goalTile("Matches",g.matches,0,fmt(g.tokenMatches)+" on tokens")+
-      goalTile("Depositors",g.depositors,0,"${TOKEN_TICKER} "+fmt(g.depositVolume)+" in");
+      goalTile("Matches",g.matches,gt.matches,fmt(g.tokenMatches)+" on tokens")+
+      goalTile("Depositors",g.depositors,gt.depositors,"${TOKEN_TICKER} "+fmt(g.depositVolume)+" in");
     // Live activity feed
     const ev=d.events||[];
     $("#feed").innerHTML = ev.length

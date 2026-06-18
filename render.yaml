@@ -53,6 +53,15 @@ services:
         sync: false
       - key: REFERRAL_ROOT # owner wallet = top of the pyramid; un-invited players attach here
         sync: false
+      # Daily growth targets for the /admin cockpit (optional; defaults 10 / 30).
+      - key: GROWTH_TARGET_PAYING # paying players/day goal (default 10)
+        sync: false
+      - key: GROWTH_TARGET_DAU # DAU goal (default 30)
+        sync: false
+      - key: GROWTH_TARGET_MATCHES # matches/day goal (0 = no target)
+        sync: false
+      - key: GROWTH_TARGET_DEPOSITORS # depositors/day goal (0 = no target)
+        sync: false
       - key: POSTHOG_EMBED_URL # PostHog shared dashboard embed URL (shown inside /admin)
         sync: false
       - key: GA_DASHBOARD_URL # Google Analytics link (button in /admin)
