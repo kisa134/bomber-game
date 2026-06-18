@@ -52,6 +52,7 @@ const SOUND_BASE: Record<string, string> = {
   explode: "explode",
   pickup: "pickup",
   death: "death",
+  first_blood: "first_blood",
   block_break: "block_break",
   kick: "kick",
   countdown: "countdown",

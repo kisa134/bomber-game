@@ -99,6 +99,8 @@ export class Renderer {
   private particles: Particle[] = [];
   private decals: Decal[] = [];
   private lights: Array<{ x: number; y: number; born: number }> = []; // explosion light sources
+  private firstBloodAt = 0;
+  private fbCanvas: HTMLCanvasElement | null = null; // cached pixel "FIRST BLOOD" text
   private prevGrid: Uint8Array | null = null;
   private lastDust = new Map<number, number>();
   private lastTrample = new Map<number, number>();
@@ -231,6 +233,30 @@ export class Renderer {
     this.shake(8, 260);
   }
 
+  /** FIRST BLOOD announcement (first kill of the match). Builds the chunky pixel
+   *  text once (rendered low-res, blitted up with smoothing off). */
+  firstBlood(): void {
+    this.firstBloodAt = performance.now();
+    const lowH = 22;
+    const text = "FIRST BLOOD";
+    const measure = document.createElement("canvas").getContext("2d")!;
+    measure.font = `900 ${lowH}px "Arial Black", system-ui, sans-serif`;
+    const w = Math.ceil(measure.measureText(text).width) + 6;
+    const h = lowH + 8;
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const g = c.getContext("2d")!;
+    g.font = `900 ${lowH}px "Arial Black", system-ui, sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillStyle = "#3a0000";
+    g.fillText(text, w / 2 + 1, h / 2 + 1);
+    g.fillStyle = "#e21414";
+    g.fillText(text, w / 2, h / 2);
+    this.fbCanvas = c;
+  }
+
   private addDecal(x: number, y: number, kind: Decal["kind"]): void {
     this.decals.push({ x, y, born: this.lastTime, life: kind === "scorch" ? 6000 : 2600, kind, rot: Math.random() * Math.PI });
     if (this.decals.length > MAX_DECALS) this.decals.shift();
@@ -335,6 +361,8 @@ export class Renderer {
     this.drawLights(now);
     this.updateParticles(dt);
     ctx.restore();
+
+    this.drawFirstBlood(now); // screen-space announcement, above the world
   }
 
   private drawPlayers(view: RenderView, myId: number, now: number): void {
@@ -499,14 +527,21 @@ export class Renderer {
     }
   }
 
+  /** Pixelated blob shadow — a blocky ellipse made of squares on a pixel grid. */
   private drawShadow(cx: number, cy: number, rx: number, ry: number, alpha: number): void {
     const ctx = this.ctx;
+    const t = this.tile;
+    const pu = Math.max(2, Math.round(t / 12));
     const prev = ctx.globalAlpha;
     ctx.globalAlpha = prev * alpha;
     ctx.fillStyle = "#000";
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-    ctx.fill();
+    for (let gy = -ry; gy <= ry; gy += pu) {
+      for (let gx = -rx; gx <= rx; gx += pu) {
+        if ((gx * gx) / (rx * rx) + (gy * gy) / (ry * ry) <= 1) {
+          ctx.fillRect(Math.round((cx + gx) / pu) * pu, Math.round((cy + gy) / pu) * pu, pu, pu);
+        }
+      }
+    }
     ctx.globalAlpha = prev;
   }
 
@@ -523,16 +558,26 @@ export class Renderer {
       const cx = (d.x + 0.5) * t;
       const cy = (d.y + 0.5) * t;
       if (d.kind === "scorch") {
-        const a = (1 - k) * 0.5;
-        const rad = t * 0.46;
-        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
-        g.addColorStop(0, `rgba(20,16,14,${a})`);
-        g.addColorStop(0.7, `rgba(30,24,20,${a * 0.7})`);
-        g.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
-        ctx.fill();
+        // Pixel crater: dark squares on a grid, thinning toward the edge.
+        const a = (1 - k) * 0.55;
+        const pu = Math.max(3, Math.round(t / 7));
+        const R = t * 0.44;
+        const seed = (d.x * 374761393 + d.y * 668265263) >>> 0;
+        for (let gy = -R; gy <= R; gy += pu) {
+          for (let gx = -R; gx <= R; gx += pu) {
+            const edge = Math.hypot(gx, gy) / R;
+            if (edge > 1) continue;
+            let h = (seed ^ (((gx / pu) & 255) * 73856093) ^ (((gy / pu) & 255) * 19349663)) >>> 0;
+            h = ((h ^ (h >>> 13)) * 1274126177) >>> 0;
+            const n = (h & 1023) / 1023;
+            if (n < edge * 0.85) continue; // crater frays at the rim
+            const sh = 16 + Math.floor(n * 16);
+            ctx.globalAlpha = a * (1 - edge * 0.35);
+            ctx.fillStyle = `rgb(${sh},${sh - 3},${Math.max(0, sh - 6)})`;
+            ctx.fillRect(Math.round((cx + gx) / pu) * pu, Math.round((cy + gy) / pu) * pu, pu, pu);
+          }
+        }
+        ctx.globalAlpha = 1;
       } else {
         const a = (1 - k) * 0.22;
         ctx.save();
@@ -581,6 +626,83 @@ export class Renderer {
         ctx.arc(cx, cy, rad, 0, Math.PI * 2);
         ctx.fill();
       }
+    }
+    ctx.restore();
+  }
+
+  /** Additive rim-light a block catches from nearby explosion lights — the
+   *  highlight sits on the block face toward the blast, so flat tiles read as 3D. */
+  private lightCatch(px: number, py: number, now: number): void {
+    const ctx = this.ctx;
+    const t = this.tile;
+    const bx = px + t / 2;
+    const by = py + t / 2;
+    const reach = t * 2.6;
+    let ix = 0;
+    let iy = 0;
+    let inten = 0;
+    for (const L of this.lights) {
+      const k = (now - L.born) / 320;
+      if (k >= 1) continue;
+      const dx = bx - L.x * t;
+      const dy = by - L.y * t;
+      const dist = Math.hypot(dx, dy);
+      if (dist > reach) continue;
+      const w = (1 - dist / reach) * (1 - k);
+      inten += w;
+      if (dist > 1) {
+        ix += (-dx / dist) * w; // point the highlight toward the light
+        iy += (-dy / dist) * w;
+      }
+    }
+    if (inten <= 0.02) return;
+    inten = Math.min(1, inten);
+    const ox = bx + ix * t * 0.42;
+    const oy = by + iy * t * 0.42;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, t * 0.85);
+    g.addColorStop(0, `rgba(255,205,130,${0.55 * inten})`);
+    g.addColorStop(1, "rgba(255,140,40,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(px, py, t, t); // clip the bounce to the block's own cell
+    ctx.restore();
+  }
+
+  /** Center-screen FIRST BLOOD: chunky pixel text + falling pixel blood drips. */
+  private drawFirstBlood(now: number): void {
+    if (!this.fbCanvas || this.firstBloodAt === 0) return;
+    const dur = 2400;
+    const k = (now - this.firstBloodAt) / dur;
+    if (k >= 1) {
+      this.firstBloodAt = 0;
+      return;
+    }
+    const ctx = this.ctx;
+    const W = this.tile * GRID_W;
+    const H = this.tile * GRID_H;
+    const cx = W / 2;
+    const cy = H * 0.38;
+    const pop = Math.min(1, (now - this.firstBloodAt) / 160);
+    const fade = k > 0.82 ? (1 - k) / 0.18 : 1;
+    const dw = W * 0.78 * (0.85 + 0.15 * pop);
+    const dh = (dw * this.fbCanvas.height) / this.fbCanvas.width;
+    ctx.save();
+    ctx.globalAlpha = fade;
+    const smooth = ctx.imageSmoothingEnabled;
+    ctx.imageSmoothingEnabled = false; // crisp pixel scaling
+    ctx.drawImage(this.fbCanvas, cx - dw / 2, cy - dh / 2, dw, dh);
+    ctx.imageSmoothingEnabled = smooth;
+    // Falling pixel blood drips from under the text.
+    const pu = Math.max(3, Math.round(this.tile / 7));
+    ctx.fillStyle = "#c20d0d";
+    for (let i = 0; i < 16; i++) {
+      const fx = cx + (((i * 53) % 100) / 100 - 0.5) * dw;
+      const delay = (i % 8) * 0.045;
+      const dk = Math.max(0, k - delay);
+      const dy = cy + dh * 0.4 + dk * dk * H * 0.55;
+      const h = pu * (2 + (i % 3));
+      ctx.fillRect(Math.round(fx / pu) * pu, Math.round(dy / pu) * pu, pu, h);
     }
     ctx.restore();
   }
@@ -684,10 +806,12 @@ export class Renderer {
       case TileType.HARD:
         this.drawShadow(px + t / 2, py + t * 0.95, t * 0.42, t * 0.1, 0.3);
         this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
+        if (this.lights.length) this.lightCatch(px, py, now);
         break;
       case TileType.SOFT:
         this.drawShadow(px + t / 2, py + t * 0.95, t * 0.4, t * 0.1, 0.26);
         this.drawTileSprite("soft", px, py) || this.drawSoft(px, py);
+        if (this.lights.length) this.lightCatch(px, py, now);
         break;
       case TileType.EXPLOSION: {
         const start = this.fireStart.get(index) ?? now;
