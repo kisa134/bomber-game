@@ -75,10 +75,12 @@ async function poll(){
     const d=await r.json();
     $("#gate").style.display="none";$("#board").style.display="block";$("#msg").textContent="";$("#dot").className="live";
     $("#meta").textContent="store: "+d.store+" · uptime "+dur(d.totals.uptimeMs)+" · "+new Date(d.now).toLocaleTimeString();
+    const ld=d.load||{tickMs:0,budgetMs:16.7,busy:false};
     $("#live").innerHTML=
       tile("Players online",fmt(d.online),"app open now")+
       tile("In match",fmt(d.live.humans),fmt(d.live.bots)+" bots")+
-      tile("Rooms",fmt(d.live.rooms),fmt(d.live.playing)+" playing · "+fmt(d.live.lobby)+" lobby");
+      tile("Rooms",fmt(d.live.rooms),fmt(d.live.playing)+" playing · "+fmt(d.live.lobby)+" lobby")+
+      tile("Server load",(ld.busy?"⚠ ":"")+ld.tickMs+"ms",(ld.busy?"SATURATED — shedding":"of "+ld.budgetMs+"ms budget"));
     $("#totals").innerHTML=
       tile("Matches",fmt(d.totals.matches),fmt(d.totals.practiceMatches)+" practice")+
       tile("Deposits","${TOKEN_TICKER} "+fmt(d.totals.depositVolume),fmt(d.totals.deposits)+" tx")+

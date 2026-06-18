@@ -47,6 +47,10 @@ services:
         sync: false
       - key: ADMIN_TOKEN # protects /admin live dashboard (comma-separate for several passwords)
         sync: false
+      - key: MAX_ROOMS # cap concurrent rooms (set from a load test; default 500)
+        sync: false
+      - key: HOUSE_RAKE_BP # house rake in basis points (e.g. 500 = 5%); funds referrals
+        sync: false
       - key: POSTHOG_EMBED_URL # PostHog shared dashboard embed URL (shown inside /admin)
         sync: false
       - key: GA_DASHBOARD_URL # Google Analytics link (button in /admin)

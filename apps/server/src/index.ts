@@ -223,6 +223,7 @@ app.get("/admin/stats", (res, req) => {
       sendJson(res, {
         online: onlineCount(),
         live: mm.adminStats,
+        load: mm.load,
         totals: analytics.snapshot(),
         store: store.kind,
         embedUrl: POSTHOG_EMBED_URL,

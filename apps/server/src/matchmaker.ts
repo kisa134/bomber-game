@@ -13,8 +13,14 @@ interface Pending {
 }
 
 const TOKEN_TTL_MS = 60_000;
-const MAX_ROOMS = 500; // hard cap to bound memory / room-creation DoS
+// Hard cap to bound memory / room-creation DoS. Tunable via env so capacity can
+// be set from a load test without a code change.
+const MAX_ROOMS = Number(process.env.MAX_ROOMS ?? 500) || 500;
 const MAX_CATCHUP = 5; // fixed-timestep: max steps to run per loop iteration
+// When one tick of all-rooms simulation costs more than this, we're saturating
+// the single game-loop thread — stop opening NEW rooms (shed load) so existing
+// matches keep their 60Hz instead of everyone degrading together.
+const LOAD_BUSY_MS = (1000 / 60) * 0.7; // ~70% of the tick budget
 // No ambiguous chars (0/O, 1/I).
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -31,6 +37,8 @@ export class Matchmaker {
   private loop: ReturnType<typeof setInterval> | null = null;
   private lastTime = 0;
   private acc = 0;
+  private tickEmaMs = 0; // EMA of one full-tick (all rooms) duration
+  private tickPeakMs = 0; // slowly-decaying peak tick duration
 
   /** Join (or open) a public room at the given stake (0 = casual). */
   quickplay(name: string, skin: number, wallet: string | null, stake = 0): { code: string; token: string } {
@@ -120,7 +128,9 @@ export class Matchmaker {
     botDifficulty: BotDifficulty = BotDifficulty.NORMAL,
     currency: Currency = Currency.CHIPS,
   ): Room {
-    if (this.rooms.size >= MAX_ROOMS) throw new ServerFullError();
+    // Refuse new rooms when at the hard cap OR when the sim thread is saturated
+    // (load shedding) — existing matches keep running smoothly.
+    if (this.rooms.size >= MAX_ROOMS || this.load.busy) throw new ServerFullError();
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
     const room = new Room(code, isPublic, practice, stake, botDifficulty, currency);
@@ -231,6 +241,7 @@ export class Matchmaker {
   }
 
   private runTick(): void {
+    const t0 = performance.now();
     const now = Date.now();
     for (const [token, p] of this.pending) {
       if (now - p.createdAt > TOKEN_TTL_MS) this.pending.delete(token);
@@ -242,6 +253,20 @@ export class Matchmaker {
         this.rooms.delete(id);
       }
     }
+    const dur = performance.now() - t0;
+    this.tickEmaMs = this.tickEmaMs * 0.9 + dur * 0.1;
+    this.tickPeakMs = Math.max(this.tickPeakMs * 0.995, dur); // slow decay
+  }
+
+  /** Game-loop load: average/peak tick cost and whether we're saturating the
+   *  single simulation thread (used to shed new-room load and shown in /admin). */
+  get load(): { tickMs: number; peakMs: number; budgetMs: number; busy: boolean } {
+    return {
+      tickMs: Math.round(this.tickEmaMs * 10) / 10,
+      peakMs: Math.round(this.tickPeakMs * 10) / 10,
+      budgetMs: Math.round((1000 / 60) * 10) / 10,
+      busy: this.tickEmaMs > LOAD_BUSY_MS,
+    };
   }
 
   get stats(): { rooms: number; players: number } {
