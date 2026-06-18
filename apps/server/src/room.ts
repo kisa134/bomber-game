@@ -682,6 +682,11 @@ export class Room {
     // Non-fatal hit: lose 1 HP, blink (i-frames), stay put — no respawn/teleport.
     if (p.lives > 0) {
       p.invulnUntilMs = now + HIT_INVULN_MS;
+      // First blood = the first time one player WOUNDS another (not a full kill).
+      if (killerId >= 0 && killerId !== p.id) {
+        const killer = this.players.get(killerId);
+        if (killer) this.awardFirstBlood(killer);
+      }
       return;
     }
 
@@ -803,7 +808,8 @@ export class Room {
     this.contributors = [];
   }
 
-  /** First kill of the match: big callout + an instant random power-up. */
+  /** First blood (first player-on-player wound of the match): big callout + an
+   *  instant random power-up. Idempotent — only the first one counts. */
   private awardFirstBlood(killer: Player): void {
     if (this.firstBloodDone) return;
     this.firstBloodDone = true;

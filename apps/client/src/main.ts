@@ -75,7 +75,6 @@ const settings = loadSettings();
 let renderer: Renderer | null = null;
 let keepAlive: ReturnType<typeof setInterval> | null = null;
 let currentTrack: "lobby" | "battle" = "lobby";
-let firstBloodArmed = false; // true at match start, fires once on the first kill
 let lastCountSec = -1;
 let practiceMode = false; // current room is practice vs bots (drives "Play again")
 let goUntil = 0;
@@ -285,7 +284,6 @@ net.onMessage = (msg) => {
       } else if (msg.phase === MatchPhase.PLAYING) {
         assets.play("go");
         goUntil = performance.now() + 800;
-        firstBloodArmed = true;
         track("match_started", { players: state.roomPlayers.length });
       } else if (msg.phase === MatchPhase.SUDDEN_DEATH) {
         assets.play("sudden_death");
@@ -334,11 +332,6 @@ net.onMessage = (msg) => {
       killLines.push({ killerId: msg.killerId, victimId: msg.victimId, until: performance.now() + 4500 });
       if (killLines.length > 5) killLines.shift();
       if (msg.killerId === state.myId && msg.victimId !== state.myId) registerMyKill();
-      if (firstBloodArmed) {
-        firstBloodArmed = false;
-        void assets.playReverb("first_blood"); // echo + reverb for epicness
-        renderer?.firstBlood();
-      }
       break;
     case ServerMsg.EVENT_PLAYER_DEATH: {
       assets.play("death");
@@ -353,8 +346,8 @@ net.onMessage = (msg) => {
       break;
     case ServerMsg.EVENT_CALLOUT:
       if (msg.kind === CalloutType.FIRST_BLOOD) {
-        showCallout("🩸 FIRST BLOOD!", msg.playerId);
-        assets.play("go");
+        renderer?.firstBlood(); // pixel "FIRST BLOOD" text + blood drips
+        void assets.playReverb("first_blood"); // echo + reverb
       }
       break;
     default:
