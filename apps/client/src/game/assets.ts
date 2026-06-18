@@ -99,6 +99,9 @@ export class Assets {
   private music = new Map<string, HTMLAudioElement>();
   private fadeTimers = new Map<HTMLAudioElement, ReturnType<typeof setInterval>>();
   private active = new Map<string, HTMLAudioElement>(); // last-played instance per key
+  private audioCtx: AudioContext | null = null; // lazy Web Audio (for fx with reverb)
+  private reverbIR: AudioBuffer | null = null;
+  private fxBuffers = new Map<string, AudioBuffer>();
 
   private sfxEnabled = true;
   private musicEnabled = true;
@@ -130,6 +133,72 @@ export class Assets {
     a.volume = volume ?? SFX_GAIN[key] ?? DEFAULT_SFX_GAIN;
     this.active.set(key, a);
     void a.play().catch(() => {});
+  }
+
+  /** A synthesized reverb impulse (exponentially-decaying noise) — no IR file. */
+  private makeReverbIR(ctx: AudioContext, seconds = 2.6, decay = 2.4): AudioBuffer {
+    const len = Math.floor(ctx.sampleRate * seconds);
+    const ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = ir.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return ir;
+  }
+
+  /** Play a one-shot with epic echo + reverb (used for FIRST BLOOD). Falls back
+   *  to the plain play() if Web Audio or the file isn't available. */
+  async playReverb(key: string, volume = 0.95): Promise<void> {
+    if (!this.sfxEnabled) return;
+    const url = this.sounds.get(key);
+    if (!url) return; // file not present yet -> silent (no error)
+    if (!this.audioCtx) {
+      try {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        this.audioCtx = new AC();
+      } catch {
+        this.play(key, volume);
+        return;
+      }
+    }
+    const ctx = this.audioCtx;
+    if (ctx.state === "suspended") void ctx.resume();
+    let buf = this.fxBuffers.get(key);
+    if (!buf) {
+      try {
+        const data = await (await fetch(url)).arrayBuffer();
+        buf = await ctx.decodeAudioData(data);
+        this.fxBuffers.set(key, buf);
+      } catch {
+        this.play(key, volume);
+        return;
+      }
+    }
+    if (!this.reverbIR) this.reverbIR = this.makeReverbIR(ctx);
+
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    // Dry signal.
+    const dry = ctx.createGain();
+    dry.gain.value = volume;
+    src.connect(dry).connect(ctx.destination);
+    // Reverb tail.
+    const conv = ctx.createConvolver();
+    conv.buffer = this.reverbIR;
+    const wet = ctx.createGain();
+    wet.gain.value = volume * 0.85;
+    src.connect(conv).connect(wet).connect(ctx.destination);
+    // Feedback echo.
+    const delay = ctx.createDelay(1);
+    delay.delayTime.value = 0.23;
+    const fb = ctx.createGain();
+    fb.gain.value = 0.38;
+    const echoWet = ctx.createGain();
+    echoWet.gain.value = volume * 0.55;
+    src.connect(delay);
+    delay.connect(fb).connect(delay);
+    delay.connect(echoWet).connect(ctx.destination);
+    src.start();
   }
 
   /** Stop a (possibly long) one-shot sound, e.g. the sudden-death track. */

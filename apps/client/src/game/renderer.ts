@@ -54,6 +54,7 @@ const PU_GLOW: Partial<Record<TileType, [number, number, number]>> = {
 const DEATH_MS = 650;
 const MAX_PARTICLES = 520;
 const MAX_DECALS = 90;
+const LIGHT_LIFE = 460; // ms an explosion light source blooms + fades
 
 interface Particle {
   x: number; // cell coords
@@ -313,6 +314,7 @@ export class Renderer {
 
     this.drawDecals(now);
     this.drawWind(now, W, H);
+    this.drawPowerups(view, now); // after blocks so their shadows never cover relics
 
     for (const b of view.bombs) {
       const pulse = 1 - (b.fuseLeftMs / BOMB_TIMER_MS) * 0.25;
@@ -362,6 +364,7 @@ export class Renderer {
     this.updateParticles(dt);
     ctx.restore();
 
+    this.drawAmbient(W, H); // warm key light + vignette for depth
     this.drawFirstBlood(now); // screen-space announcement, above the world
   }
 
@@ -527,18 +530,22 @@ export class Renderer {
     }
   }
 
-  /** Pixelated blob shadow — a blocky ellipse made of squares on a pixel grid. */
+  /** Pixelated blob shadow — a blocky ellipse made of squares on a pixel grid,
+   *  gently swaying/breathing over time. */
   private drawShadow(cx: number, cy: number, rx: number, ry: number, alpha: number): void {
     const ctx = this.ctx;
     const t = this.tile;
     const pu = Math.max(2, Math.round(t / 12));
+    const sw = Math.sin(this.lastTime / 900 + cx * 0.05 + cy * 0.03);
+    const ox = cx + sw * pu * 0.7; // drift sideways a touch
+    const rxe = rx * (1 + sw * 0.07); // breathe width
     const prev = ctx.globalAlpha;
     ctx.globalAlpha = prev * alpha;
     ctx.fillStyle = "#000";
     for (let gy = -ry; gy <= ry; gy += pu) {
-      for (let gx = -rx; gx <= rx; gx += pu) {
-        if ((gx * gx) / (rx * rx) + (gy * gy) / (ry * ry) <= 1) {
-          ctx.fillRect(Math.round((cx + gx) / pu) * pu, Math.round((cy + gy) / pu) * pu, pu, pu);
+      for (let gx = -rxe; gx <= rxe; gx += pu) {
+        if ((gx * gx) / (rxe * rxe) + (gy * gy) / (ry * ry) <= 1) {
+          ctx.fillRect(Math.round((ox + gx) / pu) * pu, Math.round((cy + gy) / pu) * pu, pu, pu);
         }
       }
     }
@@ -598,24 +605,23 @@ export class Renderer {
   private drawLights(now: number): void {
     const ctx = this.ctx;
     const t = this.tile;
-    const LIFE = 320;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     for (let i = this.lights.length - 1; i >= 0; i--) {
       const L = this.lights[i];
-      const k = (now - L.born) / LIFE;
+      const k = (now - L.born) / LIGHT_LIFE;
       if (k >= 1) {
         this.lights.splice(i, 1);
         continue;
       }
       const fade = 1 - k;
-      const grow = 0.65 + k * 0.55; // expands outward as it fades
+      const grow = 0.7 + k * 0.7; // expands outward as it fades
       const cx = L.x * t;
       const cy = L.y * t;
       const layers: Array<[number, string]> = [
-        [t * 1.45 * grow, `rgba(255,120,40,${0.20 * fade})`], // outer red-orange
-        [t * 0.95 * grow, `rgba(255,185,75,${0.30 * fade})`], // mid amber
-        [t * 0.5 * grow, `rgba(255,245,215,${0.46 * fade})`], // hot core
+        [t * 1.9 * grow, `rgba(255,110,35,${0.34 * fade})`], // outer red-orange
+        [t * 1.15 * grow, `rgba(255,180,70,${0.5 * fade})`], // mid amber
+        [t * 0.6 * grow, `rgba(255,248,220,${0.78 * fade})`], // hot core
       ];
       for (const [rad, col] of layers) {
         const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
@@ -637,19 +643,19 @@ export class Renderer {
     const t = this.tile;
     const bx = px + t / 2;
     const by = py + t / 2;
-    const reach = t * 2.6;
+    const reach = t * 3.2;
     let ix = 0;
     let iy = 0;
     let inten = 0;
     for (const L of this.lights) {
-      const k = (now - L.born) / 320;
+      const k = (now - L.born) / LIGHT_LIFE;
       if (k >= 1) continue;
       const dx = bx - L.x * t;
       const dy = by - L.y * t;
       const dist = Math.hypot(dx, dy);
       if (dist > reach) continue;
       const w = (1 - dist / reach) * (1 - k);
-      inten += w;
+      inten += w * 1.6;
       if (dist > 1) {
         ix += (-dx / dist) * w; // point the highlight toward the light
         iy += (-dy / dist) * w;
@@ -657,12 +663,13 @@ export class Renderer {
     }
     if (inten <= 0.02) return;
     inten = Math.min(1, inten);
-    const ox = bx + ix * t * 0.42;
-    const oy = by + iy * t * 0.42;
+    const ox = bx + ix * t * 0.45;
+    const oy = by + iy * t * 0.45;
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, t * 0.85);
-    g.addColorStop(0, `rgba(255,205,130,${0.55 * inten})`);
+    const g = ctx.createRadialGradient(ox, oy, 0, ox, oy, t * 1.05);
+    g.addColorStop(0, `rgba(255,210,150,${0.95 * inten})`);
+    g.addColorStop(0.5, `rgba(255,160,70,${0.4 * inten})`);
     g.addColorStop(1, "rgba(255,140,40,0)");
     ctx.fillStyle = g;
     ctx.fillRect(px, py, t, t); // clip the bounce to the block's own cell
@@ -672,7 +679,7 @@ export class Renderer {
   /** Center-screen FIRST BLOOD: chunky pixel text + falling pixel blood drips. */
   private drawFirstBlood(now: number): void {
     if (!this.fbCanvas || this.firstBloodAt === 0) return;
-    const dur = 2400;
+    const dur = 3400;
     const k = (now - this.firstBloodAt) / dur;
     if (k >= 1) {
       this.firstBloodAt = 0;
@@ -705,6 +712,26 @@ export class Renderer {
       ctx.fillRect(Math.round(fx / pu) * pu, Math.round(dy / pu) * pu, pu, h);
     }
     ctx.restore();
+  }
+
+  /** Warm ambient lighting (screen-space): a soft warm key light from above plus
+   *  a gentle vignette — gives the flat top-down board a sense of depth / 3D. */
+  private drawAmbient(W: number, H: number): void {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const warm = ctx.createRadialGradient(W * 0.5, H * 0.32, 0, W * 0.5, H * 0.32, Math.hypot(W, H) * 0.62);
+    warm.addColorStop(0, "rgba(255,196,120,0.11)");
+    warm.addColorStop(0.6, "rgba(255,170,90,0.045)");
+    warm.addColorStop(1, "rgba(255,150,70,0)");
+    ctx.fillStyle = warm;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, Math.min(W, H) * 0.38, W * 0.5, H * 0.5, Math.hypot(W, H) * 0.6);
+    vig.addColorStop(0, "rgba(0,0,0,0)");
+    vig.addColorStop(1, "rgba(18,10,4,0.30)");
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
   }
 
   /** Subtle wind: a soft light band drifting diagonally across the field. */
@@ -790,17 +817,11 @@ export class Renderer {
   // -- tiles -----------------------------------------------------------------
 
   private drawTile(x: number, y: number, tile: TileType, index: number, now: number): void {
-    const ctx = this.ctx;
     const t = this.tile;
     const px = x * t;
     const py = y * t;
 
-    const floor = this.assets?.img("floor");
-    if (floor) ctx.drawImage(floor, px, py, t, t);
-    else {
-      ctx.fillStyle = (x + y) % 2 === 0 ? "#1a2030" : "#161b29";
-      ctx.fillRect(px, py, t, t);
-    }
+    this.drawGrass(px, py, x, y, now);
 
     switch (tile) {
       case TileType.HARD:
@@ -821,57 +842,74 @@ export class Renderer {
         if (!drawn) this.drawFire(px, py);
         break;
       }
-      default: {
-        const key = PU_SPRITE[tile];
-        const icon = PU_ICON[tile];
-        if (!key && !icon) break;
-        const cx = px + t / 2;
-        const cy = py + t / 2;
-        const [gr, gg, gb] = PU_GLOW[tile] ?? [255, 200, 110];
-        const phase = now / 360 + (x * 0.9 + y * 1.3);
-        const pulse = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(phase));
-        const bob = Math.sin(phase * 0.8) * t * 0.05;
+      default:
+        break; // powerups are drawn in a later pass (drawPowerups) so block
+      // shadows never fall over them
+    }
+  }
 
-        // Pulsing colored glow pad (additive) — they shine, no dark shadow.
-        ctx.save();
-        ctx.globalCompositeOperation = "lighter";
-        const rad = t * (0.5 + 0.08 * pulse);
-        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
-        g.addColorStop(0, `rgba(${gr},${gg},${gb},${0.45 * pulse})`);
-        g.addColorStop(0.6, `rgba(${gr},${gg},${gb},${0.16 * pulse})`);
-        g.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+  /** Powerup pass — runs AFTER the grid so block shadows never darken a relic.
+   *  Bright pulsing colored glow + glossy shine + gentle bob. */
+  private drawPowerups(view: RenderView, now: number): void {
+    if (!view.grid) return;
+    const ctx = this.ctx;
+    const t = this.tile;
+    for (let i = 0; i < view.grid.length; i++) {
+      const tile = view.grid[i] as TileType;
+      const key = PU_SPRITE[tile];
+      const icon = PU_ICON[tile];
+      if (!key && !icon) continue;
+      const x = i % GRID_W;
+      const y = (i / GRID_W) | 0;
+      const px = x * t;
+      const py = y * t;
+      const cx = px + t / 2;
+      const cy = py + t / 2;
+      const [gr, gg, gb] = PU_GLOW[tile] ?? [255, 200, 110];
+      const phase = now / 320 + (x * 0.9 + y * 1.3);
+      const pulse = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(phase));
+      const bob = Math.sin(phase * 0.8) * t * 0.06;
 
-        // The relic itself, gently bobbing.
-        const img = key ? this.assets?.img(key) : null;
-        if (img) {
-          ctx.drawImage(img, px, py + bob, t, t);
-        } else if (icon) {
-          ctx.font = `${Math.floor(t * 0.6)}px system-ui`;
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.fillText(icon, cx, cy + bob + 1);
-        }
+      // Bright pulsing colored glow (two additive rings for a brighter halo).
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const rad = t * (0.62 + 0.12 * pulse);
+      const g = ctx.createRadialGradient(cx, cy + bob, 0, cx, cy + bob, rad);
+      g.addColorStop(0, `rgba(${gr},${gg},${gb},${0.7 * pulse})`);
+      g.addColorStop(0.5, `rgba(${gr},${gg},${gb},${0.28 * pulse})`);
+      g.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy + bob, rad, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
 
-        // Glossy specular highlight (additive) — bright spot, pulses.
-        ctx.save();
-        ctx.globalCompositeOperation = "lighter";
-        const hx = cx - t * 0.14;
-        const hy = cy - t * 0.18 + bob;
-        const hr = t * 0.17;
-        const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
-        hg.addColorStop(0, `rgba(255,255,255,${0.5 * pulse})`);
-        hg.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = hg;
-        ctx.beginPath();
-        ctx.arc(hx, hy, hr, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+      // The relic itself, bobbing.
+      const img = key ? this.assets?.img(key) : null;
+      if (img) {
+        ctx.drawImage(img, px, py + bob, t, t);
+      } else if (icon) {
+        ctx.font = `${Math.floor(t * 0.6)}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(icon, cx, cy + bob + 1);
       }
+
+      // Glossy specular highlight + a small sweeping sparkle.
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      const hx = cx - t * 0.15;
+      const hy = cy - t * 0.2 + bob;
+      const hr = t * 0.2;
+      const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
+      hg.addColorStop(0, `rgba(255,255,255,${0.75 * pulse})`);
+      hg.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = hg;
+      ctx.beginPath();
+      ctx.arc(hx, hy, hr, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
   }
 
@@ -880,6 +918,32 @@ export class Renderer {
     if (!img) return false;
     this.ctx.drawImage(img, px, py, this.tile, this.tile);
     return true;
+  }
+
+  /** Procedural pixel grass floor — deterministic blades per tile, tips sway with wind. */
+  private drawGrass(px: number, py: number, x: number, y: number, now: number): void {
+    const ctx = this.ctx;
+    const t = this.tile;
+    ctx.fillStyle = (x + y) % 2 === 0 ? "#2c4a22" : "#274320"; // base ground checker
+    ctx.fillRect(px, py, t, t);
+    const pu = Math.max(2, Math.round(t / 14));
+    let seed = (x * 374761393 + y * 668265263) >>> 0;
+    const rnd = () => {
+      seed = ((seed ^ (seed >>> 13)) * 1274126177) >>> 0;
+      return (seed & 1023) / 1023;
+    };
+    const greens = ["#3a6a2c", "#46812f", "#356326", "#4f8f33"];
+    const wind = Math.sin(now / 620 + x * 0.55 + y * 0.3);
+    for (let i = 0; i < 6; i++) {
+      const bx = px + Math.floor(rnd() * (t - pu));
+      const by = py + Math.floor(rnd() * (t - pu * 3));
+      const hgt = pu * (2 + Math.floor(rnd() * 3));
+      const col = greens[(seed >> 3) & 3];
+      const sway = Math.round(wind * pu * (0.6 + rnd() * 0.8));
+      ctx.fillStyle = col;
+      ctx.fillRect(bx, by, pu, hgt); // stalk
+      ctx.fillRect(bx + sway, by - pu, pu, pu); // swaying tip
+    }
   }
 
   private drawHard(px: number, py: number): void {

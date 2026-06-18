@@ -336,7 +336,7 @@ net.onMessage = (msg) => {
       if (msg.killerId === state.myId && msg.victimId !== state.myId) registerMyKill();
       if (firstBloodArmed) {
         firstBloodArmed = false;
-        assets.play("first_blood");
+        void assets.playReverb("first_blood"); // echo + reverb for epicness
         renderer?.firstBlood();
       }
       break;
