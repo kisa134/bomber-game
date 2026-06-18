@@ -375,6 +375,7 @@ net.onMessage = (msg) => {
       break;
     case ServerMsg.EVENT_PLAYER_DEATH: {
       assets.play("death");
+      assets.playGore(); // wet splat layered over the death cue
       const snap = state.latest();
       const dp = snap?.players.find((p) => p.id === msg.playerId);
       if (dp) renderer?.onDeath(Math.floor(dp.x), Math.floor(dp.y), PLAYER_COLORS[dp.id % PLAYER_COLORS.length]);
@@ -481,7 +482,7 @@ function announceResult(winnerId: number): void {
       state.seed && state.seedCommit
         ? `🔒 provably fair · seed ${state.seed.slice(0, 10)}… · commit ${state.seedCommit.slice(0, 8)}…`
         : "";
-  }, 1000);
+  }, 3000); // linger on the battlefield (corpses + blood) before the scoreboard
 }
 
 /** Final scoreboard on the result screen: placement, frags, your row marked. */
@@ -777,7 +778,7 @@ function frame(): void {
   const now = performance.now();
   updateDebug();
 
-  if (renderer && inGame(state.phase)) {
+  if (renderer && (inGame(state.phase) || state.phase === MatchPhase.END)) {
     // Rollback prediction for the local player: advance + send tick-stamped
     // inputs, then render the predicted head over the interpolated view.
     if (state.clockSynced) {

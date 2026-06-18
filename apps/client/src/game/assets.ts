@@ -201,6 +201,53 @@ export class Assets {
     src.start();
   }
 
+  /** Synthesized wet "splat / gib" burst for a gory death — a filtered noise
+   *  squelch over a short low thud. No audio asset needed; fully procedural. */
+  playGore(volume = 0.6): void {
+    if (!this.sfxEnabled) return;
+    let ctx = this.audioCtx;
+    if (!ctx) {
+      try {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        ctx = this.audioCtx = new AC();
+      } catch {
+        return;
+      }
+    }
+    if (ctx.state === "suspended") void ctx.resume();
+    const t0 = ctx.currentTime;
+    // Wet squelch: white noise through a lowpass that sweeps down fast.
+    const dur = 0.34;
+    const len = Math.floor(ctx.sampleRate * dur);
+    const nb = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = nb.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.6);
+    const noise = ctx.createBufferSource();
+    noise.buffer = nb;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(2200, t0);
+    lp.frequency.exponentialRampToValueAtTime(180, t0 + dur);
+    lp.Q.value = 6;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(volume, t0);
+    ng.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    noise.connect(lp).connect(ng).connect(ctx.destination);
+    noise.start(t0);
+    noise.stop(t0 + dur);
+    // Low body: a pitch-dropping thud for the "burst" impact.
+    const osc = ctx.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(120, t0);
+    osc.frequency.exponentialRampToValueAtTime(38, t0 + 0.22);
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(volume * 0.9, t0);
+    og.gain.exponentialRampToValueAtTime(0.001, t0 + 0.26);
+    osc.connect(og).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.3);
+  }
+
   /** Stop a (possibly long) one-shot sound, e.g. the sudden-death track. */
   stop(key: string): void {
     const a = this.active.get(key);

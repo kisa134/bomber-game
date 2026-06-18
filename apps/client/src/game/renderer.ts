@@ -79,8 +79,9 @@ interface Decal {
   y: number;
   born: number;
   life: number; // ms
-  kind: "scorch" | "trample";
+  kind: "scorch" | "trample" | "blood";
   rot: number;
+  scale?: number; // blood splatter radius factor (1 = full cell, <1 = a spatter)
 }
 
 export class Renderer {
@@ -240,9 +241,36 @@ export class Renderer {
   }
 
   onDeath(cx: number, cy: number, color: string): void {
-    this.burst(cx, cy, color, 22, 5);
-    this.burst(cx, cy, "#ffffff", 8, 3);
-    this.shake(8, 260);
+    // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
+    // blood spray, a hint of the player's color, and a few bone-white bits.
+    const reds = ["#8a0000", "#a30000", "#c81e1e", "#6a0000"];
+    for (let i = 0; i < 26; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const s = 3 + Math.random() * 5;
+      this.push({
+        x: cx + 0.5, y: cy + 0.5,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1.6,
+        life: 0.5 + Math.random() * 0.6, max: 1.1,
+        size: this.tile * (0.06 + Math.random() * 0.13),
+        color: reds[(Math.random() * reds.length) | 0],
+        gravity: 17, drag: 0.96, shape: "rect",
+        rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 16,
+      });
+    }
+    this.burst(cx, cy, "#d61e1e", 12, 4); // fine blood spray
+    this.burst(cx, cy, color, 7, 3); // a hint of the player's color
+    this.burst(cx, cy, "#efe6cf", 5, 3); // bone / teeth bits
+    // Blood pools: a big splat on the death cell + random smaller spatters on
+    // the neighbours (floor AND walls — decals draw over the tiles).
+    this.addBlood(cx, cy, 1);
+    const around = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+    for (const [dx, dy] of around) {
+      if (Math.random() < 0.45) continue; // not every neighbour gets hit
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
+      this.addBlood(nx, ny, 0.4 + Math.random() * 0.35);
+    }
+    this.shake(10, 320);
   }
 
   /** FIRST BLOOD announcement (first kill of the match). Builds the chunky pixel
@@ -281,6 +309,12 @@ export class Renderer {
 
   private addDecal(x: number, y: number, kind: Decal["kind"]): void {
     this.decals.push({ x, y, born: this.lastTime, life: kind === "scorch" ? 6000 : 2600, kind, rot: Math.random() * Math.PI });
+    if (this.decals.length > MAX_DECALS) this.decals.shift();
+  }
+
+  /** A long-lived blood splatter on a cell (scale<1 = smaller spatter). */
+  private addBlood(x: number, y: number, scale: number): void {
+    this.decals.push({ x, y, born: this.lastTime, life: 7000, kind: "blood", rot: Math.random() * Math.PI, scale });
     if (this.decals.length > MAX_DECALS) this.decals.shift();
   }
 
@@ -624,6 +658,33 @@ export class Renderer {
             ctx.fillStyle = `rgb(${sh},${sh - 3},${Math.max(0, sh - 6)})`;
             ctx.fillRect(Math.round((cx + gx) / pu) * pu, Math.round((cy + gy) / pu) * pu, pu, pu);
           }
+        }
+        ctx.globalAlpha = 1;
+      } else if (d.kind === "blood") {
+        // Pixel blood splatter: irregular red squares, denser toward the
+        // center, holding most of the cell then fading over the decal's life.
+        const a = Math.min(1, (1 - k) * 1.4) * 0.72;
+        const pu = Math.max(2, Math.round(t / 9));
+        const scale = d.scale ?? 1;
+        const R = t * 0.5 * scale;
+        let seed = (d.x * 374761393 + d.y * 668265263 + (d.born | 0)) >>> 0;
+        const rnd = (): number => {
+          seed = (seed ^ (seed << 13)) >>> 0;
+          seed = (seed ^ (seed >>> 17)) >>> 0;
+          seed = (seed ^ (seed << 5)) >>> 0;
+          return (seed & 0xffff) / 0xffff;
+        };
+        ctx.globalAlpha = a;
+        const blobs = 10 + Math.floor(scale * 16);
+        for (let b = 0; b < blobs; b++) {
+          const ang = rnd() * Math.PI * 2 + d.rot;
+          const dist = Math.pow(rnd(), 0.6) * R; // bias toward the center
+          const bx = cx + Math.cos(ang) * dist;
+          const by = cy + Math.sin(ang) * dist;
+          const sz = pu * (1 + Math.floor(rnd() * 2.4));
+          const r = 96 + Math.floor(rnd() * 96);
+          ctx.fillStyle = `rgb(${r},${Math.floor(r * 0.12)},${Math.floor(r * 0.1)})`;
+          ctx.fillRect(Math.round((bx - sz / 2) / pu) * pu, Math.round((by - sz / 2) / pu) * pu, sz, sz);
         }
         ctx.globalAlpha = 1;
       } else {
