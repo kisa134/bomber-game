@@ -54,7 +54,7 @@ import {
   signAndSendBase64,
 } from "./net/wallet.js";
 import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler } from "./ui/lobby.js";
-import { track, identifyWallet, initErrorTracking } from "./analytics.js";
+import { initAnalytics, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram } from "./platform/telegram.js";
 import { enterImmersive } from "./platform/fullscreen.js";
@@ -1412,6 +1412,7 @@ function setupBackground(): void {
 initTelegram();
 // Register the service worker (PWA). Auto-applies updates on next navigation.
 registerSW({ immediate: true });
+initAnalytics({ platform: isTelegram ? "telegram" : "web" });
 initErrorTracking();
 track("app_loaded", { platform: isTelegram ? "telegram" : "web" });
 input.attach();

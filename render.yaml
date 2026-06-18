@@ -20,3 +20,15 @@ services:
         sync: false
       - key: TG_APP
         sync: false
+      # Analytics. Client keys (VITE_*) are baked into the bundle at build time
+      # (matching ARGs in the Dockerfile); server keys are runtime. All optional.
+      - key: VITE_POSTHOG_KEY # PostHog publishable client key (phc_...)
+        sync: false
+      - key: VITE_GA_ID # Google Analytics 4 measurement id (G-...)
+        sync: false
+      - key: VITE_CLARITY_ID # Microsoft Clarity project id
+        sync: false
+      - key: POSTHOG_KEY # server-side PostHog key (for authoritative events)
+        sync: false
+      - key: ADMIN_TOKEN # protects /admin live dashboard
+        sync: false

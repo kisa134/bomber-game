@@ -18,3 +18,8 @@ export const INTERP_DELAY_MS = 100;
 // ingest key (phc_...), safe to ship in the bundle.
 export const POSTHOG_KEY = import.meta.env.VITE_POSTHOG_KEY ?? "";
 export const POSTHOG_HOST = import.meta.env.VITE_POSTHOG_HOST ?? "https://us.i.posthog.com";
+
+// Google Analytics 4 measurement id (G-XXXXXXX). Optional; no-op when unset.
+export const GA_ID = import.meta.env.VITE_GA_ID ?? "";
+// Microsoft Clarity project id. Optional; no-op when unset.
+export const CLARITY_ID = import.meta.env.VITE_CLARITY_ID ?? "";

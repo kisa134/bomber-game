@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { TICK_MS, BotDifficulty, Currency } from "@bomberpump/shared";
+import { TICK_MS, BotDifficulty, Currency, MatchPhase } from "@bomberpump/shared";
 import { Room } from "./room.js";
 import type { SendFn } from "./player.js";
 
@@ -248,5 +248,26 @@ export class Matchmaker {
     let players = 0;
     for (const r of this.rooms.values()) players += r.players.size;
     return { rooms: this.rooms.size, players };
+  }
+
+  /** Richer live snapshot for the admin panel. */
+  get adminStats(): {
+    rooms: number;
+    humans: number;
+    bots: number;
+    playing: number;
+    lobby: number;
+  } {
+    let humans = 0;
+    let bots = 0;
+    let playing = 0;
+    let lobby = 0;
+    for (const r of this.rooms.values()) {
+      humans += r.humanCount;
+      bots += r.players.size - r.humanCount;
+      if (r.phase === MatchPhase.PLAYING || r.phase === MatchPhase.SUDDEN_DEATH) playing++;
+      else lobby++;
+    }
+    return { rooms: this.rooms.size, humans, bots, playing, lobby };
   }
 }

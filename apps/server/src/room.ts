@@ -52,6 +52,7 @@ import {
 import { createHash, randomBytes } from "node:crypto";
 import { makeRng, encodeMatchSeed, advance } from "@bomberpump/shared";
 import { World, SPAWNS, powerupOfTile } from "./world.js";
+import { analytics } from "./analytics.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
 import { BotController } from "./bot.js";
@@ -716,6 +717,14 @@ export class Room {
       this.settlePot(winner ?? null);
       this.recordStats();
       this.awardPlayRewards();
+      analytics.matchCompleted({
+        winner: winner && !winner.isBot ? winner.wallet : null,
+        players: this.humanCount,
+        stake: this.stake,
+        currency: this.currency,
+        practice: this.practice,
+        hasBots: this.hasBots,
+      });
     }
   }
 

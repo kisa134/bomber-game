@@ -5,6 +5,8 @@ import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHI
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./tgrelay.js";
+import { analytics } from "./analytics.js";
+import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
 import {
   tokenBalance,
@@ -155,6 +157,49 @@ app.get("/health", (res) => {
     .ping()
     .then((db) => sendJson(res, { ok: true, store: store.kind, db: db ? "ok" : "down", ...mm.stats }))
     .catch(() => sendJson(res, { ok: true, store: store.kind, db: "down", ...mm.stats }));
+});
+
+// --- admin live panel (token-gated) ---
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN ?? "";
+function adminAuthed(req: uWS.HttpRequest): boolean {
+  if (!ADMIN_TOKEN) return false; // disabled until a token is configured
+  const q = new URLSearchParams(req.getQuery());
+  return q.get("token") === ADMIN_TOKEN;
+}
+
+// Live JSON metrics for the dashboard. Polled by /admin.
+app.get("/admin/stats", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  void store
+    .leaderboard(10, "all")
+    .then((top) => {
+      sendJson(res, {
+        live: mm.adminStats,
+        totals: analytics.snapshot(),
+        store: store.kind,
+        top: top.map((p) => ({
+          name: p.name,
+          wallet: p.wallet,
+          rating: p.rating,
+          matches: p.matches,
+          wins: p.wins,
+          chips: p.chips,
+        })),
+        now: Date.now(),
+      });
+    })
+    .catch(() => sendJson(res, { error: "stats_failed" }, "500 Internal Server Error"));
+});
+
+// The dashboard page itself (HTML asks for the token, then polls /admin/stats).
+app.get("/admin", (res) => {
+  res.onAborted(() => {});
+  res.cork(() => {
+    res.writeHeader("Content-Type", "text/html; charset=utf-8");
+    res.writeHeader("Cache-Control", "no-cache");
+    res.end(adminPageHtml());
+  });
 });
 
 app.get("/profile", (res, req) => {

@@ -39,7 +39,7 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
-          /^\/(auth|deposit|withdraw|profile|leaderboard|bank|price|tables|watch|health|ws|tg)\b/,
+          /^\/(auth|deposit|withdraw|profile|leaderboard|bank|price|tables|watch|health|ws|tg|admin)\b/,
         ],
         runtimeCaching: [
           {
