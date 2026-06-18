@@ -930,7 +930,7 @@ export class Renderer {
     const t = this.tile;
     ctx.fillStyle = (x + y) % 2 === 0 ? "#2c4a22" : "#274320"; // base ground checker
     ctx.fillRect(px, py, t, t);
-    const pu = Math.max(2, Math.round(t / 14));
+    const pu = Math.max(1, Math.round(t / 24)); // finer pixels
     let seed = (x * 374761393 + y * 668265263) >>> 0;
     const rnd = () => {
       seed = ((seed ^ (seed >>> 13)) * 1274126177) >>> 0;
@@ -938,10 +938,11 @@ export class Renderer {
     };
     const greens = ["#3a6a2c", "#46812f", "#356326", "#4f8f33"];
     const wind = Math.sin(now / 620 + x * 0.55 + y * 0.3);
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 14; i++) {
+      // denser
       const bx = px + Math.floor(rnd() * (t - pu));
-      const by = py + Math.floor(rnd() * (t - pu * 3));
-      const hgt = pu * (2 + Math.floor(rnd() * 3));
+      const by = py + Math.floor(rnd() * (t - pu * 2));
+      const hgt = pu * (1 + Math.floor(rnd() * 2)); // shorter blades
       const col = greens[(seed >> 3) & 3];
       const sway = Math.round(wind * pu * (0.6 + rnd() * 0.8));
       ctx.fillStyle = col;
