@@ -290,6 +290,13 @@ export class Room {
   setMove(id: number, dir: Direction, tick: number): void {
     const p = this.players.get(id);
     if (!p || !p.alive) return;
+    // No moving before the match is actually live (lobby / countdown) — otherwise
+    // buffered inputs make players twitch during the "3-2-1".
+    if (this.phase !== MatchPhase.PLAYING && this.phase !== MatchPhase.SUDDEN_DEATH) {
+      p.intent = Direction.NONE;
+      p.inputs.clear();
+      return;
+    }
     if (tick <= this.simTick) {
       // Late (clock off / high lag): apply right now instead of dropping, so the
       // player can never freeze. Worst case = a little extra reconcile work.

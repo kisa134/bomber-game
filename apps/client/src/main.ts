@@ -1,6 +1,7 @@
 import {
   ServerMsg,
   MatchPhase,
+  Direction,
   TileType,
   PowerUpType,
   DRAW_WINNER_ID,
@@ -770,8 +771,11 @@ function frame(): void {
     // Rollback prediction for the local player: advance + send tick-stamped
     // inputs, then render the predicted head over the interpolated view.
     if (state.clockSynced) {
-      const sends = predictor.step(state.serverNow(), state.pingMs, input.dir);
-      for (const s of sends) net.sendMove(s.dir, s.tick);
+      // Freeze movement until the match is actually live — no moving during the
+      // 3-2-1 countdown (feed NONE so prediction stays put, and don't send).
+      const live = state.phase === MatchPhase.PLAYING || state.phase === MatchPhase.SUDDEN_DEATH;
+      const sends = predictor.step(state.serverNow(), state.pingMs, live ? input.dir : Direction.NONE);
+      if (live) for (const s of sends) net.sendMove(s.dir, s.tick);
     }
     const view = state.view();
     // Use the predicted position only while prediction is healthy; otherwise
@@ -1348,7 +1352,7 @@ function openPlayerCard(p: { wallet?: string | null; name: string; skin: number 
   const body = document.getElementById("pubprofile-body")!;
   body.innerHTML = "";
   body.append(skinAvatar(p.skin), el("div", "prof-addr", p.name));
-  body.append(el("div", "status fair", "Practice bot — no ranked stats"));
+  body.append(el("div", "status fair", "No wallet connected — no ranked stats yet"));
   modal.classList.remove("hidden");
 }
 
@@ -1551,6 +1555,11 @@ function refreshPrice(): void {
 }
 refreshPrice();
 setInterval(refreshPrice, 60_000);
+// Keep chips + token balance fresh on the menu (e.g. after a deposit credits a
+// few seconds later, or token winnings settle) — not just on connect.
+setInterval(() => {
+  if (loadWallet() && !inGame(state.phase)) refreshWalletBtn();
+}, 20_000);
 
 setupMenu({
   quickplay: (c) => { if (!walletGate(c.stake)) return; practiceMode = false; track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
