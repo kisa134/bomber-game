@@ -8,6 +8,7 @@ import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./
 import { handleTgUpdate, tgWebhookSecretOk, setupTelegramBot } from "./tgbot.js";
 import { analytics } from "./analytics.js";
 import { REFERRAL_LEVEL_BPS } from "./referral.js";
+import { logEvent, recentEvents, shortWallet } from "./events.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
 import {
@@ -227,6 +228,7 @@ app.get("/admin/stats", (res, req) => {
     .then(([top, ref]) => {
       sendJson(res, {
         online: onlineCount(),
+        events: recentEvents(30),
         live: mm.adminStats,
         load: mm.load,
         totals: analytics.snapshot(),
@@ -463,6 +465,10 @@ app.post("/referral/attribute", (res, req) => {
     const effectiveRef = ref || REFERRAL_ROOT;
     if (!effectiveRef || effectiveRef === wallet) return sendJson(res, { ok: false });
     const set = await store.setReferrer(wallet, effectiveRef);
+    if (set) {
+      const underRoot = effectiveRef === REFERRAL_ROOT;
+      logEvent("🔗", `${shortWallet(wallet)} joined ${underRoot ? "under root (you)" : "via " + shortWallet(effectiveRef)}`);
+    }
     sendJson(res, { ok: set });
   });
 });

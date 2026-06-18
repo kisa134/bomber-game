@@ -5,6 +5,8 @@
 // best-effort and guarded so it can NEVER break match settlement.
 
 import { store } from "./store.js";
+import { fromBaseUnits } from "./token.js";
+import { logEvent, shortWallet } from "./events.js";
 
 // Level payout in basis points of the rake: L1 10%, L2 5%, L3 3%, L4 2%, L5 1%.
 // House keeps the remaining 79% of the rake.
@@ -23,7 +25,10 @@ export async function distributeReferralRewards(staker: string, rakeBase: number
       if (!upline || seen.has(upline)) break; // top of the pyramid (or a cycle)
       seen.add(upline);
       const reward = Math.floor((rakeBase * REFERRAL_LEVEL_BPS[level]) / 10000);
-      if (reward > 0) await store.creditReferral(upline, reward);
+      if (reward > 0) {
+        await store.creditReferral(upline, reward);
+        logEvent("💸", `${shortWallet(upline)} earned ${fromBaseUnits(reward).toLocaleString(undefined, { maximumFractionDigits: 2 })} (L${level + 1})`);
+      }
       current = upline;
     }
   } catch (e) {

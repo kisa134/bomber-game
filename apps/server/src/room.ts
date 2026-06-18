@@ -56,6 +56,7 @@ import { makeRng, encodeMatchSeed, advance } from "@bomberpump/shared";
 import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { analytics } from "./analytics.js";
 import { distributeReferralRewards } from "./referral.js";
+import { logEvent } from "./events.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
 import { BotController } from "./bot.js";
@@ -774,6 +775,10 @@ export class Room {
         practice: this.practice,
         hasBots: this.hasBots,
       });
+      if (!this.practice && this.humanCount > 0) {
+        const cur = this.currency === Currency.TOKEN ? "💎" : "🪙";
+        logEvent("🎮", `match done · ${this.humanCount}p${this.stake > 0 ? ` · ${cur}${this.stake}` : " · casual"}`);
+      }
     }
   }
 

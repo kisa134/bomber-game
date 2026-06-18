@@ -30,6 +30,10 @@ export function adminPageHtml(): string {
   th{color:var(--muted);font-weight:600}
   .muted{color:var(--muted)}
   .err{color:#ff7a7e}
+  .feed{display:flex;flex-direction:column;gap:2px;max-height:240px;overflow-y:auto;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:8px 12px}
+  .feed .ev{display:flex;gap:8px;font-size:.85rem;padding:3px 0;border-bottom:1px solid var(--border)}
+  .feed .ev time{color:var(--muted);flex:0 0 60px;font-variant-numeric:tabular-nums}
+  .feed .empty{color:var(--muted);font-size:.85rem}
   .ext-links{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
   .ext-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--text);text-decoration:none;font-weight:700}
   .ext-btn:hover{border-color:var(--accent)}
@@ -44,6 +48,8 @@ export function adminPageHtml(): string {
   <div id="board" style="display:none">
     <h3>Live now</h3>
     <div class="grid" id="live"></div>
+    <h3>Activity feed <span class="muted" style="font-weight:400;font-size:.8rem">· live</span></h3>
+    <div id="feed" class="feed"></div>
     <h3>Since restart</h3>
     <div class="grid" id="totals"></div>
     <h3>Top players</h3>
@@ -78,6 +84,11 @@ async function poll(){
     const d=await r.json();
     $("#gate").style.display="none";$("#board").style.display="block";$("#msg").textContent="";$("#dot").className="live";
     $("#meta").textContent="store: "+d.store+" · uptime "+dur(d.totals.uptimeMs)+" · "+new Date(d.now).toLocaleTimeString();
+    // Live activity feed
+    const ev=d.events||[];
+    $("#feed").innerHTML = ev.length
+      ? ev.map(function(e){return '<div class="ev"><time>'+new Date(e.t).toLocaleTimeString()+'</time><span>'+e.icon+' '+e.text+'</span></div>';}).join("")
+      : '<div class="empty">No activity yet — actions (joins, deposits, matches, referral payouts) will appear here live.</div>';
     const ld=d.load||{tickMs:0,budgetMs:16.7,busy:false};
     $("#live").innerHTML=
       tile("Players online",fmt(d.online),"app open now")+

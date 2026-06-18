@@ -31,6 +31,7 @@ import bs58 from "bs58";
 import { TOKEN_MINT, TOKEN_DECIMALS, HOLDER_MIN } from "@bomberpump/shared";
 import { store } from "./store.js";
 import { analytics } from "./analytics.js";
+import { logEvent, shortWallet } from "./events.js";
 
 // Default to the public mainnet RPC (rate-limited but keyless). For anything
 // real, set SOLANA_RPC to a provider with a key (Helius/QuickNode/Alchemy).
@@ -233,6 +234,7 @@ async function creditFromTx(signature: string): Promise<boolean> {
     if (credited) {
       cache.delete(sender);
       analytics.depositCredited(sender, fromBaseUnits(amount));
+      logEvent("⬇️", `${shortWallet(sender)} deposited ${fromBaseUnits(amount).toLocaleString()}`);
       console.log(`[token] deposit credited: ${fromBaseUnits(amount)} to ${sender} (${signature})`);
     }
   }
@@ -286,6 +288,7 @@ export async function claimBySignature(
     if (credited) {
       cache.delete(sender);
       analytics.depositCredited(sender, fromBaseUnits(amount));
+      logEvent("⬇️", `${shortWallet(sender)} deposited ${fromBaseUnits(amount).toLocaleString()}`);
     }
     return { ok: true, wallet: sender, amount: fromBaseUnits(amount), already: !credited };
   }
@@ -359,6 +362,7 @@ export async function withdraw(wallet: string, amountBase: number): Promise<stri
     const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [treasuryKeypair]);
     cache.delete(wallet);
     analytics.withdrawal(wallet, fromBaseUnits(amountBase));
+    logEvent("⬆️", `${shortWallet(wallet)} withdrew ${fromBaseUnits(amountBase).toLocaleString()}`);
     console.log(`[token] withdraw ${fromBaseUnits(amountBase)} to ${wallet} (${sig})`);
     return sig;
   } catch (e) {
