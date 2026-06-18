@@ -1,5 +1,5 @@
 import { PLAYER_COLORS, skinAvatar } from "../game/renderer.js";
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES } from "../net/protocol.js";
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT } from "../net/protocol.js";
 
 /** Format a stake with its currency symbol (💎 token / 🪙 chips). */
 function stakeLabel(stake: number, currency: number): string {
@@ -100,8 +100,9 @@ export function setupMenu(h: MenuHandlers): void {
   const choice = (stake: number, currency = 0): Choice => {
     const name = nick.value.trim() || "pumper";
     localStorage.setItem("bp_nick", name);
-    // Use the player's chosen skin (set in the Skin Shop); default to skin 0.
-    const skin = Number(localStorage.getItem("bp_skin")) || 0;
+    // Skins are standard now (no shop): pick a random one on entering. The
+    // server still dedupes so every player in a match looks different.
+    const skin = Math.floor(Math.random() * SKIN_COUNT);
     return { name, skin, stake, currency };
   };
 

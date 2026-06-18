@@ -97,6 +97,7 @@ export class Renderer {
   private facing = new Map<number, "down" | "up" | "left" | "right">();
   private deadAt = new Map<number, number>();
   private emotes = new Map<number, { e: string; until: number }>();
+  private matchStartMs = 0; // when PLAYING began — drives the start-of-match glow
   private particles: Particle[] = [];
   private decals: Decal[] = [];
   private lights: Array<{ x: number; y: number; born: number }> = []; // explosion light sources
@@ -153,6 +154,12 @@ export class Renderer {
   }
 
   // -- VFX API ---------------------------------------------------------------
+
+  /** Mark the moment the match went live, so we glow each player in their color
+   *  for a short window — long enough to find yourself, then it fades. */
+  onMatchStart(): void {
+    this.matchStartMs = performance.now();
+  }
 
   /** Show a reaction bubble above a player for a short time. */
   showEmote(playerId: number, e: string): void {
@@ -429,6 +436,31 @@ export class Renderer {
       // Shadow grounding the player (under the feet).
       if (p.alive) this.drawShadow(cx, cy + t * 0.34, t * 0.3 * scale, t * 0.12 * scale, 0.26);
 
+      // Start-of-match highlight: a soft, owner-colored glow under each player
+      // for 30s so you can find yourself (replaces the old static ring). Fades
+      // out over the last 4s. The local player glows a bit brighter.
+      const HL_MS = 30_000;
+      const sinceStart = this.matchStartMs ? now - this.matchStartMs : Infinity;
+      if (p.alive && sinceStart < HL_MS) {
+        const fade = sinceStart > HL_MS - 4000 ? (HL_MS - sinceStart) / 4000 : 1;
+        const isMe = p.id === myId;
+        const col = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
+        const beat = 0.85 + 0.15 * Math.sin(now / 240);
+        const glow = t * (isMe ? 0.7 : 0.52) * beat;
+        const gy = cy + t * 0.18;
+        const a = Math.max(0, Math.min(1, fade * (isMe ? 0.6 : 0.4)));
+        const ah = Math.round(a * 255).toString(16).padStart(2, "0");
+        const grad = ctx.createRadialGradient(cx, gy, 0, cx, gy, glow);
+        grad.addColorStop(0, col + ah);
+        grad.addColorStop(1, col + "00");
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, gy, glow, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = alpha;
+      }
+
       // Kick up dust / trample grass while moving.
       if (moving && p.alive) {
         if (now - (this.lastDust.get(p.id) ?? 0) > 90) {
@@ -471,13 +503,8 @@ export class Renderer {
         ctx.fillText(SKIN_EMOJI[sk % SKIN_EMOJI.length], cx, cy + 1);
       }
 
-      if (p.id === myId && p.alive) {
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      // (The old white ring under the local player is replaced by the
+      //  start-of-match colored glow above.)
 
       // HP bar above the player: START_LIVES segments, filled = current HP.
       if (p.alive) {

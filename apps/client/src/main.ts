@@ -319,6 +319,7 @@ net.onMessage = (msg) => {
       } else if (msg.phase === MatchPhase.PLAYING) {
         assets.play("go");
         goUntil = performance.now() + 800;
+        renderer?.onMatchStart(); // start the 30s "find yourself" glow
         track("match_started", { players: state.roomPlayers.length });
       } else if (msg.phase === MatchPhase.SUDDEN_DEATH) {
         assets.play("sudden_death");
@@ -1544,7 +1545,7 @@ function wireMenuLinks(): void {
   setupOnboarding();
   document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
   document.getElementById("open-leaderboard")!.addEventListener("click", () => { lbPeriod = "all"; void openLeaderboard(); });
-  document.getElementById("open-skins")!.addEventListener("click", openSkinShop);
+  document.getElementById("open-skins")?.addEventListener("click", openSkinShop); // skins shop disabled for now
   document.getElementById("skin-close")!.addEventListener("click", () =>
     document.getElementById("skin-modal")!.classList.add("hidden"),
   );
