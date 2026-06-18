@@ -196,9 +196,10 @@ export async function joinRoom(name: string, code: string, skin: number): Promis
   return res.json();
 }
 
-/** Bind the inviter to this (session-verified) wallet. One-time on the server. */
+/** Bind the inviter to this (session-verified) wallet. An empty ref lets the
+ *  server fall back to the root (owner), so un-invited players still attach. */
 export async function attributeReferral(ref: string): Promise<boolean> {
-  if (!ref || !loadWallet()?.session) return false;
+  if (!loadWallet()?.session) return false;
   try {
     const r = await post("/referral/attribute", { ref });
     const j = (await r.json()) as { ok?: boolean };

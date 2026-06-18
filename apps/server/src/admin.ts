@@ -49,8 +49,11 @@ export function adminPageHtml(): string {
     <h3>Top players</h3>
     <table id="top"><thead><tr><th>#</th><th>Player</th><th>Rating</th><th>Matches</th><th>Wins</th><th>Chips</th></tr></thead><tbody></tbody></table>
     <h3>Referral pyramid</h3>
-    <p class="muted" style="margin:0 0 8px">You're the top of the pyramid — players who join via someone's link attach under that inviter; players with no inviter attach to no one. Rewards: 5 levels of the house rake (10/5/3/2/1%), paid in tokens.</p>
+    <p class="muted" id="ref-explain" style="margin:0 0 8px"></p>
     <div class="grid" id="ref-tiles"></div>
+    <h4 style="margin:6px 0 4px">Your network by level (under the root)</h4>
+    <table id="ref-levels"><thead><tr><th>Level</th><th>Players</th><th>Reward</th></tr></thead><tbody></tbody></table>
+    <h4 style="margin:10px 0 4px">Top partners</h4>
     <table id="ref-top"><thead><tr><th>#</th><th>Partner</th><th>Direct refs</th><th>Earned</th></tr></thead><tbody></tbody></table>
     <h3>Analytics <span class="muted" style="font-weight:400;font-size:.8rem">· PostHog</span></h3>
     <div id="ext-links"></div>
@@ -88,10 +91,23 @@ async function poll(){
     const tb=$("#top tbody");tb.innerHTML="";
     d.top.forEach((p,i)=>{const tr=document.createElement("tr");tr.innerHTML="<td>"+(i+1)+"</td><td>"+(p.name||p.wallet.slice(0,6))+"</td><td>"+fmt(p.rating)+"</td><td>"+fmt(p.matches)+"</td><td>"+fmt(p.wins)+"</td><td>"+fmt(p.chips)+"</td>";tb.appendChild(tr);});
     // Referral pyramid
-    const rf=d.referrals||{networkSize:0,totalEarned:0,top:[]};
+    const rf=d.referrals||{root:"",networkSize:0,totalEarned:0,unattached:0,rootLevels:[0,0,0,0,0],top:[]};
+    const LVL_PCT=[10,5,3,2,1];
+    const rootSet=!!rf.root;
+    $("#ref-explain").innerHTML=
+      "You're the top of the pyramid. Players who join via someone's link attach under that inviter; "+
+      (rootSet
+        ? "players with <b>no</b> inviter attach under <b>you</b> (the root)."
+        : "players with no inviter attach to <b>no one</b> — set <code>REFERRAL_ROOT</code> to your wallet to put them under you.")+
+      " Rewards: 5 levels of the house rake (10/5/3/2/1%), paid in tokens.";
+    const netUnder=(rf.rootLevels||[]).reduce((a,b)=>a+b,0);
     $("#ref-tiles").innerHTML=
-      tile("Network size",fmt(rf.networkSize),"players with an inviter")+
-      tile("Referral paid","${TOKEN_TICKER} "+fmt(rf.totalEarned),"lifetime · all levels");
+      tile("Your network",fmt(netUnder),"players under you (5 levels)")+
+      tile("Referral paid","${TOKEN_TICKER} "+fmt(rf.totalEarned),"lifetime · all partners")+
+      tile("Attributed",fmt(rf.networkSize),"players with an inviter")+
+      tile("Unattached",fmt(rf.unattached),rootSet?"(should be ~0)":"not under anyone");
+    const lb=$("#ref-levels tbody");lb.innerHTML="";
+    (rf.rootLevels||[]).forEach((n,i)=>{const tr=document.createElement("tr");tr.innerHTML="<td>L"+(i+1)+"</td><td>"+fmt(n)+"</td><td>"+LVL_PCT[i]+"% of rake</td>";lb.appendChild(tr);});
     const rb=$("#ref-top tbody");rb.innerHTML="";
     (rf.top||[]).forEach((p,i)=>{const tr=document.createElement("tr");tr.innerHTML="<td>"+(i+1)+"</td><td>"+(p.name||p.wallet.slice(0,6))+"</td><td>"+fmt(p.direct)+"</td><td>"+fmt(p.earned)+" ${TOKEN_TICKER}</td>";rb.appendChild(tr);});
     const fr=$("#ph-frame");

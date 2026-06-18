@@ -51,6 +51,8 @@ services:
         sync: false
       - key: HOUSE_RAKE_BP # house rake in basis points (e.g. 500 = 5%); funds referrals
         sync: false
+      - key: REFERRAL_ROOT # owner wallet = top of the pyramid; un-invited players attach here
+        sync: false
       - key: POSTHOG_EMBED_URL # PostHog shared dashboard embed URL (shown inside /admin)
         sync: false
       - key: GA_DASHBOARD_URL # Google Analytics link (button in /admin)

@@ -1627,10 +1627,14 @@ function walletGate(stake: number, currency = 0): boolean {
   if (ref && !localStorage.getItem("bp_ref_done")) localStorage.setItem("bp_ref", ref);
 })();
 
-/** Bind the stored inviter once a wallet is connected (one-time). */
+/** Bind the inviter once a wallet is connected. Runs even without a stored ref
+ *  so the server can attach un-invited players under the root (owner). At most
+ *  one request per page load; persists success so it isn't repeated. */
+let refAttempted = false;
 function attributeReferralOnce(): void {
-  const ref = localStorage.getItem("bp_ref");
-  if (!ref || localStorage.getItem("bp_ref_done") || !loadWallet()) return;
+  if (localStorage.getItem("bp_ref_done") || refAttempted || !loadWallet()) return;
+  refAttempted = true;
+  const ref = localStorage.getItem("bp_ref") ?? "";
   void attributeReferral(ref).then((ok) => {
     if (ok) localStorage.setItem("bp_ref_done", "1");
   });

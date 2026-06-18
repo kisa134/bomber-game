@@ -93,10 +93,12 @@ export interface ProfileStore {
   /** Referral dashboard data: number of direct referrals + lifetime earned. */
   referralStats(wallet: string): Promise<{ direct: number; earned: number }>;
   /** Admin overview of the whole referral pyramid: total attributed players,
-   *  total rewards paid, and the top partners by earnings. */
-  referralOverview(limit: number): Promise<{
+   *  total rewards paid, top partners, and the level breakdown under `root`. */
+  referralOverview(limit: number, root: string): Promise<{
     networkSize: number;
     totalEarned: number; // base units
+    unattached: number; // wallets with no referrer (excluding the root)
+    rootLevels: number[]; // count at depth 1..5 below the root wallet
     top: Array<{ wallet: string; name: string; direct: number; earned: number }>;
   }>;
 }
@@ -272,27 +274,41 @@ class InMemoryStore implements ProfileStore {
     return { direct, earned: this.map.get(wallet)?.referral_earned ?? 0 };
   }
 
-  async referralOverview(limit: number): Promise<{
+  async referralOverview(limit: number, root: string): Promise<{
     networkSize: number;
     totalEarned: number;
+    unattached: number;
+    rootLevels: number[];
     top: Array<{ wallet: string; name: string; direct: number; earned: number }>;
   }> {
-    const directCount = new Map<string, number>();
+    const children = new Map<string, string[]>();
     let networkSize = 0;
     let totalEarned = 0;
+    let unattached = 0;
     for (const p of this.map.values()) {
       if (p.referred_by) {
         networkSize++;
-        directCount.set(p.referred_by, (directCount.get(p.referred_by) ?? 0) + 1);
+        (children.get(p.referred_by) ?? children.set(p.referred_by, []).get(p.referred_by)!).push(p.wallet);
+      } else if (p.wallet !== root) {
+        unattached++;
       }
       totalEarned += p.referral_earned;
     }
+    // BFS down the tree from root, counting how many sit at each of 5 levels.
+    const rootLevels = [0, 0, 0, 0, 0];
+    let frontier = root ? children.get(root) ?? [] : [];
+    for (let d = 0; d < 5 && frontier.length; d++) {
+      rootLevels[d] = frontier.length;
+      const next: string[] = [];
+      for (const w of frontier) for (const c of children.get(w) ?? []) next.push(c);
+      frontier = next;
+    }
     const top = [...this.map.values()]
-      .map((p) => ({ wallet: p.wallet, name: p.name, direct: directCount.get(p.wallet) ?? 0, earned: p.referral_earned }))
+      .map((p) => ({ wallet: p.wallet, name: p.name, direct: (children.get(p.wallet) ?? []).length, earned: p.referral_earned }))
       .filter((r) => r.earned > 0 || r.direct > 0)
       .sort((a, b) => b.earned - a.earned || b.direct - a.direct)
       .slice(0, limit);
-    return { networkSize, totalEarned, top };
+    return { networkSize, totalEarned, unattached, rootLevels, top };
   }
 }
 
@@ -534,36 +550,50 @@ class SupabaseStore implements ProfileStore {
     return { direct, earned: p?.referral_earned ?? 0 };
   }
 
-  async referralOverview(limit: number): Promise<{
+  async referralOverview(limit: number, root: string): Promise<{
     networkSize: number;
     totalEarned: number;
+    unattached: number;
+    rootLevels: number[];
     top: Array<{ wallet: string; name: string; direct: number; earned: number }>;
   }> {
+    const empty = { networkSize: 0, totalEarned: 0, unattached: 0, rootLevels: [0, 0, 0, 0, 0], top: [] };
     try {
       const r = await fetch(
         `${this.url}/rest/v1/profiles?select=wallet,name,referred_by,referral_earned`,
         { headers: this.headers() },
       );
       const rows = (await r.json()) as Array<{ wallet: string; name: string; referred_by: string; referral_earned: number }>;
-      if (!Array.isArray(rows)) return { networkSize: 0, totalEarned: 0, top: [] };
-      const direct = new Map<string, number>();
+      if (!Array.isArray(rows)) return empty;
+      const children = new Map<string, string[]>();
       let networkSize = 0;
       let totalEarned = 0;
+      let unattached = 0;
       for (const p of rows) {
         if (p.referred_by) {
           networkSize++;
-          direct.set(p.referred_by, (direct.get(p.referred_by) ?? 0) + 1);
+          (children.get(p.referred_by) ?? children.set(p.referred_by, []).get(p.referred_by)!).push(p.wallet);
+        } else if (p.wallet !== root) {
+          unattached++;
         }
         totalEarned += Number(p.referral_earned ?? 0);
       }
+      const rootLevels = [0, 0, 0, 0, 0];
+      let frontier = root ? children.get(root) ?? [] : [];
+      for (let d = 0; d < 5 && frontier.length; d++) {
+        rootLevels[d] = frontier.length;
+        const next: string[] = [];
+        for (const w of frontier) for (const c of children.get(w) ?? []) next.push(c);
+        frontier = next;
+      }
       const top = rows
-        .map((p) => ({ wallet: p.wallet, name: p.name, direct: direct.get(p.wallet) ?? 0, earned: Number(p.referral_earned ?? 0) }))
+        .map((p) => ({ wallet: p.wallet, name: p.name, direct: (children.get(p.wallet) ?? []).length, earned: Number(p.referral_earned ?? 0) }))
         .filter((x) => x.earned > 0 || x.direct > 0)
         .sort((a, b) => b.earned - a.earned || b.direct - a.direct)
         .slice(0, limit);
-      return { networkSize, totalEarned, top };
+      return { networkSize, totalEarned, unattached, rootLevels, top };
     } catch {
-      return { networkSize: 0, totalEarned: 0, top: [] };
+      return empty;
     }
   }
 }
@@ -890,17 +920,23 @@ class PostgresStore implements ProfileStore {
     }
   }
 
-  async referralOverview(limit: number): Promise<{
+  async referralOverview(limit: number, root: string): Promise<{
     networkSize: number;
     totalEarned: number;
+    unattached: number;
+    rootLevels: number[];
     top: Array<{ wallet: string; name: string; direct: number; earned: number }>;
   }> {
+    const empty = { networkSize: 0, totalEarned: 0, unattached: 0, rootLevels: [0, 0, 0, 0, 0], top: [] };
     try {
       await this.ready;
-      const [agg, top] = await Promise.all([
+      const [agg, top, levels] = await Promise.all([
         this.pool.query(
           `select count(*) filter (where referred_by <> '')::int as net,
-                  coalesce(sum(referral_earned),0) as paid from profiles`,
+                  coalesce(sum(referral_earned),0) as paid,
+                  count(*) filter (where coalesce(referred_by,'')='' and wallet <> $1)::int as unattached
+           from profiles`,
+          [root],
         ),
         this.pool.query(
           `select p.wallet, p.name, p.referral_earned as earned,
@@ -912,10 +948,27 @@ class PostgresStore implements ProfileStore {
            limit $1`,
           [limit],
         ),
+        this.pool.query(
+          `with recursive tree as (
+             select wallet, 0 as depth from profiles where wallet = $1
+             union all
+             select c.wallet, t.depth + 1 from profiles c
+               join tree t on c.referred_by = t.wallet where t.depth < 5
+           )
+           select depth, count(*)::int as n from tree where depth between 1 and 5 group by depth`,
+          [root],
+        ),
       ]);
+      const rootLevels = [0, 0, 0, 0, 0];
+      for (const r of levels.rows) {
+        const d = Number(r.depth);
+        if (d >= 1 && d <= 5) rootLevels[d - 1] = Number(r.n);
+      }
       return {
         networkSize: (agg.rows[0]?.net as number) ?? 0,
         totalEarned: Number(agg.rows[0]?.paid ?? 0),
+        unattached: (agg.rows[0]?.unattached as number) ?? 0,
+        rootLevels,
         top: top.rows.map((r) => ({
           wallet: r.wallet as string,
           name: (r.name as string) ?? "",
@@ -925,7 +978,7 @@ class PostgresStore implements ProfileStore {
       };
     } catch (e) {
       console.error("[store] pg referralOverview failed", e);
-      return { networkSize: 0, totalEarned: 0, top: [] };
+      return empty;
     }
   }
 }

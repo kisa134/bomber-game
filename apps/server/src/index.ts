@@ -190,6 +190,11 @@ const GA_DASHBOARD_URL = process.env.GA_DASHBOARD_URL ?? "https://analytics.goog
 const GA_EMBED_URL = process.env.GA_EMBED_URL ?? "";
 const CLARITY_DASHBOARD_URL = process.env.CLARITY_DASHBOARD_URL ?? "https://clarity.microsoft.com/projects/view/x8x8jqaz1b/";
 
+// The top of the referral pyramid (the owner's wallet). Anyone who connects a
+// wallet WITHOUT a referrer is attached under this root, so you earn from every
+// un-invited player. Leave empty to attach un-invited players to nobody.
+const REFERRAL_ROOT = (process.env.REFERRAL_ROOT ?? "").trim();
+
 // Presence: clients heartbeat here while the app is open (menu, lobby, or match),
 // so "online" reflects everyone with the game open — not just players in a live
 // room (a WS connection only exists once a match is joined).
@@ -218,7 +223,7 @@ app.get("/presence", (res, req) => {
 app.get("/admin/stats", (res, req) => {
   res.onAborted(() => {});
   if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
-  void Promise.all([store.leaderboard(10, "all"), store.referralOverview(15)])
+  void Promise.all([store.leaderboard(10, "all"), store.referralOverview(15, REFERRAL_ROOT)])
     .then(([top, ref]) => {
       sendJson(res, {
         online: onlineCount(),
@@ -239,8 +244,11 @@ app.get("/admin/stats", (res, req) => {
           chips: p.chips,
         })),
         referrals: {
+          root: REFERRAL_ROOT,
           networkSize: ref.networkSize,
           totalEarned: fromBaseUnits(ref.totalEarned),
+          unattached: ref.unattached,
+          rootLevels: ref.rootLevels,
           top: ref.top.map((r) => ({
             name: r.name,
             wallet: r.wallet,
@@ -450,8 +458,11 @@ app.post("/referral/attribute", (res, req) => {
       /* ignore */
     }
     if (!wallet) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
-    if (!ref || ref === wallet) return sendJson(res, { ok: false });
-    const set = await store.setReferrer(wallet, ref);
+    // No explicit inviter → fall back to the root (you), so every un-invited
+    // player joins under the top of the pyramid.
+    const effectiveRef = ref || REFERRAL_ROOT;
+    if (!effectiveRef || effectiveRef === wallet) return sendJson(res, { ok: false });
+    const set = await store.setReferrer(wallet, effectiveRef);
     sendJson(res, { ok: set });
   });
 });
