@@ -24,6 +24,8 @@ export interface Profile {
   week_key: string; // ISO week this player's weekly score belongs to
   week_points: number; // resets each ISO week
   token_balance: number; // real token, in base units (custodial off-chain balance)
+  referred_by: string; // wallet of the referrer who invited this player ("" if none)
+  referral_earned: number; // lifetime referral rewards, in token base units
 }
 
 /** ISO-8601 week key like "2026-W25" (UTC). Weekly tops reset on the boundary. */
@@ -82,6 +84,14 @@ export interface ProfileStore {
   /** Select an owned skin as the active one. Returns the new skin, or null if
    *  the wallet doesn't own it. */
   selectSkin(wallet: string, skin: number): Promise<number | null>;
+  /** Bind a referrer to this wallet — only if it has none yet and isn't self.
+   *  Returns true if newly set. (Both profiles are ensured to exist.) */
+  setReferrer(wallet: string, referrer: string): Promise<boolean>;
+  /** Credit a referral reward: add `amount` token base units to both the live
+   *  balance and the lifetime `referral_earned` counter. */
+  creditReferral(wallet: string, amount: number): Promise<void>;
+  /** Referral dashboard data: number of direct referrals + lifetime earned. */
+  referralStats(wallet: string): Promise<{ direct: number; earned: number }>;
 }
 
 function blankProfile(wallet: string, name: string, skin: number): Profile {
@@ -103,6 +113,8 @@ function blankProfile(wallet: string, name: string, skin: number): Profile {
     week_key: "",
     week_points: 0,
     token_balance: 0,
+    referred_by: "",
+    referral_earned: 0,
   };
 }
 
@@ -228,6 +240,29 @@ class InMemoryStore implements ProfileStore {
     this.deposits.add(signature);
     await this.adjustToken(wallet, amount);
     return true;
+  }
+
+  async setReferrer(wallet: string, referrer: string): Promise<boolean> {
+    if (!wallet || !referrer || wallet === referrer) return false;
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    if (p.referred_by) return false; // already attributed
+    p.referred_by = referrer;
+    return true;
+  }
+
+  async creditReferral(wallet: string, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    p.token_balance += amount;
+    p.referral_earned += amount;
+  }
+
+  async referralStats(wallet: string): Promise<{ direct: number; earned: number }> {
+    let direct = 0;
+    for (const p of this.map.values()) if (p.referred_by === wallet) direct++;
+    return { direct, earned: this.map.get(wallet)?.referral_earned ?? 0 };
   }
 }
 
@@ -420,6 +455,54 @@ class SupabaseStore implements ProfileStore {
       return false;
     }
   }
+
+  async setReferrer(wallet: string, referrer: string): Promise<boolean> {
+    if (!wallet || !referrer || wallet === referrer) return false;
+    const p = await this.getProfile(wallet);
+    if (p?.referred_by) return false;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ referred_by: referrer }),
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async creditReferral(wallet: string, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    await this.adjustToken(wallet, amount);
+    const p = await this.getProfile(wallet);
+    const earned = (p?.referral_earned ?? 0) + amount;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ referral_earned: earned }),
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  async referralStats(wallet: string): Promise<{ direct: number; earned: number }> {
+    let direct = 0;
+    try {
+      const r = await fetch(
+        `${this.url}/rest/v1/profiles?referred_by=eq.${encodeURIComponent(wallet)}&select=wallet`,
+        { headers: this.headers() },
+      );
+      const rows = (await r.json()) as unknown[];
+      if (Array.isArray(rows)) direct = rows.length;
+    } catch {
+      /* ignore */
+    }
+    const p = await this.getProfile(wallet);
+    return { direct, earned: p?.referral_earned ?? 0 };
+  }
 }
 
 // Direct Postgres (any provider). Auto-creates the schema on boot, so the only
@@ -475,6 +558,10 @@ class PostgresStore implements ProfileStore {
     await this.pool.query(
       `alter table profiles add column if not exists skins int not null default ${DEFAULT_SKINS}`,
     );
+    // Referral system: who invited this wallet, and lifetime referral earnings.
+    await this.pool.query(`alter table profiles add column if not exists referred_by text not null default ''`);
+    await this.pool.query(`alter table profiles add column if not exists referral_earned bigint not null default 0`);
+    await this.pool.query(`create index if not exists profiles_referred_by on profiles (referred_by)`);
     await this.pool.query(`
       create table if not exists processed_deposits (
         signature text primary key,
@@ -525,10 +612,14 @@ class PostgresStore implements ProfileStore {
     }
   }
 
-  // pg returns bigint columns as strings — coerce token_balance back to a number.
+  // pg returns bigint columns as strings — coerce them back to numbers.
   private norm(row: Record<string, unknown> | undefined): Profile | null {
     if (!row) return null;
-    return { ...(row as unknown as Profile), token_balance: Number(row.token_balance ?? 0) };
+    return {
+      ...(row as unknown as Profile),
+      token_balance: Number(row.token_balance ?? 0),
+      referral_earned: Number(row.referral_earned ?? 0),
+    };
   }
 
   async getProfile(wallet: string): Promise<Profile | null> {
@@ -677,6 +768,62 @@ class PostgresStore implements ProfileStore {
       return false;
     } finally {
       client.release();
+    }
+  }
+
+  async setReferrer(wallet: string, referrer: string): Promise<boolean> {
+    if (!wallet || !referrer || wallet === referrer) return false;
+    try {
+      await this.ready;
+      // Make sure both rows exist, then bind only if not already attributed.
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1), ($2) on conflict (wallet) do nothing`,
+        [wallet, referrer],
+      );
+      const res = await this.pool.query(
+        `update profiles set referred_by=$2, updated_at=now()
+         where wallet=$1 and (referred_by is null or referred_by='') returning wallet`,
+        [wallet, referrer],
+      );
+      return (res.rowCount ?? 0) > 0;
+    } catch (e) {
+      console.error("[store] pg setReferrer failed", e);
+      return false;
+    }
+  }
+
+  async creditReferral(wallet: string, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    try {
+      await this.ready;
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
+      await this.pool.query(
+        `update profiles set token_balance = token_balance + $2,
+           referral_earned = referral_earned + $2, updated_at=now() where wallet=$1`,
+        [wallet, amount],
+      );
+    } catch (e) {
+      console.error("[store] pg creditReferral failed", e);
+    }
+  }
+
+  async referralStats(wallet: string): Promise<{ direct: number; earned: number }> {
+    try {
+      await this.ready;
+      const [d, p] = await Promise.all([
+        this.pool.query(`select count(*)::int as n from profiles where referred_by=$1`, [wallet]),
+        this.pool.query(`select referral_earned from profiles where wallet=$1`, [wallet]),
+      ]);
+      return {
+        direct: (d.rows[0]?.n as number) ?? 0,
+        earned: Number(p.rows[0]?.referral_earned ?? 0),
+      };
+    } catch (e) {
+      console.error("[store] pg referralStats failed", e);
+      return { direct: 0, earned: 0 };
     }
   }
 }

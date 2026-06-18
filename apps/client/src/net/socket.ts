@@ -194,6 +194,33 @@ export async function joinRoom(name: string, code: string, skin: number): Promis
   return res.json();
 }
 
+/** Bind the inviter to this (session-verified) wallet. One-time on the server. */
+export async function attributeReferral(ref: string): Promise<boolean> {
+  if (!ref || !loadWallet()?.session) return false;
+  try {
+    const r = await post("/referral/attribute", { ref });
+    const j = (await r.json()) as { ok?: boolean };
+    return !!j.ok;
+  } catch {
+    return false;
+  }
+}
+
+export interface ReferralStats {
+  direct: number;
+  earned: number; // whole tokens earned lifetime
+  levels: number[]; // payout % per level
+}
+
+export async function fetchReferralStats(wallet: string): Promise<ReferralStats> {
+  try {
+    const r = await fetch(`${SERVER_HTTP}/referral/stats?wallet=${encodeURIComponent(wallet)}`);
+    return (await r.json()) as ReferralStats;
+  } catch {
+    return { direct: 0, earned: 0, levels: [] };
+  }
+}
+
 const MAX_RECONNECT_ATTEMPTS = 8;
 const RECONNECT_DELAY_MS = 1500;
 

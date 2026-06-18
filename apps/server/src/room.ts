@@ -54,6 +54,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { makeRng, encodeMatchSeed, advance } from "@bomberpump/shared";
 import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { analytics } from "./analytics.js";
+import { distributeReferralRewards } from "./referral.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
 import { BotController } from "./bot.js";
@@ -833,6 +834,13 @@ export class Room {
       const rakeBp = Number(process.env.HOUSE_RAKE_BP ?? HOUSE_RAKE_BP) || 0;
       const rake = Math.floor((this.pot * rakeBp) / 10000);
       void this.adjustBalance(winner.wallet, this.pot - rake);
+      // Multi-level referral rewards come OUT of the house rake — token matches
+      // only (rewards are paid in tokens). Each staker's chain gets a slice of
+      // the rake their stake produced. Fully guarded inside the helper.
+      if (this.currency === Currency.TOKEN && rakeBp > 0) {
+        const perStakeRake = Math.floor((this.stakeBase() * rakeBp) / 10000);
+        for (const wallet of this.contributors) void distributeReferralRewards(wallet, perStakeRake);
+      }
     } else {
       const refund = this.stakeBase();
       for (const wallet of this.contributors) void this.adjustBalance(wallet, refund);

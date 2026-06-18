@@ -94,6 +94,7 @@
             <button id="open-profile" class="link">👤 Profile</button>
             <button id="open-leaderboard" class="link">🏆 Leaderboard</button>
             <button id="open-skins" class="link">🎨 Skins</button>
+            <button id="open-referral" class="link">👥 Invite & earn</button>
           </div>
           <p id="menu-status" class="status"></p>
         </div>
@@ -242,6 +243,22 @@
         <div class="modal-card">
           <div id="pubprofile-body"></div>
           <button id="pubprofile-close" class="ghost">Close</button>
+        </div>
+      </div>
+
+      <!-- Referral / partner program -->
+      <div id="referral-modal" class="modal hidden">
+        <div class="modal-card">
+          <h3>👥 Invite &amp; earn</h3>
+          <p class="status fair">Earn <span id="ref-ticker">$TOKEN</span> from <b>5 levels</b> of referrals — a share of the house rake from everyone you bring in and everyone they bring in.</p>
+          <div id="ref-stats" class="bank-balances"></div>
+          <div class="bank-addr"><code id="ref-link">connect a wallet to get your link</code><button id="ref-copy" class="ghost">Copy</button></div>
+          <div class="result-actions">
+            <button id="ref-share-x" class="ghost">𝕏 Share</button>
+            <button id="ref-share" class="ghost">🔗 Share link</button>
+          </div>
+          <p id="ref-levels" class="status fair"></p>
+          <button id="referral-close" class="ghost">Close</button>
         </div>
       </div>
 

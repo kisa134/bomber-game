@@ -38,6 +38,8 @@ import {
   watchMatch,
   buySkin,
   selectSkin,
+  attributeReferral,
+  fetchReferralStats,
   type JoinResponse,
 } from "./net/socket.js";
 import { GameState } from "./game/state.js";
@@ -57,7 +59,7 @@ import {
 import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setWalletState } from "./ui/lobby.js";
 import { initAnalytics, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
-import { initTelegram, isTelegram } from "./platform/telegram.js";
+import { initTelegram, isTelegram, getStartParam } from "./platform/telegram.js";
 import { startPresence } from "./platform/presence.js";
 import { enterImmersive } from "./platform/fullscreen.js";
 import {
@@ -850,6 +852,7 @@ function refreshWalletBtn(): void {
   btn.textContent = w ? `🟢 ${shortAddr(w.address)}` : "🔗 Connect Wallet";
   // Show rating + chips + token balance whenever a wallet is connected.
   if (w) {
+    attributeReferralOnce(); // bind a pending inviter once we have a wallet
     void fetchProfile(w.address)
       .then((p) => {
         setStats(p.chips, p.rating);
@@ -1605,6 +1608,55 @@ function walletGate(stake: number, currency = 0): boolean {
   }
   return true;
 }
+// --- referral capture + attribution ----------------------------------------
+// Grab an inviter from ?ref=<wallet> (web) or a Telegram startapp "ref_<wallet>"
+// and remember it until a wallet connects, then bind it once on the server.
+(function captureRef() {
+  const fromUrl = new URLSearchParams(location.search).get("ref") ?? "";
+  const sp = getStartParam() ?? "";
+  const fromTg = sp.startsWith("ref_") ? sp.slice(4) : "";
+  const ref = (fromUrl || fromTg).trim();
+  if (ref && !localStorage.getItem("bp_ref_done")) localStorage.setItem("bp_ref", ref);
+})();
+
+/** Bind the stored inviter once a wallet is connected (one-time). */
+function attributeReferralOnce(): void {
+  const ref = localStorage.getItem("bp_ref");
+  if (!ref || localStorage.getItem("bp_ref_done") || !loadWallet()) return;
+  void attributeReferral(ref).then((ok) => {
+    if (ok) localStorage.setItem("bp_ref_done", "1");
+  });
+}
+
+/** Partner program modal: your link, referrals, lifetime earnings, share. */
+async function openReferral(): Promise<void> {
+  const w = loadWallet();
+  const modal = document.getElementById("referral-modal")!;
+  if (!w) {
+    setMenuStatus("Connect a wallet to get your invite link");
+    return;
+  }
+  const link = `${location.origin}/?ref=${w.address}`;
+  (document.getElementById("ref-link") as HTMLElement).textContent = link;
+  (document.getElementById("ref-ticker") as HTMLElement).textContent = `$${TOKEN_TICKER}`;
+  modal.classList.remove("hidden");
+  const s = await fetchReferralStats(w.address);
+  (document.getElementById("ref-stats") as HTMLElement).innerHTML =
+    `<div class="stat-badge"><span>Referrals</span><b>${s.direct.toLocaleString()}</b></div>` +
+    `<div class="stat-badge token"><span>Earned</span><b>${s.earned.toLocaleString()} ${TOKEN_TICKER}</b></div>`;
+  (document.getElementById("ref-levels") as HTMLElement).textContent = s.levels.length
+    ? `Levels: ${s.levels.map((p, i) => `L${i + 1} ${p}%`).join(" · ")}`
+    : "";
+}
+
+function referralLink(): string {
+  const w = loadWallet();
+  return w ? `${location.origin}/?ref=${w.address}` : location.origin;
+}
+function shareText(): string {
+  return `💣 Play Bombermeme — blow up your friends & win $${TOKEN_TICKER}! Join me:`;
+}
+
 initAnalytics({ platform: isTelegram ? "telegram" : "web" });
 startPresence();
 initErrorTracking();
@@ -1636,6 +1688,27 @@ if (isTelegram) {
 document.getElementById("pubprofile-close")!.addEventListener("click", () =>
   document.getElementById("pubprofile-modal")!.classList.add("hidden"),
 );
+// Referral / partner program wiring.
+document.getElementById("open-referral")?.addEventListener("click", () => void openReferral());
+document.getElementById("referral-close")?.addEventListener("click", () =>
+  document.getElementById("referral-modal")!.classList.add("hidden"),
+);
+document.getElementById("ref-copy")?.addEventListener("click", () => {
+  void navigator.clipboard?.writeText(referralLink());
+  setMenuStatus("Invite link copied ✅");
+});
+document.getElementById("ref-share")?.addEventListener("click", () => {
+  const url = referralLink();
+  if (navigator.share) void navigator.share({ title: "Bombermeme", text: shareText(), url });
+  else {
+    void navigator.clipboard?.writeText(`${shareText()} ${url}`);
+    setMenuStatus("Invite copied ✅");
+  }
+});
+document.getElementById("ref-share-x")?.addEventListener("click", () => {
+  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText())}&url=${encodeURIComponent(referralLink())}`;
+  window.open(intent, "_blank");
+});
 setupBackground();
 
 // Live token→USD price for the in-game $ converter (refresh every 60s).
@@ -1806,7 +1879,8 @@ document.getElementById("result-share")?.addEventListener("click", () => {
   const text = won
     ? `I just won a round of Bombermeme 💣🏆 with ${frags} frags. Come get blown up:`
     : `Just dropped ${frags} frags in Bombermeme 💣 Think you can do better?`;
-  const url = `${location.origin}${location.pathname}`;
+  // Share carries your referral link, so wins recruit your downline.
+  const url = referralLink();
   if (navigator.share) {
     void navigator.share({ title: "Bombermeme", text, url }).catch(() => {});
   } else {

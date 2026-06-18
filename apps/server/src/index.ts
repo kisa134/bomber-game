@@ -7,6 +7,7 @@ import { createNonce, verifySignature, createSession, verifySession } from "./au
 import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./tgrelay.js";
 import { handleTgUpdate, tgWebhookSecretOk, setupTelegramBot } from "./tgbot.js";
 import { analytics } from "./analytics.js";
+import { REFERRAL_LEVEL_BPS } from "./referral.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
 import {
@@ -422,6 +423,44 @@ app.post("/shop/select-skin", (res, req) => {
     if (sel === null) return sendJson(res, { error: "not_owned" }, "403 Forbidden");
     sendJson(res, { skin: sel });
   });
+});
+
+// --- referral ---
+// Bind the inviter for a freshly-connected wallet (one-time, session-verified).
+app.post("/referral/attribute", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    let wallet: string | null = null;
+    let ref = "";
+    try {
+      const j = JSON.parse(body || "{}");
+      if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+      if (typeof j.ref === "string") ref = j.ref.trim();
+    } catch {
+      /* ignore */
+    }
+    if (!wallet) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+    if (!ref || ref === wallet) return sendJson(res, { ok: false });
+    const set = await store.setReferrer(wallet, ref);
+    sendJson(res, { ok: set });
+  });
+});
+
+// Referral dashboard: direct count, lifetime earned (whole tokens), level table.
+app.get("/referral/stats", (res, req) => {
+  res.onAborted(() => {});
+  const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
+  if (!wallet) return sendJson(res, { direct: 0, earned: 0, levels: REFERRAL_LEVEL_BPS.map((b) => b / 100) });
+  void store
+    .referralStats(wallet)
+    .then((s) =>
+      sendJson(res, {
+        direct: s.direct,
+        earned: fromBaseUnits(s.earned),
+        levels: REFERRAL_LEVEL_BPS.map((b) => b / 100),
+      }),
+    )
+    .catch(() => sendJson(res, { direct: 0, earned: 0, levels: REFERRAL_LEVEL_BPS.map((b) => b / 100) }));
 });
 
 async function parseBody(res: uWS.HttpResponse): Promise<Body> {
