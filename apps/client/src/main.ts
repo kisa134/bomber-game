@@ -1473,26 +1473,11 @@ function setupBackground(): void {
 
 initTelegram();
 // Register the service worker (PWA). Auto-applies updates on next navigation.
-// Register the service worker and AUTO-APPLY updates. Without this, mobile /
-// Telegram users keep running a stale cached bundle long after a deploy (you
-// can't Ctrl+Shift+R there), which can leave the app in a broken half-updated
-// state. We skip waiting on a new SW and reload the page once it takes control.
-const updateSW = registerSW({
-  immediate: true,
-  onNeedRefresh() {
-    void updateSW(true); // activate the new SW immediately
-  },
-});
-if ("serviceWorker" in navigator) {
-  // Reload at most ONCE per tab when a new SW takes over — guarded via
-  // sessionStorage so a flapping SW can never cause a reload loop, and so it
-  // never interrupts a session more than once.
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (sessionStorage.getItem("bp_swreloaded")) return;
-    sessionStorage.setItem("bp_swreloaded", "1");
-    window.location.reload();
-  });
-}
+// Register the service worker. autoUpdate applies a new build on the next
+// natural navigation — we deliberately do NOT force a reload here: a forced
+// reload on `controllerchange` was reloading the page mid-tap on mobile and
+// making it impossible to join a room.
+registerSW({ immediate: true });
 
 // Surface otherwise-invisible failures (esp. on mobile, where there's no
 // console) as a dismissable banner, so "nothing happens" becomes a real message.
