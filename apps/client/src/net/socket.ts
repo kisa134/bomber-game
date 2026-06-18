@@ -214,6 +214,7 @@ export interface ReferralStats {
   earned: number; // whole tokens earned lifetime
   levels: number[]; // payout % per level
   network: number[]; // your downline count at each level L1..L5
+  rakePct: number; // house rake %, for the earnings calculator
 }
 
 export async function fetchReferralStats(wallet: string): Promise<ReferralStats> {
@@ -221,7 +222,7 @@ export async function fetchReferralStats(wallet: string): Promise<ReferralStats>
     const r = await fetch(`${SERVER_HTTP}/referral/stats?wallet=${encodeURIComponent(wallet)}`);
     return (await r.json()) as ReferralStats;
   } catch {
-    return { direct: 0, earned: 0, levels: [], network: [] };
+    return { direct: 0, earned: 0, levels: [], network: [], rakePct: 0 };
   }
 }
 

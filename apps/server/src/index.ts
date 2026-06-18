@@ -472,13 +472,15 @@ app.get("/referral/stats", (res, req) => {
   res.onAborted(() => {});
   const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
   const pct = REFERRAL_LEVEL_BPS.map((b) => b / 100);
-  if (!wallet) return sendJson(res, { direct: 0, earned: 0, levels: pct, network: [0, 0, 0, 0, 0] });
+  const rakePct = (Number(process.env.HOUSE_RAKE_BP ?? 0) || 0) / 100; // for the earnings calculator
+  const blank = { direct: 0, earned: 0, levels: pct, network: [0, 0, 0, 0, 0], rakePct };
+  if (!wallet) return sendJson(res, blank);
   void store
     .referralStats(wallet)
     .then((s) =>
-      sendJson(res, { direct: s.direct, earned: fromBaseUnits(s.earned), levels: pct, network: s.network }),
+      sendJson(res, { direct: s.direct, earned: fromBaseUnits(s.earned), levels: pct, network: s.network, rakePct }),
     )
-    .catch(() => sendJson(res, { direct: 0, earned: 0, levels: pct, network: [0, 0, 0, 0, 0] }));
+    .catch(() => sendJson(res, blank));
 });
 
 async function parseBody(res: uWS.HttpResponse): Promise<Body> {

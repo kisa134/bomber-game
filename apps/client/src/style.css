@@ -443,6 +443,33 @@ button.ghost {
   margin-bottom: 4px;
 }
 
+/* Referral earnings calculator */
+.ref-calc {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ref-calc .calc-row {
+  display: flex;
+  gap: 8px;
+}
+.ref-calc label {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-align: center;
+}
+.ref-calc label input {
+  width: 100%;
+  padding: 8px 6px;
+  font-size: 0.95rem;
+}
+
 /* Referral tree per-level rows in the Invite & earn modal */
 .ref-lvl {
   display: flex;

@@ -1693,6 +1693,29 @@ async function openReferral(): Promise<void> {
     levels
       .map((pct, i) => `<div class="ref-lvl"><span>Level ${i + 1} · ${pct}% of rake</span><b>${(network[i] ?? 0).toLocaleString()}</b></div>`)
       .join("");
+  calcRakePct = s.rakePct ?? 0;
+  calcL1Pct = levels[0] ?? 10;
+  updateCalc();
+}
+
+// Earnings calculator: estimate your cut from direct (L1) referrals.
+let calcRakePct = 0;
+let calcL1Pct = 10;
+function updateCalc(): void {
+  const out = document.getElementById("calc-out");
+  if (!out) return;
+  const num = (id: string) => Number((document.getElementById(id) as HTMLInputElement)?.value) || 0;
+  const refs = num("calc-refs");
+  const matches = num("calc-matches");
+  const stake = num("calc-stake");
+  if (calcRakePct <= 0) {
+    out.innerHTML = '<span class="bal-warn">⚠ Rake is 0 — set HOUSE_RAKE_BP to enable earnings</span>';
+    return;
+  }
+  const perDay = refs * matches * stake * (calcRakePct / 100) * (calcL1Pct / 100);
+  out.innerHTML =
+    `≈ <b>${Math.round(perDay).toLocaleString()} ${TOKEN_TICKER}/day</b> · ${Math.round(perDay * 30).toLocaleString()}/month<br>` +
+    `<span class="muted">from direct (L1) referrals · ${calcL1Pct}% of the ${calcRakePct}% rake · deeper levels add more</span>`;
 }
 
 function referralLink(): string {
@@ -1755,6 +1778,9 @@ document.getElementById("ref-share-x")?.addEventListener("click", () => {
   const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText())}&url=${encodeURIComponent(referralLink())}`;
   window.open(intent, "_blank");
 });
+for (const id of ["calc-refs", "calc-matches", "calc-stake"]) {
+  document.getElementById(id)?.addEventListener("input", updateCalc);
+}
 setupBackground();
 
 // Live token→USD price for the in-game $ converter (refresh every 60s).
