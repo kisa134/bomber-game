@@ -24,6 +24,7 @@ export function adminPageHtml(): string {
   .tile{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px}
   .tile .label{color:var(--muted);font-size:.8rem;text-transform:uppercase;letter-spacing:.04em}
   .tile .value{font-size:1.8rem;font-weight:800;margin-top:6px}
+  .tile.goal{border-color:#2f6b37;background:rgba(95,217,106,.10)}
   .tile .sub{color:var(--muted);font-size:.8rem;margin-top:2px}
   table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--border);border-radius:12px;overflow:hidden}
   th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);font-size:.9rem}
@@ -53,6 +54,8 @@ export function adminPageHtml(): string {
   </div>
   <p id="msg" class="muted"></p>
   <div id="board" style="display:none">
+    <h3>📈 Growth today <span class="muted" style="font-weight:400;font-size:.8rem">· resets at UTC midnight</span></h3>
+    <div class="grid" id="growth"></div>
     <h3>Live now</h3>
     <div class="grid" id="live"></div>
     <h3>Activity feed <span class="muted" style="font-weight:400;font-size:.8rem">· live</span></h3>
@@ -102,6 +105,18 @@ async function poll(){
       pill(!!cf.referralRoot, cf.referralRoot?('Referral root '+cf.referralRoot):'Referral root NOT SET')+
       pill(!!cf.deposits,'Deposits '+(cf.deposits?'on':'off'))+
       pill(!!cf.withdrawals,'Withdrawals '+(cf.withdrawals?'on':'off'));
+    // Growth cockpit — flagship daily metrics vs targets
+    var goalTile=function(label,value,target,sub){
+      var ok=target>0&&value>=target;
+      return '<div class="tile'+(ok?' goal':'')+'"><div class="label">'+label+'</div><div class="value">'+fmt(value)+(target>0?'<span class="muted" style="font-size:.45em;font-weight:400"> / '+target+'</span>':'')+'</div><div class="sub">'+(ok?'✅ ':'')+sub+'</div></div>';
+    };
+    var g=d.growth||{dau:0,players:0,payingPlayers:0,matches:0,tokenMatches:0,deposits:0,depositVolume:0,depositors:0};
+    $("#growth").innerHTML=
+      goalTile("🎯 Paying players",g.payingPlayers,10,"played for tokens today")+
+      goalTile("DAU",g.dau,30,"unique devices today")+
+      goalTile("Players",g.players,0,"any match today")+
+      goalTile("Matches",g.matches,0,fmt(g.tokenMatches)+" on tokens")+
+      goalTile("Depositors",g.depositors,0,"${TOKEN_TICKER} "+fmt(g.depositVolume)+" in");
     // Live activity feed
     const ev=d.events||[];
     $("#feed").innerHTML = ev.length

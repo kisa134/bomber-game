@@ -32,6 +32,7 @@ import { TOKEN_MINT, TOKEN_DECIMALS, HOLDER_MIN } from "@bomberpump/shared";
 import { store } from "./store.js";
 import { analytics } from "./analytics.js";
 import { logEvent, shortWallet } from "./events.js";
+import { metrics } from "./metrics.js";
 
 // Default to the public mainnet RPC (rate-limited but keyless). For anything
 // real, set SOLANA_RPC to a provider with a key (Helius/QuickNode/Alchemy).
@@ -235,6 +236,7 @@ async function creditFromTx(signature: string): Promise<boolean> {
       cache.delete(sender);
       analytics.depositCredited(sender, fromBaseUnits(amount));
       logEvent("⬇️", `${shortWallet(sender)} deposited ${fromBaseUnits(amount).toLocaleString()}`);
+      metrics.deposit(sender, fromBaseUnits(amount));
       console.log(`[token] deposit credited: ${fromBaseUnits(amount)} to ${sender} (${signature})`);
     }
   }
@@ -289,6 +291,7 @@ export async function claimBySignature(
       cache.delete(sender);
       analytics.depositCredited(sender, fromBaseUnits(amount));
       logEvent("⬇️", `${shortWallet(sender)} deposited ${fromBaseUnits(amount).toLocaleString()}`);
+      metrics.deposit(sender, fromBaseUnits(amount));
     }
     return { ok: true, wallet: sender, amount: fromBaseUnits(amount), already: !credited };
   }

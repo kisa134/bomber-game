@@ -9,6 +9,7 @@ import { handleTgUpdate, tgWebhookSecretOk, setupTelegramBot } from "./tgbot.js"
 import { analytics } from "./analytics.js";
 import { REFERRAL_LEVEL_BPS } from "./referral.js";
 import { logEvent, recentEvents, shortWallet } from "./events.js";
+import { metrics } from "./metrics.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
 import {
@@ -213,7 +214,10 @@ function onlineCount(): number {
 app.get("/presence", (res, req) => {
   res.onAborted(() => {});
   const id = new URLSearchParams(req.getQuery()).get("id") ?? "";
-  if (id) presence.set(id, Date.now());
+  if (id) {
+    presence.set(id, Date.now());
+    metrics.presence(id);
+  }
   res.cork(() => {
     res.writeHeader("Access-Control-Allow-Origin", "*");
     res.writeStatus("204 No Content").end();
@@ -228,6 +232,7 @@ app.get("/admin/stats", (res, req) => {
     .then(([top, ref]) => {
       sendJson(res, {
         online: onlineCount(),
+        growth: metrics.snapshot(),
         events: recentEvents(30),
         config: {
           rakePct: (Number(process.env.HOUSE_RAKE_BP ?? 0) || 0) / 100,

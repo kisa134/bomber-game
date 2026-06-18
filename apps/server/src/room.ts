@@ -57,6 +57,7 @@ import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { analytics } from "./analytics.js";
 import { distributeReferralRewards } from "./referral.js";
 import { logEvent } from "./events.js";
+import { metrics } from "./metrics.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
 import { BotController } from "./bot.js";
@@ -78,6 +79,7 @@ export class Room {
   readonly currency: Currency; // what the stake is denominated in
   private pot = 0; // escrowed amount for the current match (base units for tokens)
   private contributors: string[] = []; // wallets that paid into the pot (for refunds)
+  private lastContributors: string[] = []; // contributors of the just-settled match (for metrics)
   // Active stake-raise proposal: anyone can propose a higher stake; all humans
   // must accept within the window or it's cancelled.
   private stakeProposal: { stake: number; by: number; votes: Map<number, boolean>; deadlineMs: number } | null = null;
@@ -778,6 +780,9 @@ export class Room {
       if (!this.practice && this.humanCount > 0) {
         const cur = this.currency === Currency.TOKEN ? "💎" : "🪙";
         logEvent("🎮", `match done · ${this.humanCount}p${this.stake > 0 ? ` · ${cur}${this.stake}` : " · casual"}`);
+        const humans = this.humanPlayers().map((p) => p.wallet ?? "").filter(Boolean);
+        const tokenStakers = this.currency === Currency.TOKEN && this.stake > 0 ? this.lastContributors : [];
+        metrics.match(humans, tokenStakers);
       }
     }
   }
@@ -921,7 +926,9 @@ export class Room {
   /** Pay the pot to the winner (minus the house rake); refund contributors on a
    *  draw / no eligible winner. */
   private settlePot(winner: Player | null): void {
+    this.lastContributors = [...this.contributors]; // snapshot for metrics (counted on a real win below)
     if (this.pot <= 0) {
+      this.lastContributors = [];
       this.pot = 0;
       this.contributors = [];
       return;
