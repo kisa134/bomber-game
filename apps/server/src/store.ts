@@ -92,6 +92,13 @@ export interface ProfileStore {
   creditReferral(wallet: string, amount: number): Promise<void>;
   /** Referral dashboard data: number of direct referrals + lifetime earned. */
   referralStats(wallet: string): Promise<{ direct: number; earned: number }>;
+  /** Admin overview of the whole referral pyramid: total attributed players,
+   *  total rewards paid, and the top partners by earnings. */
+  referralOverview(limit: number): Promise<{
+    networkSize: number;
+    totalEarned: number; // base units
+    top: Array<{ wallet: string; name: string; direct: number; earned: number }>;
+  }>;
 }
 
 function blankProfile(wallet: string, name: string, skin: number): Profile {
@@ -263,6 +270,29 @@ class InMemoryStore implements ProfileStore {
     let direct = 0;
     for (const p of this.map.values()) if (p.referred_by === wallet) direct++;
     return { direct, earned: this.map.get(wallet)?.referral_earned ?? 0 };
+  }
+
+  async referralOverview(limit: number): Promise<{
+    networkSize: number;
+    totalEarned: number;
+    top: Array<{ wallet: string; name: string; direct: number; earned: number }>;
+  }> {
+    const directCount = new Map<string, number>();
+    let networkSize = 0;
+    let totalEarned = 0;
+    for (const p of this.map.values()) {
+      if (p.referred_by) {
+        networkSize++;
+        directCount.set(p.referred_by, (directCount.get(p.referred_by) ?? 0) + 1);
+      }
+      totalEarned += p.referral_earned;
+    }
+    const top = [...this.map.values()]
+      .map((p) => ({ wallet: p.wallet, name: p.name, direct: directCount.get(p.wallet) ?? 0, earned: p.referral_earned }))
+      .filter((r) => r.earned > 0 || r.direct > 0)
+      .sort((a, b) => b.earned - a.earned || b.direct - a.direct)
+      .slice(0, limit);
+    return { networkSize, totalEarned, top };
   }
 }
 
@@ -502,6 +532,39 @@ class SupabaseStore implements ProfileStore {
     }
     const p = await this.getProfile(wallet);
     return { direct, earned: p?.referral_earned ?? 0 };
+  }
+
+  async referralOverview(limit: number): Promise<{
+    networkSize: number;
+    totalEarned: number;
+    top: Array<{ wallet: string; name: string; direct: number; earned: number }>;
+  }> {
+    try {
+      const r = await fetch(
+        `${this.url}/rest/v1/profiles?select=wallet,name,referred_by,referral_earned`,
+        { headers: this.headers() },
+      );
+      const rows = (await r.json()) as Array<{ wallet: string; name: string; referred_by: string; referral_earned: number }>;
+      if (!Array.isArray(rows)) return { networkSize: 0, totalEarned: 0, top: [] };
+      const direct = new Map<string, number>();
+      let networkSize = 0;
+      let totalEarned = 0;
+      for (const p of rows) {
+        if (p.referred_by) {
+          networkSize++;
+          direct.set(p.referred_by, (direct.get(p.referred_by) ?? 0) + 1);
+        }
+        totalEarned += Number(p.referral_earned ?? 0);
+      }
+      const top = rows
+        .map((p) => ({ wallet: p.wallet, name: p.name, direct: direct.get(p.wallet) ?? 0, earned: Number(p.referral_earned ?? 0) }))
+        .filter((x) => x.earned > 0 || x.direct > 0)
+        .sort((a, b) => b.earned - a.earned || b.direct - a.direct)
+        .slice(0, limit);
+      return { networkSize, totalEarned, top };
+    } catch {
+      return { networkSize: 0, totalEarned: 0, top: [] };
+    }
   }
 }
 
@@ -824,6 +887,45 @@ class PostgresStore implements ProfileStore {
     } catch (e) {
       console.error("[store] pg referralStats failed", e);
       return { direct: 0, earned: 0 };
+    }
+  }
+
+  async referralOverview(limit: number): Promise<{
+    networkSize: number;
+    totalEarned: number;
+    top: Array<{ wallet: string; name: string; direct: number; earned: number }>;
+  }> {
+    try {
+      await this.ready;
+      const [agg, top] = await Promise.all([
+        this.pool.query(
+          `select count(*) filter (where referred_by <> '')::int as net,
+                  coalesce(sum(referral_earned),0) as paid from profiles`,
+        ),
+        this.pool.query(
+          `select p.wallet, p.name, p.referral_earned as earned,
+                  (select count(*) from profiles c where c.referred_by = p.wallet)::int as direct
+           from profiles p
+           where p.referral_earned > 0
+              or exists (select 1 from profiles c where c.referred_by = p.wallet)
+           order by p.referral_earned desc, direct desc
+           limit $1`,
+          [limit],
+        ),
+      ]);
+      return {
+        networkSize: (agg.rows[0]?.net as number) ?? 0,
+        totalEarned: Number(agg.rows[0]?.paid ?? 0),
+        top: top.rows.map((r) => ({
+          wallet: r.wallet as string,
+          name: (r.name as string) ?? "",
+          direct: (r.direct as number) ?? 0,
+          earned: Number(r.earned ?? 0),
+        })),
+      };
+    } catch (e) {
+      console.error("[store] pg referralOverview failed", e);
+      return { networkSize: 0, totalEarned: 0, top: [] };
     }
   }
 }

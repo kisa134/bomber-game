@@ -218,9 +218,8 @@ app.get("/presence", (res, req) => {
 app.get("/admin/stats", (res, req) => {
   res.onAborted(() => {});
   if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
-  void store
-    .leaderboard(10, "all")
-    .then((top) => {
+  void Promise.all([store.leaderboard(10, "all"), store.referralOverview(15)])
+    .then(([top, ref]) => {
       sendJson(res, {
         online: onlineCount(),
         live: mm.adminStats,
@@ -238,6 +237,16 @@ app.get("/admin/stats", (res, req) => {
           wins: p.wins,
           chips: p.chips,
         })),
+        referrals: {
+          networkSize: ref.networkSize,
+          totalEarned: fromBaseUnits(ref.totalEarned),
+          top: ref.top.map((r) => ({
+            name: r.name,
+            wallet: r.wallet,
+            direct: r.direct,
+            earned: fromBaseUnits(r.earned),
+          })),
+        },
         now: Date.now(),
       });
     })

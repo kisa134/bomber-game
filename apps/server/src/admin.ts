@@ -48,6 +48,10 @@ export function adminPageHtml(): string {
     <div class="grid" id="totals"></div>
     <h3>Top players</h3>
     <table id="top"><thead><tr><th>#</th><th>Player</th><th>Rating</th><th>Matches</th><th>Wins</th><th>Chips</th></tr></thead><tbody></tbody></table>
+    <h3>Referral pyramid</h3>
+    <p class="muted" style="margin:0 0 8px">You're the top of the pyramid — players who join via someone's link attach under that inviter; players with no inviter attach to no one. Rewards: 5 levels of the house rake (10/5/3/2/1%), paid in tokens.</p>
+    <div class="grid" id="ref-tiles"></div>
+    <table id="ref-top"><thead><tr><th>#</th><th>Partner</th><th>Direct refs</th><th>Earned</th></tr></thead><tbody></tbody></table>
     <h3>Analytics <span class="muted" style="font-weight:400;font-size:.8rem">· PostHog</span></h3>
     <div id="ext-links"></div>
     <div id="analytics">
@@ -81,6 +85,13 @@ async function poll(){
       tile("Withdrawals","${TOKEN_TICKER} "+fmt(d.totals.withdrawVolume),fmt(d.totals.withdrawals)+" tx");
     const tb=$("#top tbody");tb.innerHTML="";
     d.top.forEach((p,i)=>{const tr=document.createElement("tr");tr.innerHTML="<td>"+(i+1)+"</td><td>"+(p.name||p.wallet.slice(0,6))+"</td><td>"+fmt(p.rating)+"</td><td>"+fmt(p.matches)+"</td><td>"+fmt(p.wins)+"</td><td>"+fmt(p.chips)+"</td>";tb.appendChild(tr);});
+    // Referral pyramid
+    const rf=d.referrals||{networkSize:0,totalEarned:0,top:[]};
+    $("#ref-tiles").innerHTML=
+      tile("Network size",fmt(rf.networkSize),"players with an inviter")+
+      tile("Referral paid","${TOKEN_TICKER} "+fmt(rf.totalEarned),"lifetime · all levels");
+    const rb=$("#ref-top tbody");rb.innerHTML="";
+    (rf.top||[]).forEach((p,i)=>{const tr=document.createElement("tr");tr.innerHTML="<td>"+(i+1)+"</td><td>"+(p.name||p.wallet.slice(0,6))+"</td><td>"+fmt(p.direct)+"</td><td>"+fmt(p.earned)+" ${TOKEN_TICKER}</td>";rb.appendChild(tr);});
     const fr=$("#ph-frame");
     if(d.embedUrl){if(fr.src!==d.embedUrl)fr.src=d.embedUrl;fr.style.display="block";$("#analytics-hint").style.display="none";}
     // GA4 (Looker Studio) can be iframed if provided; otherwise just a button.
