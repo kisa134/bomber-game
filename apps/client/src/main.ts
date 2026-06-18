@@ -180,30 +180,59 @@ function music(track: "lobby" | "battle"): void {
 
 // --- networking -----------------------------------------------------------
 
+let connectWatchdog: ReturnType<typeof setTimeout> | null = null;
+function clearConnectWatchdog(): void {
+  if (connectWatchdog) clearTimeout(connectWatchdog);
+  connectWatchdog = null;
+}
+
 async function connect(getJoin: () => Promise<JoinResponse>): Promise<void> {
   // Match start is a user gesture — a good moment to go fullscreen + landscape
   // on mobile web (no-op in Telegram / on desktop / if already fullscreen).
-  void enterImmersive();
+  // Wrapped defensively: it must never block or abort the actual join.
+  try {
+    void enterImmersive();
+  } catch {
+    /* ignore */
+  }
   showScreen("loading");
-  document.getElementById("loading-status")!.textContent = "connecting…";
+  const setLoad = (t: string) => {
+    const el = document.getElementById("loading-status");
+    if (el) el.textContent = t;
+  };
+  setLoad("connecting…");
   try {
     let res = await getJoin();
     // If we have a connected wallet but the server didn't accept the session
     // (e.g. it restarted), re-sign once so stats are credited to the wallet.
     if (loadWallet() && !res.wallet) {
-      document.getElementById("loading-status")!.textContent = "verifying wallet…";
+      setLoad("verifying wallet…");
       if (await reauth()) res = await getJoin();
     }
     if (typeof res.chips === "number") setBalance(res.chips);
     if (typeof res.gameTokens === "number") setTokenBadge(res.gameTokens);
+    setLoad("opening connection…");
     net.connect(res.token);
+    // Watchdog: if the socket never delivers WELCOME/ROOM_INFO, don't leave the
+    // player stuck on a spinner — bounce back with a clear message.
+    clearConnectWatchdog();
+    connectWatchdog = setTimeout(() => {
+      net.close();
+      showScreen("menu");
+      const msg = "Couldn't reach the game server. Check your connection and try again.";
+      setMenuStatus(msg);
+      showBanner(msg);
+    }, 10000);
   } catch (err) {
     showScreen("menu");
-    setMenuStatus(`Failed: ${(err as Error).message}`);
+    const msg = `Couldn't join: ${(err as Error)?.message ?? String(err)}`;
+    setMenuStatus(msg);
+    showBanner(msg);
   }
 }
 
 net.onClose = () => {
+  clearConnectWatchdog();
   if (keepAlive) clearInterval(keepAlive);
   keepAlive = null;
   showScreen("menu");
@@ -238,6 +267,7 @@ function enterSpectator(): void {
 net.onMessage = (msg) => {
   switch (msg.type) {
     case ServerMsg.WELCOME:
+      clearConnectWatchdog(); // we reached the server — cancel the timeout
       if (msg.protocolVersion !== PROTOCOL_VERSION) {
         net.close();
         showScreen("menu");
@@ -1454,12 +1484,30 @@ const updateSW = registerSW({
   },
 });
 if ("serviceWorker" in navigator) {
-  let refreshing = false;
+  // Reload at most ONCE per tab when a new SW takes over — guarded via
+  // sessionStorage so a flapping SW can never cause a reload loop, and so it
+  // never interrupts a session more than once.
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (refreshing) return;
-    refreshing = true;
+    if (sessionStorage.getItem("bp_swreloaded")) return;
+    sessionStorage.setItem("bp_swreloaded", "1");
     window.location.reload();
   });
+}
+
+// Surface otherwise-invisible failures (esp. on mobile, where there's no
+// console) as a dismissable banner, so "nothing happens" becomes a real message.
+function showBanner(msg: string): void {
+  let b = document.getElementById("err-banner");
+  if (!b) {
+    b = document.createElement("div");
+    b.id = "err-banner";
+    b.style.cssText =
+      "position:fixed;left:0;right:0;top:0;z-index:9999;background:#c0392b;color:#fff;" +
+      "padding:10px 14px;font:600 13px system-ui;text-align:center;cursor:pointer";
+    b.addEventListener("click", () => b!.remove());
+    document.body.appendChild(b);
+  }
+  b.textContent = "⚠ " + msg + "  (tap to dismiss)";
 }
 initAnalytics({ platform: isTelegram ? "telegram" : "web" });
 startPresence();
