@@ -1666,13 +1666,13 @@ function walletGate(stake: number, currency = 0): boolean {
   if (ref && !localStorage.getItem("bp_ref_done")) localStorage.setItem("bp_ref", ref);
 })();
 
-/** Bind the inviter once a wallet is connected. Runs even without a stored ref
- *  so the server can attach un-invited players under the root (owner). At most
- *  one request per page load; persists success so it isn't repeated. */
-let refAttempted = false;
+/** Bind the inviter once a wallet+session exist. Runs even without a stored ref
+ *  so the server attaches un-invited players under the root (owner). Retries on
+ *  every wallet refresh / 20s poll until it succeeds, then persists done — so a
+ *  late session, a connect after load, or a root configured later all still
+ *  attach automatically. */
 function attributeReferralOnce(): void {
-  if (localStorage.getItem("bp_ref_done") || refAttempted || !loadWallet()) return;
-  refAttempted = true;
+  if (localStorage.getItem("bp_ref_done") || !loadWallet()?.session) return;
   const ref = localStorage.getItem("bp_ref") ?? "";
   void attributeReferral(ref).then((ok) => {
     if (ok) localStorage.setItem("bp_ref_done", "1");
