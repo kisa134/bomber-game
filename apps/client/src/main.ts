@@ -53,7 +53,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setWalletState } from "./ui/lobby.js";
 import { initAnalytics, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram } from "./platform/telegram.js";
@@ -842,6 +842,7 @@ function wireSettings(): void {
 function refreshWalletBtn(): void {
   const btn = document.getElementById("wallet-btn")!;
   const w = loadWallet();
+  setWalletState(!!w); // drives the 🔒 on staked tables in the browser
   btn.textContent = w ? `🟢 ${shortAddr(w.address)}` : "🔗 Connect Wallet";
   // Show rating + chips + token balance whenever a wallet is connected.
   if (w) {
@@ -1494,6 +1495,20 @@ function showBanner(msg: string): void {
   }
   b.textContent = "⚠ " + msg + "  (tap to dismiss)";
 }
+
+/** Staked tables need a wallet. If the player has none, explain it and open the
+ *  connect flow instead of letting them hit a silent server rejection. Returns
+ *  false when the action should be blocked. */
+function walletGate(stake: number, currency = 0): boolean {
+  if (stake > 0 && !loadWallet()) {
+    const msg = `Connect a wallet to play for ${currency === 1 ? "tokens 💎" : "chips 🪙"}`;
+    setMenuStatus(msg);
+    showBanner(msg);
+    document.getElementById("wallet-btn")?.click(); // open the connect flow
+    return false;
+  }
+  return true;
+}
 initAnalytics({ platform: isTelegram ? "telegram" : "web" });
 startPresence();
 initErrorTracking();
@@ -1538,9 +1553,9 @@ refreshPrice();
 setInterval(refreshPrice, 60_000);
 
 setupMenu({
-  quickplay: (c) => { practiceMode = false; track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
+  quickplay: (c) => { if (!walletGate(c.stake)) return; practiceMode = false; track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
   practice: (c, difficulty) => { practiceMode = true; track("play_start", { mode: "practice", difficulty }); connect(() => practiceRoom(c.name, c.skin, difficulty)); },
-  create: (c) => { practiceMode = false; track("play_start", { mode: "create", stake: c.stake, currency: c.currency }); connect(() => createRoom(c.name, c.skin, c.stake, c.currency)); },
+  create: (c) => { if (!walletGate(c.stake, c.currency)) return; practiceMode = false; track("play_start", { mode: "create", stake: c.stake, currency: c.currency }); connect(() => createRoom(c.name, c.skin, c.stake, c.currency)); },
   join: (c, code) => { practiceMode = false; track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
   tables: () => {
     document.getElementById("tables-modal")!.classList.remove("hidden");
@@ -1554,6 +1569,8 @@ function loadTables(): Promise<void> {
     renderTables(
       tables,
       (code) => {
+        const t = tables.find((x) => x.code === code);
+        if (t && !walletGate(t.stake, t.currency)) return; // staked → needs wallet
         document.getElementById("tables-modal")!.classList.add("hidden");
         const name = (localStorage.getItem("bp_nick") || "pumper").trim();
         track("play_start", { mode: "table_join" });

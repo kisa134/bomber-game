@@ -13,6 +13,13 @@ export function setTokenUsd(v: number): void {
   tokenUsd = v;
 }
 
+/** Whether a wallet is connected (set from main). Drives the 🔒 on staked tables. */
+let hasWallet = false;
+export function setWalletState(v: boolean): void {
+  hasWallet = v;
+  if (lastTables.length) drawTables(); // re-render locks if the browser is open
+}
+
 /** A player whose card can be opened from a lobby/result row. */
 export interface CardPlayer {
   wallet?: string | null;
@@ -234,7 +241,10 @@ function drawTables(): void {
     const sym = t.currency === 1 ? "💎" : "🪙";
     const pot = t.stake > 0 ? ` · pot ${sym}${(t.stake * t.players).toLocaleString()}` : "";
     const action = t.live ? "👁 Watch" : "Join";
-    const label = t.live ? "🔴 LIVE" : stakeLabel(t.stake, t.currency);
+    // Staked tables need a connected wallet — flag them with a lock so it's
+    // obvious before tapping (the tap then prompts to connect instead of erroring).
+    const lock = !t.live && t.stake > 0 && !hasWallet ? "🔒 " : "";
+    const label = t.live ? "🔴 LIVE" : lock + stakeLabel(t.stake, t.currency);
     row.innerHTML = `<span>${label}${pot}</span><span>${t.players}/${t.max}</span><span>${action}</span>`;
     row.addEventListener("click", () => (t.live ? lastOnWatch(t.code) : lastOnJoin(t.code)));
     list.appendChild(row);
