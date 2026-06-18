@@ -471,17 +471,14 @@ app.post("/referral/attribute", (res, req) => {
 app.get("/referral/stats", (res, req) => {
   res.onAborted(() => {});
   const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
-  if (!wallet) return sendJson(res, { direct: 0, earned: 0, levels: REFERRAL_LEVEL_BPS.map((b) => b / 100) });
+  const pct = REFERRAL_LEVEL_BPS.map((b) => b / 100);
+  if (!wallet) return sendJson(res, { direct: 0, earned: 0, levels: pct, network: [0, 0, 0, 0, 0] });
   void store
     .referralStats(wallet)
     .then((s) =>
-      sendJson(res, {
-        direct: s.direct,
-        earned: fromBaseUnits(s.earned),
-        levels: REFERRAL_LEVEL_BPS.map((b) => b / 100),
-      }),
+      sendJson(res, { direct: s.direct, earned: fromBaseUnits(s.earned), levels: pct, network: s.network }),
     )
-    .catch(() => sendJson(res, { direct: 0, earned: 0, levels: REFERRAL_LEVEL_BPS.map((b) => b / 100) }));
+    .catch(() => sendJson(res, { direct: 0, earned: 0, levels: pct, network: [0, 0, 0, 0, 0] }));
 });
 
 async function parseBody(res: uWS.HttpResponse): Promise<Body> {

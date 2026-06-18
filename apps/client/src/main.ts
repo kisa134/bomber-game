@@ -1680,12 +1680,19 @@ async function openReferral(): Promise<void> {
   (document.getElementById("ref-ticker") as HTMLElement).textContent = `$${TOKEN_TICKER}`;
   modal.classList.remove("hidden");
   const s = await fetchReferralStats(w.address);
+  const net = (s.network ?? []).reduce((a, b) => a + b, 0);
   (document.getElementById("ref-stats") as HTMLElement).innerHTML =
-    `<div class="stat-badge"><span>Referrals</span><b>${s.direct.toLocaleString()}</b></div>` +
+    `<div class="stat-badge"><span>Direct</span><b>${s.direct.toLocaleString()}</b></div>` +
+    `<div class="stat-badge"><span>Network</span><b>${net.toLocaleString()}</b></div>` +
     `<div class="stat-badge token"><span>Earned</span><b>${s.earned.toLocaleString()} ${TOKEN_TICKER}</b></div>`;
-  (document.getElementById("ref-levels") as HTMLElement).textContent = s.levels.length
-    ? `Levels: ${s.levels.map((p, i) => `L${i + 1} ${p}%`).join(" · ")}`
-    : "";
+  // Per-level tree: count of your downline at each level + its payout %.
+  const levels = s.levels ?? [];
+  const network = s.network ?? [];
+  (document.getElementById("ref-levels") as HTMLElement).innerHTML =
+    "<b>Your referral tree</b>" +
+    levels
+      .map((pct, i) => `<div class="ref-lvl"><span>Level ${i + 1} · ${pct}% of rake</span><b>${(network[i] ?? 0).toLocaleString()}</b></div>`)
+      .join("");
 }
 
 function referralLink(): string {

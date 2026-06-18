@@ -443,6 +443,19 @@ button.ghost {
   margin-bottom: 4px;
 }
 
+/* Referral tree per-level rows in the Invite & earn modal */
+.ref-lvl {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.ref-lvl span {
+  color: var(--muted);
+}
+
 /* Live stake-raise vote banner in the waiting room */
 .stake-vote {
   width: 100%;
