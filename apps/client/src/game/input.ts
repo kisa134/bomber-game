@@ -122,9 +122,13 @@ export class Input {
   private base: HTMLElement | null = null;
   private thumb: HTMLElement | null = null;
 
-  /** Resting position of the stick (bottom-left), shown faintly when idle. */
+  /** Resting position of the stick (bottom-left), shown faintly when idle.
+   *  Clears the bottom/left safe areas (notch, home indicator). */
   private homeXY(): { x: number; y: number } {
-    return { x: 120, y: window.innerHeight - 150 };
+    const cs = getComputedStyle(document.documentElement);
+    const safeBottom = parseInt(cs.getPropertyValue("--sai-bottom")) || 0;
+    const safeLeft = parseInt(cs.getPropertyValue("--sai-left")) || 0;
+    return { x: 120 + safeLeft, y: window.innerHeight - 150 - safeBottom };
   }
 
   private showJoyHome(): void {

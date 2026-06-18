@@ -100,7 +100,11 @@ export class Renderer {
     if (!ctx) throw new Error("2d context unavailable");
     this.ctx = ctx;
     this.resize();
-    window.addEventListener("resize", () => this.resize());
+    const onResize = () => this.resize();
+    window.addEventListener("resize", onResize);
+    // iOS/Telegram often resize the viewport without firing window.resize.
+    window.addEventListener("orientationchange", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
   }
 
   setAssets(assets: Assets): void {
@@ -110,8 +114,12 @@ export class Renderer {
   resize(): void {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     // Fit the canvas into the play area (above the HUD panel), not the whole
-    // window. Leave a margin so the framed board floats off the screen edges.
-    const margin = 22;
+    // window. On desktop leave a margin so the framed board floats off the
+    // screen edges; on touch/mobile drop it (and the CSS border) so the board
+    // fills the whole landscape viewport. Safe-area insets are handled by
+    // padding on #play-area, so clientWidth/Height already excludes them.
+    const coarse = window.matchMedia("(pointer: coarse)").matches;
+    const margin = coarse ? 0 : 22;
     const host = this.canvas.parentElement;
     const availW = (host?.clientWidth || window.innerWidth) - margin * 2;
     const availH = (host?.clientHeight || window.innerHeight) - margin * 2;

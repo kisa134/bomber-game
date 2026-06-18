@@ -7,6 +7,12 @@
   --text: #e7e9ee;
   --muted: #8a90a0;
   --border: #2c313f;
+  /* Safe-area insets mirrored as custom props so JS (input.ts) can read them;
+     env() is not directly readable from getComputedStyle values otherwise. */
+  --sai-top: env(safe-area-inset-top, 0px);
+  --sai-right: env(safe-area-inset-right, 0px);
+  --sai-bottom: env(safe-area-inset-bottom, 0px);
+  --sai-left: env(safe-area-inset-left, 0px);
 }
 
 * {
@@ -31,6 +37,7 @@ input {
 html,
 body {
   height: 100%;
+  height: 100dvh;
   background: radial-gradient(1200px 800px at 50% -10%, #1d2336 0%, var(--bg) 60%);
   color: var(--text);
   overflow: hidden;
@@ -612,6 +619,7 @@ button.ghost {
   justify-content: stretch;
   padding: 0;
   height: 100vh;
+  height: 100dvh;
 }
 #play-area {
   position: relative;
@@ -654,6 +662,49 @@ button.ghost {
   padding: 4px 12px;
   border-radius: 8px;
   flex: 0 0 auto;
+}
+
+/* --- Mobile / touch: maximize the board, overlay the HUD on top of it ------ */
+/* On a coarse pointer (phones, Telegram webview) the HUD panel stops being a
+   layout row that steals height and becomes a slim translucent strip floating
+   over the top of the board, so #play-area gets the whole viewport. The canvas
+   loses its frame so the board reaches the true edges; the renderer already
+   drops its margin on coarse pointers. Safe-area insets pad #play-area so the
+   board never hides under a notch. */
+@media (pointer: coarse) {
+  #play-area {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+      env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  #canvas {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  #hud-panel {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    gap: 10px;
+    max-width: 100%;
+    padding: calc(4px + env(safe-area-inset-top)) 12px 4px;
+    background: rgba(0, 0, 0, 0.32);
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    pointer-events: none;
+  }
+  /* The scoreboard can stay wide; emotes need taps. */
+  #hud-panel #game-emotes {
+    pointer-events: auto;
+  }
+  #timer {
+    font-size: 1.05rem;
+    padding: 2px 10px;
+  }
 }
 
 /* In-game leave button (top-left of the board) */
@@ -896,8 +947,8 @@ button.ghost {
 }
 #dpad {
   position: absolute;
-  left: 28px;
-  bottom: 36px;
+  left: calc(28px + env(safe-area-inset-left));
+  bottom: calc(36px + env(safe-area-inset-bottom));
   width: 168px;
   height: 168px;
 }
@@ -929,10 +980,10 @@ button.ghost {
 }
 #bomb-btn {
   position: absolute;
-  right: 28px;
-  bottom: 36px;
-  width: 104px;
-  height: 104px;
+  right: calc(28px + env(safe-area-inset-right));
+  bottom: calc(36px + env(safe-area-inset-bottom));
+  width: 112px;
+  height: 112px;
   border-radius: 50%;
   font-size: 2.6rem;
   background: radial-gradient(circle at 35% 30%, #ff7a7e, #e23b40);

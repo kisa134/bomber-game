@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#0e1018"/>
+  <!-- fuse -->
+  <path d="M300 150 q40 -34 70 -10" fill="none" stroke="#caa14a" stroke-width="14" stroke-linecap="round"/>
+  <!-- spark -->
+  <g fill="#ffcc33">
+    <circle cx="378" cy="132" r="16"/>
+    <path d="M378 96 l8 22 -8 -6 -8 6z"/>
+    <path d="M414 132 l-22 8 6 -8 -6 -8z" fill="#ff5a5f"/>
+  </g>
+  <!-- bomb body -->
+  <circle cx="240" cy="300" r="130" fill="#15181f"/>
+  <circle cx="240" cy="300" r="130" fill="none" stroke="#2c313f" stroke-width="6"/>
+  <!-- highlight -->
+  <ellipse cx="198" cy="258" rx="34" ry="24" fill="#3a4152" opacity="0.7"/>
+  <!-- collar -->
+  <rect x="284" y="176" width="34" height="40" rx="6" fill="#2c313f" transform="rotate(35 301 196)"/>
+</svg>

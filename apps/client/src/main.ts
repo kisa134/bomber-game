@@ -50,6 +50,9 @@ import {
 import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler } from "./ui/lobby.js";
 import { track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
+import { initTelegram, isTelegram } from "./platform/telegram.js";
+import { enterImmersive } from "./platform/fullscreen.js";
+import { registerSW } from "virtual:pwa-register";
 
 const state = new GameState();
 const net = new Net();
@@ -165,6 +168,9 @@ function music(track: "lobby" | "battle"): void {
 // --- networking -----------------------------------------------------------
 
 async function connect(getJoin: () => Promise<JoinResponse>): Promise<void> {
+  // Match start is a user gesture — a good moment to go fullscreen + landscape
+  // on mobile web (no-op in Telegram / on desktop / if already fullscreen).
+  void enterImmersive();
   showScreen("loading");
   document.getElementById("loading-status")!.textContent = "connecting…";
   try {
@@ -1242,8 +1248,11 @@ function setupBackground(): void {
 
 // --- bootstrap ------------------------------------------------------------
 
+initTelegram();
+// Register the service worker (PWA). Auto-applies updates on next navigation.
+registerSW({ immediate: true });
 initErrorTracking();
-track("app_loaded");
+track("app_loaded", { platform: isTelegram ? "telegram" : "web" });
 input.attach();
 void assets.preload();
 applySettings();
