@@ -938,7 +938,7 @@ export class Renderer {
   private drawGrass(px: number, py: number, x: number, y: number, now: number): void {
     const ctx = this.ctx;
     const t = this.tile;
-    ctx.fillStyle = (x + y) % 2 === 0 ? "#2c4a22" : "#274320"; // base ground checker
+    ctx.fillStyle = (x + y) % 2 === 0 ? "#345628" : "#2e4a24"; // base ground checker (brighter)
     ctx.fillRect(px, py, t, t);
     const pu = Math.max(1, Math.round(t / 24)); // finer pixels
     let seed = (x * 374761393 + y * 668265263) >>> 0;
@@ -946,13 +946,13 @@ export class Renderer {
       seed = ((seed ^ (seed >>> 13)) * 1274126177) >>> 0;
       return (seed & 1023) / 1023;
     };
-    const greens = ["#3a6a2c", "#46812f", "#356326", "#4f8f33"];
+    const greens = ["#4b8a30", "#5aa53c", "#43802c", "#67bb46"]; // brighter greens
     const wind = Math.sin(now / 620 + x * 0.55 + y * 0.3);
-    for (let i = 0; i < 14; i++) {
-      // denser
+    for (let i = 0; i < 28; i++) {
+      // ~2x denser
       const bx = px + Math.floor(rnd() * (t - pu));
-      const by = py + Math.floor(rnd() * (t - pu * 2));
-      const hgt = pu * (1 + Math.floor(rnd() * 2)); // shorter blades
+      const by = py + Math.floor(rnd() * (t - pu * 3));
+      const hgt = pu * (2 + Math.floor(rnd() * 2)); // a bit longer blades
       const col = greens[(seed >> 3) & 3];
       const sway = Math.round(wind * pu * (0.6 + rnd() * 0.8));
       ctx.fillStyle = col;
