@@ -460,20 +460,59 @@ button.ghost {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 50vh;
+  max-height: 56vh;
   overflow-y: auto;
 }
+/* CS-style column header: clickable to sort, aligned with the rows below. */
+.table-head {
+  display: grid;
+  grid-template-columns: 1fr 64px 84px;
+  gap: 10px;
+  padding: 4px 12px;
+  position: sticky;
+  top: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.table-head .th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.table-head .th.sortable:hover {
+  color: var(--accent);
+}
 .table-row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1fr 64px 84px;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
+  padding: 9px 12px;
   border-radius: 8px;
   background: var(--panel);
   border: 1px solid var(--border);
   cursor: pointer;
   font-weight: 700;
+  text-align: left;
+}
+.table-row .td-stake {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.table-row .td-stake small {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+.table-row .td-players {
+  text-align: center;
+  color: var(--text);
+}
+.table-row .td-action {
+  text-align: right;
+  color: var(--accent);
 }
 .table-row:hover {
   border-color: var(--accent);
@@ -481,7 +520,10 @@ button.ghost {
 .table-row.live {
   border-color: var(--accent2);
 }
-.table-row.live span:first-child {
+.table-row.live .td-stake {
+  color: var(--accent2);
+}
+.table-row.live .td-action {
   color: var(--accent2);
 }
 .prof-chips {
@@ -1420,6 +1462,10 @@ button.big {
 .modal-card h3 {
   text-align: center;
   font-size: 1.2rem;
+}
+/* The public-tables browser is a wider window (room list + sortable columns). */
+#tables-modal .modal-card {
+  width: min(560px, calc(100% - 24px));
 }
 #wallet-list {
   display: flex;

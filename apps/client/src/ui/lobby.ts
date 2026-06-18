@@ -178,29 +178,8 @@ export function renderTables(
 function drawTables(): void {
   const filter = document.getElementById("tables-filter");
   const list = document.getElementById("tables-list");
+  const head = document.getElementById("tables-sort");
   if (!list || !filter) return;
-
-  // Sort controls: by stake or by player count, each ascending/descending.
-  const sortBox = document.getElementById("tables-sort");
-  if (sortBox) {
-    const opts: Array<{ v: TableSort; label: string }> = [
-      { v: "players-desc", label: "👥 Most players" },
-      { v: "players-asc", label: "👥 Fewest" },
-      { v: "stake-desc", label: "🪙 Highest stake" },
-      { v: "stake-asc", label: "🪙 Lowest stake" },
-    ];
-    sortBox.innerHTML = "";
-    for (const o of opts) {
-      const b = document.createElement("button");
-      b.className = "stake-btn" + (o.v === tableSort ? " selected" : "");
-      b.textContent = o.label;
-      b.addEventListener("click", () => {
-        tableSort = o.v;
-        drawTables();
-      });
-      sortBox.appendChild(b);
-    }
-  }
 
   // Filter chips: All + each stake currently present among open tables.
   const stakes = Array.from(new Set(lastTables.map((t) => t.stake))).sort((a, b) => a - b);
@@ -221,6 +200,36 @@ function drawTables(): void {
     filter.appendChild(b);
   }
 
+  // Clickable column headers (CS-style): tap a column to sort, tap again to flip.
+  if (head) {
+    head.className = "table-head";
+    head.classList.toggle("hidden", lastTables.length === 0);
+    head.innerHTML = "";
+    const arrow = (asc: TableSort, desc: TableSort) =>
+      tableSort === desc ? " ↓" : tableSort === asc ? " ↑" : "";
+    const th = (text: string, toggle?: () => void) => {
+      const s = document.createElement("span");
+      s.textContent = text;
+      if (toggle) {
+        s.className = "th sortable";
+        s.addEventListener("click", () => {
+          toggle();
+          drawTables();
+        });
+      } else s.className = "th";
+      return s;
+    };
+    head.append(
+      th("Stake" + arrow("stake-asc", "stake-desc"), () => {
+        tableSort = tableSort === "stake-desc" ? "stake-asc" : "stake-desc";
+      }),
+      th("Players" + arrow("players-asc", "players-desc"), () => {
+        tableSort = tableSort === "players-desc" ? "players-asc" : "players-desc";
+      }),
+      th(""),
+    );
+  }
+
   const shown = (tableFilter === -1 ? lastTables : lastTables.filter((t) => t.stake === tableFilter)).slice();
   shown.sort((a, b) => {
     switch (tableSort) {
@@ -239,13 +248,15 @@ function drawTables(): void {
     const row = document.createElement("button");
     row.className = "table-row" + (t.live ? " live" : "");
     const sym = t.currency === 1 ? "💎" : "🪙";
-    const pot = t.stake > 0 ? ` · pot ${sym}${(t.stake * t.players).toLocaleString()}` : "";
+    const pot = t.stake > 0 ? `pot ${sym}${(t.stake * t.players).toLocaleString()}` : "open";
     const action = t.live ? "👁 Watch" : "Join";
-    // Staked tables need a connected wallet — flag them with a lock so it's
-    // obvious before tapping (the tap then prompts to connect instead of erroring).
+    // Staked tables need a connected wallet — flag them with a lock.
     const lock = !t.live && t.stake > 0 && !hasWallet ? "🔒 " : "";
     const label = t.live ? "🔴 LIVE" : lock + stakeLabel(t.stake, t.currency);
-    row.innerHTML = `<span>${label}${pot}</span><span>${t.players}/${t.max}</span><span>${action}</span>`;
+    row.innerHTML =
+      `<span class="td-stake">${label}<small>${pot}</small></span>` +
+      `<span class="td-players">${t.players}/${t.max}</span>` +
+      `<span class="td-action">${action}</span>`;
     row.addEventListener("click", () => (t.live ? lastOnWatch(t.code) : lastOnJoin(t.code)));
     list.appendChild(row);
   }
