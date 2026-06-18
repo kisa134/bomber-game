@@ -41,6 +41,16 @@ const PU_SPRITE: Partial<Record<TileType, string>> = {
   [TileType.PU_HEALTH]: "pu_health",
 };
 
+// Per-powerup glow tint (rgb) for the pulsing pad + glossy shine.
+const PU_GLOW: Partial<Record<TileType, [number, number, number]>> = {
+  [TileType.PU_BOMB]: [255, 170, 70],
+  [TileType.PU_FIRE]: [255, 110, 60],
+  [TileType.PU_SPEED]: [90, 200, 255],
+  [TileType.PU_KICK]: [120, 230, 130],
+  [TileType.PU_WALL]: [190, 150, 255],
+  [TileType.PU_HEALTH]: [255, 110, 150],
+};
+
 const DEATH_MS = 650;
 const MAX_PARTICLES = 520;
 const MAX_DECALS = 90;
@@ -88,6 +98,7 @@ export class Renderer {
   private emotes = new Map<number, { e: string; until: number }>();
   private particles: Particle[] = [];
   private decals: Decal[] = [];
+  private lights: Array<{ x: number; y: number; born: number }> = []; // explosion light sources
   private prevGrid: Uint8Array | null = null;
   private lastDust = new Map<number, number>();
   private lastTrample = new Map<number, number>();
@@ -172,6 +183,7 @@ export class Renderer {
    *  flying burned-dollar $ icons. Plus a scorch decal + a light shake. No white
    *  flashes (those were seizure-y). */
   onExplosion(cells: Array<{ x: number; y: number }>): void {
+    const now = performance.now();
     for (const c of cells) {
       const cx = c.x + 0.5;
       const cy = c.y + 0.5;
@@ -206,6 +218,9 @@ export class Renderer {
         });
       }
       this.addDecal(c.x, c.y, "scorch");
+      // Volumetric light source for this blast cell.
+      this.lights.push({ x: cx, y: cy, born: now });
+      if (this.lights.length > 80) this.lights.shift();
     }
     this.shake(Math.min(8, 3 + cells.length * 0.5), 120);
   }
@@ -317,6 +332,7 @@ export class Renderer {
     }
 
     this.drawPlayers(view, myId, now);
+    this.drawLights(now);
     this.updateParticles(dt);
     ctx.restore();
   }
@@ -531,6 +547,44 @@ export class Renderer {
     }
   }
 
+  /** Volumetric explosion light: per blast cell, stack 3 additive radial layers
+   *  (hot core -> amber -> red) that fade and bloom over ~320ms. Additive blend
+   *  makes overlapping cells build up brightness, giving a sense of volume. */
+  private drawLights(now: number): void {
+    const ctx = this.ctx;
+    const t = this.tile;
+    const LIFE = 320;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (let i = this.lights.length - 1; i >= 0; i--) {
+      const L = this.lights[i];
+      const k = (now - L.born) / LIFE;
+      if (k >= 1) {
+        this.lights.splice(i, 1);
+        continue;
+      }
+      const fade = 1 - k;
+      const grow = 0.65 + k * 0.55; // expands outward as it fades
+      const cx = L.x * t;
+      const cy = L.y * t;
+      const layers: Array<[number, string]> = [
+        [t * 1.45 * grow, `rgba(255,120,40,${0.20 * fade})`], // outer red-orange
+        [t * 0.95 * grow, `rgba(255,185,75,${0.30 * fade})`], // mid amber
+        [t * 0.5 * grow, `rgba(255,245,215,${0.46 * fade})`], // hot core
+      ];
+      for (const [rad, col] of layers) {
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        g.addColorStop(0, col);
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  }
+
   /** Subtle wind: a soft light band drifting diagonally across the field. */
   private drawWind(now: number, W: number, H: number): void {
     const ctx = this.ctx;
@@ -598,11 +652,14 @@ export class Renderer {
         ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
         ctx.restore();
       } else {
+        // Chunky pixel square (snapped to a pixel grid) instead of a circle.
         ctx.globalAlpha = a;
         ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(px, py, p.size, 0, Math.PI * 2);
-        ctx.fill();
+        const pu = Math.max(2, Math.round(t / 16)); // pixel unit
+        const s = Math.max(pu, Math.round((p.size * 1.6) / pu) * pu);
+        const qx = Math.round((px - s / 2) / pu) * pu;
+        const qy = Math.round((py - s / 2) / pu) * pu;
+        ctx.fillRect(qx, qy, s, s);
       }
     }
     ctx.globalAlpha = 1;
@@ -642,15 +699,54 @@ export class Renderer {
       }
       default: {
         const key = PU_SPRITE[tile];
-        if (key || PU_ICON[tile]) this.drawShadow(px + t / 2, py + t * 0.82, t * 0.26, t * 0.09, 0.24);
-        if (key && this.drawTileSprite(key, px, py)) break;
         const icon = PU_ICON[tile];
-        if (icon) {
+        if (!key && !icon) break;
+        const cx = px + t / 2;
+        const cy = py + t / 2;
+        const [gr, gg, gb] = PU_GLOW[tile] ?? [255, 200, 110];
+        const phase = now / 360 + (x * 0.9 + y * 1.3);
+        const pulse = 0.55 + 0.45 * (0.5 + 0.5 * Math.sin(phase));
+        const bob = Math.sin(phase * 0.8) * t * 0.05;
+
+        // Pulsing colored glow pad (additive) — they shine, no dark shadow.
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        const rad = t * (0.5 + 0.08 * pulse);
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        g.addColorStop(0, `rgba(${gr},${gg},${gb},${0.45 * pulse})`);
+        g.addColorStop(0.6, `rgba(${gr},${gg},${gb},${0.16 * pulse})`);
+        g.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // The relic itself, gently bobbing.
+        const img = key ? this.assets?.img(key) : null;
+        if (img) {
+          ctx.drawImage(img, px, py + bob, t, t);
+        } else if (icon) {
           ctx.font = `${Math.floor(t * 0.6)}px system-ui`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          ctx.fillText(icon, px + t / 2, py + t / 2 + 1);
+          ctx.fillText(icon, cx, cy + bob + 1);
         }
+
+        // Glossy specular highlight (additive) — bright spot, pulses.
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        const hx = cx - t * 0.14;
+        const hy = cy - t * 0.18 + bob;
+        const hr = t * 0.17;
+        const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
+        hg.addColorStop(0, `rgba(255,255,255,${0.5 * pulse})`);
+        hg.addColorStop(1, "rgba(255,255,255,0)");
+        ctx.fillStyle = hg;
+        ctx.beginPath();
+        ctx.arc(hx, hy, hr, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       }
     }
   }
