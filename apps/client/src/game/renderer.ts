@@ -127,16 +127,20 @@ export class Renderer {
 
   resize(): void {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    // Fit the canvas into the play area (above the HUD panel), not the whole
-    // window. On desktop leave a margin so the framed board floats off the
-    // screen edges; on touch/mobile drop it (and the CSS border) so the board
-    // fills the whole landscape viewport. Safe-area insets are handled by
-    // padding on #play-area, so clientWidth/Height already excludes them.
+    // Fit the canvas into the play area's *content* box (above the HUD strip).
+    // On desktop leave a margin so the framed board floats off the screen edges;
+    // on touch/mobile drop it (and the CSS border) so the board fills the area.
+    // #play-area carries padding (safe-area insets + the side gutters that hold
+    // the touch controls in landscape), so subtract it: clientWidth includes
+    // padding, and the board must stay inside it, never under the controls.
     const coarse = window.matchMedia("(pointer: coarse)").matches;
     const margin = coarse ? 0 : 22;
     const host = this.canvas.parentElement;
-    const availW = (host?.clientWidth || window.innerWidth) - margin * 2;
-    const availH = (host?.clientHeight || window.innerHeight) - margin * 2;
+    const cs = host ? getComputedStyle(host) : null;
+    const padX = cs ? parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) : 0;
+    const padY = cs ? parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) : 0;
+    const availW = (host?.clientWidth || window.innerWidth) - padX - margin * 2;
+    const availH = (host?.clientHeight || window.innerHeight) - padY - margin * 2;
     this.tile = Math.floor(Math.min(availW / GRID_W, availH / GRID_H));
     const w = this.tile * GRID_W;
     const h = this.tile * GRID_H;
