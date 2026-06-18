@@ -140,6 +140,7 @@ const killLines: KillLine[] = [];
 let toastUntil = 0;
 let hudSig = "";
 let prevMyLives = -1; // track HP to flash on damage
+const prevLives = new Map<number, number>(); // per-player HP, to sfx wounds
 
 const inGame = (p: MatchPhase) =>
   p === MatchPhase.COUNTDOWN || p === MatchPhase.PLAYING || p === MatchPhase.SUDDEN_DEATH;
@@ -308,6 +309,15 @@ net.onMessage = (msg) => {
         if (me.alive && prevMyLives >= 0 && me.lives < prevMyLives) flashHit();
         prevMyLives = me.lives;
       }
+      // Wound cue for ANY player that lost a life but survived (death is its own
+      // event). Two interchangeable hurt sounds, picked at random for variety.
+      for (const p of msg.players) {
+        const prev = prevLives.get(p.id);
+        if (prev !== undefined && p.alive && p.lives > 0 && p.lives < prev) {
+          assets.play(Math.random() < 0.5 ? "wound" : "wound2");
+        }
+        prevLives.set(p.id, p.lives);
+      }
       // Soft-block break sound (derived from the reconstructed grid).
       let soft = 0;
       for (let i = 0; i < state.grid.length; i++) if (state.grid[i] === TileType.SOFT) soft++;
@@ -374,7 +384,7 @@ net.onMessage = (msg) => {
       if (msg.killerId === state.myId && msg.victimId !== state.myId) registerMyKill();
       break;
     case ServerMsg.EVENT_PLAYER_DEATH: {
-      assets.play("death");
+      assets.play("die");
       assets.playGore(); // wet splat layered over the death cue
       const snap = state.latest();
       const dp = snap?.players.find((p) => p.id === msg.playerId);
@@ -418,6 +428,7 @@ function enterGame(): void {
   bottomEl.innerHTML = "";
   sdWarned = false;
   prevMyLives = -1;
+  prevLives.clear();
   myKillTimes = [];
   calloutEl.classList.add("hidden");
   spectatorEl.classList.add("hidden");

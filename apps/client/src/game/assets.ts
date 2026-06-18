@@ -52,6 +52,9 @@ const SOUND_BASE: Record<string, string> = {
   explode: "explode",
   pickup: "pickup",
   death: "death",
+  die: "die", // player eliminated (gory death)
+  wound: "wound", // non-fatal hit — variant A
+  wound2: "wound2", // non-fatal hit — variant B
   first_blood: "first_blood",
   block_break: "block_break",
   kick: "kick",
@@ -79,6 +82,9 @@ const SFX_GAIN: Record<string, number> = {
   sudden_death: 0.62,
   go: 0.62,
   death: 0.55,
+  die: 0.6,
+  wound: 0.5,
+  wound2: 0.5,
   victory: 0.55,
   defeat: 0.55,
   draw: 0.55,
