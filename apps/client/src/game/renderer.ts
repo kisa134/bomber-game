@@ -3,7 +3,7 @@ import type { RenderView } from "./state.js";
 import type { Assets } from "./assets.js";
 
 export const PLAYER_COLORS = ["#ff5555", "#4aa3ff", "#5fd96a", "#ffcc33"];
-export const SKIN_EMOJI = ["🐸", "🐕", "🧑‍🚀", "🧑"]; // pepe, doge, elon, trump
+export const SKIN_EMOJI = ["🐕", "🐸", "🦊", "😐"];
 
 /** DOM avatar showing the character sprite (emoji fallback), with an optional
  *  colored ring. Shared by the skin picker, room list and HUD. */
