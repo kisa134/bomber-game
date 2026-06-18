@@ -20,6 +20,21 @@ services:
         sync: false
       - key: TG_APP
         sync: false
+      # Bot that answers /start with the welcome post + Play button. Set the
+      # BotFather API token here to enable it (the bot stays disabled if unset).
+      - key: TG_BOT_TOKEN
+        sync: false
+      - key: TG_WEBHOOK_SECRET # optional: any random string to lock the webhook
+        sync: false
+      # Optional link buttons under the post (only shown when set).
+      - key: TG_LINK_SITE
+        sync: false
+      - key: TG_LINK_X
+        sync: false
+      - key: TG_LINK_PUMP
+        sync: false
+      - key: TG_LINK_CHAT
+        sync: false
       # Analytics. Client keys (VITE_*) are baked into the bundle at build time
       # (matching ARGs in the Dockerfile); server keys are runtime. All optional.
       - key: VITE_POSTHOG_KEY # PostHog publishable client key (phc_...)

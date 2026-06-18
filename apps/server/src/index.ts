@@ -5,6 +5,7 @@ import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHI
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./tgrelay.js";
+import { handleTgUpdate, tgWebhookSecretOk, setupTelegramBot } from "./tgbot.js";
 import { analytics } from "./analytics.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
@@ -521,6 +522,25 @@ app.get("/tg/cb", (res, req) => {
   });
 });
 
+// Telegram bot webhook: replies to /start with the welcome post + Play button.
+app.post("/tg/webhook", (res, req) => {
+  const secret = req.getHeader("x-telegram-bot-api-secret-token") || "";
+  res.onAborted(() => {});
+  void readBody(res).then((body) => {
+    res.cork(() => {
+      res.writeStatus("200 OK");
+      res.writeHeader("Content-Type", "text/plain");
+      res.end("ok");
+    });
+    if (!tgWebhookSecretOk(secret)) return;
+    try {
+      void handleTgUpdate(JSON.parse(body || "{}"));
+    } catch {
+      // ignore malformed updates
+    }
+  });
+});
+
 type Body = {
   name: string;
   code: string;
@@ -720,6 +740,7 @@ app.listen(PORT, (listenSocket) => {
         (SERVE_STATIC ? ` (serving client from ${CLIENT_DIST})` : " (api only)"),
     );
     startDepositWatcher(); // no-op unless TREASURY_ADDRESS is set
+    void setupTelegramBot(); // no-op unless TG_BOT_TOKEN is set
   } else {
     console.error(`[bomberpump] failed to listen on :${PORT}`);
     process.exit(1);
