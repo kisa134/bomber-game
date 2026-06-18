@@ -15,6 +15,9 @@ primary_region = "ams" # close to EU/RU pump.fun audience
 
 [env]
   PORT = "8080"
+  # Telegram Mini App: set your bot + app names (public, not secrets), e.g.
+  #   fly secrets set TG_BOT=BombermemeBot TG_APP=play
+  # TG_BOT = bot username (no @); TG_APP = Mini App short name from BotFather.
 
 [[vm]]
   cpu_kind = "shared"
