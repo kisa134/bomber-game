@@ -28,6 +28,7 @@ import {
   type MatchEndMsg,
   type PongMsg,
   type EmoteEventMsg,
+  type CalloutEvent,
 } from "./types.js";
 
 const POS_SCALE = 100;
@@ -359,6 +360,10 @@ export function encodeEmoteEvent(playerId: number, emote: number): Uint8Array {
   return new Uint8Array([ServerMsg.EVENT_EMOTE, playerId & 0xff, emote & 0xff]);
 }
 
+export function encodeCallout(kind: number, playerId: number): Uint8Array {
+  return new Uint8Array([ServerMsg.EVENT_CALLOUT, kind & 0xff, playerId & 0xff]);
+}
+
 // ---------------------------------------------------------------------------
 // Server -> Client decoder (client side)
 // ---------------------------------------------------------------------------
@@ -516,6 +521,11 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
     case ServerMsg.EVENT_EMOTE: {
       if (dv.byteLength < 3) return null;
       const msg: EmoteEventMsg = { type, playerId: dv.getUint8(1), emote: dv.getUint8(2) };
+      return msg;
+    }
+    case ServerMsg.EVENT_CALLOUT: {
+      if (dv.byteLength < 3) return null;
+      const msg: CalloutEvent = { type, kind: dv.getUint8(1), playerId: dv.getUint8(2) };
       return msg;
     }
     default:

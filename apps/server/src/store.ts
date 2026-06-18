@@ -4,12 +4,13 @@
 // client can never inflate them.
 
 import pg from "pg";
-import { STARTING_CHIPS, STARTING_RATING, eloDeltas } from "@bomberpump/shared";
+import { STARTING_CHIPS, STARTING_RATING, DEFAULT_SKINS, eloDeltas } from "@bomberpump/shared";
 
 export interface Profile {
   wallet: string;
   name: string;
   skin: number;
+  skins: number; // bitmask of owned skins (skin i owned if bit i set)
   level: number;
   xp: number;
   matches: number;
@@ -75,6 +76,12 @@ export interface ProfileStore {
   /** Credit a deposit exactly once (deduped by tx signature). Returns true if
    *  this signature was newly applied, false if already processed. */
   creditDeposit(signature: string, wallet: string, amount: number): Promise<boolean>;
+  /** Buy a skin: atomically deduct `price` chips and set its ownership bit.
+   *  Returns the new {chips, skins} or null if already owned / can't afford. */
+  buySkin(wallet: string, skin: number, price: number): Promise<{ chips: number; skins: number } | null>;
+  /** Select an owned skin as the active one. Returns the new skin, or null if
+   *  the wallet doesn't own it. */
+  selectSkin(wallet: string, skin: number): Promise<number | null>;
 }
 
 function blankProfile(wallet: string, name: string, skin: number): Profile {
@@ -82,6 +89,7 @@ function blankProfile(wallet: string, name: string, skin: number): Profile {
     wallet,
     name,
     skin,
+    skins: DEFAULT_SKINS,
     level: 1,
     xp: 0,
     matches: 0,
@@ -189,6 +197,29 @@ class InMemoryStore implements ProfileStore {
     if (delta < 0 && p.token_balance + delta < 0) return null;
     p.token_balance += delta;
     return p.token_balance;
+  }
+
+  async buySkin(
+    wallet: string,
+    skin: number,
+    price: number,
+  ): Promise<{ chips: number; skins: number } | null> {
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    const bit = 1 << skin;
+    if (p.skins & bit) return null; // already owned
+    if (p.chips < price) return null; // can't afford
+    p.chips -= price;
+    p.skins |= bit;
+    return { chips: p.chips, skins: p.skins };
+  }
+
+  async selectSkin(wallet: string, skin: number): Promise<number | null> {
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    if (!(p.skins & (1 << skin))) return null; // not owned
+    p.skin = skin;
+    return p.skin;
   }
 
   private deposits = new Set<string>();
@@ -329,6 +360,49 @@ class SupabaseStore implements ProfileStore {
     return next;
   }
 
+  async buySkin(
+    wallet: string,
+    skin: number,
+    price: number,
+  ): Promise<{ chips: number; skins: number } | null> {
+    // Best-effort read-modify-write (the Postgres path is the atomic one).
+    const p = await this.getProfile(wallet);
+    if (!p) return null;
+    const bit = 1 << skin;
+    const owned = (p.skins ?? DEFAULT_SKINS) & bit;
+    if (owned || (p.chips ?? 0) < price) return null;
+    const chips = p.chips - price;
+    const skins = (p.skins ?? DEFAULT_SKINS) | bit;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ chips, skins }),
+      });
+    } catch (e) {
+      console.error("[store] buySkin failed", e);
+      return null;
+    }
+    return { chips, skins };
+  }
+
+  async selectSkin(wallet: string, skin: number): Promise<number | null> {
+    const p = await this.getProfile(wallet);
+    if (!p) return null;
+    if (!((p.skins ?? DEFAULT_SKINS) & (1 << skin))) return null;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ skin }),
+      });
+    } catch (e) {
+      console.error("[store] selectSkin failed", e);
+      return null;
+    }
+    return skin;
+  }
+
   async creditDeposit(signature: string, wallet: string, amount: number): Promise<boolean> {
     // Best-effort dedupe via a processed_deposits table (Postgres path is atomic).
     try {
@@ -397,6 +471,10 @@ class PostgresStore implements ProfileStore {
     await this.pool.query(`alter table profiles add column if not exists week_points int not null default 0`);
     // Custodial real-token balance (base units) + deposit dedupe ledger.
     await this.pool.query(`alter table profiles add column if not exists token_balance bigint not null default 0`);
+    // Owned-skins bitmask (skin 0 free by default).
+    await this.pool.query(
+      `alter table profiles add column if not exists skins int not null default ${DEFAULT_SKINS}`,
+    );
     await this.pool.query(`
       create table if not exists processed_deposits (
         signature text primary key,
@@ -523,6 +601,48 @@ class PostgresStore implements ProfileStore {
       return res.rows[0] ? Number(res.rows[0].token_balance) : null;
     } catch (e) {
       console.error("[store] pg adjustToken failed", e);
+      return null;
+    }
+  }
+
+  async buySkin(
+    wallet: string,
+    skin: number,
+    price: number,
+  ): Promise<{ chips: number; skins: number } | null> {
+    try {
+      await this.ready;
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
+      // Atomic: only buy if affordable and not already owned.
+      const res = await this.pool.query(
+        `update profiles set chips = chips - $3, skins = skins | (1 << $2), updated_at=now()
+         where wallet=$1 and chips >= $3 and (skins & (1 << $2)) = 0
+         returning chips, skins`,
+        [wallet, skin, price],
+      );
+      return res.rows[0]
+        ? { chips: res.rows[0].chips as number, skins: res.rows[0].skins as number }
+        : null;
+    } catch (e) {
+      console.error("[store] pg buySkin failed", e);
+      return null;
+    }
+  }
+
+  async selectSkin(wallet: string, skin: number): Promise<number | null> {
+    try {
+      await this.ready;
+      const res = await this.pool.query(
+        `update profiles set skin = $2, updated_at=now()
+         where wallet=$1 and (skins & (1 << $2)) <> 0 returning skin`,
+        [wallet, skin],
+      );
+      return res.rows[0] ? (res.rows[0].skin as number) : null;
+    } catch (e) {
+      console.error("[store] pg selectSkin failed", e);
       return null;
     }
   }

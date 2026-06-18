@@ -13,9 +13,15 @@ export function setTokenUsd(v: number): void {
   tokenUsd = v;
 }
 
-/** How the room screen opens a public profile (wired from main). */
-let onOpenProfile: (wallet: string) => void = () => {};
-export function setProfileHandler(fn: (wallet: string) => void): void {
+/** A player whose card can be opened from a lobby/result row. */
+export interface CardPlayer {
+  wallet?: string | null;
+  name: string;
+  skin: number;
+}
+/** How the room screen opens a player card (wired from main). */
+let onOpenProfile: (p: CardPlayer) => void = () => {};
+export function setProfileHandler(fn: (p: CardPlayer) => void): void {
   onOpenProfile = fn;
 }
 function usdSuffix(tokens: number): string {
@@ -87,7 +93,9 @@ export function setupMenu(h: MenuHandlers): void {
   const choice = (stake: number, currency = 0): Choice => {
     const name = nick.value.trim() || "pumper";
     localStorage.setItem("bp_nick", name);
-    return { name, skin: Math.floor(Math.random() * 4), stake, currency };
+    // Use the player's chosen skin (set in the Skin Shop); default to skin 0.
+    const skin = Number(localStorage.getItem("bp_skin")) || 0;
+    return { name, skin, stake, currency };
   };
 
   // Create flow: pick a currency (chips/token) then a stake = create at that stake.
@@ -233,11 +241,9 @@ export function renderRoom(state: GameState): void {
     const name = document.createElement("span");
     name.textContent = p.name + (p.id === state.myId ? " (you)" : "");
     li.appendChild(name);
-    if (p.wallet) {
-      li.style.cursor = "pointer";
-      li.title = "View profile";
-      li.addEventListener("click", () => onOpenProfile(p.wallet));
-    }
+    li.style.cursor = "pointer";
+    li.title = "View card";
+    li.addEventListener("click", () => onOpenProfile(p));
     if (seriesOn) {
       const wins = document.createElement("span");
       wins.className = "win-tag";

@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW, DEFAULT_SKINS, SKIN_PRICES, SKIN_COUNT } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
 import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./tgrelay.js";
@@ -160,7 +160,7 @@ app.get("/health", (res) => {
 app.get("/profile", (res, req) => {
   res.onAborted(() => {});
   const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
-  const blank = { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0, token_balance: 0 };
+  const blank = { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, skins: DEFAULT_SKINS, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0, token_balance: 0 };
   Promise.all([store.getProfile(wallet), tokenBalance(wallet)])
     .then(([p, tok]) => {
       const prof = p ?? blank;
@@ -284,6 +284,47 @@ app.post("/withdraw", (res, req) => {
       const code = msg === "insufficient_balance" ? "402 Payment Required" : "500 Internal Server Error";
       sendJson(res, { error: msg }, code);
     }
+  });
+});
+
+// --- skin shop (chips) ---
+function parseSkinReq(body: string): { wallet: string | null; skin: number } {
+  let wallet: string | null = null;
+  let skin = -1;
+  try {
+    const j = JSON.parse(body || "{}");
+    if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+    if (Number.isInteger(j.skin)) skin = j.skin;
+  } catch {
+    // ignore
+  }
+  return { wallet, skin };
+}
+
+app.post("/shop/buy-skin", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    const { wallet, skin } = parseSkinReq(body);
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    if (skin < 0 || skin >= SKIN_COUNT) return sendJson(res, { error: "bad_skin" }, "400 Bad Request");
+    const price = SKIN_PRICES[skin] ?? 0;
+    const result = await store.buySkin(wallet, skin, price);
+    if (!result) return sendJson(res, { error: "cant_buy" }, "402 Payment Required");
+    // Buying also equips it.
+    await store.selectSkin(wallet, skin);
+    sendJson(res, { chips: result.chips, skins: result.skins, skin });
+  });
+});
+
+app.post("/shop/select-skin", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    const { wallet, skin } = parseSkinReq(body);
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    if (skin < 0 || skin >= SKIN_COUNT) return sendJson(res, { error: "bad_skin" }, "400 Bad Request");
+    const sel = await store.selectSkin(wallet, skin);
+    if (sel === null) return sendJson(res, { error: "not_owned" }, "403 Forbidden");
+    sendJson(res, { skin: sel });
   });
 });
 

@@ -34,6 +34,8 @@ async function post(path: string, body: Record<string, unknown>): Promise<Respon
 export interface ProfileData {
   wallet: string;
   name: string;
+  skin: number; // currently equipped skin
+  skins: number; // owned-skins bitmask
   level: number;
   xp: number;
   matches: number;
@@ -94,6 +96,18 @@ export async function claimDeposit(
 
 export async function fetchProfile(wallet: string): Promise<ProfileData> {
   const res = await fetch(`${SERVER_HTTP}/profile?wallet=${encodeURIComponent(wallet)}`);
+  return res.json();
+}
+
+export async function buySkin(
+  skin: number,
+): Promise<{ chips?: number; skins?: number; skin?: number; error?: string }> {
+  const res = await post("/shop/buy-skin", { skin });
+  return res.json();
+}
+
+export async function selectSkin(skin: number): Promise<{ skin?: number; error?: string }> {
+  const res = await post("/shop/select-skin", { skin });
   return res.json();
 }
 

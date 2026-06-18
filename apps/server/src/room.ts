@@ -27,12 +27,17 @@ import {
   HOUSE_RAKE_BP,
   Currency,
   BotDifficulty,
+  CalloutType,
+  PowerUpType,
+  CHIPS_WIN_REWARD,
+  CHIPS_PLAY_REWARD,
   encodeSnapshot,
   encodePhase,
   encodeExplosion,
   encodeDeath,
   encodeKill,
   encodePickup,
+  encodeCallout,
   encodeMatchEnd,
   encodeWelcome,
   encodeRoomInfo,
@@ -90,6 +95,8 @@ export class Room {
   private lobbyCounting = false;
   private lobbyCountdownMs = 0;
   private winnerId = DRAW_WINNER_ID;
+  private practiceStarted = false; // practice auto-starts once; then by button
+  private firstBloodDone = false; // first-blood bonus awarded this match?
   private lastHumanAtMs = Date.now();
   private readonly lastSentGrid = new Uint8Array(GRID_SIZE);
   private readonly needKeyframe = new Set<number>(); // players owed a full grid
@@ -291,11 +298,23 @@ export class Room {
     p.bombsActive++;
   }
 
-  /** Host pressed "Start now". */
+  /** Host pressed "Start now" (or "Play again" in practice). */
   requestStart(id: number): void {
     if (id !== this.hostId) return;
     if (this.phase !== MatchPhase.LOBBY) return;
+    // Practice: the player drives every (re)start; refill bots and go.
+    if (this.practice) {
+      this.startPractice();
+      return;
+    }
     if (!this.allReady()) return; // every player must be ready first
+    this.start();
+  }
+
+  /** Top up bots and start a practice match. */
+  private startPractice(): void {
+    while (this.players.size < MAX_PLAYERS_PER_ROOM) this.addBot();
+    this.practiceStarted = true;
     this.start();
   }
 
@@ -370,10 +389,11 @@ export class Room {
   }
 
   private tickLobby(): void {
-    // Practice room: fill with bots and start as soon as a human is present.
-    if (this.practice && this.humanCount >= 1) {
-      while (this.players.size < MAX_PLAYERS_PER_ROOM) this.addBot();
-      this.start();
+    // Practice room: fill with bots and auto-start the FIRST match as soon as a
+    // human is present. After that the player starts each rematch with a button
+    // (requestStart) — no more starting itself.
+    if (this.practice && this.humanCount >= 1 && !this.practiceStarted) {
+      this.startPractice();
       return;
     }
     // The match starts ONLY when every present player has readied up — no timed
@@ -411,9 +431,18 @@ export class Room {
     this.seedCommit = createHash("sha256").update(this.seed).digest("hex");
     this.rng = makeRng(this.seed);
     this.world.generate(this.rng);
+    this.firstBloodDone = false;
+    // Randomize which corner each player gets (seeded shuffle -> still provably
+    // fair / reproducible from the revealed seed), so positions aren't fixed by
+    // join order.
+    const corners = SPAWNS.slice();
+    for (let k = corners.length - 1; k > 0; k--) {
+      const j = Math.floor(this.rng() * (k + 1));
+      [corners[k], corners[j]] = [corners[j], corners[k]];
+    }
     let i = 0;
     for (const p of this.players.values()) {
-      const s = SPAWNS[i % SPAWNS.length];
+      const s = corners[i % corners.length];
       p.resetForMatch(s.x, s.y);
       p.lastMoveAtMs = Date.now();
       if (!p.isBot) p.ready = false; // require re-ready for the next round
@@ -658,7 +687,10 @@ export class Room {
     // Fatal: eliminate. Credit the kill now (only real kills count as frags).
     if (killerId >= 0 && killerId !== p.id) {
       const killer = this.players.get(killerId);
-      if (killer) killer.frags += 1;
+      if (killer) {
+        killer.frags += 1;
+        this.awardFirstBlood(killer);
+      }
     } else if (killerId === p.id) {
       p.frags = Math.max(0, p.frags - 1); // suicide penalty
     }
@@ -683,6 +715,7 @@ export class Room {
       this.broadcast(encodeMatchSeed(this.seedCommit, this.seed)); // reveal
       this.settlePot(winner ?? null);
       this.recordStats();
+      this.awardPlayRewards();
     }
   }
 
@@ -761,9 +794,32 @@ export class Room {
     this.contributors = [];
   }
 
-  /** Persist ranked stats for wallet-authenticated humans (not practice/bots). */
+  /** First kill of the match: big callout + an instant random power-up. */
+  private awardFirstBlood(killer: Player): void {
+    if (this.firstBloodDone) return;
+    this.firstBloodDone = true;
+    const pool = [
+      PowerUpType.BOMB_UP,
+      PowerUpType.FIRE_UP,
+      PowerUpType.SPEED_UP,
+      PowerUpType.KICK,
+    ];
+    const pu = pool[Math.floor(this.rng() * pool.length)];
+    killer.applyPowerup(pu);
+    this.broadcast(encodeCallout(CalloutType.FIRST_BLOOD, killer.id));
+    this.broadcast(encodePickup(killer.id, pu));
+  }
+
+  /** True if any bot is seated — such a match never affects rating. */
+  private get hasBots(): boolean {
+    for (const p of this.players.values()) if (p.isBot) return true;
+    return false;
+  }
+
+  /** Persist ranked stats for wallet-authenticated humans. Skipped for practice
+   *  and any match that contained bots — those never touch rating. */
   private recordStats(): void {
-    if (this.practice) return;
+    if (this.practice || this.hasBots) return;
     const results: MatchResult[] = [];
     for (const p of this.players.values()) {
       if (p.isBot || !p.wallet) continue;
@@ -777,6 +833,17 @@ export class Room {
       });
     }
     if (results.length) void store.recordMatch(results);
+  }
+
+  /** Flat chip rewards for a non-staked match (practice/bots, free quickplay) so
+   *  chips can be earned toward skins. Staked matches pay the pot instead. */
+  private awardPlayRewards(): void {
+    if (this.stake > 0) return;
+    for (const p of this.players.values()) {
+      if (p.isBot || !p.wallet) continue;
+      const reward = p.id === this.winnerId ? CHIPS_WIN_REWARD : CHIPS_PLAY_REWARD;
+      void store.adjustChips(p.wallet, reward);
+    }
   }
 
   // -- networking -----------------------------------------------------------

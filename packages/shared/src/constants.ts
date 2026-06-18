@@ -1,7 +1,7 @@
 // All gameplay-balancing numbers live here. No magic numbers in logic.
 
 // Bump whenever the binary frame layout changes; client + server must match.
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 export const TICK_RATE = 60; // Hz — finest/most responsive base motion (2x server cost)
 export const TICK_MS = 1000 / TICK_RATE; // ~16.7
@@ -66,6 +66,19 @@ export const BET_SIZES = [100, 250, 500, 1000, 2500] as const; // chip table sta
 // Token table stakes (whole tokens). Host picks; winner takes the pot.
 export const TOKEN_BET_SIZES = [1000, 5000, 25000, 100000, 500000] as const;
 export const HOUSE_RAKE_BP = 0; // house rake in basis points (server env can override)
+
+// Chips earned from non-staked matches (practice/bots and free quickplay), so
+// chips are a soft currency you grind toward skins. Staked matches pay the pot
+// instead, so these flat rewards apply only when stake === 0.
+export const CHIPS_WIN_REWARD = 100; // winner of a free match
+export const CHIPS_PLAY_REWARD = 20; // everyone else who finished
+
+// --- Skins (cosmetic; unlocked with chips) ---------------------------------
+export const SKIN_COUNT = 4; // pepe, doge, elon, trump
+// Price per skin index in chips. 0 = free/owned by default.
+export const SKIN_PRICES = [0, 500, 1500, 3000] as const;
+// Bitmask of skins every wallet owns from the start (skin 0).
+export const DEFAULT_SKINS = 0b0001;
 
 // --- Token (real pump.fun SPL token; read-only hold-to-play for now) --------
 // Public mint address — safe to ship to the client (used for display + links).

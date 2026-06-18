@@ -61,6 +61,12 @@ export enum ServerMsg {
   RECONNECT_TOKEN = 20, // handle the client stores to rejoin after a drop
   MATCH_SEED = 21, // provably-fair: commit at start, seed revealed at end
   EVENT_EMOTE = 22, // a player sent a quick reaction
+  EVENT_CALLOUT = 23, // big announcement (e.g. first blood) tied to a player
+}
+
+/** Big mid-screen announcements broadcast by the server. */
+export enum CalloutType {
+  FIRST_BLOOD = 0,
 }
 
 /** Quick lobby/in-game reactions (no free text). */
@@ -151,6 +157,12 @@ export interface KillEvent {
   victimId: number;
 }
 
+export interface CalloutEvent {
+  type: ServerMsg.EVENT_CALLOUT;
+  kind: CalloutType;
+  playerId: number; // the player the callout is about (255 = none)
+}
+
 export interface PickupEvent {
   type: ServerMsg.EVENT_PICKUP;
   playerId: number;
@@ -224,4 +236,5 @@ export type ServerMessage =
   | RoomInfoMsg
   | ReconnectTokenMsg
   | MatchSeedMsg
-  | EmoteEventMsg;
+  | EmoteEventMsg
+  | CalloutEvent;

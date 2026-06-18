@@ -15,6 +15,10 @@ import {
   SPECTATOR_ID,
   TOKEN_MINT,
   TOKEN_TICKER,
+  CalloutType,
+  SKIN_COUNT,
+  SKIN_PRICES,
+  DEFAULT_SKINS,
 } from "./net/protocol.js";
 import {
   Net,
@@ -31,10 +35,12 @@ import {
   claimDeposit,
   prepareDeposit,
   watchMatch,
+  buySkin,
+  selectSkin,
   type JoinResponse,
 } from "./net/socket.js";
 import { GameState } from "./game/state.js";
-import { Renderer, PLAYER_COLORS } from "./game/renderer.js";
+import { Renderer, PLAYER_COLORS, skinAvatar } from "./game/renderer.js";
 import { Input } from "./game/input.js";
 import { Assets } from "./game/assets.js";
 import { loadSettings, saveSettings, type Settings } from "./settings.js";
@@ -70,6 +76,7 @@ let renderer: Renderer | null = null;
 let keepAlive: ReturnType<typeof setInterval> | null = null;
 let currentTrack: "lobby" | "battle" = "lobby";
 let lastCountSec = -1;
+let practiceMode = false; // current room is practice vs bots (drives "Play again")
 let goUntil = 0;
 let prevSoftCount = -1;
 let prevPlayerCount = 0;
@@ -337,6 +344,12 @@ net.onMessage = (msg) => {
     case ServerMsg.EVENT_EMOTE:
       showEmote(msg.playerId, msg.emote);
       break;
+    case ServerMsg.EVENT_CALLOUT:
+      if (msg.kind === CalloutType.FIRST_BLOOD) {
+        showCallout("🩸 FIRST BLOOD!", msg.playerId);
+        assets.play("go");
+      }
+      break;
     default:
       break;
   }
@@ -414,6 +427,8 @@ function announceResult(winnerId: number): void {
   }
   setTimeout(() => {
     showResult(title);
+    const lobbyBtn = document.getElementById("result-lobby")!;
+    lobbyBtn.textContent = practiceMode ? "🔁 Play again" : "↩ Back to lobby";
     // Render the board here (not earlier): by now the final snapshot — the one
     // carrying the killing blow's frag — has arrived, so kill counts are right.
     renderResultBoard(winnerId);
@@ -493,6 +508,16 @@ function flashHit(): void {
   renderer?.shake(9, 260);
 }
 
+/** Flash a big mid-screen callout. `who` (optional) tags the player it's about. */
+function showCallout(word: string, who = -1): void {
+  const text = who >= 0 && who !== state.myId ? `${word} ${state.nameOf(who)}` : word;
+  calloutEl.textContent = text;
+  calloutEl.classList.remove("hidden", "show");
+  void calloutEl.offsetWidth;
+  calloutEl.classList.add("show");
+  calloutUntil = performance.now() + 1400;
+}
+
 const STREAK_WORDS = ["", "", "DOUBLE KILL!", "TRIPLE KILL!", "MULTI KILL!", "RAMPAGE!"];
 function registerMyKill(): void {
   const now = performance.now();
@@ -500,12 +525,7 @@ function registerMyKill(): void {
   myKillTimes.push(now);
   const n = myKillTimes.length;
   if (n >= 2) {
-    const word = STREAK_WORDS[Math.min(n, STREAK_WORDS.length - 1)];
-    calloutEl.textContent = word;
-    calloutEl.classList.remove("hidden", "show");
-    void calloutEl.offsetWidth;
-    calloutEl.classList.add("show");
-    calloutUntil = now + 1400;
+    showCallout(STREAK_WORDS[Math.min(n, STREAK_WORDS.length - 1)]);
     assets.play("go");
   }
 }
@@ -1247,9 +1267,118 @@ async function openPublicProfile(wallet: string): Promise<void> {
   }
 }
 
+/** Card for a lobby player. Wallet players show full stats; bots/guests show a
+ *  minimal local card (no stats to fetch). */
+function openPlayerCard(p: { wallet?: string | null; name: string; skin: number }): void {
+  if (p.wallet) {
+    void openPublicProfile(p.wallet);
+    return;
+  }
+  const modal = document.getElementById("pubprofile-modal")!;
+  const body = document.getElementById("pubprofile-body")!;
+  body.innerHTML = "";
+  body.append(skinAvatar(p.skin), el("div", "prof-addr", p.name));
+  body.append(el("div", "status fair", "Practice bot — no ranked stats"));
+  modal.classList.remove("hidden");
+}
+
+// --- skin shop ------------------------------------------------------------
+
+const SKIN_NAMES = ["Doge", "Pepe", "Fox", "Wojak"];
+
+async function refreshSkinShop(): Promise<void> {
+  const grid = document.getElementById("skin-grid")!;
+  const bal = document.getElementById("skin-balance")!;
+  const w = loadWallet();
+  let owned = DEFAULT_SKINS;
+  let equipped = Number(localStorage.getItem("bp_skin")) || 0;
+  if (w) {
+    try {
+      const p = await fetchProfile(w.address);
+      owned = p.skins ?? DEFAULT_SKINS;
+      equipped = p.skin ?? 0;
+      localStorage.setItem("bp_skin", String(equipped));
+      bal.textContent = `🪙 ${(p.chips ?? 0).toLocaleString()} chips`;
+    } catch {
+      bal.textContent = "";
+    }
+  } else {
+    bal.textContent = "Connect a wallet to buy & save skins.";
+  }
+  grid.innerHTML = "";
+  for (let i = 0; i < SKIN_COUNT; i++) {
+    const card = document.createElement("div");
+    card.className = "skin-card" + (i === equipped ? " equipped" : "");
+    card.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
+    card.appendChild(el("div", "skin-name", SKIN_NAMES[i] ?? `Skin ${i}`));
+    const owns = (owned & (1 << i)) !== 0;
+    const btn = document.createElement("button");
+    if (i === equipped) {
+      btn.textContent = "✔ Equipped";
+      btn.disabled = true;
+      btn.className = "ghost";
+    } else if (owns) {
+      btn.textContent = "Equip";
+      btn.className = "primary";
+      btn.addEventListener("click", () => void doSelectSkin(i));
+    } else {
+      btn.textContent = `Buy 🪙${SKIN_PRICES[i]}`;
+      btn.className = "primary";
+      btn.addEventListener("click", () => void doBuySkin(i));
+    }
+    card.appendChild(btn);
+    grid.appendChild(card);
+  }
+}
+
+async function doSelectSkin(skin: number): Promise<void> {
+  const status = document.getElementById("skin-status")!;
+  if (!loadWallet()) {
+    localStorage.setItem("bp_skin", String(skin)); // local-only without a wallet
+    void refreshSkinShop();
+    return;
+  }
+  const r = await selectSkin(skin);
+  if (r.error) {
+    status.textContent = r.error === "not_owned" ? "You don't own that skin." : `Failed: ${r.error}`;
+    return;
+  }
+  localStorage.setItem("bp_skin", String(r.skin ?? skin));
+  status.textContent = "";
+  void refreshSkinShop();
+}
+
+async function doBuySkin(skin: number): Promise<void> {
+  const status = document.getElementById("skin-status")!;
+  if (!loadWallet()) {
+    status.textContent = "Connect a wallet first.";
+    return;
+  }
+  status.textContent = "Buying…";
+  const r = await buySkin(skin);
+  if (r.error) {
+    status.textContent = r.error === "cant_buy" ? "Not enough chips." : `Failed: ${r.error}`;
+    return;
+  }
+  localStorage.setItem("bp_skin", String(r.skin ?? skin));
+  status.textContent = "Unlocked! 🎉";
+  track("skin_bought", { skin });
+  void refreshSkinShop();
+}
+
+function openSkinShop(): void {
+  document.getElementById("skin-status")!.textContent = "";
+  document.getElementById("skin-modal")!.classList.remove("hidden");
+  void refreshSkinShop();
+}
+
 function wireMenuLinks(): void {
   document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
   document.getElementById("open-leaderboard")!.addEventListener("click", () => { lbPeriod = "all"; void openLeaderboard(); });
+  document.getElementById("open-skins")!.addEventListener("click", openSkinShop);
+  document.getElementById("skin-close")!.addEventListener("click", () =>
+    document.getElementById("skin-modal")!.classList.add("hidden"),
+  );
   document.getElementById("profile-back")!.addEventListener("click", () => showScreen("menu"));
   document.getElementById("leaderboard-back")!.addEventListener("click", () => showScreen("menu"));
   document.getElementById("lb-alltime")!.addEventListener("click", () => { lbPeriod = "all"; void openLeaderboard(); });
@@ -1285,7 +1414,7 @@ wireSettings();
 wireWallet();
 wireMenuLinks();
 wireBank();
-setProfileHandler((wallet) => void openPublicProfile(wallet));
+setProfileHandler((p) => openPlayerCard(p));
 // Finish a Phantom deeplink flow if we just returned from one (Telegram only).
 if (isTelegram) {
   void resumeTelegramWallet({
@@ -1318,10 +1447,10 @@ refreshPrice();
 setInterval(refreshPrice, 60_000);
 
 setupMenu({
-  quickplay: (c) => { track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
-  practice: (c, difficulty) => { track("play_start", { mode: "practice", difficulty }); connect(() => practiceRoom(c.name, c.skin, difficulty)); },
-  create: (c) => { track("play_start", { mode: "create", stake: c.stake, currency: c.currency }); connect(() => createRoom(c.name, c.skin, c.stake, c.currency)); },
-  join: (c, code) => { track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
+  quickplay: (c) => { practiceMode = false; track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
+  practice: (c, difficulty) => { practiceMode = true; track("play_start", { mode: "practice", difficulty }); connect(() => practiceRoom(c.name, c.skin, difficulty)); },
+  create: (c) => { practiceMode = false; track("play_start", { mode: "create", stake: c.stake, currency: c.currency }); connect(() => createRoom(c.name, c.skin, c.stake, c.currency)); },
+  join: (c, code) => { practiceMode = false; track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
   tables: () => {
     void fetchTables().then((tables) =>
       renderTables(
@@ -1401,9 +1530,14 @@ document.getElementById("game-leave")!.addEventListener("click", () => {
   if (state.roomStake > 0 && !confirm("Leave the match? You forfeit your stake.")) return;
   leaveToMenu();
 });
-// Back to lobby: stay connected, just show the waiting room. The server keeps
-// the room alive after a match, so the same players regroup for a rematch.
+// Primary result button. In practice it's "Play again" → start the next match
+// immediately (the server no longer auto-restarts). Otherwise "Back to lobby":
+// stay connected and show the waiting room so the same players regroup.
 document.getElementById("result-lobby")!.addEventListener("click", () => {
+  if (practiceMode) {
+    net.sendStart(); // server refills bots and starts; phase msg shows the game
+    return;
+  }
   showScreen("room");
   renderRoom(state);
   music("lobby");
