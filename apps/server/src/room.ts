@@ -69,6 +69,7 @@ const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 
 const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
 const RECONNECT_GRACE_MS = 60_000; // hold a dropped player's slot this long
+const REGION = process.env.REGION_ID ?? ""; // scopes crash-refund reconciliation
 // (generous: mobile browsers suspend a locked/backgrounded tab, so give it
 // plenty of time to come back before freeing the slot and ending the round)
 
@@ -81,6 +82,7 @@ export class Room {
   readonly currency: Currency; // what the stake is denominated in
   private pot = 0; // escrowed amount for the current match (base units for tokens)
   private contributors: string[] = []; // wallets that paid into the pot (for refunds)
+  private matchId = ""; // id of the current escrowed match (for crash-refund persistence)
   private lastContributors: string[] = []; // contributors of the just-settled match (for metrics)
   // Active stake-raise proposal: anyone can propose a higher stake; all humans
   // must accept within the window or it's cancelled.
@@ -500,6 +502,17 @@ export class Room {
         for (const p of this.players.values()) if (!p.isBot) p.ready = false;
         this.broadcastRoomInfo();
         return;
+      }
+      // Persist the escrow so a hard crash (SIGKILL/host) can refund it on boot.
+      if (this.pot > 0) {
+        this.matchId = `${this.id}:${Date.now()}`;
+        const amount = this.stakeBase();
+        await store.recordOpenStakes(
+          this.matchId,
+          REGION,
+          this.currency,
+          this.contributors.map((wallet) => ({ wallet, amount })),
+        );
       }
       this.startNow();
     } finally {
@@ -986,6 +999,10 @@ export class Room {
     this.contributors = [];
     this.pot = 0;
     for (const wallet of owed) await this.adjustBalance(wallet, refund);
+    if (this.matchId) {
+      void store.clearOpenStakes(this.matchId);
+      this.matchId = "";
+    }
   }
 
   /** Pay the pot to the winner (minus the house rake); refund contributors on a
@@ -1020,6 +1037,10 @@ export class Room {
     }
     this.pot = 0;
     this.contributors = [];
+    if (this.matchId) {
+      void store.clearOpenStakes(this.matchId); // settled — no longer at risk
+      this.matchId = "";
+    }
   }
 
   /** First blood (first player-on-player wound of the match): big callout + an

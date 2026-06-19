@@ -93,6 +93,19 @@ export interface ProfileStore {
   /** Credit a referral reward: add `amount` token base units to both the live
    *  balance and the lifetime `referral_earned` counter. */
   creditReferral(wallet: string, amount: number): Promise<void>;
+  /** Persist the stakes escrowed for a live staked match, so a hard crash
+   *  (SIGKILL/host failure) can refund them on the next boot. */
+  recordOpenStakes(
+    matchId: string,
+    region: string,
+    currency: number,
+    entries: Array<{ wallet: string; amount: number }>,
+  ): Promise<void>;
+  /** Clear a match's open stakes once it has settled or been refunded. */
+  clearOpenStakes(matchId: string): Promise<void>;
+  /** Boot reconciliation: atomically take (delete + return) all open stakes for
+   *  this region — the caller refunds each. Returns [] if none. */
+  takeOpenStakes(region: string): Promise<Array<{ wallet: string; amount: number; currency: number }>>;
   /** Referral dashboard data for one wallet: direct referrals, lifetime earned,
    *  and how many sit at each of the 5 levels below this wallet. */
   referralStats(wallet: string): Promise<{ direct: number; earned: number; network: number[] }>;
@@ -278,6 +291,24 @@ class InMemoryStore implements ProfileStore {
     this.map.set(wallet, p);
     p.token_balance += amount;
     p.referral_earned += amount;
+  }
+
+  private openStakes = new Map<string, Array<{ wallet: string; amount: number; currency: number }>>();
+  async recordOpenStakes(
+    matchId: string,
+    _region: string,
+    currency: number,
+    entries: Array<{ wallet: string; amount: number }>,
+  ): Promise<void> {
+    if (entries.length) this.openStakes.set(matchId, entries.map((e) => ({ ...e, currency })));
+  }
+  async clearOpenStakes(matchId: string): Promise<void> {
+    this.openStakes.delete(matchId);
+  }
+  async takeOpenStakes(_region: string): Promise<Array<{ wallet: string; amount: number; currency: number }>> {
+    const all = [...this.openStakes.values()].flat();
+    this.openStakes.clear();
+    return all;
   }
 
   async referralStats(wallet: string): Promise<{ direct: number; earned: number; network: number[] }> {
@@ -570,6 +601,14 @@ class SupabaseStore implements ProfileStore {
     }
   }
 
+  // Open-stakes persistence is a Postgres-only feature; production requires
+  // Postgres (preflight), so these are no-ops here.
+  async recordOpenStakes(): Promise<void> {}
+  async clearOpenStakes(): Promise<void> {}
+  async takeOpenStakes(): Promise<Array<{ wallet: string; amount: number; currency: number }>> {
+    return [];
+  }
+
   async referralStats(wallet: string): Promise<{ direct: number; earned: number; network: number[] }> {
     const network = [0, 0, 0, 0, 0];
     let earned = 0;
@@ -719,6 +758,19 @@ class PostgresStore implements ProfileStore {
         amount bigint not null,
         at timestamptz not null default now()
       )`);
+    // In-flight escrow: stakes collected for a live match but not yet settled.
+    // Refunded on boot if a hard crash left them behind (see takeOpenStakes).
+    await this.pool.query(`
+      create table if not exists open_stakes (
+        match_id text not null,
+        wallet text not null,
+        amount bigint not null,
+        currency int not null default 0,
+        region text not null default '',
+        at timestamptz not null default now()
+      )`);
+    await this.pool.query(`create index if not exists open_stakes_region on open_stakes (region)`);
+    await this.pool.query(`create index if not exists open_stakes_match on open_stakes (match_id)`);
   }
 
   async recordMatch(results: MatchResult[]): Promise<void> {
@@ -976,6 +1028,56 @@ class PostgresStore implements ProfileStore {
       );
     } catch (e) {
       console.error("[store] pg creditReferral failed", e);
+    }
+  }
+
+  async recordOpenStakes(
+    matchId: string,
+    region: string,
+    currency: number,
+    entries: Array<{ wallet: string; amount: number }>,
+  ): Promise<void> {
+    if (!entries.length) return;
+    try {
+      await this.ready;
+      // One multi-row insert.
+      const vals: string[] = [];
+      const args: unknown[] = [];
+      let i = 1;
+      for (const e of entries) {
+        vals.push(`($${i++}, $${i++}, $${i++}, $${i++}, $${i++})`);
+        args.push(matchId, e.wallet, e.amount, currency, region);
+      }
+      await this.pool.query(
+        `insert into open_stakes (match_id, wallet, amount, currency, region) values ${vals.join(",")}`,
+        args,
+      );
+    } catch (e) {
+      console.error("[store] pg recordOpenStakes failed", e);
+    }
+  }
+
+  async clearOpenStakes(matchId: string): Promise<void> {
+    try {
+      await this.ready;
+      await this.pool.query(`delete from open_stakes where match_id = $1`, [matchId]);
+    } catch (e) {
+      console.error("[store] pg clearOpenStakes failed", e);
+    }
+  }
+
+  async takeOpenStakes(region: string): Promise<Array<{ wallet: string; amount: number; currency: number }>> {
+    try {
+      await this.ready;
+      // Atomic delete+return so two boots can't double-refund the same row.
+      const r = await this.pool.query(
+        `delete from open_stakes where region = $1 returning wallet, amount, currency`,
+        [region],
+      );
+      return r.rows.map((row) => ({ wallet: row.wallet, amount: Number(row.amount), currency: Number(row.currency) }));
+    } catch (e) {
+      console.error("[store] pg takeOpenStakes failed", e);
+      return [];
     }
   }
 

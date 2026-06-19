@@ -93,6 +93,26 @@ process.on("SIGINT", () => void gracefulShutdown("SIGINT"));
 const mm = new Matchmaker();
 mm.start();
 
+// Boot reconciliation: refund any stakes left escrowed by a previous run that
+// died hard (SIGKILL/host crash) before it could settle. Atomic take per row.
+void (async function reconcileOpenStakes(): Promise<void> {
+  try {
+    const stuck = await store.takeOpenStakes(process.env.REGION_ID ?? "");
+    if (!stuck.length) return;
+    let refunded = 0;
+    for (const s of stuck) {
+      const r =
+        s.currency === Currency.TOKEN
+          ? await store.adjustToken(s.wallet, s.amount)
+          : await store.adjustChips(s.wallet, s.amount);
+      if (r !== null) refunded++;
+    }
+    alert(`boot: refunded ${refunded}/${stuck.length} stranded stake(s) from a previous crash`);
+  } catch (e) {
+    console.error("[reconcile] open-stakes refund failed", e);
+  }
+})();
+
 interface SocketData {
   token: string;
   reconnect: string;
