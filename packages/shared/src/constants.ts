@@ -6,6 +6,14 @@ export const PROTOCOL_VERSION = 14;
 export const TICK_RATE = 60; // Hz — finest/most responsive base motion (2x server cost)
 export const TICK_MS = 1000 / TICK_RATE; // ~16.7
 
+// Network snapshot rate: the server SIMULATES at TICK_RATE but only BROADCASTS
+// world snapshots this often. The client interpolates between them, so 30Hz is
+// visually smooth while halving bandwidth, packet rate (battery/jitter on
+// mobile) and broadcast CPU (≈2x more rooms per box). Events (bombs, kills,
+// explosions) are still sent immediately, not on this cadence.
+export const SNAPSHOT_RATE = 30; // Hz
+export const SNAPSHOT_DIV = Math.max(1, Math.round(TICK_RATE / SNAPSHOT_RATE));
+
 export const GRID_W = 17;
 export const GRID_H = 11;
 export const GRID_SIZE = GRID_W * GRID_H; // 187 tiles

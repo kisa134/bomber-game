@@ -1,5 +1,6 @@
 import {
   TICK_MS,
+  SNAPSHOT_DIV,
   GRID_W,
   GRID_H,
   GRID_SIZE,
@@ -428,8 +429,14 @@ export class Room {
         break;
     }
 
-    if (this.phase !== MatchPhase.LOBBY) this.broadcastSnapshot();
+    // Broadcast world snapshots at SNAPSHOT_RATE (every Nth sim tick), not every
+    // tick — the client interpolates between them. Events were already sent live.
+    if (this.phase !== MatchPhase.LOBBY) {
+      this.netTick++;
+      if (this.netTick % SNAPSHOT_DIV === 0) this.broadcastSnapshot();
+    }
   }
+  private netTick = 0;
 
   private tickLobby(): void {
     // Expire a stake proposal that nobody fully accepted in time.
