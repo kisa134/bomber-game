@@ -996,6 +996,16 @@ function openWalletModal(): void {
   document.getElementById("wc-solflare")!.onclick = () => {
     window.location.href = `https://solflare.com/ul/v1/browse/${enc}?ref=${ref}`;
   };
+  document.getElementById("wc-backpack")!.onclick = () => {
+    window.location.href = `https://backpack.app/ul/v1/browse/${enc}?ref=${ref}`;
+  };
+  document.getElementById("wc-okx")!.onclick = () => {
+    const deeplink = `okx://wallet/dapp/url?dappUrl=${enc}`;
+    window.location.href = `https://web3.okx.com/download?deeplink=${encodeURIComponent(deeplink)}`;
+  };
+  document.getElementById("wc-coinbase")!.onclick = () => {
+    window.location.href = `https://go.cb-w.com/dapp?cb_url=${enc}`;
+  };
 
   modal.classList.remove("hidden");
 }
