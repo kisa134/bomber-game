@@ -1,6 +1,7 @@
 import { GRID_W, GRID_H, TileType, BOMB_TIMER_MS, EXPLOSION_LIFETIME_MS, START_LIVES } from "../net/protocol.js";
 import type { RenderView } from "./state.js";
 import type { Assets } from "./assets.js";
+import { ASSET_VER } from "./assets.js";
 
 export const PLAYER_COLORS = ["#ff5555", "#4aa3ff", "#5fd96a", "#ffcc33"];
 export const SKIN_EMOJI = ["🐕", "🐸", "🦊", "😐"];
@@ -12,7 +13,7 @@ export function skinAvatar(skin: number, color?: string): HTMLElement {
   wrap.className = "avatar";
   if (color) wrap.style.boxShadow = `inset 0 0 0 2px ${color}`;
   const img = document.createElement("img");
-  img.src = `/sprites/skin_${skin}.webp`;
+  img.src = `/sprites/skin_${skin}.webp?v=${ASSET_VER}`;
   img.alt = SKIN_EMOJI[skin % SKIN_EMOJI.length];
   img.onerror = () => {
     const s = document.createElement("span");
