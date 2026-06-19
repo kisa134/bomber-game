@@ -66,7 +66,7 @@
 
           <input id="nickname" maxlength="16" placeholder="your nickname" autocomplete="off" />
 
-          <button id="open-play" class="primary big">⚡ PLAY</button>
+          <button id="open-play" class="primary big">🌐 PLAY ONLINE</button>
 
           <div class="menu-links">
             <button id="open-profile" class="link">👤 Profile</button>
@@ -125,10 +125,14 @@
         </div>
       </div>
 
-      <!-- Public tables browser -->
+      <!-- Public tables browser = the main "Play online" lobby select -->
       <div id="tables-modal" class="modal hidden">
         <div class="modal-card">
-          <h3>🔎 Public tables</h3>
+          <h3>🎮 Play online — pick a lobby</h3>
+          <div class="tables-actions">
+            <button id="tables-quick" class="primary">⚡ Quick match</button>
+            <button id="tables-new">➕ Create / options</button>
+          </div>
           <div id="tables-sort" class="tables-sort"></div>
           <div id="tables-filter" class="tables-filter hidden"></div>
           <div id="tables-list" class="tables-list"></div>

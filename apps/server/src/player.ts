@@ -47,6 +47,7 @@ export class Player {
   wins: number = 0; // matches won in this room's series
   lastInputSeq: number = 0;
   lastMoveAtMs: number = 0; // for idle-kick detection
+  lastEmoteAtMs: number = 0; // for emote rate-limit (anti-spam)
   /** Tick-stamped input buffer for rollback: server tick -> intended direction. */
   inputs: Map<number, Direction> = new Map();
 

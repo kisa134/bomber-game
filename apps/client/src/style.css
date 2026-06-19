@@ -436,6 +436,14 @@ button.ghost {
 }
 
 /* Public tables filter chips */
+.tables-actions {
+  display: flex;
+  gap: 8px;
+}
+.tables-actions button {
+  flex: 1 1 0;
+  width: auto;
+}
 .tables-filter,
 .tables-sort {
   display: flex;
@@ -702,6 +710,10 @@ button.ghost {
   background: var(--panel);
   border: 1px solid var(--border);
   cursor: pointer;
+}
+.emote-btn.cooling {
+  opacity: 0.4;
+  pointer-events: none;
 }
 .emote-btn:active {
   transform: scale(0.9);

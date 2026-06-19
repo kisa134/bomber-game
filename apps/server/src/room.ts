@@ -70,6 +70,7 @@ const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
 const RECONNECT_GRACE_MS = 60_000; // hold a dropped player's slot this long
 const REGION = process.env.REGION_ID ?? ""; // scopes crash-refund reconciliation
+const EMOTE_COOLDOWN_MS = 1500; // per-player anti-spam for reactions
 // (generous: mobile browsers suspend a locked/backgrounded tab, so give it
 // plenty of time to come back before freeing the slot and ending the round)
 
@@ -373,10 +374,14 @@ export class Room {
     this.broadcastRoomInfo();
   }
 
-  /** Broadcast a quick reaction to everyone in the room. */
+  /** Broadcast a quick reaction to everyone in the room (rate-limited). */
   emote(id: number, emote: number): void {
-    if (!this.players.has(id)) return;
+    const p = this.players.get(id);
+    if (!p) return;
     if (emote < 0 || emote > 31) return;
+    const now = Date.now();
+    if (now - p.lastEmoteAtMs < EMOTE_COOLDOWN_MS) return; // anti-spam
+    p.lastEmoteAtMs = now;
     this.broadcast(encodeEmoteEvent(id, emote));
   }
 

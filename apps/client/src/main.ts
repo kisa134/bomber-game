@@ -1921,8 +1921,23 @@ setupMenu({
 function closePlay(): void {
   document.getElementById("play-modal")!.classList.add("hidden");
 }
+// PLAY lands straight on the lobby browser (see open rooms + join in one tap).
 document.getElementById("open-play")!.addEventListener("click", () => {
-  document.getElementById("stake-group")?.classList.add("hidden"); // start collapsed
+  document.getElementById("tables-modal")!.classList.remove("hidden");
+  void loadTables();
+});
+// Quick match (free) — one tap from the browser.
+document.getElementById("tables-quick")!.addEventListener("click", () => {
+  document.getElementById("tables-modal")!.classList.add("hidden");
+  const name = (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
+  practiceMode = false;
+  track("play_start", { mode: "quickplay", stake: 0 });
+  void connect(() => quickplay(name, Math.floor(Math.random() * 4), 0));
+});
+// Create / Quick / Practice options live in the play hub.
+document.getElementById("tables-new")!.addEventListener("click", () => {
+  document.getElementById("tables-modal")!.classList.add("hidden");
+  document.getElementById("stake-group")?.classList.add("hidden");
   document.getElementById("play-modal")!.classList.remove("hidden");
 });
 document.getElementById("play-close")!.addEventListener("click", closePlay);
@@ -2020,6 +2035,7 @@ document.getElementById("propose-stake")?.addEventListener("click", () => {
 });
 
 // Build both emote bars (lobby + in-game) from the shared EMOTES list.
+let emoteReadyAt = 0; // client-side cooldown (matches the server's 1.5s anti-spam)
 function buildEmoteBar(id: string): void {
   const bar = document.getElementById(id);
   if (!bar) return;
@@ -2028,7 +2044,19 @@ function buildEmoteBar(id: string): void {
     const b = document.createElement("button");
     b.className = "emote-btn";
     b.textContent = e;
-    b.addEventListener("click", () => net.sendEmote(i));
+    b.addEventListener("click", () => {
+      if (performance.now() < emoteReadyAt) return; // on cooldown
+      emoteReadyAt = performance.now() + 1500;
+      net.sendEmote(i);
+      // Brief disabled state on all emote buttons for feedback.
+      document.querySelectorAll<HTMLButtonElement>(".emote-btn").forEach((btn) => {
+        btn.classList.add("cooling");
+      });
+      setTimeout(
+        () => document.querySelectorAll(".emote-btn").forEach((btn) => btn.classList.remove("cooling")),
+        1500,
+      );
+    });
     bar.appendChild(b);
   });
 }
