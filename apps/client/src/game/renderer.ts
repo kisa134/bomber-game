@@ -233,7 +233,7 @@ export class Renderer {
   private scaled = new Map<string, HTMLCanvasElement>();
   private static readonly TILE_SPRITES = [
     "hard", "soft", "soft_mobile", "bomb",
-    "explosion0", "explosion1", "explosion2", "explosion",
+    "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
   private prescale(): void {
@@ -1142,7 +1142,7 @@ export class Renderer {
         // (e.g. the grid freezes when the match ends) leaves the last blast frame
         // frozen on the board. Just show the floor underneath.
         if (now - start >= EXPLOSION_LIFETIME_MS) break;
-        const frame = Math.min(2, Math.floor((now - start) / (EXPLOSION_LIFETIME_MS / 3)));
+        const frame = Math.min(4, Math.floor((now - start) / (EXPLOSION_LIFETIME_MS / 5)));
         const drawn =
           this.drawTileSprite(`explosion${frame}`, px, py) || this.drawTileSprite("explosion", px, py);
         if (!drawn) this.drawFire(px, py);

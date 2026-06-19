@@ -13,11 +13,13 @@ export const SPRITE_FILES: Record<string, string> = {
   soft: "/sprites/soft",
   soft_mobile: "/sprites/soft_mobile", // meme crate used on phones (lowFx)
   bomb: "/sprites/bomb",
-  // Explosion animation frames (flash -> expanding core -> max). A single
-  // explosion is used as a fallback if frames are absent.
+  // Explosion animation frames (ignite -> expand -> peak -> collapse -> fade).
+  // A single explosion is used as a fallback if frames are absent.
   explosion0: "/sprites/explosion_0",
   explosion1: "/sprites/explosion_1",
   explosion2: "/sprites/explosion_2",
+  explosion3: "/sprites/explosion_3",
+  explosion4: "/sprites/explosion_4",
   explosion: "/sprites/explosion",
   pu_bomb: "/sprites/powerup_bomb",
   pu_fire: "/sprites/powerup_fire",
