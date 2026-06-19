@@ -51,6 +51,14 @@ for (let s = 0; s < 4; s++) {
   }
 }
 
+// Action-state frames (optional): skin<id>_<place_bomb|hurt|victory>. Missing
+// ones fall back to the walk/static sprite, so this is purely additive.
+for (let s = 0; s < 4; s++) {
+  for (const st of ["place_bomb", "hurt", "victory"]) {
+    SPRITE_FILES[`skin${s}_${st}`] = `/sprites/skin_${s}_${st}`;
+  }
+}
+
 // One-shot sound effects (extension-agnostic: .mp3/.ogg/.wav all work).
 // Map sfx key -> base filename (no extension).
 const SOUND_BASE: Record<string, string> = {

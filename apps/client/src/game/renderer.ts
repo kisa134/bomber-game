@@ -110,6 +110,9 @@ export class Renderer {
   private facing = new Map<number, "down" | "up" | "left" | "right">();
   private deadAt = new Map<number, number>();
   private emotes = new Map<number, { e: string; until: number }>();
+  private placeBombUntil = new Map<number, number>(); // transient place-bomb pose
+  private hurtUntil = new Map<number, number>(); // transient hurt pose
+  private victorId = -1; // winner shows the victory pose after a match ends
   private matchStartMs = 0; // when PLAYING began — drives the start-of-match glow
   private particles: Particle[] = [];
   private decals: Decal[] = [];
@@ -213,6 +216,21 @@ export class Renderer {
    *  for a short window — long enough to find yourself, then it fades. */
   onMatchStart(): void {
     this.matchStartMs = performance.now();
+    this.placeBombUntil.clear();
+    this.hurtUntil.clear();
+    this.victorId = -1;
+  }
+
+  /** Transient action poses (fall back to the walk frame if the skin has no
+   *  state sprite). place-bomb + hurt auto-expire; victory holds until reset. */
+  setPlaceBomb(playerId: number): void {
+    this.placeBombUntil.set(playerId, performance.now() + 360);
+  }
+  setHurt(playerId: number): void {
+    this.hurtUntil.set(playerId, performance.now() + 450);
+  }
+  setVictory(playerId: number): void {
+    this.victorId = playerId;
   }
 
   /** Show a reaction bubble above a player for a short time. */
@@ -586,9 +604,21 @@ export class Renderer {
       const sk = this.skinOf(p.id);
       const frame = moving && p.alive ? WALK_SEQ[Math.floor(now / 130) % WALK_SEQ.length] : 0;
       const dirName = face === "up" ? "up" : face === "down" ? "down" : "side";
-      const flip = face === "left";
-      // Directional walk frame -> static skin -> emoji.
-      const img = this.assets?.img(`skin${sk}_${dirName}_${frame}`) ?? this.assets?.img(`skin${sk}`);
+      let flip = face === "left";
+      // Action-state pose overrides the walk frame when the skin has that sprite
+      // (front-facing, so no mirror). Priority: victory > place-bomb > hurt.
+      let stateImg: HTMLImageElement | null = null;
+      if (p.alive) {
+        const stateKey =
+          this.victorId === p.id ? "victory"
+          : (this.placeBombUntil.get(p.id) ?? 0) > now ? "place_bomb"
+          : (this.hurtUntil.get(p.id) ?? 0) > now ? "hurt"
+          : null;
+        if (stateKey) stateImg = this.assets?.img(`skin${sk}_${stateKey}`) ?? null;
+      }
+      if (stateImg) flip = false;
+      // State pose -> directional walk frame -> static skin -> emoji.
+      const img = stateImg ?? this.assets?.img(`skin${sk}_${dirName}_${frame}`) ?? this.assets?.img(`skin${sk}`);
 
       if (img) {
         const s = t * 0.92 * scale;

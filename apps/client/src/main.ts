@@ -142,6 +142,7 @@ let toastUntil = 0;
 let hudSig = "";
 let prevMyLives = -1; // track HP to flash on damage
 const prevLives = new Map<number, number>(); // per-player HP, to sfx wounds
+let prevBombIds = new Set<number>(); // bomb ids last seen, to detect placements
 
 const inGame = (p: MatchPhase) =>
   p === MatchPhase.COUNTDOWN || p === MatchPhase.PLAYING || p === MatchPhase.SUDDEN_DEATH;
@@ -310,15 +311,21 @@ net.onMessage = (msg) => {
         if (me.alive && prevMyLives >= 0 && me.lives < prevMyLives) flashHit();
         prevMyLives = me.lives;
       }
-      // Wound cue for ANY player that lost a life but survived (death is its own
-      // event). Two interchangeable hurt sounds, picked at random for variety.
+      // Wound cue + hurt pose for ANY player that lost a life but survived
+      // (death is its own event). Two interchangeable hurt sounds for variety.
       for (const p of msg.players) {
         const prev = prevLives.get(p.id);
         if (prev !== undefined && p.alive && p.lives > 0 && p.lives < prev) {
           assets.play(Math.random() < 0.5 ? "wound" : "wound2");
+          renderer?.setHurt(p.id);
         }
         prevLives.set(p.id, p.lives);
       }
+      // Place-bomb pose: trigger for the owner of any newly-appeared bomb.
+      for (const b of msg.bombs) {
+        if (!prevBombIds.has(b.id)) renderer?.setPlaceBomb(b.ownerId);
+      }
+      prevBombIds = new Set(msg.bombs.map((b) => b.id));
       // Soft-block break sound (derived from the reconstructed grid).
       let soft = 0;
       for (let i = 0; i < state.grid.length; i++) if (state.grid[i] === TileType.SOFT) soft++;
@@ -430,6 +437,7 @@ function enterGame(): void {
   sdWarned = false;
   prevMyLives = -1;
   prevLives.clear();
+  prevBombIds.clear();
   myKillTimes = [];
   calloutEl.classList.add("hidden");
   spectatorEl.classList.add("hidden");
@@ -444,6 +452,8 @@ function enterGame(): void {
 function announceResult(winnerId: number): void {
   const meFrags = state.latest()?.players.find((p) => p.id === state.myId)?.frags ?? 0;
   track("match_ended", { won: winnerId === state.myId, draw: winnerId === DRAW_WINNER_ID, frags: meFrags });
+  // Winner strikes the victory pose on the battlefield during the end linger.
+  if (winnerId !== DRAW_WINNER_ID) renderer?.setVictory(winnerId);
   let title: string;
   if (winnerId === DRAW_WINNER_ID) {
     title = "🤝 Draw!";
@@ -547,6 +557,7 @@ function renderResultBoard(winnerId: number): void {
 input.onBomb = () => {
   net.sendBomb();
   assets.play("place");
+  renderer?.setPlaceBomb(state.myId); // instant local feedback (snapshot covers remotes)
 };
 
 // --- juice / feedback -----------------------------------------------------
