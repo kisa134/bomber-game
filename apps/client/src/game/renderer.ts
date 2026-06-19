@@ -121,6 +121,11 @@ export class Renderer {
   private firstBloodAt = 0;
   private fbCanvas: HTMLCanvasElement | null = null; // cached pixel "FIRST BLOOD" text
   private prevGrid: Uint8Array | null = null;
+  private burn = new Map<number, number>(); // cell index -> scorch intensity (accumulates with blasts)
+  private hardDmg = new Map<number, number>(); // hard-block cell index -> crack level 0..3
+  private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
+  private scorch: HTMLCanvasElement | null = null; // cached burnt-ground overlay
+  private scorchDirty = false;
   private lastDust = new Map<number, number>();
   private lastTrample = new Map<number, number>();
   private shakeUntil = 0;
@@ -275,6 +280,11 @@ export class Renderer {
     this.placeBombUntil.clear();
     this.hurtUntil.clear();
     this.victorId = -1;
+    this.burn.clear();
+    this.hardDmg.clear();
+    this.shatters.length = 0;
+    this.scorch = null;
+    this.scorchDirty = false;
   }
 
   /** Transient action poses (fall back to the walk frame if the skin has no
@@ -328,8 +338,26 @@ export class Renderer {
    *  flying burned-dollar $ icons. Plus a scorch decal + a light shake. No white
    *  flashes (those were seizure-y). */
   onExplosion(cells: Array<{ x: number; y: number }>): void {
-    if (this.lowFx) return; // phones: explosion tiles still render; skip the VFX
     const now = performance.now();
+    // Accumulate scorched ground (per cell) + crack damage on adjacent hard
+    // blocks. Cheap and useful on phones too, so do it before the lowFx bail-out.
+    const NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    for (const c of cells) {
+      const idx = c.y * GRID_W + c.x;
+      this.burn.set(idx, Math.min(6, (this.burn.get(idx) ?? 0) + 1));
+      this.scorchDirty = true;
+      if (this.prevGrid) {
+        for (const [dx, dy] of NB) {
+          const nx = c.x + dx, ny = c.y + dy;
+          if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
+          const ni = ny * GRID_W + nx;
+          if (this.prevGrid[ni] === TileType.HARD) {
+            this.hardDmg.set(ni, Math.min(3, (this.hardDmg.get(ni) ?? 0) + 1));
+          }
+        }
+      }
+    }
+    if (this.lowFx) return; // phones: explosion tiles still render; skip the heavy VFX
     for (const c of cells) {
       const cx = c.x + 0.5;
       const cy = c.y + 0.5;
@@ -477,6 +505,9 @@ export class Renderer {
     // the floor sprite has finished loading (preload is async).
     if (this.lowFx && !this.floorSpriteBaked && this.assets?.img("floor")) this.buildFloor();
     if (this.floor) ctx.drawImage(this.floor, 0, 0, W, H);
+    // Scorched ground: burnt patches that build up where blasts happened.
+    if (this.scorchDirty || (this.burn.size && !this.scorch)) this.buildScorch(W, H);
+    if (this.scorch) ctx.drawImage(this.scorch, 0, 0, W, H);
 
     if (view.grid) {
       // Detect soft-block breaks (SOFT -> not SOFT) to spray debris.
@@ -484,6 +515,7 @@ export class Renderer {
         for (let i = 0; i < view.grid.length; i++) {
           if (this.prevGrid[i] === TileType.SOFT && view.grid[i] !== TileType.SOFT) {
             this.emitDebris(i % GRID_W, (i / GRID_W) | 0);
+            this.shatters.push({ x: i % GRID_W, y: (i / GRID_W) | 0, born: now });
           }
         }
       }
@@ -508,6 +540,7 @@ export class Renderer {
     // front tips overlap them for a layered 3D look. (Phones use the flat sprite.)
     if (!this.lowFx) this.drawGrassOverlay(view, now);
 
+    this.drawShatters(now); // crate pieces flying apart from just-broken soft blocks
     this.drawDecals(now);
     if (!this.lowFx) this.drawWind(now, W, H);
     this.drawPowerups(view, now); // after blocks so their shadows never cover relics
@@ -798,6 +831,94 @@ export class Renderer {
         color: ["#8a5a3c", "#a06b48", "#6e4a30", "#b5743f"][i % 4],
       });
     }
+  }
+
+  /** Rebuild the burnt-ground overlay: dark pixel scorch per cell, denser and
+   *  darker the more blasts that cell has seen. Cached (rebuilt only when the
+   *  burn map changes), so each frame is just one blit. */
+  private buildScorch(W: number, H: number): void {
+    this.scorchDirty = false;
+    if (!this.burn.size) { this.scorch = null; return; }
+    const t = this.tile;
+    const cv = this.scorch && this.scorch.width === W && this.scorch.height === H ? this.scorch : document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d");
+    if (!g) return;
+    g.clearRect(0, 0, W, H);
+    const pu = Math.max(2, Math.round(t / 8));
+    for (const [idx, lvl] of this.burn) {
+      const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
+      const cover = Math.min(0.96, 0.42 + lvl * 0.11); // more blasts -> fuller burn
+      const a = Math.min(0.74, 0.22 + lvl * 0.1); // and darker
+      let h = (idx * 2654435761) >>> 0;
+      for (let gy = 0; gy < t; gy += pu) {
+        for (let gx = 0; gx < t; gx += pu) {
+          h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
+          if ((h & 1023) / 1023 > cover) continue;
+          const d = 8 + (h & 15);
+          g.globalAlpha = a;
+          g.fillStyle = `rgb(${d},${Math.max(0, d - 2)},${Math.max(0, d - 4)})`;
+          g.fillRect(ox + gx, oy + gy, pu, pu);
+        }
+      }
+    }
+    g.globalAlpha = 1;
+    this.scorch = cv;
+  }
+
+  /** Procedural crack overlay for a damaged hard block (level 1..3): jagged dark
+   *  pixel cracks plus a few knocked-off chips at higher damage. */
+  private drawCracks(px: number, py: number, index: number): void {
+    const lvl = this.hardDmg.get(index);
+    if (!lvl) return;
+    const ctx = this.ctx, t = this.tile;
+    const pu = Math.max(2, Math.round(t / 12));
+    let h = (index * 2654435761) >>> 0;
+    const rnd = (): number => {
+      h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
+      return (h & 0xffff) / 0xffff;
+    };
+    ctx.fillStyle = "rgba(14,11,9,0.85)";
+    for (let c = 0; c < lvl + 1; c++) {
+      let x = px + rnd() * t, y = py + rnd() * t;
+      const steps = 3 + Math.floor(rnd() * 3);
+      for (let s = 0; s < steps; s++) {
+        ctx.fillRect(Math.round(x / pu) * pu, Math.round(y / pu) * pu, pu, pu);
+        x = Math.max(px, Math.min(px + t - pu, x + (rnd() - 0.5) * t * 0.45));
+        y = Math.max(py, Math.min(py + t - pu, y + (rnd() - 0.5) * t * 0.45));
+      }
+    }
+    if (lvl >= 2) {
+      ctx.fillStyle = "rgba(190,180,168,0.45)"; // chipped highlights
+      for (let k = 0; k < lvl; k++) ctx.fillRect(px + rnd() * (t - pu), py + rnd() * (t - pu), pu, pu);
+    }
+  }
+
+  /** Fast crate-shatter: the soft sprite splits into four quarters that fly to
+   *  the corners and fade over ~200ms when a soft block is destroyed. */
+  private drawShatters(now: number): void {
+    if (!this.shatters.length) return;
+    const ctx = this.ctx, t = this.tile;
+    const img = this.assets?.img(this.lowFx ? "soft_mobile" : "soft") ?? this.assets?.img("soft");
+    const quads = [[-1, -1], [1, -1], [-1, 1], [1, 1]];
+    for (let i = this.shatters.length - 1; i >= 0; i--) {
+      const sh = this.shatters[i];
+      const k = (now - sh.born) / 200;
+      if (k >= 1) { this.shatters.splice(i, 1); continue; }
+      if (!img) continue;
+      const iw = img.width, ih = img.height;
+      const off = k * t * 0.55;
+      const px = sh.x * t, py = sh.y * t;
+      ctx.globalAlpha = 1 - k;
+      for (let q = 0; q < 4; q++) {
+        const sx = q % 2 === 0 ? 0 : iw / 2;
+        const sy = q < 2 ? 0 : ih / 2;
+        const dx = px + (q % 2 === 0 ? 0 : t / 2) + quads[q][0] * off;
+        const dy = py + (q < 2 ? 0 : t / 2) + quads[q][1] * off;
+        ctx.drawImage(img, sx, sy, iw / 2, ih / 2, dx, dy, t / 2, t / 2);
+      }
+    }
+    ctx.globalAlpha = 1;
   }
 
   /** Pixelated blob shadow — a blocky ellipse made of squares on a pixel grid,
@@ -1125,6 +1246,7 @@ export class Renderer {
       case TileType.HARD:
         this.drawShadow(px + t / 2, py + t * 0.95, t * 0.42, t * 0.1, 0.3);
         this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
+        if (this.hardDmg.size) this.drawCracks(px, py, index);
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       case TileType.SOFT:
