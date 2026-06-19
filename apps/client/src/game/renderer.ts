@@ -223,6 +223,41 @@ export class Renderer {
         else this.drawBaseGround(g, x * t, y * t, x, y); // desktop: blades drawn live
       }
     }
+    this.prescale();
+  }
+
+  // Per-tile sprites pre-scaled to the exact tile size ONCE (on resize), so the
+  // main loop blits them 1:1 every frame instead of re-downscaling a big source
+  // image per block per frame — the key mobile/iOS perf win.
+  private scaled = new Map<string, HTMLCanvasElement>();
+  private static readonly TILE_SPRITES = [
+    "hard", "soft", "soft_mobile", "bomb",
+    "explosion0", "explosion1", "explosion2", "explosion",
+    "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
+  ];
+  private prescale(): void {
+    if (!this.assets) return;
+    const t = this.tile;
+    if (t <= 0) return;
+    const W = Math.max(1, Math.round(t * this.dpr));
+    this.scaled.clear();
+    for (const k of Renderer.TILE_SPRITES) {
+      const img = this.assets.img(k);
+      if (!img) continue;
+      const c = document.createElement("canvas");
+      c.width = W;
+      c.height = W;
+      const g = c.getContext("2d");
+      if (!g) continue;
+      g.imageSmoothingEnabled = true; // smooth ONCE here; per-frame blit is then 1:1
+      g.drawImage(img, 0, 0, W, W);
+      this.scaled.set(k, c);
+    }
+  }
+
+  /** Pre-scaled tile sprite for `key` (1:1 blit), or the raw image, or null. */
+  private sprite(key: string): CanvasImageSource | null {
+    return this.scaled.get(key) ?? this.assets?.img(key) ?? null;
   }
 
   // -- VFX API ---------------------------------------------------------------
@@ -491,7 +526,7 @@ export class Renderer {
         ctx.arc(cx, cy, glow, 0, Math.PI * 2);
         ctx.fill();
       }
-      const img = this.assets?.img("bomb");
+      const img = this.sprite("bomb");
       if (img) {
         const s = t * 0.9 * (0.95 + 0.05 * beat) * pulse;
         ctx.drawImage(img, cx - s / 2, cy - s / 2, s, s);
@@ -1097,7 +1132,7 @@ export class Renderer {
 
       // Phones: just draw the flat relic sprite — no glow, specular or bob.
       if (this.lowFx) {
-        const img = key ? this.assets?.img(key) : null;
+        const img = key ? this.sprite(key) : null;
         if (img) {
           ctx.drawImage(img, px, py, t, t);
         } else if (icon) {
@@ -1125,7 +1160,7 @@ export class Renderer {
       ctx.restore();
 
       // The relic itself, bobbing.
-      const img = key ? this.assets?.img(key) : null;
+      const img = key ? this.sprite(key) : null;
       if (img) {
         ctx.drawImage(img, px, py + bob, t, t);
       } else if (icon) {
@@ -1154,7 +1189,7 @@ export class Renderer {
   }
 
   private drawTileSprite(key: string, px: number, py: number): boolean {
-    const img = this.assets?.img(key);
+    const img = this.sprite(key); // pre-scaled to tile size -> 1:1 blit
     if (!img) return false;
     this.ctx.drawImage(img, px, py, this.tile, this.tile);
     return true;
