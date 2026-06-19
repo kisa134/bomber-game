@@ -949,13 +949,40 @@ button.ghost {
     background: none;
     border-radius: 0;
   }
-  #joy-base {
-    width: 82px;
-    height: 82px;
+  /* Faint static arrow-cross hint, lower-left, where the thumb naturally sits.
+     Purely visual ("drag any direction to move") — the whole left half is the
+     drag zone. */
+  #joystick #move-hint {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    position: absolute;
+    left: calc(22px + env(safe-area-inset-left));
+    bottom: calc(34px + env(safe-area-inset-bottom));
+    width: 96px;
+    height: 96px;
+    opacity: 0.28;
+    pointer-events: none;
+    color: #fff;
+    font-size: 1.1rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
   }
-  #joy-thumb {
-    width: 44px;
-    height: 44px;
+  #move-hint .mh {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #move-hint .up {
+    grid-area: 1 / 2;
+  }
+  #move-hint .left {
+    grid-area: 2 / 1;
+  }
+  #move-hint .right {
+    grid-area: 2 / 3;
+  }
+  #move-hint .down {
+    grid-area: 3 / 2;
   }
   /* (D-pad alternative: pinned to the bottom of the left zone, scaled to fit.) */
   #dpad {
@@ -1871,12 +1898,15 @@ button.big {
   height: 78%;
   touch-action: none;
 }
+/* The floating stick is no longer drawn — the left half is an invisible drag
+   zone with a static arrow hint (#move-hint) instead. */
 #joy-base,
 #joy-thumb {
-  position: absolute;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+  display: none;
+}
+/* Static minimal movement hint (a faint 4-arrow cross) shown in the left zone. */
+#move-hint {
+  display: none;
 }
 #joy-base {
   width: 132px;
