@@ -127,7 +127,7 @@ export class Renderer {
   private hardDmg = new Map<number, number>(); // hard-block cell index -> crack level 0..3
   // Blood splattered on a block: which faces were hit (N/S/E/W bitmask), a stable
   // seed for the pattern, and an intensity count. Top face = splatter, front = drips.
-  private bloodBlocks = new Map<number, { dirs: number; seed: number; n: number }>();
+  private bloodBlocks = new Map<number, { dirs: number; seed: number; n: number; born: number; nextDrip: number }>();
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
   private scorch: HTMLCanvasElement | null = null; // cached burnt-ground overlay
   private scorchDirty = false;
@@ -443,20 +443,21 @@ export class Renderer {
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
     const reds = ["#8a0000", "#a30000", "#c81e1e", "#6a0000"];
-    for (let i = 0; i < Math.round(26 * this.fxScale); i++) {
+    for (let i = 0; i < Math.round(34 * this.fxScale); i++) {
       const a = Math.random() * Math.PI * 2;
-      const s = 3 + Math.random() * 5;
+      const s = 3 + Math.random() * 5.5;
       this.push({
         x: cx + 0.5, y: cy + 0.5,
         vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1.6,
-        life: 0.5 + Math.random() * 0.6, max: 1.1,
+        life: 0.55 + Math.random() * 0.65, max: 1.2,
         size: this.tile * (0.06 + Math.random() * 0.13),
         color: reds[(Math.random() * reds.length) | 0],
         gravity: 17, drag: 0.96, shape: "rect",
         rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 16,
       });
     }
-    this.burst(cx, cy, "#d61e1e", 12, 4); // fine blood spray
+    this.burst(cx, cy, "#d61e1e", 18, 4.5); // fine blood spray
+    this.burst(cx, cy, "#7a0000", 10, 3.5); // darker gore spray
     this.burst(cx, cy, color, 7, 3); // a hint of the player's color
     this.burst(cx, cy, "#efe6cf", 5, 3); // bone / teeth bits
     this.shake(10, 320);
@@ -471,12 +472,19 @@ export class Renderer {
     if (ddy > 0) dirs |= BF_S;
     if (ddx > 0) dirs |= BF_E;
     if (ddx < 0) dirs |= BF_W;
-    this.bloodBlocks.set(index, { dirs, seed: prev?.seed ?? ((index * 2654435761) >>> 0), n: (prev?.n ?? 0) + 1 });
+    const now = performance.now();
+    this.bloodBlocks.set(index, {
+      dirs,
+      seed: prev?.seed ?? ((index * 2654435761) >>> 0),
+      n: (prev?.n ?? 0) + 1,
+      born: prev?.born ?? now,
+      nextDrip: now + 700 + Math.random() * 1800,
+    });
   }
 
   /** Draw blood on a block: a squashed splatter on the TOP face + drips running
    *  down the FRONT face, biased toward the side the kill came from. */
-  private drawBlockBlood(px: number, py: number, index: number): void {
+  private drawBlockBlood(px: number, py: number, index: number, now: number): void {
     const m = this.bloodBlocks.get(index);
     if (!m) return;
     const ctx = this.ctx, t = this.tile;
@@ -486,37 +494,61 @@ export class Renderer {
       h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
       return (h & 0xffff) / 0xffff;
     };
-    const reds = ["#4a0000", "#6a0000", "#8a0000", "#a30000", "#c81e1e"];
-    const n = Math.min(3, m.n);
+    const reds = ["#3a0000", "#5a0000", "#7a0000", "#9c0000", "#c81e1e"];
+    const n = Math.min(4, m.n);
     const bias = ((m.dirs & BF_E ? 0.62 : 0) + (m.dirs & BF_W ? -0.62 : 0)); // horizontal lean
     const cxp = px + t * 0.5 + bias * t * 0.3;
 
-    // TOP-face splatter (stronger when the kill was above the block). Squashed in
-    // Y to read as the perspective top face.
-    const topStrong = m.dirs & BF_N ? 1 : 0.55;
-    const topBlobs = Math.round((9 + n * 5) * topStrong);
-    const topR = t * (0.26 + n * 0.05);
+    // A dark central pool on the top face for a grislier base.
+    ctx.fillStyle = "#2a0000";
+    const poolR = t * (0.16 + n * 0.04);
+    for (let i = 0; i < 6 + n * 2; i++) {
+      const ang = rnd() * Math.PI * 2;
+      const dist = Math.pow(rnd(), 0.5) * poolR;
+      const sz = pu * (1 + Math.floor(rnd() * 2));
+      ctx.fillRect(Math.round((cxp + Math.cos(ang) * dist - sz / 2) / pu) * pu, Math.round((py + t * 0.22 + Math.sin(ang) * dist * 0.5 - sz / 2) / pu) * pu, sz, sz);
+    }
+    // TOP-face splatter (stronger when the kill was above the block), squashed in Y.
+    const topStrong = m.dirs & BF_N ? 1 : 0.62;
+    const topBlobs = Math.round((14 + n * 7) * topStrong);
+    const topR = t * (0.3 + n * 0.06);
     for (let i = 0; i < topBlobs; i++) {
       const ang = rnd() * Math.PI * 2;
       const dist = Math.pow(rnd(), 0.6) * topR;
       const bx = cxp + Math.cos(ang) * dist;
       const by = py + t * 0.2 + Math.sin(ang) * dist * 0.55;
-      const sz = pu * (1 + Math.floor(rnd() * 2.2));
+      const sz = pu * (1 + Math.floor(rnd() * 2.4));
       ctx.fillStyle = reds[(rnd() * reds.length) | 0];
       ctx.fillRect(Math.round((bx - sz / 2) / pu) * pu, Math.round((by - sz / 2) / pu) * pu, sz, sz);
     }
-    // FRONT-face drips (stronger when the kill was below/in front).
-    const frontStrong = m.dirs & BF_S ? 1 : 0.5;
-    const drips = Math.max(1, Math.round((1 + n) * (0.7 + frontStrong)));
+    // FRONT-face drips that slowly ooze down over time (staggered per drip).
+    const frontStrong = m.dirs & BF_S ? 1 : 0.6;
+    const drips = Math.max(2, Math.round((2 + n * 1.4) * (0.7 + frontStrong)));
     for (let d = 0; d < drips; d++) {
-      const dx = cxp + (rnd() - 0.5) * t * 0.72;
+      const dx = cxp + (rnd() - 0.5) * t * 0.8;
       const top = py + t * 0.4;
-      const len = t * (0.16 + rnd() * 0.42 * frontStrong);
-      const w = pu * (1 + Math.floor(rnd() * 1.5));
+      const maxLen = t * (0.2 + rnd() * 0.52 * frontStrong);
+      const delay = rnd() * 700;
+      const grow = 1400 + rnd() * 1500;
+      const prog = Math.max(0, Math.min(1, (now - m.born - delay) / grow));
+      const len = maxLen * (1 - (1 - prog) * (1 - prog)); // ease-out
+      const w = pu * (1 + Math.floor(rnd() * 1.6));
       ctx.fillStyle = reds[1 + ((rnd() * 3) | 0)];
       for (let y = 0; y < len; y += pu) ctx.fillRect(Math.round((dx - w / 2) / pu) * pu, Math.round((top + y) / pu) * pu, w, pu);
-      ctx.fillStyle = reds[0]; // darker rounded drip tip
-      ctx.fillRect(Math.round((dx - (w + pu) / 2) / pu) * pu, Math.round((top + len) / pu) * pu, w + pu, pu * 2);
+      if (len > pu) {
+        ctx.fillStyle = reds[0]; // darker rounded drip tip
+        ctx.fillRect(Math.round((dx - (w + pu) / 2) / pu) * pu, Math.round((top + len) / pu) * pu, w + pu, pu * 2);
+      }
+    }
+    // Occasionally a droplet pinches off a drip and falls (the slow "drip").
+    if (!this.lowFx && now > m.nextDrip) {
+      m.nextDrip = now + 1600 + Math.random() * 3400;
+      const dx = cxp + (Math.random() - 0.5) * t * 0.6;
+      this.push({
+        x: dx / t, y: (py + t * 0.74) / t, vx: 0, vy: 0.35,
+        life: 0.7 + Math.random() * 0.4, max: 1.1, gravity: 9, drag: 0.99,
+        size: pu * 1.5, shape: "rect", color: reds[1],
+      });
     }
   }
 
@@ -1348,7 +1380,7 @@ export class Renderer {
           this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
           if (dmg > 0) this.drawCracks(px, py, index);
         }
-        if (this.bloodBlocks.size) this.drawBlockBlood(px, py, index);
+        if (this.bloodBlocks.size) this.drawBlockBlood(px, py, index, now);
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       }
@@ -1359,7 +1391,7 @@ export class Renderer {
         ((this.lowFx && this.drawTileSprite("soft_mobile", px, py)) ||
           this.drawTileSprite("soft", px, py) ||
           this.drawSoft(px, py));
-        if (this.bloodBlocks.size) this.drawBlockBlood(px, py, index);
+        if (this.bloodBlocks.size) this.drawBlockBlood(px, py, index, now);
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       case TileType.EXPLOSION: {
