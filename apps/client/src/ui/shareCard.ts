@@ -28,10 +28,10 @@ const SIZE = 1080;
 // procedural gradient pair.
 const VARIANTS: Array<{ accent: string; bg: number | null; g0: string; g1: string }> = [
   { accent: "#ff7a30", bg: 0, g0: "#3a1a10", g1: "#0a0c12" },
-  { accent: "#39d3ff", bg: null, g0: "#10222e", g1: "#070b12" },
-  { accent: "#ffcc33", bg: null, g0: "#2e2410", g1: "#0a0a08" },
-  { accent: "#c879ff", bg: null, g0: "#241033", g1: "#0a0712" },
-  { accent: "#7bd66a", bg: null, g0: "#0f2a18", g1: "#070f0a" },
+  { accent: "#39d3ff", bg: 1, g0: "#10222e", g1: "#070b12" },
+  { accent: "#ffcc33", bg: 2, g0: "#2e2410", g1: "#0a0a08" },
+  { accent: "#c879ff", bg: 3, g0: "#241033", g1: "#0a0712" },
+  { accent: "#7bd66a", bg: 4, g0: "#0f2a18", g1: "#070f0a" },
 ];
 export const VARIANT_COUNT = VARIANTS.length;
 
