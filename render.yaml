@@ -49,6 +49,16 @@ services:
         sync: false
       - key: MAX_ROOMS # cap concurrent rooms (set from a load test; default 500)
         sync: false
+      # Multi-region (optional). Set REGION_ID per instance (e.g. "eu") and the
+      # SAME REGIONS JSON on every instance, e.g.
+      #   [{"id":"eu","label":"Europe","url":"https://bombermeme.fun"},
+      #    {"id":"us","label":"US","url":"https://us.bombermeme.fun"}]
+      # The client probes each region's /ping and hops to the nearest. Leave both
+      # unset to stay single-region (the feature is then fully inert).
+      - key: REGION_ID
+        sync: false
+      - key: REGIONS
+        sync: false
       - key: HOUSE_RAKE_BP # house rake in basis points (e.g. 500 = 5%); funds referrals
         sync: false
       - key: REFERRAL_ROOT # owner wallet = top of the pyramid; un-invited players attach here

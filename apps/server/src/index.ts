@@ -163,6 +163,40 @@ app.get("/health", (res) => {
     .catch(() => sendJson(res, { ok: true, store: store.kind, db: "down", ...mm.stats }));
 });
 
+// --- multi-region groundwork (inert until REGIONS holds 2+ entries) ----------
+// REGION_ID  = this instance's region id (e.g. "eu"). REGIONS = JSON array of
+// {id,label,url} for every deployed region. The client probes /ping on each and
+// navigates to the nearest, after which all same-origin traffic stays regional.
+const REGION_ID = process.env.REGION_ID ?? "";
+let REGIONS: Array<{ id: string; label: string; url: string }> = [];
+try {
+  const parsed = JSON.parse(process.env.REGIONS ?? "[]");
+  if (Array.isArray(parsed)) {
+    REGIONS = parsed
+      .filter((r) => r && r.id && r.url)
+      .map((r) => ({ id: String(r.id), label: String(r.label ?? r.id), url: String(r.url).replace(/\/+$/, "") }));
+  }
+} catch {
+  REGIONS = [];
+}
+
+// Ultra-light latency probe (no DB, tiny body) used by the client to pick the
+// closest region. CORS-open so it can be measured cross-origin before redirect.
+app.get("/ping", (res) => {
+  res.onAborted(() => {});
+  res.cork(() => {
+    writeCors(res);
+    res.writeHeader("Content-Type", "text/plain");
+    res.writeHeader("Cache-Control", "no-store");
+    res.end("ok");
+  });
+});
+
+app.get("/regions", (res) => {
+  res.onAborted(() => {});
+  sendJson(res, { current: REGION_ID, regions: REGIONS });
+});
+
 // --- admin live panel (token-gated) ---
 // ADMIN_TOKEN may hold several passwords separated by commas, so multiple people
 // (e.g. you + a friend) can each have their own.

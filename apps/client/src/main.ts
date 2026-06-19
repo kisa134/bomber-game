@@ -62,6 +62,7 @@ import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTab
 import { initAnalytics, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram, getStartParam } from "./platform/telegram.js";
+import { selectRegion } from "./net/region.js";
 import { startPresence } from "./platform/presence.js";
 import { enterImmersive } from "./platform/fullscreen.js";
 import {
@@ -1591,6 +1592,10 @@ function setupBackground(): void {
 
 // --- bootstrap ------------------------------------------------------------
 
+// Multi-region: probe and hop to the nearest server (no-op with <2 regions).
+// Skipped inside Telegram — the Mini App is bound to one URL; redirecting away
+// would break it.
+if (!isTelegram) void selectRegion();
 initTelegram();
 // Register the service worker (PWA). On a new deploy a fresh SW installs and
 // waits; we surface an in-app "Update" banner instead of auto-reloading (a
