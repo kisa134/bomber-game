@@ -490,10 +490,23 @@ function announceResult(winnerId: number): void {
   }
   const note = document.getElementById("result-chips");
   if (note) note.textContent = chipNote;
-  // Snapshot this match for the share card (pot for staked tables, play reward otherwise).
-  const earnText = stake > 0
-    ? (draw ? "Stake refunded" : won ? `Won the pot ${sym}` : `−${sym}${stake.toLocaleString()}`)
-    : (won ? "+🪙100" : "+🪙20");
+  // Snapshot this match for the share card. Net = pot won (stake × others) or
+  // the stake lost; for token tables show the amount AND its USD value.
+  const players = state.latest()?.players.length || state.roomPlayers?.length || 2;
+  const net = draw ? 0 : won ? stake * (players - 1) : -stake;
+  let earnText: string;
+  if (stake > 0) {
+    if (draw) {
+      earnText = `Stake refunded ${sym}`;
+    } else if (state.roomCurrency === 1) {
+      const amt = Math.abs(net).toLocaleString(undefined, { maximumFractionDigits: 2 });
+      earnText = `${net > 0 ? "+" : "−"}💎${amt}${usdOf(Math.abs(net))}`;
+    } else {
+      earnText = `${net > 0 ? "+" : "−"}🪙${Math.abs(net).toLocaleString()}`;
+    }
+  } else {
+    earnText = won ? "+🪙100" : "+🪙20";
+  }
   lastMatch = { won, draw, frags: meFrags, earnText, ratingDelta: 0, firstBlood: iGotFirstBlood };
   const w = loadWallet();
   const prevRating = lastRating;

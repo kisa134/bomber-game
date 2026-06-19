@@ -227,7 +227,11 @@ export async function renderShareCard(data: CardData, variant: number): Promise<
     ctx.font = "600 26px Arial, sans-serif";
     ctx.fillText(label, cx + cw / 2, cy + 36);
     ctx.fillStyle = "#fff";
-    ctx.font = "800 36px Arial, sans-serif";
+    let vfs = 36;
+    do {
+      ctx.font = `800 ${vfs}px Arial, sans-serif`;
+      vfs -= 2;
+    } while (ctx.measureText(val).width > cw - 26 && vfs > 18);
     ctx.fillText(val, cx + cw / 2, cy + 76);
     cx += cw + gap;
   }
