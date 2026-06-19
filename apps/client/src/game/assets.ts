@@ -38,7 +38,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "8";
+export const ASSET_VER = "9";
 
 // Directional walk frames (optional): skin<id>_<down|up|side>_<0..2>.
 // "side" is used for right; left is the same sprite mirrored. Missing frames
