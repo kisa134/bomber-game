@@ -93,11 +93,13 @@ export class Input {
   }
 
   private attachBombButton(): void {
-    const bomb = document.getElementById("bomb-btn");
-    bomb?.addEventListener("pointerdown", (e) => {
-      e.preventDefault();
-      this.onBomb();
-    });
+    // Both the visible round button AND the big invisible right-half zone drop a bomb.
+    for (const id of ["bomb-btn", "bomb-zone"]) {
+      document.getElementById(id)?.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        this.onBomb();
+      });
+    }
   }
 
   private attachDpad(): void {
