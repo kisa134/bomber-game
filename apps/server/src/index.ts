@@ -3,7 +3,7 @@ import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
 import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW, DEFAULT_SKINS, SKIN_PRICES, SKIN_COUNT } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
-import { createNonce, verifySignature, createSession, verifySession } from "./auth.js";
+import { createNonce, verifySignature, createSession, verifySession, AUTH_SECRET_SET } from "./auth.js";
 import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./tgrelay.js";
 import { handleTgUpdate, tgWebhookSecretOk, setupTelegramBot } from "./tgbot.js";
 import { analytics } from "./analytics.js";
@@ -29,9 +29,66 @@ import {
 import type { SendFn } from "./player.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
+const PROD = process.env.NODE_ENV === "production";
 // Optional: serve the built client from the same origin (single-box deploy).
 const CLIENT_DIST = process.env.CLIENT_DIST ?? join(import.meta.dirname, "../../client/dist");
 const SERVE_STATIC = existsSync(join(CLIENT_DIST, "index.html"));
+
+// --- launch safety preflight -------------------------------------------------
+// In production, refuse to boot with a money-unsafe config (the rest are warnings
+// so a chips-only / dev run still works). Fail fast and loud beats silently
+// losing real funds. Run dev without NODE_ENV=production to bypass the fatals.
+(function preflight(): void {
+  const fatal: string[] = [];
+  const warn: string[] = [];
+  if (store.kind !== "postgres") {
+    (PROD ? fatal : warn).push(
+      `store backend is "${store.kind}" — set DATABASE_URL (Postgres). InMemory loses ALL balances on restart; Supabase REST is non-atomic for money.`,
+    );
+  }
+  if (!AUTH_SECRET_SET) {
+    (PROD ? fatal : warn).push(
+      "AUTH_SECRET not set (need >=16 chars) — sessions use an ephemeral key and reset on every restart / can't validate across instances.",
+    );
+  }
+  if (!depositsEnabled || !withdrawalsEnabled)
+    warn.push("treasury not fully configured (TREASURY_ADDRESS / TREASURY_SECRET) — deposits/withdrawals are DISABLED.");
+  if (!process.env.SOLANA_RPC)
+    warn.push("SOLANA_RPC unset — using the public, rate-limited endpoint (inadequate for real custody under load).");
+  if (!(Number(process.env.HOUSE_RAKE_BP) > 0))
+    warn.push("HOUSE_RAKE_BP is 0 — no house rake, and the referral economy pays nothing.");
+  if (!process.env.REFERRAL_ROOT) warn.push("REFERRAL_ROOT unset — organic players attach to nobody.");
+  if (!process.env.ADMIN_TOKEN) warn.push("ADMIN_TOKEN unset — /admin dashboard is disabled (launching blind).");
+  for (const w of warn) console.warn("[preflight] WARN:", w);
+  if (fatal.length) {
+    for (const f of fatal) console.error("[preflight] FATAL:", f);
+    console.error("[preflight] refusing to start in production with an unsafe money config — set the env vars above.");
+    process.exit(1);
+  }
+})();
+
+// --- crash & shutdown safety -------------------------------------------------
+// One bad promise/exception must NOT take down the single instance (that strands
+// every live match). Log loudly instead of letting Node exit on unhandled
+// rejections; on SIGTERM (every Render deploy) refund in-flight staked pots first.
+process.on("unhandledRejection", (reason) => console.error("[fatal] unhandledRejection:", reason));
+process.on("uncaughtException", (err) => console.error("[fatal] uncaughtException:", err));
+let shuttingDown = false;
+async function gracefulShutdown(sig: string): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`[shutdown] ${sig} — refunding active staked pots before exit…`);
+  try {
+    await mm.shutdown();
+  } catch (e) {
+    console.error("[shutdown] error", e);
+  }
+  console.log("[shutdown] done");
+  process.exit(0);
+}
+process.on("SIGTERM", () => void gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => void gracefulShutdown("SIGINT"));
+
 const mm = new Matchmaker();
 mm.start();
 
@@ -159,8 +216,18 @@ app.get("/health", (res) => {
   res.onAborted(() => {});
   store
     .ping()
-    .then((db) => sendJson(res, { ok: true, store: store.kind, db: db ? "ok" : "down", ...mm.stats }))
-    .catch(() => sendJson(res, { ok: true, store: store.kind, db: "down", ...mm.stats }));
+    .then((db) => {
+      // Healthy only if the DB answers AND (in prod) we're on a durable backend.
+      const healthy = db && (!PROD || store.kind === "postgres");
+      sendJson(
+        res,
+        { ok: healthy, store: store.kind, db: db ? "ok" : "down", ...mm.stats },
+        healthy ? undefined : "503 Service Unavailable",
+      );
+    })
+    .catch(() =>
+      sendJson(res, { ok: false, store: store.kind, db: "down", ...mm.stats }, "503 Service Unavailable"),
+    );
 });
 
 // --- multi-region groundwork (inert until REGIONS holds 2+ entries) ----------

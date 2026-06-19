@@ -13,6 +13,25 @@ services:
     envVars:
       - key: PORT
         value: 10000
+      # Enables the launch-safety preflight (refuses to boot with a money-unsafe
+      # config: non-Postgres store or missing AUTH_SECRET).
+      - key: NODE_ENV
+        value: production
+      # REQUIRED for real money. Durable ledger — without it balances are lost on
+      # every deploy. Must be Postgres (Supabase REST is non-atomic).
+      - key: DATABASE_URL
+        sync: false
+      # REQUIRED. Random secret (>=16 chars) that signs sessions; identical on
+      # every instance. Without it sessions reset on each restart.
+      - key: AUTH_SECRET
+        sync: false
+      # Custody (required to enable deposits/withdrawals).
+      - key: TREASURY_ADDRESS
+        sync: false
+      - key: TREASURY_SECRET
+        sync: false
+      - key: SOLANA_RPC # paid RPC (Helius/QuickNode/…); public endpoint is inadequate
+        sync: false
       # Telegram Mini App: set these in the Render dashboard after BotFather.
       # TG_BOT = bot username (no @), TG_APP = Mini App short name from /newapp.
       # Used only to bounce the Phantom wallet flow back into the Mini App.

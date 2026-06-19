@@ -221,6 +221,20 @@ export class Matchmaker {
     this.loop = null;
   }
 
+  /** Graceful shutdown: stop the sim and refund every in-flight staked pot so a
+   *  deploy/restart (SIGTERM) never strands money that was escrowed but not yet
+   *  settled. Best-effort and awaited. */
+  async shutdown(): Promise<void> {
+    this.stop();
+    for (const r of this.rooms.values()) {
+      try {
+        await r.refundActivePot();
+      } catch (e) {
+        console.error("[shutdown] refund failed for room", r.id, e);
+      }
+    }
+  }
+
   /**
    * Fixed-timestep accumulator: run exactly as many TICK_MS steps as real time
    * has elapsed, so game time tracks the wall clock (no slow-motion under load,

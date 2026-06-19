@@ -8,6 +8,11 @@ import bs58 from "bs58";
 
 const NONCE_TTL_MS = 5 * 60_000;
 const SESSION_TTL_MS = 7 * 24 * 3600_000;
+// Sessions are HMAC'd with this. It MUST be set (and identical across instances)
+// in production — enforced by the preflight check in index.ts. If unset we fall
+// back to an ephemeral per-process key (fine for local dev; every restart then
+// invalidates all sessions, and multi-instance would reject each other's).
+export const AUTH_SECRET_SET = (process.env.AUTH_SECRET ?? "").length >= 16;
 const SECRET = process.env.AUTH_SECRET ?? randomBytes(32).toString("hex");
 
 const nonces = new Map<string, number>(); // nonce -> expiry

@@ -352,14 +352,14 @@ export class Room {
       return;
     }
     if (!this.allReady()) return; // every player must be ready first
-    this.start();
+    void this.start();
   }
 
   /** Top up bots and start a practice match. */
   private startPractice(): void {
     while (this.players.size < MAX_PLAYERS_PER_ROOM) this.addBot();
     this.practiceStarted = true;
-    this.start();
+    void this.start();
   }
 
   /** Lobby ready-up toggle. */
@@ -451,7 +451,7 @@ export class Room {
     // The match starts ONLY when every present player has readied up — no timed
     // auto-start, no "start because the room is full". This guarantees nobody is
     // dropped into a match (especially a staked one) without confirming.
-    if (this.allReady()) this.start();
+    if (this.allReady()) void this.start();
   }
 
   private setPhase(phase: MatchPhase): void {
@@ -477,7 +477,37 @@ export class Room {
     }
   }
 
-  private start(): void {
+  private starting = false; // re-entrancy guard: the 60Hz tick must not double-start
+
+  private async start(): Promise<void> {
+    // The lobby tick calls this every frame while allReady(); the awaited escrow
+    // below yields, so without this guard several ticks could start in parallel
+    // (double-debit). Bail unless we're cleanly in the lobby and not already starting.
+    if (this.starting || this.phase !== MatchPhase.LOBBY) return;
+    this.starting = true;
+    try {
+      // Collect EVERY wallet player's stake up-front (awaited). If even one can't
+      // pay, refund the rest and abort the start — never run a staked match whose
+      // pot wasn't fully funded (that would mint value / let someone play free).
+      const escrowed = await this.escrowStakes();
+      if (this.dead) {
+        // Room died during the await — give back anything we collected.
+        await this.refundContributors();
+        return;
+      }
+      if (!escrowed) {
+        for (const p of this.players.values()) if (!p.isBot) p.ready = false;
+        this.broadcastRoomInfo();
+        return;
+      }
+      this.startNow();
+    } finally {
+      this.starting = false;
+    }
+  }
+
+  /** Build and broadcast the live match (stakes already collected by start()). */
+  private startNow(): void {
     this.lobbyCounting = false;
     this.lobbyCountdownMs = 0;
     // Provably-fair: seed the map RNG, commit to its hash now, reveal at the end.
@@ -503,7 +533,6 @@ export class Room {
       i++;
     }
     this.dedupeSkins(); // guarantee no two players share a skin this match
-    this.escrowStakes();
     this.bombs = [];
     this.matchElapsedMs = 0;
     this.simTick = 0;
@@ -911,23 +940,51 @@ export class Room {
     );
   }
 
-  /** Deduct each wallet player's stake into the pot at match start. Overdraw-safe:
-   *  only players who actually paid are counted into the pot and refund list. */
-  private escrowStakes(): void {
+  /** Collect every wallet player's stake into the pot BEFORE the match starts.
+   *  All-or-nothing and awaited: returns true only if every seated wallet paid in
+   *  full. If anyone can't pay, the ones who did are refunded and it returns false
+   *  so the caller aborts — the pot is therefore always exactly the sum collected
+   *  (no value minted, no free-riders, no settle-before-debit race). */
+  private async escrowStakes(): Promise<boolean> {
     this.pot = 0;
     this.contributors = [];
-    if (this.stake <= 0) return;
+    if (this.stake <= 0) return true; // free / practice match
     const amount = this.stakeBase();
-    for (const p of this.players.values()) {
-      if (p.isBot || !p.wallet) continue;
-      const wallet = p.wallet;
-      void this.adjustBalance(wallet, -amount).then((bal) => {
-        if (bal !== null) {
-          this.pot += amount;
-          this.contributors.push(wallet);
-        }
-      });
+    const wallets = [...this.players.values()].filter((p) => !p.isBot && p.wallet).map((p) => p.wallet as string);
+    const paid: string[] = [];
+    for (const wallet of wallets) {
+      const bal = await this.adjustBalance(wallet, -amount);
+      if (bal !== null) paid.push(wallet);
+      else break; // first failure aborts the whole collection
     }
+    if (paid.length !== wallets.length) {
+      for (const wallet of paid) await this.adjustBalance(wallet, amount); // refund
+      this.pot = 0;
+      this.contributors = [];
+      return false;
+    }
+    this.pot = amount * paid.length;
+    this.contributors = paid;
+    return true;
+  }
+
+  /** Public refund hook for graceful shutdown: if a staked match is mid-flight
+   *  (escrowed but not settled), give everyone their stake back before exit. */
+  async refundActivePot(): Promise<void> {
+    if (this.pot <= 0) return;
+    if (this.phase === MatchPhase.LOBBY || this.phase === MatchPhase.END) return;
+    await this.refundContributors();
+  }
+
+  /** Refund the current contributors their stake and clear the pot (used when a
+   *  started match is aborted / the room dies before it can settle). */
+  private async refundContributors(): Promise<void> {
+    if (this.pot <= 0) return;
+    const refund = this.stakeBase();
+    const owed = this.contributors;
+    this.contributors = [];
+    this.pot = 0;
+    for (const wallet of owed) await this.adjustBalance(wallet, refund);
   }
 
   /** Pay the pot to the winner (minus the house rake); refund contributors on a
