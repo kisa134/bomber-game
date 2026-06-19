@@ -155,6 +155,19 @@ export class Renderer {
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
     window.visualViewport?.addEventListener("resize", onResize);
+    // Re-measure whenever the play area's box actually changes (layout settling,
+    // HUD/ banner reflow, fullscreen). window.resize alone misses these, which
+    // left the board occasionally sized too tall and stuck to the top until you
+    // nudged the window. ResizeObserver catches every box change.
+    if (this.canvas.parentElement && typeof ResizeObserver !== "undefined") {
+      new ResizeObserver(onResize).observe(this.canvas.parentElement);
+    }
+  }
+
+  /** Force a re-measure on the next frames (after a screen is shown and laid out). */
+  remeasure(): void {
+    requestAnimationFrame(() => this.resize());
+    setTimeout(() => this.resize(), 60);
   }
 
   setAssets(assets: Assets): void {

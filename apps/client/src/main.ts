@@ -437,6 +437,7 @@ function enterGame(): void {
     renderer.skinOf = (id) => state.skinOf(id);
   }
   renderer.resize();
+  renderer.remeasure(); // re-fit after the game screen has actually laid out
   assets.stop("sudden_death");
   prevSoftCount = -1;
   killLines.length = 0;
