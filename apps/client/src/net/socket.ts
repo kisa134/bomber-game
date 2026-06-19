@@ -33,6 +33,12 @@ async function post(path: string, body: Record<string, unknown>): Promise<Respon
   });
 }
 
+/** `&session=…` query fragment for authenticated GETs (empty if not signed in). */
+function sessionQS(): string {
+  const s = loadWallet()?.session;
+  return s ? `&session=${encodeURIComponent(s)}` : "";
+}
+
 export interface ProfileData {
   wallet: string;
   name: string;
@@ -65,7 +71,7 @@ export interface BankInfo {
 }
 
 export async function fetchBank(wallet: string): Promise<BankInfo> {
-  const res = await fetch(`${SERVER_HTTP}/bank?wallet=${encodeURIComponent(wallet)}`);
+  const res = await fetch(`${SERVER_HTTP}/bank?wallet=${encodeURIComponent(wallet)}${sessionQS()}`);
   return res.json();
 }
 
@@ -97,7 +103,9 @@ export async function claimDeposit(
 }
 
 export async function fetchProfile(wallet: string): Promise<ProfileData> {
-  const res = await fetch(`${SERVER_HTTP}/profile?wallet=${encodeURIComponent(wallet)}`);
+  // Session lets the server include YOUR private balances; for other players it
+  // returns public stats only.
+  const res = await fetch(`${SERVER_HTTP}/profile?wallet=${encodeURIComponent(wallet)}${sessionQS()}`);
   return res.json();
 }
 

@@ -351,8 +351,9 @@ function onlineCount(): number {
 }
 app.get("/presence", (res, req) => {
   res.onAborted(() => {});
-  const id = new URLSearchParams(req.getQuery()).get("id") ?? "";
-  if (id) {
+  const id = (new URLSearchParams(req.getQuery()).get("id") ?? "").slice(0, 64);
+  // Hard cap so spamming unique ids can't grow the map unbounded between sweeps.
+  if (id && (presence.has(id) || presence.size < 50_000)) {
     presence.set(id, Date.now());
     metrics.presence(id);
   }
@@ -426,16 +427,25 @@ app.get("/admin", (res) => {
 
 app.get("/profile", (res, req) => {
   res.onAborted(() => {});
-  const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
+  const qs = new URLSearchParams(req.getQuery());
+  const wallet = qs.get("wallet") ?? "";
+  const session = qs.get("session") ?? "";
+  // Balances (real-money custodial + on-chain) are private: only returned when a
+  // valid session proves the requester owns this wallet. Public stats otherwise.
+  const isOwner = !!session && verifySession(session) === wallet && !!wallet;
   const blank = { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, skins: DEFAULT_SKINS, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0, token_balance: 0 };
-  Promise.all([store.getProfile(wallet), tokenBalance(wallet)])
+  Promise.all([store.getProfile(wallet), isOwner ? tokenBalance(wallet) : Promise.resolve(0)])
     .then(([p, tok]) => {
       const prof = p ?? blank;
-      sendJson(res, {
-        ...prof,
-        walletTokens: tok, // on-chain balance in the player's wallet (ui amount)
-        gameTokens: fromBaseUnits(prof.token_balance), // custodial in-game balance (whole)
-      });
+      if (isOwner) {
+        sendJson(res, { ...prof, walletTokens: tok, gameTokens: fromBaseUnits(prof.token_balance) });
+      } else {
+        // Strip every balance/financial field for non-owners.
+        const { chips: _c, token_balance: _t, referral_earned: _r, ...pub } = prof as typeof prof & {
+          referral_earned?: number;
+        };
+        sendJson(res, pub);
+      }
     })
     .catch(() => sendJson(res, { error: "profile_failed" }, "500 Internal Server Error"));
 });
@@ -460,7 +470,11 @@ app.get("/price", (res) => {
 // Custodial bank: where to deposit + current balances + capabilities.
 app.get("/bank", (res, req) => {
   res.onAborted(() => {});
-  const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
+  const qs = new URLSearchParams(req.getQuery());
+  const session = qs.get("session") ?? "";
+  // The bank shows YOUR custodial balance — require a session and use its wallet.
+  const wallet = session ? verifySession(session) : null;
+  if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
   rescanDepositsSoon(); // opening the Bank nudges a fresh deposit check
   Promise.all([store.getProfile(wallet), tokenBalance(wallet)])
     .then(([p, tok]) =>

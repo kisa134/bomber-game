@@ -225,6 +225,9 @@ async function creditFromTx(signature: string): Promise<boolean> {
     const type = (ix.parsed as { type?: string })?.type;
     if (!info || (type !== "transfer" && type !== "transferChecked")) continue;
     if (info.destination !== treasuryAta!.toBase58()) continue;
+    // transferChecked carries the mint — verify it's our token (defence in depth;
+    // the treasury ATA is already mint-specific). Plain transfer has no mint field.
+    if (type === "transferChecked" && info.mint && info.mint !== MINT.toBase58()) continue;
     const sender = String(info.authority ?? info.owner ?? "");
     const amount =
       type === "transferChecked"
