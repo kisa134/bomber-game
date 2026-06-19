@@ -124,32 +124,22 @@
             <button id="tables-refresh" class="ghost lobby-icon">↻</button>
           </div>
 
-          <!-- Bento mode cards: pick how you want to play -->
-          <div class="bento">
-            <div class="bento-card practice">
-              <div class="bento-head">
-                <span class="bento-icon">🤖</span>
-                <div class="bento-text"><h3>Practice</h3><small>Solo vs bots</small></div>
-              </div>
-              <div class="bento-chips">
-                <button class="bento-chip" data-practice="0">😴 Easy</button>
-                <button class="bento-chip" data-practice="1">🤖 Normal</button>
-                <button class="bento-chip" data-practice="2">💀 Hard</button>
-              </div>
-            </div>
+          <!-- Bento mode cards: Casual (chips) + The Arena (real tokens) -->
+          <div class="bento bento-2">
             <div class="bento-card casual">
               <div class="bento-head">
                 <span class="bento-icon">🎮</span>
-                <div class="bento-text"><h3>Casual</h3><small>Play for free chips</small></div>
+                <div class="bento-text"><h3>Casual</h3><small>Play for chips</small></div>
               </div>
-              <button id="tables-quick" class="bento-cta">⚡ Quick Match</button>
+              <button id="casual-quick" class="bento-cta">⚡ Quick Match</button>
+              <div id="casual-stakes" class="bento-chips hidden"></div>
             </div>
             <div class="bento-card arena featured">
               <div class="bento-head">
                 <span class="bento-icon">💎</span>
-                <div class="bento-text"><h3>The Arena</h3><small>Play for real tokens</small></div>
+                <div class="bento-text"><h3>The Arena</h3><small>Play for real tokens · winner takes the pot</small></div>
               </div>
-              <button id="bento-arena" class="bento-cta arena-cta">Enter Arena →</button>
+              <div id="arena-stakes" class="bento-chips arena-chips"></div>
             </div>
           </div>
 

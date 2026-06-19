@@ -1941,32 +1941,48 @@ document.getElementById("open-practice")!.addEventListener("click", () => {
 });
 document.getElementById("lobby-back")!.addEventListener("click", () => showScreen("menu"));
 
-// Quick Join (free match) — one tap.
-document.getElementById("tables-quick")!.addEventListener("click", () => {
-  const name = (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
-  practiceMode = false;
-  track("play_start", { mode: "quickplay", stake: 0 });
-  void connect(() => quickplay(name, Math.floor(Math.random() * 4), 0));
-});
-// Create Lobby → the create-only settings modal.
+// Create Lobby → the create-only settings modal (chips or token).
 document.getElementById("tables-new")!.addEventListener("click", () => {
   createModal.classList.remove("hidden");
 });
-// Bento "Practice" card: difficulty chips start a solo match vs 3 bots instantly.
-for (const chip of document.querySelectorAll<HTMLElement>(".bento-chip[data-practice]")) {
-  chip.addEventListener("click", () => {
-    const difficulty = Number(chip.dataset.practice);
-    const name = (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
-    practiceMode = true;
-    track("play_start", { mode: "practice", difficulty, bots: 3 });
-    void connect(() => practiceRoom(name, Math.floor(Math.random() * 4), difficulty, 3));
+
+// --- Bento cards: Casual (chip stakes) + The Arena (real-token stakes) -------
+const lobbyName = (): string =>
+  (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
+const randSkin = (): number => Math.floor(Math.random() * SKIN_COUNT);
+
+// Casual: "Quick Match" reveals chip-stake chips; pick one to matchmake (chips).
+const casualStakes = document.getElementById("casual-stakes")!;
+for (const s of [{ v: 0, label: "🆓 Free" }, ...BET_SIZES.map((v) => ({ v, label: `🪙${v}` }))]) {
+  const b = document.createElement("button");
+  b.className = "bento-chip";
+  b.textContent = s.label;
+  b.addEventListener("click", () => {
+    if (!walletGate(s.v)) return;
+    practiceMode = false;
+    track("play_start", { mode: "quickplay", stake: s.v });
+    void connect(() => quickplay(lobbyName(), randSkin(), s.v));
   });
+  casualStakes.appendChild(b);
 }
-// Bento "Arena" card: open the create modal with the real-token currency preselected.
-document.getElementById("bento-arena")!.addEventListener("click", () => {
-  document.getElementById("cur-token")?.click(); // switch the create modal to 💎 token
-  createModal.classList.remove("hidden");
+document.getElementById("casual-quick")!.addEventListener("click", () => {
+  casualStakes.classList.toggle("hidden");
 });
+
+// The Arena: real-token stakes only — pick a tier to host a token table.
+const arenaStakes = document.getElementById("arena-stakes")!;
+for (const v of TOKEN_BET_SIZES) {
+  const b = document.createElement("button");
+  b.className = "bento-chip";
+  b.textContent = `💎${v.toLocaleString()}`;
+  b.addEventListener("click", () => {
+    if (!walletGate(v, 1)) return;
+    practiceMode = false;
+    track("play_start", { mode: "create", stake: v, currency: 1 });
+    void connect(() => createRoom(lobbyName(), randSkin(), v, 1));
+  });
+  arenaStakes.appendChild(b);
+}
 // Join by code from the lobby header.
 document.getElementById("lobby-code-join")!.addEventListener("click", () => {
   const inp = document.getElementById("lobby-code-input") as HTMLInputElement | null;
