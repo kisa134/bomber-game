@@ -115,20 +115,53 @@
         </div>
       </div>
 
-      <!-- Full-screen lobby browser (server-browser style) — the Play Online screen -->
+      <!-- Full-screen lobby browser (Glass Terminal: Bento mode cards + room list) -->
       <section id="lobby" class="screen hidden">
         <div class="lobby-wrap">
           <div class="lobby-top">
             <button id="lobby-back" class="ghost lobby-icon">←</button>
-            <h2 class="lobby-title">🌐 Find a Lobby</h2>
+            <h2 class="lobby-title">🌐 Game Lobby</h2>
             <button id="tables-refresh" class="ghost lobby-icon">↻</button>
           </div>
-          <div class="lobby-bar">
-            <button id="tables-quick" class="primary">⚡ Quick Join</button>
-            <button id="tables-new">➕ Create Lobby</button>
-            <div class="lobby-code">
-              <input id="lobby-code-input" maxlength="4" placeholder="CODE" autocomplete="off" />
-              <button id="lobby-code-join">Join</button>
+
+          <!-- Bento mode cards: pick how you want to play -->
+          <div class="bento">
+            <div class="bento-card practice">
+              <div class="bento-head">
+                <span class="bento-icon">🤖</span>
+                <div class="bento-text"><h3>Practice</h3><small>Solo vs bots</small></div>
+              </div>
+              <div class="bento-chips">
+                <button class="bento-chip" data-practice="0">😴 Easy</button>
+                <button class="bento-chip" data-practice="1">🤖 Normal</button>
+                <button class="bento-chip" data-practice="2">💀 Hard</button>
+              </div>
+            </div>
+            <div class="bento-card casual">
+              <div class="bento-head">
+                <span class="bento-icon">🎮</span>
+                <div class="bento-text"><h3>Casual</h3><small>Play for free chips</small></div>
+              </div>
+              <button id="tables-quick" class="bento-cta">⚡ Quick Match</button>
+            </div>
+            <div class="bento-card arena featured">
+              <div class="bento-head">
+                <span class="bento-icon">💎</span>
+                <div class="bento-text"><h3>The Arena</h3><small>Play for real tokens</small></div>
+              </div>
+              <button id="bento-arena" class="bento-cta arena-cta">Enter Arena →</button>
+            </div>
+          </div>
+
+          <!-- Active lobbies: browse, create, or join by code -->
+          <div class="lobby-subhead">
+            <span class="lobby-subtitle">Active lobbies</span>
+            <div class="lobby-subhead-actions">
+              <button id="tables-new" class="ghost">➕ Create</button>
+              <div class="lobby-code">
+                <input id="lobby-code-input" maxlength="4" placeholder="CODE" autocomplete="off" />
+                <button id="lobby-code-join">Join</button>
+              </div>
             </div>
           </div>
           <div id="tables-filter" class="tables-filter"></div>

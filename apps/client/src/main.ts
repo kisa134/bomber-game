@@ -1952,6 +1952,21 @@ document.getElementById("tables-quick")!.addEventListener("click", () => {
 document.getElementById("tables-new")!.addEventListener("click", () => {
   createModal.classList.remove("hidden");
 });
+// Bento "Practice" card: difficulty chips start a solo match vs 3 bots instantly.
+for (const chip of document.querySelectorAll<HTMLElement>(".bento-chip[data-practice]")) {
+  chip.addEventListener("click", () => {
+    const difficulty = Number(chip.dataset.practice);
+    const name = (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
+    practiceMode = true;
+    track("play_start", { mode: "practice", difficulty, bots: 3 });
+    void connect(() => practiceRoom(name, Math.floor(Math.random() * 4), difficulty, 3));
+  });
+}
+// Bento "Arena" card: open the create modal with the real-token currency preselected.
+document.getElementById("bento-arena")!.addEventListener("click", () => {
+  document.getElementById("cur-token")?.click(); // switch the create modal to 💎 token
+  createModal.classList.remove("hidden");
+});
 // Join by code from the lobby header.
 document.getElementById("lobby-code-join")!.addEventListener("click", () => {
   const inp = document.getElementById("lobby-code-input") as HTMLInputElement | null;
