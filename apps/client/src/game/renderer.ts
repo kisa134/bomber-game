@@ -170,6 +170,12 @@ export class Renderer {
     this.canvas.style.height = `${h}px`;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.ctx.imageSmoothingEnabled = true;
+    // Expose the board's actual side margin so the mobile control zones can fill
+    // exactly the empty space beside the (height-maxed) board — never overlapping
+    // it, never shrinking it.
+    const padL = cs ? parseFloat(cs.paddingLeft) : 0;
+    const side = Math.max(0, padL + ((host?.clientWidth || window.innerWidth) - padX - w) / 2);
+    document.documentElement.style.setProperty("--board-side", `${Math.round(side)}px`);
     this.buildFloor();
   }
 
@@ -433,10 +439,11 @@ export class Renderer {
       const cy = (b.y + 0.5) * t;
       const color = PLAYER_COLORS[b.ownerId % PLAYER_COLORS.length];
       this.drawShadow(cx, cy + t * 0.3, t * 0.34, t * 0.14, 0.28);
-      // Owner-colored glow under the bomb, pulsing faster as the fuse burns down.
+      // Owner-colored glow under the bomb (kept even on phones so you can tell
+      // whose bombs are whose), pulsing faster as the fuse burns down.
       const urgency = 1 - b.fuseLeftMs / BOMB_TIMER_MS; // 0 -> 1
       const beat = Math.sin(now / (90 - urgency * 55));
-      if (!this.lowFx) {
+      {
         const glow = t * (0.5 + urgency * 0.25) * (0.8 + 0.2 * beat);
         const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glow);
         grad.addColorStop(0, color + (urgency > 0.7 ? "ee" : "cc"));
@@ -531,9 +538,11 @@ export class Renderer {
       // Start-of-match highlight: a soft, owner-colored glow under each player
       // for 30s so you can find yourself (replaces the old static ring). Fades
       // out over the last 4s. The local player glows a bit brighter.
+      // Start-of-match highlight: owner-colored glow under each player so you can
+      // find yourself / tell players apart (kept on phones too — it's gameplay).
       const HL_MS = 30_000;
       const sinceStart = this.matchStartMs ? now - this.matchStartMs : Infinity;
-      if (!this.lowFx && p.alive && sinceStart < HL_MS) {
+      if (p.alive && sinceStart < HL_MS) {
         const fade = sinceStart > HL_MS - 4000 ? (HL_MS - sinceStart) / 4000 : 1;
         const isMe = p.id === myId;
         const col = PLAYER_COLORS[p.id % PLAYER_COLORS.length];

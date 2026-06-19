@@ -130,8 +130,12 @@ export class Input {
     const safeBottom = parseInt(cs.getPropertyValue("--sai-bottom")) || 0;
     const safeLeft = parseInt(cs.getPropertyValue("--sai-left")) || 0;
     const landscape = window.innerWidth >= window.innerHeight;
-    // Landscape: fixed near the bottom of the left zone (above the dpad slot).
-    if (landscape) return { x: 50 + safeLeft, y: window.innerHeight - 78 - safeBottom };
+    if (landscape) {
+      // Centered inside the left control zone (whose width the renderer measured
+      // into --board-side), sitting in the lower-middle for an easy thumb reach.
+      const side = parseFloat(cs.getPropertyValue("--board-side")) || 96;
+      return { x: safeLeft + side / 2, y: window.innerHeight * 0.66 };
+    }
     return { x: 120 + safeLeft, y: window.innerHeight - 150 - safeBottom };
   }
 
