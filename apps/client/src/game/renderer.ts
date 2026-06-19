@@ -53,6 +53,8 @@ const PU_GLOW: Partial<Record<TileType, [number, number, number]>> = {
 };
 
 const DEATH_MS = 650;
+// Block-blood face bits (which side of a block the blood hit).
+const BF_N = 1, BF_S = 2, BF_E = 4, BF_W = 8;
 const MAX_PARTICLES = 520;
 const MAX_DECALS = 90;
 const LIGHT_LIFE = 460; // ms an explosion light source blooms + fades
@@ -123,6 +125,9 @@ export class Renderer {
   private prevGrid: Uint8Array | null = null;
   private burn = new Map<number, number>(); // cell index -> scorch intensity (accumulates with blasts)
   private hardDmg = new Map<number, number>(); // hard-block cell index -> crack level 0..3
+  // Blood splattered on a block: which faces were hit (N/S/E/W bitmask), a stable
+  // seed for the pattern, and an intensity count. Top face = splatter, front = drips.
+  private bloodBlocks = new Map<number, { dirs: number; seed: number; n: number }>();
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
   private scorch: HTMLCanvasElement | null = null; // cached burnt-ground overlay
   private scorchDirty = false;
@@ -298,6 +303,7 @@ export class Renderer {
     this.victorId = -1;
     this.burn.clear();
     this.hardDmg.clear();
+    this.bloodBlocks.clear();
     this.shatters.length = 0;
     this.scorch = null;
     this.scorchDirty = false;
@@ -416,7 +422,24 @@ export class Renderer {
   }
 
   onDeath(cx: number, cy: number, color: string): void {
-    if (this.lowFx) return; // phones: the death scale/fade still plays; skip gore VFX
+    // Persistent blood marks first (cheap, runs on phones too): a ground splat on
+    // the death cell + floor neighbours, and face-aware blood on adjacent blocks
+    // (top-face splatter + front-face drips, biased toward where the kill happened).
+    this.addBlood(cx, cy, 1);
+    const grid = this.prevGrid;
+    const around = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+    for (const [dx, dy] of around) {
+      const nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
+      const ni = ny * GRID_W + nx;
+      const isBlock = grid && (grid[ni] === TileType.HARD || grid[ni] === TileType.SOFT);
+      if (isBlock) {
+        this.markBlockBlood(ni, -dx, -dy); // the face of the block pointing at the death
+      } else if (Math.random() < 0.55) {
+        this.addBlood(nx, ny, 0.4 + Math.random() * 0.35);
+      }
+    }
+    if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
     const reds = ["#8a0000", "#a30000", "#c81e1e", "#6a0000"];
@@ -436,17 +459,65 @@ export class Renderer {
     this.burst(cx, cy, "#d61e1e", 12, 4); // fine blood spray
     this.burst(cx, cy, color, 7, 3); // a hint of the player's color
     this.burst(cx, cy, "#efe6cf", 5, 3); // bone / teeth bits
-    // Blood pools: a big splat on the death cell + random smaller spatters on
-    // the neighbours (floor AND walls — decals draw over the tiles).
-    this.addBlood(cx, cy, 1);
-    const around = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
-    for (const [dx, dy] of around) {
-      if (Math.random() < 0.45) continue; // not every neighbour gets hit
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
-      this.addBlood(nx, ny, 0.4 + Math.random() * 0.35);
-    }
     this.shake(10, 320);
+  }
+
+  /** Record blood on a block's face(s). (ddx,ddy) points from the block toward
+   *  the kill, so we know which face got hit. Accumulates across kills. */
+  private markBlockBlood(index: number, ddx: number, ddy: number): void {
+    const prev = this.bloodBlocks.get(index);
+    let dirs = prev?.dirs ?? 0;
+    if (ddy < 0) dirs |= BF_N;
+    if (ddy > 0) dirs |= BF_S;
+    if (ddx > 0) dirs |= BF_E;
+    if (ddx < 0) dirs |= BF_W;
+    this.bloodBlocks.set(index, { dirs, seed: prev?.seed ?? ((index * 2654435761) >>> 0), n: (prev?.n ?? 0) + 1 });
+  }
+
+  /** Draw blood on a block: a squashed splatter on the TOP face + drips running
+   *  down the FRONT face, biased toward the side the kill came from. */
+  private drawBlockBlood(px: number, py: number, index: number): void {
+    const m = this.bloodBlocks.get(index);
+    if (!m) return;
+    const ctx = this.ctx, t = this.tile;
+    const pu = Math.max(2, Math.round(t / 12));
+    let h = m.seed;
+    const rnd = (): number => {
+      h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
+      return (h & 0xffff) / 0xffff;
+    };
+    const reds = ["#4a0000", "#6a0000", "#8a0000", "#a30000", "#c81e1e"];
+    const n = Math.min(3, m.n);
+    const bias = ((m.dirs & BF_E ? 0.62 : 0) + (m.dirs & BF_W ? -0.62 : 0)); // horizontal lean
+    const cxp = px + t * 0.5 + bias * t * 0.3;
+
+    // TOP-face splatter (stronger when the kill was above the block). Squashed in
+    // Y to read as the perspective top face.
+    const topStrong = m.dirs & BF_N ? 1 : 0.55;
+    const topBlobs = Math.round((9 + n * 5) * topStrong);
+    const topR = t * (0.26 + n * 0.05);
+    for (let i = 0; i < topBlobs; i++) {
+      const ang = rnd() * Math.PI * 2;
+      const dist = Math.pow(rnd(), 0.6) * topR;
+      const bx = cxp + Math.cos(ang) * dist;
+      const by = py + t * 0.2 + Math.sin(ang) * dist * 0.55;
+      const sz = pu * (1 + Math.floor(rnd() * 2.2));
+      ctx.fillStyle = reds[(rnd() * reds.length) | 0];
+      ctx.fillRect(Math.round((bx - sz / 2) / pu) * pu, Math.round((by - sz / 2) / pu) * pu, sz, sz);
+    }
+    // FRONT-face drips (stronger when the kill was below/in front).
+    const frontStrong = m.dirs & BF_S ? 1 : 0.5;
+    const drips = Math.max(1, Math.round((1 + n) * (0.7 + frontStrong)));
+    for (let d = 0; d < drips; d++) {
+      const dx = cxp + (rnd() - 0.5) * t * 0.72;
+      const top = py + t * 0.4;
+      const len = t * (0.16 + rnd() * 0.42 * frontStrong);
+      const w = pu * (1 + Math.floor(rnd() * 1.5));
+      ctx.fillStyle = reds[1 + ((rnd() * 3) | 0)];
+      for (let y = 0; y < len; y += pu) ctx.fillRect(Math.round((dx - w / 2) / pu) * pu, Math.round((top + y) / pu) * pu, w, pu);
+      ctx.fillStyle = reds[0]; // darker rounded drip tip
+      ctx.fillRect(Math.round((dx - (w + pu) / 2) / pu) * pu, Math.round((top + len) / pu) * pu, w + pu, pu * 2);
+    }
   }
 
   /** FIRST BLOOD announcement (first kill of the match). Builds the chunky pixel
@@ -1277,6 +1348,7 @@ export class Renderer {
           this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
           if (dmg > 0) this.drawCracks(px, py, index);
         }
+        if (this.bloodBlocks.size) this.drawBlockBlood(px, py, index);
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       }
@@ -1287,6 +1359,7 @@ export class Renderer {
         ((this.lowFx && this.drawTileSprite("soft_mobile", px, py)) ||
           this.drawTileSprite("soft", px, py) ||
           this.drawSoft(px, py));
+        if (this.bloodBlocks.size) this.drawBlockBlood(px, py, index);
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       case TileType.EXPLOSION: {
