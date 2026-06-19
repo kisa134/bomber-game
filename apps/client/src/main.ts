@@ -60,6 +60,7 @@ import {
   signAndSendBase64,
 } from "./net/wallet.js";
 import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setWalletState } from "./ui/lobby.js";
+import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAnalytics, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram, getStartParam } from "./platform/telegram.js";
@@ -145,6 +146,8 @@ let hudSig = "";
 let prevMyLives = -1; // track HP to flash on damage
 const prevLives = new Map<number, number>(); // per-player HP, to sfx wounds
 let prevBombIds = new Set<number>(); // bomb ids last seen, to detect placements
+let iGotFirstBlood = false; // did the local player take first blood this match
+let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean } | null = null;
 
 const inGame = (p: MatchPhase) =>
   p === MatchPhase.COUNTDOWN || p === MatchPhase.PLAYING || p === MatchPhase.SUDDEN_DEATH;
@@ -413,6 +416,7 @@ net.onMessage = (msg) => {
       if (msg.kind === CalloutType.FIRST_BLOOD) {
         renderer?.firstBlood(); // pixel "FIRST BLOOD" text + blood drips
         void assets.playReverb("first_blood"); // echo + reverb
+        if (msg.playerId === state.myId) iGotFirstBlood = true; // for the share card
       }
       break;
     case ServerMsg.STAKE_VOTE:
@@ -444,6 +448,7 @@ function enterGame(): void {
   prevMyLives = -1;
   prevLives.clear();
   prevBombIds.clear();
+  iGotFirstBlood = false;
   myKillTimes = [];
   calloutEl.classList.add("hidden");
   spectatorEl.classList.add("hidden");
@@ -484,6 +489,11 @@ function announceResult(winnerId: number): void {
   }
   const note = document.getElementById("result-chips");
   if (note) note.textContent = chipNote;
+  // Snapshot this match for the share card (pot for staked tables, play reward otherwise).
+  const earnText = stake > 0
+    ? (draw ? "Stake refunded" : won ? `Won the pot ${sym}` : `−${sym}${stake.toLocaleString()}`)
+    : (won ? "+🪙100" : "+🪙20");
+  lastMatch = { won, draw, frags: meFrags, earnText, ratingDelta: 0, firstBlood: iGotFirstBlood };
   const w = loadWallet();
   const prevRating = lastRating;
   if (w) {
@@ -492,6 +502,7 @@ function announceResult(winnerId: number): void {
         setStats(p.chips, p.rating);
         setTokenBadge(p.gameTokens);
         const d = p.rating - prevRating;
+        if (lastMatch) lastMatch.ratingDelta = d;
         const ratingNote =
           d !== 0 ? `${leagueFor(p.rating).emoji} ${p.rating} (${d > 0 ? "+" : ""}${d})` : "";
         if (note) note.textContent = [chipNote, ratingNote].filter(Boolean).join("  ·  ");
@@ -2085,22 +2096,90 @@ document.getElementById("result-invite")?.addEventListener("click", () => {
   }
 });
 
-document.getElementById("result-share")?.addEventListener("click", () => {
-  const me = state.latest()?.players.find((p) => p.id === state.myId);
-  const won = state.winnerId === state.myId;
-  const frags = me?.frags ?? 0;
-  const text = won
-    ? `I just won a round of Bombermeme 💣🏆 with ${frags} frags. Come get blown up:`
-    : `Just dropped ${frags} frags in Bombermeme 💣 Think you can do better?`;
-  // Share carries your referral link, so wins recruit your downline.
-  const url = referralLink();
-  if (navigator.share) {
-    void navigator.share({ title: "Bombermeme", text, url }).catch(() => {});
-  } else {
-    const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-    window.open(intent, "_blank", "noopener");
+// --- share card (result + profile) ----------------------------------------
+let scVariant = 0;
+let scKind: "result" | "profile" = "result";
+let scBlob: Blob | null = null;
+
+function walletShort(): string | null {
+  const w = loadWallet();
+  return w ? `${w.address.slice(0, 4)}…${w.address.slice(-4)}` : null;
+}
+
+function buildCardData(kind: "result" | "profile"): CardData {
+  const nick = (localStorage.getItem("bp_nick") || "pumper").trim();
+  const lg = leagueFor(lastRating);
+  const data: CardData = {
+    kind, nickname: nick, skin: state.skinOf(state.myId), rating: lastRating,
+    league: { emoji: lg.emoji, name: lg.name }, chips: lastChips ?? 0,
+    refUrl: referralLink(), refCode: walletShort(),
+  };
+  if (kind === "result" && lastMatch) {
+    data.placeText = lastMatch.draw ? "🤝 Draw" : lastMatch.won ? "🏆 1st place" : "💀 Knocked out";
+    data.won = lastMatch.won;
+    data.frags = lastMatch.frags;
+    data.earnText = lastMatch.earnText;
+    data.ratingDelta = lastMatch.ratingDelta;
+    data.firstBlood = lastMatch.firstBlood;
   }
+  return data;
+}
+
+async function renderCurrentCard(): Promise<void> {
+  const img = document.getElementById("sharecard-img") as HTMLImageElement;
+  const cv = await renderShareCard(buildCardData(scKind), scVariant);
+  img.src = cv.toDataURL("image/png");
+  await new Promise<void>((res) => cv.toBlob((b) => { scBlob = b; res(); }, "image/png"));
+}
+
+async function openShareCard(kind: "result" | "profile"): Promise<void> {
+  scKind = kind;
+  document.getElementById("sharecard-modal")!.classList.remove("hidden");
+  await renderCurrentCard();
+}
+
+document.getElementById("sharecard-close")?.addEventListener("click", () =>
+  document.getElementById("sharecard-modal")!.classList.add("hidden"));
+document.getElementById("sc-variant")?.addEventListener("click", () => {
+  scVariant = (scVariant + 1) % VARIANT_COUNT;
+  void renderCurrentCard();
 });
+document.getElementById("sc-download")?.addEventListener("click", () => {
+  if (!scBlob) return;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(scBlob);
+  a.download = "bomberpump.png";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+});
+document.getElementById("sc-share")?.addEventListener("click", () => {
+  const url = referralLink();
+  const file = scBlob ? new File([scBlob], "bomberpump.png", { type: "image/png" }) : null;
+  const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean };
+  if (file && nav.canShare?.({ files: [file] })) {
+    void navigator.share({ files: [file], title: "Bomberpump", text: shareText(), url }).catch(() => {});
+  } else if (navigator.share) {
+    void navigator.share({ title: "Bomberpump", text: shareText(), url }).catch(() => {});
+  } else {
+    void navigator.clipboard?.writeText(url);
+  }
+  track("share_card", { kind: scKind, variant: scVariant });
+});
+document.getElementById("sc-x")?.addEventListener("click", () => {
+  const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText())}&url=${encodeURIComponent(referralLink())}`;
+  window.open(intent, "_blank", "noopener");
+});
+document.getElementById("sc-tg")?.addEventListener("click", () => {
+  const u = `https://t.me/share/url?url=${encodeURIComponent(referralLink())}&text=${encodeURIComponent(shareText())}`;
+  window.open(u, "_blank", "noopener");
+});
+document.getElementById("sc-copy")?.addEventListener("click", () => {
+  void navigator.clipboard?.writeText(referralLink());
+  setMenuStatus("Link copied");
+});
+
+document.getElementById("result-share")?.addEventListener("click", () => void openShareCard("result"));
+document.getElementById("profile-share")?.addEventListener("click", () => void openShareCard("profile"));
 
 // Deep link: ?room=CODE auto-joins with the saved nick/skin.
 (function autoJoinFromUrl(): void {

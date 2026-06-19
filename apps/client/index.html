@@ -137,11 +137,31 @@
         </div>
       </div>
 
+      <!-- Share card -->
+      <div id="sharecard-modal" class="modal hidden">
+        <div class="modal-card sharecard-card">
+          <h3>📸 Share</h3>
+          <img id="sharecard-img" class="sharecard-preview" alt="Bomberpump share card" />
+          <div class="sharecard-row">
+            <button id="sc-variant" class="ghost">🔄 Style</button>
+            <button id="sc-download" class="ghost">⬇ Save</button>
+            <button id="sc-share" class="primary">📤 Share</button>
+          </div>
+          <div class="sharecard-row">
+            <button id="sc-x" class="ghost">𝕏 Post</button>
+            <button id="sc-tg" class="ghost">✈️ Telegram</button>
+            <button id="sc-copy" class="ghost">🔗 Link</button>
+          </div>
+          <button id="sharecard-close" class="ghost">Close</button>
+        </div>
+      </div>
+
       <!-- Profile -->
       <section id="profile" class="screen hidden">
         <div class="panel">
           <h2>👤 Profile</h2>
           <div id="profile-body"></div>
+          <button id="profile-share" class="ghost">📸 Share card</button>
           <button id="profile-back" class="primary">Back</button>
         </div>
       </section>

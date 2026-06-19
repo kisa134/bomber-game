@@ -1866,6 +1866,30 @@ button.big {
 .play-scroll::-webkit-scrollbar {
   width: 0;
 }
+
+/* Share card modal */
+.sharecard-card {
+  width: min(440px, calc(100% - 24px));
+}
+.sharecard-preview {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  background: #0a0c12;
+  object-fit: contain;
+  border: 1px solid var(--border);
+}
+.sharecard-row {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.sharecard-row button {
+  flex: 1 1 0;
+  width: auto;
+  padding: 12px 6px;
+}
+
 #wallet-list {
   display: flex;
   flex-direction: column;
