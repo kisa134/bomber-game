@@ -621,6 +621,27 @@ app.post("/shop/select-skin", (res, req) => {
   });
 });
 
+// Claim a globally-unique nickname for the signed-in wallet.
+app.post("/profile/name", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    let wallet: string | null = null;
+    let name = "";
+    try {
+      const j = JSON.parse(body || "{}");
+      if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+      if (typeof j.name === "string") name = j.name.trim().slice(0, 16);
+    } catch {
+      // ignore
+    }
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    if (name.length < 2) return sendJson(res, { error: "too_short" }, "400 Bad Request");
+    const ok = await store.setName(wallet, name);
+    if (!ok) return sendJson(res, { error: "name_taken" }, "409 Conflict");
+    sendJson(res, { ok: true, name });
+  });
+});
+
 // --- referral ---
 // Bind the inviter for a freshly-connected wallet (one-time, session-verified).
 app.post("/referral/attribute", (res, req) => {
@@ -855,6 +876,12 @@ function withMatchmaking(
   if (!guard(res, req)) return;
   void parseBody(res).then(async (b) => {
     try {
+      // Wallet players always display their stable, unique profile nickname
+      // (ignore an arbitrary client-sent name so two accounts can't share one).
+      if (b.wallet) {
+        const prof = await store.ensureProfile(b.wallet, b.name, b.skin);
+        b.name = prof.name;
+      }
       // Staked table: require a wallet with enough of the right balance first.
       const { stake, currency } = costOf(b);
       if (stake > 0) {

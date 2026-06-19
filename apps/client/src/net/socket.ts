@@ -116,6 +116,11 @@ export async function buySkin(
   return res.json();
 }
 
+export async function setNickname(name: string): Promise<{ ok?: boolean; name?: string; error?: string }> {
+  const res = await post("/profile/name", { name });
+  return res.json();
+}
+
 export async function selectSkin(skin: number): Promise<{ skin?: number; error?: string }> {
   const res = await post("/shop/select-skin", { skin });
   return res.json();

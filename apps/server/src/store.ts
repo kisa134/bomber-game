@@ -84,6 +84,9 @@ export interface ProfileStore {
   /** Select an owned skin as the active one. Returns the new skin, or null if
    *  the wallet doesn't own it. */
   selectSkin(wallet: string, skin: number): Promise<number | null>;
+  /** Claim a globally-unique nickname (case-insensitive). Returns true if it was
+   *  set, false if another wallet already uses it. */
+  setName(wallet: string, name: string): Promise<boolean>;
   /** Bind a referrer to this wallet — only if it has none yet and isn't self.
    *  Returns true if newly set. (Both profiles are ensured to exist.) */
   setReferrer(wallet: string, referrer: string): Promise<boolean>;
@@ -164,7 +167,8 @@ function ratingDeltas(results: MatchResult[], ratingOf: (w: string) => number): 
 }
 
 function applyResult(p: Profile, r: MatchResult): void {
-  p.name = r.name;
+  // Name is NOT updated here — it's a stable, unique identity set on profile
+  // creation and changed only via setName (the claim endpoint).
   p.skin = r.skin;
   p.xp += xpForMatch(r);
   p.matches += 1;
@@ -212,13 +216,30 @@ class InMemoryStore implements ProfileStore {
     return all.sort((a, b) => b.rating - a.rating).slice(0, limit);
   }
 
+  private nameTakenBy(name: string, exceptWallet: string): boolean {
+    const lower = name.toLowerCase();
+    for (const q of this.map.values()) if (q.wallet !== exceptWallet && q.name.toLowerCase() === lower) return true;
+    return false;
+  }
+
   async ensureProfile(wallet: string, name: string, skin: number): Promise<Profile> {
     let p = this.map.get(wallet);
     if (!p) {
-      p = blankProfile(wallet, name, skin);
+      // Make the starting name unique (suffix with a wallet fragment if taken).
+      let n = name || `Player`;
+      if (this.nameTakenBy(n, wallet)) n = `${n.slice(0, 11)}#${wallet.slice(0, 4)}`;
+      p = blankProfile(wallet, n, skin);
       this.map.set(wallet, p);
     }
     return p;
+  }
+
+  async setName(wallet: string, name: string): Promise<boolean> {
+    if (this.nameTakenBy(name, wallet)) return false;
+    const p = this.map.get(wallet) ?? blankProfile(wallet, name, 0);
+    this.map.set(wallet, p);
+    p.name = name;
+    return true;
   }
 
   async adjustChips(wallet: string, delta: number): Promise<number | null> {
@@ -609,6 +630,20 @@ class SupabaseStore implements ProfileStore {
     return [];
   }
 
+  async setName(wallet: string, name: string): Promise<boolean> {
+    // Best-effort (no strict uniqueness on REST); production uses Postgres.
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ name }),
+      });
+    } catch {
+      /* best-effort */
+    }
+    return true;
+  }
+
   async referralStats(wallet: string): Promise<{ direct: number; earned: number; network: number[] }> {
     const network = [0, 0, 0, 0, 0];
     let earned = 0;
@@ -793,7 +828,7 @@ class PostgresStore implements ProfileStore {
           `insert into profiles (wallet,name,skin,xp,matches,wins,frags,deaths,current_streak,best_streak,level,rating,week_key,week_points,updated_at)
            values ($1,$2,$3,$4,1, case when $5 then 1 else 0 end, $6,$7, case when $5 then 1 else 0 end, case when $5 then 1 else 0 end, 1 + ($4/200), greatest(0, ${STARTING_RATING} + $8), $9, $10, now())
            on conflict (wallet) do update set
-             name=excluded.name, skin=excluded.skin,
+             skin=excluded.skin,
              xp=profiles.xp+$4,
              matches=profiles.matches+1,
              wins=profiles.wins+case when $5 then 1 else 0 end,
@@ -854,12 +889,50 @@ class PostgresStore implements ProfileStore {
 
   async ensureProfile(wallet: string, name: string, skin: number): Promise<Profile> {
     await this.ready;
+    // Make the starting name unique (case-insensitive). If taken by ANOTHER
+    // wallet, suffix with a short wallet fragment so creation never collides.
+    let n = (name || "Player").slice(0, 16);
+    try {
+      const taken = await this.pool.query(
+        `select 1 from profiles where lower(name)=lower($1) and wallet<>$2 limit 1`,
+        [n, wallet],
+      );
+      if (taken.rowCount) n = `${n.slice(0, 11)}#${wallet.slice(0, 4)}`;
+    } catch {
+      /* on error just use the name as-is */
+    }
     await this.pool.query(
       `insert into profiles (wallet,name,skin) values ($1,$2,$3) on conflict (wallet) do nothing`,
-      [wallet, name, skin],
+      [wallet, n, skin],
     );
     const res = await this.pool.query("select * from profiles where wallet=$1", [wallet]);
     return this.norm(res.rows[0])!;
+  }
+
+  async setName(wallet: string, name: string): Promise<boolean> {
+    try {
+      await this.ready;
+      // Claim only if no OTHER wallet holds this name (case-insensitive).
+      const r = await this.pool.query(
+        `update profiles p set name=$2, updated_at=now()
+           where p.wallet=$1
+             and not exists (select 1 from profiles q where lower(q.name)=lower($2) and q.wallet<>$1)`,
+        [wallet, name],
+      );
+      if (r.rowCount && r.rowCount > 0) return true;
+      // No row updated: either the wallet has no profile yet, or the name is taken.
+      const owner = await this.pool.query(`select wallet from profiles where lower(name)=lower($1) limit 1`, [name]);
+      if (owner.rowCount && owner.rows[0].wallet !== wallet) return false; // taken by someone else
+      // Profile didn't exist — create it with this (free) name.
+      await this.pool.query(
+        `insert into profiles (wallet,name) values ($1,$2) on conflict (wallet) do update set name=$2, updated_at=now()`,
+        [wallet, name],
+      );
+      return true;
+    } catch (e) {
+      console.error("[store] pg setName failed", e);
+      return false;
+    }
   }
 
   async adjustChips(wallet: string, delta: number): Promise<number | null> {

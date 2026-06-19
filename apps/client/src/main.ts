@@ -30,6 +30,7 @@ import {
   joinRoom,
   practiceRoom,
   fetchProfile,
+  setNickname,
   fetchLeaderboard,
   fetchTables,
   fetchBank,
@@ -82,6 +83,7 @@ const settings = loadSettings();
 let renderer: Renderer | null = null;
 let keepAlive: ReturnType<typeof setInterval> | null = null;
 let currentTrack: "lobby" | "battle" = "lobby";
+let lastGoodNick = ""; // last accepted unique nickname (to revert on a clash)
 let lastCountSec = -1;
 let practiceMode = false; // current room is practice vs bots (drives "Play again")
 let goUntil = 0;
@@ -864,6 +866,25 @@ function update<K extends keyof Settings>(key: K, value: Settings[K]): void {
   applySettings();
 }
 
+// Claim a globally-unique nickname when a signed-in wallet edits the field.
+function wireNickname(): void {
+  const nick = document.getElementById("nickname") as HTMLInputElement | null;
+  if (!nick) return;
+  nick.addEventListener("change", async () => {
+    const name = nick.value.trim();
+    localStorage.setItem("bp_name", name);
+    if (!loadWallet()?.session || name.length < 2) return; // anonymous: nothing to claim
+    const r = await setNickname(name).catch(() => ({ error: "net" }) as { error: string });
+    if (r.error === "name_taken") {
+      setMenuStatus("Этот ник уже занят — выбери другой");
+      nick.value = lastGoodNick;
+    } else if ("ok" in r && r.ok) {
+      lastGoodNick = r.name ?? name;
+      setMenuStatus("");
+    }
+  });
+}
+
 function wireSettings(): void {
   document.getElementById("open-settings")!.addEventListener("click", () => showScreen("settings"));
   document.getElementById("settings-back")!.addEventListener("click", () => {
@@ -890,6 +911,12 @@ function refreshWalletBtn(): void {
       .then((p) => {
         setStats(p.chips, p.rating);
         setTokenBadge(p.gameTokens);
+        // Show the wallet's claimed (unique) nickname in the field.
+        const nick = document.getElementById("nickname") as HTMLInputElement | null;
+        if (nick && p.name) {
+          nick.value = p.name;
+          lastGoodNick = p.name;
+        }
       })
       .catch(() => {});
   } else {
@@ -1768,6 +1795,7 @@ input.attach();
 void assets.preload();
 applySettings();
 wireSettings();
+wireNickname();
 wireWallet();
 wireMenuLinks();
 wireBank();
