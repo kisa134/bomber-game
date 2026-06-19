@@ -274,7 +274,7 @@ export class Renderer {
   /** Transient action poses (fall back to the walk frame if the skin has no
    *  state sprite). place-bomb + hurt auto-expire; victory holds until reset. */
   setPlaceBomb(playerId: number): void {
-    this.placeBombUntil.set(playerId, performance.now() + 360);
+    this.placeBombUntil.set(playerId, performance.now() + 120); // quick flash, not a held pose
   }
   setHurt(playerId: number): void {
     this.hurtUntil.set(playerId, performance.now() + 450);
