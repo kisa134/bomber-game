@@ -688,19 +688,24 @@ export class Renderer {
       // out over the last 4s. The local player glows a bit brighter.
       // Start-of-match highlight: owner-colored glow under each player so you can
       // find yourself / tell players apart (kept on phones too — it's gameplay).
+      // Owner-colored glow under each player (same palette as their bombs), ALWAYS
+      // on so you can find yourself / tell players apart, with an extra boost in
+      // the first 30s. Brighter than before for clear readability.
       const HL_MS = 30_000;
       const sinceStart = this.matchStartMs ? now - this.matchStartMs : Infinity;
-      if (p.alive && sinceStart < HL_MS) {
-        const fade = sinceStart > HL_MS - 4000 ? (HL_MS - sinceStart) / 4000 : 1;
+      if (p.alive) {
         const isMe = p.id === myId;
         const col = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
-        const beat = 0.85 + 0.15 * Math.sin(now / 240);
-        const glow = t * (isMe ? 0.7 : 0.52) * beat;
-        const gy = cy + t * 0.18;
-        const a = Math.max(0, Math.min(1, fade * (isMe ? 0.6 : 0.4)));
+        const beat = 0.88 + 0.12 * Math.sin(now / 240);
+        const boost = sinceStart < HL_MS ? (sinceStart > HL_MS - 4000 ? (HL_MS - sinceStart) / 4000 : 1) : 0;
+        const glow = t * (isMe ? 0.82 : 0.66) * beat;
+        const gy = cy + t * 0.2;
+        const a = Math.min(1, (isMe ? 0.62 : 0.48) + boost * (isMe ? 0.22 : 0.16));
         const ah = Math.round(a * 255).toString(16).padStart(2, "0");
+        const mh = Math.round(a * 0.5 * 255).toString(16).padStart(2, "0");
         const grad = ctx.createRadialGradient(cx, gy, 0, cx, gy, glow);
         grad.addColorStop(0, col + ah);
+        grad.addColorStop(0.55, col + mh);
         grad.addColorStop(1, col + "00");
         ctx.globalAlpha = 1;
         ctx.fillStyle = grad;
@@ -1423,8 +1428,10 @@ export class Renderer {
     const t = this.tile;
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
-        const tile = view.grid[y * GRID_W + x] as TileType;
+        const i = y * GRID_W + x;
+        const tile = view.grid[i] as TileType;
         if (tile === TileType.HARD || tile === TileType.SOFT || tile === TileType.EXPLOSION) continue;
+        if (this.burn.has(i)) continue; // blasted ground: grass is burnt away
         this.drawGrassBlades(x * t, y * t, x, y, now);
       }
     }
