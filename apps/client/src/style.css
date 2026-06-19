@@ -97,8 +97,10 @@ body {
   align-items: center;
   gap: 14px;
   width: min(360px, calc(100% - 28px));
-  max-height: calc(100% - 28px);
+  max-height: calc(100dvh - 28px - var(--sai-top) - var(--sai-bottom));
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 24px 22px;
   background: rgba(13, 16, 26, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -118,7 +120,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 16px;
-  padding: 24px;
+  /* Clear notches / the Telegram header + the fixed alpha banner up top. */
+  padding: calc(54px + var(--sai-top)) 24px calc(24px + var(--sai-bottom));
 }
 
 .hidden {
@@ -1831,6 +1834,8 @@ button.big {
   justify-content: center;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(3px);
+  /* Respect notches / the Telegram header so the card is never clipped. */
+  padding: calc(10px + var(--sai-top)) 0 calc(10px + var(--sai-bottom));
 }
 .modal-card {
   width: min(360px, calc(100% - 32px));
@@ -1842,6 +1847,12 @@ button.big {
   flex-direction: column;
   gap: 12px;
   align-items: stretch;
+  /* Any modal taller than the screen scrolls inside itself instead of spilling
+     off the top/bottom out of reach (Telegram / short landscape phones). */
+  max-height: calc(100dvh - 20px - var(--sai-top) - var(--sai-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .modal-card h3 {
   text-align: center;
@@ -1853,7 +1864,7 @@ button.big {
 }
 /* Play hub: title + close stay put, the options list scrolls between them. */
 #play-modal .modal-card {
-  max-height: calc(100% - 32px);
+  max-height: calc(100dvh - 20px - var(--sai-top) - var(--sai-bottom));
 }
 .play-scroll {
   display: flex;
