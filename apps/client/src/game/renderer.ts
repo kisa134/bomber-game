@@ -1138,6 +1138,10 @@ export class Renderer {
         break;
       case TileType.EXPLOSION: {
         const start = this.fireStart.get(index) ?? now;
+        // Past its lifetime, don't draw it — otherwise a stuck EXPLOSION tile
+        // (e.g. the grid freezes when the match ends) leaves the last blast frame
+        // frozen on the board. Just show the floor underneath.
+        if (now - start >= EXPLOSION_LIFETIME_MS) break;
         const frame = Math.min(2, Math.floor((now - start) / (EXPLOSION_LIFETIME_MS / 3)));
         const drawn =
           this.drawTileSprite(`explosion${frame}`, px, py) || this.drawTileSprite("explosion", px, py);
