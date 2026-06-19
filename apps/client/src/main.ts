@@ -47,7 +47,7 @@ import {
 import { GameState } from "./game/state.js";
 import { Renderer, PLAYER_COLORS, skinAvatar } from "./game/renderer.js";
 import { Input } from "./game/input.js";
-import { Assets } from "./game/assets.js";
+import { Assets, ASSET_VER } from "./game/assets.js";
 import { loadSettings, saveSettings, type Settings } from "./settings.js";
 import {
   listWallets,
@@ -1590,7 +1590,10 @@ function wireMenuLinks(): void {
 
 function setupBackground(): void {
   const v = document.getElementById("bg-video") as HTMLVideoElement;
-  const sources = ["/bg/menu.mp4", "/bg/menu.webm"];
+  // ?v= busts the cache when the file is replaced under the same name. The
+  // boomerang mp4 loops seamlessly via the element's `loop` attr; webm dropped
+  // (mp4 is universal and tried first).
+  const sources = [`/bg/menu.mp4?v=${ASSET_VER}`];
   let i = 0;
   const tryNext = () => {
     if (i >= sources.length) return; // no bg; gradient stays
