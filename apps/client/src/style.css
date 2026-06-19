@@ -938,15 +938,16 @@ button.ghost {
     font-size: 0.7rem;
   }
 
-  /* LEFT zone = one big see-through movement area; the stick rides inside it. */
+  /* LEFT HALF of the screen = the floating joystick: touch ANYWHERE here and the
+     stick spawns under your finger (invisible zone, so the board stays clean). */
   #joystick {
     left: 0;
-    top: 36%;
+    top: 0;
     bottom: 0;
-    width: var(--board-side, 96px);
+    width: 50%;
     height: auto;
-    background: rgba(255, 255, 255, 0.04);
-    border-radius: 0 18px 18px 0;
+    background: none;
+    border-radius: 0;
   }
   #joy-base {
     width: 82px;

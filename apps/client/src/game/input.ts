@@ -89,7 +89,7 @@ export class Input {
     joy?.classList.toggle("hidden", scheme !== "joystick");
     // Reset any held touch direction when switching.
     this.setJoy(Direction.NONE);
-    if (scheme === "joystick") this.showJoyHome();
+    if (scheme === "joystick") this.hideJoy();
   }
 
   private attachBombButton(): void {
@@ -122,33 +122,15 @@ export class Input {
   private base: HTMLElement | null = null;
   private thumb: HTMLElement | null = null;
 
-  /** Fixed resting position of the stick, shown faintly when idle. In landscape
-   *  it's pinned to the far-left edge, vertically centered (matching the CSS edge
-   *  zone); in portrait it sits bottom-left clear of the home indicator. */
-  private homeXY(): { x: number; y: number } {
-    const cs = getComputedStyle(document.documentElement);
-    const safeBottom = parseInt(cs.getPropertyValue("--sai-bottom")) || 0;
-    const safeLeft = parseInt(cs.getPropertyValue("--sai-left")) || 0;
-    const landscape = window.innerWidth >= window.innerHeight;
-    if (landscape) {
-      // Centered inside the left control zone (whose width the renderer measured
-      // into --board-side), sitting in the lower-middle for an easy thumb reach.
-      const side = parseFloat(cs.getPropertyValue("--board-side")) || 96;
-      return { x: safeLeft + side / 2, y: window.innerHeight * 0.66 };
-    }
-    return { x: 120 + safeLeft, y: window.innerHeight - 150 - safeBottom };
-  }
-
-  private showJoyHome(): void {
+  /** Hide the stick when no finger is down (so nothing is parked on screen). */
+  private hideJoy(): void {
     if (!this.base || !this.thumb) return;
-    const h = this.homeXY();
-    this.base.style.left = this.thumb.style.left = `${h.x}px`;
-    this.base.style.top = this.thumb.style.top = `${h.y}px`;
-    this.base.style.opacity = "0.4";
-    this.thumb.style.opacity = "0.5";
+    this.base.style.opacity = "0";
+    this.thumb.style.opacity = "0";
   }
 
-  /** Floating virtual joystick: touch anywhere in the left zone to grab it. */
+  /** Floating virtual joystick: the WHOLE left zone is the stick — touch anywhere
+   *  and it spawns right under your finger; release and it vanishes. */
   private attachJoystick(): void {
     const zone = document.getElementById("joystick");
     const base = document.getElementById("joy-base");
@@ -164,16 +146,12 @@ export class Input {
 
     zone.addEventListener("pointerdown", (e) => {
       active = true;
-      // Anchor the stick at its fixed home (don't jump it to the finger), so it
-      // never wanders — the thumb just deflects around the fixed base.
-      const h = this.homeXY();
-      ox = h.x;
-      oy = h.y;
-      base.style.left = `${ox}px`;
-      base.style.top = `${oy}px`;
-      thumb.style.left = `${ox}px`;
-      thumb.style.top = `${oy}px`;
-      base.style.opacity = "0.9";
+      // Spawn the stick exactly where the finger landed (anywhere in the zone).
+      ox = e.clientX;
+      oy = e.clientY;
+      base.style.left = thumb.style.left = `${ox}px`;
+      base.style.top = thumb.style.top = `${oy}px`;
+      base.style.opacity = "0.85";
       thumb.style.opacity = "1";
       zone.setPointerCapture(e.pointerId);
       e.preventDefault();
@@ -203,12 +181,12 @@ export class Input {
     const end = (e: Event) => {
       active = false;
       this.setJoy(Direction.NONE);
-      this.showJoyHome();
+      this.hideJoy();
       e.preventDefault();
     };
     zone.addEventListener("pointerup", end);
     zone.addEventListener("pointercancel", end);
-    this.showJoyHome();
+    this.hideJoy();
   }
 
   reset(): void {
