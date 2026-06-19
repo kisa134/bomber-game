@@ -14,6 +14,13 @@ const KEY_DIR: Record<string, Direction> = {
 
 const JOY_DEADZONE = 14; // px
 
+/** True when the key event targets a text field — don't hijack those keys. */
+function typingInField(e: KeyboardEvent): boolean {
+  const el = e.target as HTMLElement | null;
+  const tag = el?.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || (el?.isContentEditable ?? false);
+}
+
 /** Tracks the effective movement direction (keyboard or virtual stick). */
 export class Input {
   private held: Direction[] = []; // keyboard
@@ -57,7 +64,7 @@ export class Input {
 
   attach(): void {
     window.addEventListener("keydown", (e) => {
-      if (e.repeat) return;
+      if (e.repeat || typingInField(e)) return; // don't steal keys from text inputs
       const dir = KEY_DIR[e.code];
       if (dir !== undefined) {
         this.press(dir);
@@ -68,6 +75,7 @@ export class Input {
       }
     });
     window.addEventListener("keyup", (e) => {
+      if (typingInField(e)) return;
       const dir = KEY_DIR[e.code];
       if (dir !== undefined) this.release(dir);
     });
