@@ -212,14 +212,20 @@
           <div id="toast" class="hidden"></div>
         </div>
 
-        <!-- Info panel below the play area (timer, your kit, scores, ping, emotes) -->
+        <!-- Info panel (timer, your kit, scores, ping, emotes). On desktop and
+             portrait phones it's one bar; in landscape on phones #hud-left and
+             #hud-right become slim vertical strips flanking the board. -->
         <div id="hud-panel">
-          <div id="timer">3:00</div>
-          <div id="hud-bottom"></div>
-          <div id="bal-hud" class="bal-bar hidden"></div>
-          <div id="players"></div>
-          <div id="game-emotes" class="emote-bar in-game"></div>
-          <div id="ping">0 ms</div>
+          <div id="hud-left">
+            <div id="timer">3:00</div>
+            <div id="hud-bottom"></div>
+            <div id="bal-hud" class="bal-bar hidden"></div>
+          </div>
+          <div id="hud-right">
+            <div id="players"></div>
+            <div id="game-emotes" class="emote-bar in-game"></div>
+            <div id="ping">0 ms</div>
+          </div>
         </div>
 
         <div id="touch-controls" class="hidden">

@@ -90,6 +90,16 @@ export class Renderer {
   private dpr = 1;
   private assets: Assets | null = null;
 
+  // Low-effects mode for phones / touch devices: caps DPR, swaps the heavy
+  // procedural shadows for cheap ellipses, skips ambient/wind/light-bounce and
+  // thins out particles. Keeps the board smooth and the phone cool.
+  private lowFx = false;
+  private fxScale = 1; // particle-count multiplier (0.5 in lowFx)
+  private maxParticles = MAX_PARTICLES;
+  // The grass floor is static, so render it once into an offscreen canvas and
+  // blit it each frame instead of redrawing ~10k blades per frame.
+  private floor: HTMLCanvasElement | null = null;
+
   /** Maps a player id to a skin index. Overridden by main. */
   skinOf: (id: number) => number = (id) => id % PLAYER_COLORS.length;
 
@@ -128,7 +138,10 @@ export class Renderer {
   }
 
   resize(): void {
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Cap the device-pixel-ratio lower on phones: fewer pixels to fill = far
+    // less GPU/CPU work and heat, with little visible difference at arm's length.
+    const coarseDpr = window.matchMedia("(pointer: coarse)").matches ? 1.5 : 2;
+    this.dpr = Math.min(window.devicePixelRatio || 1, coarseDpr);
     // Fit the canvas into the play area's *content* box (above the HUD strip).
     // On desktop leave a margin so the framed board floats off the screen edges;
     // on touch/mobile drop it (and the CSS border) so the board fills the area.
@@ -136,6 +149,9 @@ export class Renderer {
     // the touch controls in landscape), so subtract it: clientWidth includes
     // padding, and the board must stay inside it, never under the controls.
     const coarse = window.matchMedia("(pointer: coarse)").matches;
+    this.lowFx = coarse;
+    this.fxScale = coarse ? 0.5 : 1;
+    this.maxParticles = coarse ? 240 : MAX_PARTICLES;
     const margin = coarse ? 0 : 22;
     const host = this.canvas.parentElement;
     const cs = host ? getComputedStyle(host) : null;
@@ -152,6 +168,29 @@ export class Renderer {
     this.canvas.style.height = `${h}px`;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     this.ctx.imageSmoothingEnabled = true;
+    this.buildFloor();
+  }
+
+  /** Pre-render the (static) procedural grass floor into an offscreen canvas so
+   *  the main loop just blits one image instead of drawing thousands of blades
+   *  every frame. Rebuilt on resize (when the tile size changes). */
+  private buildFloor(): void {
+    const t = this.tile;
+    const W = t * GRID_W;
+    const H = t * GRID_H;
+    if (W <= 0 || H <= 0) return;
+    const c = this.floor ?? (this.floor = document.createElement("canvas"));
+    c.width = Math.max(1, Math.round(W * this.dpr));
+    c.height = Math.max(1, Math.round(H * this.dpr));
+    const g = c.getContext("2d");
+    if (!g) return;
+    g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    g.clearRect(0, 0, W, H);
+    for (let y = 0; y < GRID_H; y++) {
+      for (let x = 0; x < GRID_W; x++) {
+        this.drawGrass(g, x * t, y * t, x, y);
+      }
+    }
   }
 
   // -- VFX API ---------------------------------------------------------------
@@ -174,7 +213,8 @@ export class Renderer {
 
   private push(p: Particle): void {
     this.particles.push(p);
-    if (this.particles.length > MAX_PARTICLES) this.particles.splice(0, this.particles.length - MAX_PARTICLES);
+    if (this.particles.length > this.maxParticles)
+      this.particles.splice(0, this.particles.length - this.maxParticles);
   }
 
   burst(cx: number, cy: number, color: string, count: number, speed = 3): void {
@@ -203,7 +243,7 @@ export class Renderer {
       const cx = c.x + 0.5;
       const cy = c.y + 0.5;
       // Flames.
-      for (let i = 0; i < 7; i++) {
+      for (let i = 0; i < Math.round(7 * this.fxScale); i++) {
         const a = Math.random() * Math.PI * 2;
         const s = 1.6 + Math.random() * 2.6;
         this.push({
@@ -214,7 +254,7 @@ export class Renderer {
         });
       }
       // Rising smoke.
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < Math.round(3 * this.fxScale); i++) {
         this.push({
           x: cx + (Math.random() - 0.5) * 0.4, y: cy, vx: (Math.random() - 0.5) * 0.6, vy: -0.8 - Math.random(),
           life: 0.7 + Math.random() * 0.5, max: 1.2, drag: 0.95, grow: this.tile * 0.25,
@@ -244,7 +284,7 @@ export class Renderer {
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
     const reds = ["#8a0000", "#a30000", "#c81e1e", "#6a0000"];
-    for (let i = 0; i < 26; i++) {
+    for (let i = 0; i < Math.round(26 * this.fxScale); i++) {
       const a = Math.random() * Math.PI * 2;
       const s = 3 + Math.random() * 5;
       this.push({
@@ -341,6 +381,9 @@ export class Renderer {
       this.shakeMag = 0;
     }
 
+    // Blit the cached grass floor under everything (replaces per-tile grass).
+    if (this.floor) ctx.drawImage(this.floor, 0, 0, W, H);
+
     if (view.grid) {
       // Detect soft-block breaks (SOFT -> not SOFT) to spray debris.
       if (this.prevGrid && this.prevGrid.length === view.grid.length) {
@@ -368,7 +411,7 @@ export class Renderer {
     }
 
     this.drawDecals(now);
-    this.drawWind(now, W, H);
+    if (!this.lowFx) this.drawWind(now, W, H);
     this.drawPowerups(view, now); // after blocks so their shadows never cover relics
 
     for (const b of view.bombs) {
@@ -419,7 +462,7 @@ export class Renderer {
     this.updateParticles(dt);
     ctx.restore();
 
-    this.drawAmbient(W, H); // warm key light + vignette for depth
+    if (!this.lowFx) this.drawAmbient(W, H); // warm key light + vignette for depth
     this.drawFirstBlood(now); // screen-space announcement, above the world
   }
 
@@ -592,7 +635,7 @@ export class Renderer {
   /** Brown/orange chunks flung out when a soft block is destroyed. */
   private emitDebris(gx: number, gy: number): void {
     const t = this.tile;
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < Math.round(10 * this.fxScale); i++) {
       const a = Math.random() * Math.PI * 2;
       const s = 1.5 + Math.random() * 3;
       this.push({
@@ -610,6 +653,17 @@ export class Renderer {
   private drawShadow(cx: number, cy: number, rx: number, ry: number, alpha: number): void {
     const ctx = this.ctx;
     const t = this.tile;
+    // Phones: one cheap ellipse instead of a per-pixel grid loop on every block.
+    if (this.lowFx) {
+      const prev = ctx.globalAlpha;
+      ctx.globalAlpha = prev * alpha;
+      ctx.fillStyle = "#000";
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = prev;
+      return;
+    }
     const pu = Math.max(2, Math.round(t / 12));
     const sw = Math.sin(this.lastTime / 900 + cx * 0.05 + cy * 0.03);
     const ox = cx + sw * pu * 0.7; // drift sideways a touch
@@ -923,18 +977,18 @@ export class Renderer {
     const px = x * t;
     const py = y * t;
 
-    this.drawGrass(px, py, x, y, now);
+    // (Floor grass is blitted from the offscreen cache in render(), not here.)
 
     switch (tile) {
       case TileType.HARD:
         this.drawShadow(px + t / 2, py + t * 0.95, t * 0.42, t * 0.1, 0.3);
         this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
-        if (this.lights.length) this.lightCatch(px, py, now);
+        if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       case TileType.SOFT:
         this.drawShadow(px + t / 2, py + t * 0.95, t * 0.4, t * 0.1, 0.26);
         this.drawTileSprite("soft", px, py) || this.drawSoft(px, py);
-        if (this.lights.length) this.lightCatch(px, py, now);
+        if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       case TileType.EXPLOSION: {
         const start = this.fireStart.get(index) ?? now;
@@ -1022,9 +1076,9 @@ export class Renderer {
     return true;
   }
 
-  /** Procedural pixel grass floor — deterministic blades per tile, tips sway with wind. */
-  private drawGrass(px: number, py: number, x: number, y: number, now: number): void {
-    const ctx = this.ctx;
+  /** Procedural pixel grass floor — deterministic blades per tile. Drawn once
+   *  into the offscreen floor cache (see buildFloor), never per frame. */
+  private drawGrass(ctx: CanvasRenderingContext2D, px: number, py: number, x: number, y: number): void {
     const t = this.tile;
     ctx.fillStyle = (x + y) % 2 === 0 ? "#345628" : "#2e4a24"; // base ground checker (brighter)
     ctx.fillRect(px, py, t, t);
@@ -1035,17 +1089,15 @@ export class Renderer {
       return (seed & 1023) / 1023;
     };
     const greens = ["#4b8a30", "#5aa53c", "#43802c", "#67bb46"]; // brighter greens
-    const wind = Math.sin(now / 620 + x * 0.55 + y * 0.3);
     for (let i = 0; i < 28; i++) {
       // ~2x denser
       const bx = px + Math.floor(rnd() * (t - pu));
       const by = py + Math.floor(rnd() * (t - pu * 3));
       const hgt = pu * (2 + Math.floor(rnd() * 2)); // a bit longer blades
       const col = greens[(seed >> 3) & 3];
-      const sway = Math.round(wind * pu * (0.6 + rnd() * 0.8));
       ctx.fillStyle = col;
       ctx.fillRect(bx, by, pu, hgt); // stalk
-      ctx.fillRect(bx + sway, by - pu, pu, pu); // swaying tip
+      ctx.fillRect(bx, by - pu, pu, pu); // tip
     }
   }
 

@@ -122,12 +122,15 @@ export class Input {
   private base: HTMLElement | null = null;
   private thumb: HTMLElement | null = null;
 
-  /** Resting position of the stick (bottom-left), shown faintly when idle.
-   *  Clears the bottom/left safe areas (notch, home indicator). */
+  /** Fixed resting position of the stick, shown faintly when idle. In landscape
+   *  it's pinned to the far-left edge, vertically centered (matching the CSS edge
+   *  zone); in portrait it sits bottom-left clear of the home indicator. */
   private homeXY(): { x: number; y: number } {
     const cs = getComputedStyle(document.documentElement);
     const safeBottom = parseInt(cs.getPropertyValue("--sai-bottom")) || 0;
     const safeLeft = parseInt(cs.getPropertyValue("--sai-left")) || 0;
+    const landscape = window.innerWidth >= window.innerHeight;
+    if (landscape) return { x: 64 + safeLeft, y: window.innerHeight / 2 };
     return { x: 120 + safeLeft, y: window.innerHeight - 150 - safeBottom };
   }
 
@@ -156,10 +159,15 @@ export class Input {
 
     zone.addEventListener("pointerdown", (e) => {
       active = true;
-      ox = e.clientX;
-      oy = e.clientY;
-      base.style.left = thumb.style.left = `${ox}px`;
-      base.style.top = thumb.style.top = `${oy}px`;
+      // Anchor the stick at its fixed home (don't jump it to the finger), so it
+      // never wanders — the thumb just deflects around the fixed base.
+      const h = this.homeXY();
+      ox = h.x;
+      oy = h.y;
+      base.style.left = `${ox}px`;
+      base.style.top = `${oy}px`;
+      thumb.style.left = `${ox}px`;
+      thumb.style.top = `${oy}px`;
       base.style.opacity = "0.9";
       thumb.style.opacity = "1";
       zone.setPointerCapture(e.pointerId);
