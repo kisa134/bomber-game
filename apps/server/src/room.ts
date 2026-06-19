@@ -79,6 +79,7 @@ export class Room {
   readonly isPublic: boolean;
   readonly practice: boolean; // fill with bots and auto-start
   readonly botDifficulty: BotDifficulty; // difficulty of bots in a practice room
+  readonly botCount: number; // how many bots a practice match fills with
   stake: number; // amount wagered per player (0 = casual); host can change in lobby
   readonly currency: Currency; // what the stake is denominated in
   private pot = 0; // escrowed amount for the current match (base units for tokens)
@@ -128,6 +129,7 @@ export class Room {
     stake = 0,
     botDifficulty: BotDifficulty = BotDifficulty.NORMAL,
     currency: Currency = Currency.CHIPS,
+    botCount = MAX_PLAYERS_PER_ROOM - 1,
   ) {
     this.id = id;
     this.isPublic = isPublic;
@@ -135,6 +137,7 @@ export class Room {
     this.stake = stake;
     this.currency = currency;
     this.botDifficulty = botDifficulty;
+    this.botCount = Math.max(1, Math.min(MAX_PLAYERS_PER_ROOM - 1, botCount));
     this.spiral = buildSpiral();
   }
 
@@ -361,7 +364,8 @@ export class Room {
 
   /** Top up bots and start a practice match. */
   private startPractice(): void {
-    while (this.players.size < MAX_PLAYERS_PER_ROOM) this.addBot();
+    const target = Math.min(MAX_PLAYERS_PER_ROOM, 1 + this.botCount); // 1 human + N bots
+    while (this.players.size < target) this.addBot();
     this.practiceStarted = true;
     void this.start();
   }

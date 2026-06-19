@@ -67,6 +67,7 @@
           <input id="nickname" maxlength="16" placeholder="your nickname" autocomplete="off" />
 
           <button id="open-play" class="primary big">🌐 PLAY ONLINE</button>
+          <button id="open-practice" class="big">🤖 Practice vs bots</button>
 
           <div class="menu-links">
             <button id="open-profile" class="link">👤 Profile</button>
@@ -77,51 +78,40 @@
         </div>
       </section>
 
-      <!-- Play hub: pick how to play (scrollable) -->
-      <div id="play-modal" class="modal hidden">
+      <!-- Create a lobby: only the settings needed to make a room -->
+      <div id="create-modal" class="modal hidden">
         <div class="modal-card">
-          <h3>🎮 Play</h3>
-          <div class="play-scroll">
-            <button id="quickplay" class="primary">⚡ Quick match · free</button>
-
-            <details class="menu-section accent" open>
-              <summary class="section-head">🎰 Create a table</summary>
-              <div class="section-body">
-                <button id="create-room">➕ New table</button>
-                <div id="stake-group" class="hidden">
-                  <div class="seg" id="currency-seg">
-                    <button id="cur-chips" class="seg-btn active">🪙 Chips</button>
-                    <button id="cur-token" class="seg-btn">💎 Token</button>
-                  </div>
-                  <div class="stake-label">Pick a stake — winner takes the pot</div>
-                  <div id="stake-picker" class="stake-picker"></div>
-                </div>
-              </div>
-            </details>
-
-            <details class="menu-section" open>
-              <summary class="section-head">🔎 Join a lobby</summary>
-              <div class="section-body">
-                <button id="open-tables">Browse public tables</button>
-                <div class="join-row">
-                  <input id="join-code" maxlength="4" placeholder="CODE" autocomplete="off" />
-                  <button id="join-room">Join</button>
-                </div>
-              </div>
-            </details>
-
-            <details class="menu-section">
-              <summary class="section-head">🤖 Solo · practice vs bots</summary>
-              <div class="section-body">
-                <div class="diff-row">
-                  <button id="practice-easy">😴 Easy</button>
-                  <button id="practice-normal">🤖 Normal</button>
-                  <button id="practice-hard">💀 Hard</button>
-                </div>
-              </div>
-            </details>
+          <h3>➕ Create a lobby</h3>
+          <div class="stake-label">Currency</div>
+          <div class="seg" id="currency-seg">
+            <button id="cur-chips" class="seg-btn active">🪙 Chips · free</button>
+            <button id="cur-token" class="seg-btn">💎 Token · real</button>
           </div>
-          <button id="play-close" class="ghost">Close</button>
+          <div class="stake-label">Stake — winner takes the pot</div>
+          <div id="stake-picker" class="stake-picker"></div>
+          <p class="status fair">Pick a stake to create &amp; open your lobby.</p>
+          <button id="create-cancel" class="ghost">Cancel</button>
+        </div>
+      </div>
+
+      <!-- Practice vs bots: difficulty + how many bots -->
+      <div id="practice-modal" class="modal hidden">
+        <div class="modal-card">
+          <h3>🤖 Practice vs bots</h3>
+          <div class="stake-label">Difficulty</div>
+          <div class="seg" id="diff-seg">
+            <button class="seg-btn active" data-diff="0">😴 Easy</button>
+            <button class="seg-btn" data-diff="1">🤖 Normal</button>
+            <button class="seg-btn" data-diff="2">💀 Hard</button>
+          </div>
+          <div class="stake-label">Bots</div>
+          <div class="seg" id="bots-seg">
+            <button class="seg-btn" data-bots="1">1</button>
+            <button class="seg-btn" data-bots="2">2</button>
+            <button class="seg-btn active" data-bots="3">3</button>
+          </div>
+          <button id="practice-play" class="primary big">▶ Play</button>
+          <button id="practice-cancel" class="ghost">Cancel</button>
         </div>
       </div>
 

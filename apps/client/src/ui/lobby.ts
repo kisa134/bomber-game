@@ -86,43 +86,39 @@ export interface Choice {
 }
 
 export interface MenuHandlers {
-  quickplay: (c: Choice) => void;
-  practice: (c: Choice, difficulty: number) => void;
+  /** Create & open a new lobby at the chosen currency + stake. */
   create: (c: Choice) => void;
-  join: (c: Choice, code: string) => void;
-  tables: () => void; // open/refresh the public tables list
+  /** Start a solo practice match vs N bots at a difficulty. */
+  practice: (c: Choice, difficulty: number, bots: number) => void;
+}
+
+/** Build a Choice from the current nickname (+ a random, server-deduped skin). */
+function makeChoice(stake: number, currency = 0): Choice {
+  const nick = document.getElementById("nickname") as HTMLInputElement | null;
+  const name = (nick?.value.trim() || "pumper").slice(0, 16);
+  localStorage.setItem("bp_nick", name);
+  const skin = Math.floor(Math.random() * SKIN_COUNT);
+  return { name, skin, stake, currency };
 }
 
 export function setupMenu(h: MenuHandlers): void {
   const nick = document.getElementById("nickname") as HTMLInputElement;
-  const joinCode = document.getElementById("join-code") as HTMLInputElement;
-  const stakeEl = document.getElementById("stake-picker")!;
-  const stakeGroup = document.getElementById("stake-group")!;
-
   nick.value = localStorage.getItem("bp_nick") ?? `pumper${(Math.random() * 1000) | 0}`;
 
-  const choice = (stake: number, currency = 0): Choice => {
-    const name = nick.value.trim() || "pumper";
-    localStorage.setItem("bp_nick", name);
-    // Skins are standard now (no shop): pick a random one on entering. The
-    // server still dedupes so every player in a match looks different.
-    const skin = Math.floor(Math.random() * SKIN_COUNT);
-    return { name, skin, stake, currency };
-  };
-
-  // Create flow: pick a currency (chips/token) then a stake = create at that stake.
+  // --- Create-lobby modal: currency segment + stake picker -------------------
+  const stakeEl = document.getElementById("stake-picker")!;
   let createCurrency = 0;
   const renderStakes = (): void => {
     const tiers =
       createCurrency === 1
         ? TOKEN_BET_SIZES.map((v) => ({ v, label: `💎${v.toLocaleString()}` }))
-        : [{ v: 0, label: "Casual" }, ...BET_SIZES.map((v) => ({ v, label: `🪙${v}` }))];
+        : [{ v: 0, label: "🆓 Casual" }, ...BET_SIZES.map((v) => ({ v, label: `🪙${v}` }))];
     stakeEl.innerHTML = "";
     for (const s of tiers) {
       const b = document.createElement("button");
       b.className = "stake-btn";
       b.textContent = s.label;
-      b.addEventListener("click", () => h.create(choice(s.v, createCurrency)));
+      b.addEventListener("click", () => h.create(makeChoice(s.v, createCurrency)));
       stakeEl.appendChild(b);
     }
   };
@@ -139,22 +135,29 @@ export function setupMenu(h: MenuHandlers): void {
   curChips.addEventListener("click", () => setCurrency(0));
   curToken.addEventListener("click", () => setCurrency(1));
 
-  // "Create a table" reveals the stake choices (pick one = create at that stake).
-  document.getElementById("create-room")!.addEventListener("click", () => {
-    stakeGroup.classList.toggle("hidden");
+  // --- Practice modal: difficulty + bot-count segments -----------------------
+  let diff = 1;
+  let bots = 3;
+  const segPick = (group: HTMLElement, btn: HTMLElement): void => {
+    for (const el of group.querySelectorAll(".seg-btn")) el.classList.remove("active");
+    btn.classList.add("active");
+  };
+  const diffSeg = document.getElementById("diff-seg")!;
+  diffSeg.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-diff]");
+    if (!btn) return;
+    diff = Number(btn.dataset.diff);
+    segPick(diffSeg, btn);
   });
-  document.getElementById("quickplay")!.addEventListener("click", () => h.quickplay(choice(0)));
-  document.getElementById("practice-easy")!.addEventListener("click", () => h.practice(choice(0), 0));
-  document.getElementById("practice-normal")!.addEventListener("click", () => h.practice(choice(0), 1));
-  document.getElementById("practice-hard")!.addEventListener("click", () => h.practice(choice(0), 2));
-  document.getElementById("open-tables")!.addEventListener("click", () => h.tables());
-  document.getElementById("join-room")!.addEventListener("click", () => {
-    const code = joinCode.value.trim().toUpperCase();
-    if (code.length < 3) {
-      setMenuStatus("Enter a room code");
-      return;
-    }
-    h.join(choice(0), code);
+  const botsSeg = document.getElementById("bots-seg")!;
+  botsSeg.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-bots]");
+    if (!btn) return;
+    bots = Number(btn.dataset.bots);
+    segPick(botsSeg, btn);
+  });
+  document.getElementById("practice-play")!.addEventListener("click", () => {
+    h.practice(makeChoice(0), diff, bots);
   });
 }
 

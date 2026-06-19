@@ -1906,28 +1906,41 @@ setInterval(() => {
 }, 20_000);
 
 setupMenu({
-  quickplay: (c) => { if (!walletGate(c.stake)) return; closePlay(); practiceMode = false; track("play_start", { mode: "quickplay", stake: c.stake }); connect(() => quickplay(c.name, c.skin, c.stake)); },
-  practice: (c, difficulty) => { closePlay(); practiceMode = true; track("play_start", { mode: "practice", difficulty }); connect(() => practiceRoom(c.name, c.skin, difficulty)); },
-  create: (c) => { if (!walletGate(c.stake, c.currency)) return; closePlay(); practiceMode = false; track("play_start", { mode: "create", stake: c.stake, currency: c.currency }); connect(() => createRoom(c.name, c.skin, c.stake, c.currency)); },
-  join: (c, code) => { closePlay(); practiceMode = false; track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
-  tables: () => {
-    closePlay();
-    openLobby();
+  create: (c) => {
+    if (!walletGate(c.stake, c.currency)) return;
+    closeModals();
+    practiceMode = false;
+    track("play_start", { mode: "create", stake: c.stake, currency: c.currency });
+    connect(() => createRoom(c.name, c.skin, c.stake, c.currency));
+  },
+  practice: (c, difficulty, bots) => {
+    closeModals();
+    practiceMode = true;
+    track("play_start", { mode: "practice", difficulty, bots });
+    connect(() => practiceRoom(c.name, c.skin, difficulty, bots));
   },
 });
 
-// Play hub modal: the create/options button opens it; any action inside closes it.
-function closePlay(): void {
-  document.getElementById("play-modal")!.classList.add("hidden");
+// --- Main-menu entry points -------------------------------------------------
+const createModal = document.getElementById("create-modal")!;
+const practiceModal = document.getElementById("practice-modal")!;
+function closeModals(): void {
+  createModal.classList.add("hidden");
+  practiceModal.classList.add("hidden");
 }
 /** Open the full-screen lobby browser and load the room list. */
 function openLobby(): void {
   showScreen("lobby");
   void loadTables();
 }
-// PLAY lands straight on the full-screen lobby browser.
+// PLAY ONLINE lands straight on the full-screen lobby browser.
 document.getElementById("open-play")!.addEventListener("click", openLobby);
+// Practice vs bots opens its own setup modal (difficulty + bot count).
+document.getElementById("open-practice")!.addEventListener("click", () => {
+  practiceModal.classList.remove("hidden");
+});
 document.getElementById("lobby-back")!.addEventListener("click", () => showScreen("menu"));
+
 // Quick Join (free match) — one tap.
 document.getElementById("tables-quick")!.addEventListener("click", () => {
   const name = (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
@@ -1935,10 +1948,9 @@ document.getElementById("tables-quick")!.addEventListener("click", () => {
   track("play_start", { mode: "quickplay", stake: 0 });
   void connect(() => quickplay(name, Math.floor(Math.random() * 4), 0));
 });
-// Create Lobby → the create/options hub (stake picker + practice).
+// Create Lobby → the create-only settings modal.
 document.getElementById("tables-new")!.addEventListener("click", () => {
-  document.getElementById("stake-group")?.classList.add("hidden");
-  document.getElementById("play-modal")!.classList.remove("hidden");
+  createModal.classList.remove("hidden");
 });
 // Join by code from the lobby header.
 document.getElementById("lobby-code-join")!.addEventListener("click", () => {
@@ -1949,10 +1961,15 @@ document.getElementById("lobby-code-join")!.addEventListener("click", () => {
   track("play_start", { mode: "join" });
   void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
 });
-document.getElementById("play-close")!.addEventListener("click", closePlay);
-document.getElementById("play-modal")!.addEventListener("click", (e) => {
-  if (e.target === e.currentTarget) closePlay(); // tap the backdrop to dismiss
-});
+
+// Modal dismissal: Cancel buttons + tap-the-backdrop.
+document.getElementById("create-cancel")!.addEventListener("click", closeModals);
+document.getElementById("practice-cancel")!.addEventListener("click", closeModals);
+for (const m of [createModal, practiceModal]) {
+  m.addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) closeModals();
+  });
+}
 
 /** Fetch + render the public rooms into the lobby browser. */
 function loadTables(): Promise<void> {

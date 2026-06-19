@@ -74,8 +74,9 @@ export class Matchmaker {
     skin: number,
     wallet: string | null,
     difficulty: BotDifficulty = BotDifficulty.NORMAL,
+    botCount = 3,
   ): { code: string; token: string } {
-    const room = this.newRoom(false, true, 0, difficulty);
+    const room = this.newRoom(false, true, 0, difficulty, Currency.CHIPS, botCount);
     return this.reserve(room, name, skin, wallet);
   }
 
@@ -127,13 +128,14 @@ export class Matchmaker {
     stake = 0,
     botDifficulty: BotDifficulty = BotDifficulty.NORMAL,
     currency: Currency = Currency.CHIPS,
+    botCount = 3,
   ): Room {
     // Refuse new rooms when at the hard cap OR when the sim thread is saturated
     // (load shedding) — existing matches keep running smoothly.
     if (this.rooms.size >= MAX_ROOMS || this.load.busy) throw new ServerFullError();
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
-    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency);
+    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency, botCount);
     this.rooms.set(code, room);
     return room;
   }

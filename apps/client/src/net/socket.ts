@@ -200,8 +200,9 @@ export async function practiceRoom(
   name: string,
   skin: number,
   difficulty = 1,
+  bots = 3,
 ): Promise<JoinResponse> {
-  const res = await post("/practice", { name, skin, difficulty });
+  const res = await post("/practice", { name, skin, difficulty, bots });
   if (!res.ok) throw await joinError(res);
   return res.json();
 }

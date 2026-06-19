@@ -739,6 +739,7 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
   let stake = 0;
   let currency = Currency.CHIPS;
   let difficulty = BotDifficulty.NORMAL;
+  let bots = 3;
   try {
     const parsed = JSON.parse(body || "{}");
     if (typeof parsed.name === "string" && parsed.name.trim()) name = parsed.name.trim().slice(0, 16);
@@ -753,10 +754,11 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
     if (parsed.difficulty === 0 || parsed.difficulty === 1 || parsed.difficulty === 2) {
       difficulty = parsed.difficulty as BotDifficulty;
     }
+    if (Number.isFinite(parsed.bots)) bots = Math.max(1, Math.min(3, Math.floor(parsed.bots)));
   } catch {
     // ignore malformed body
   }
-  return { name, code, skin, wallet, stake, currency, difficulty };
+  return { name, code, skin, wallet, stake, currency, difficulty, bots };
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
@@ -866,6 +868,7 @@ type Body = {
   stake: number;
   currency: Currency;
   difficulty: BotDifficulty;
+  bots: number;
 };
 
 function withMatchmaking(
@@ -948,7 +951,7 @@ app.post("/create", (res, req) =>
   withMatchmaking(res, req, (b) => mm.createTable(b.name, b.skin, b.wallet, b.stake, b.currency)),
 );
 app.post("/practice", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty), () => ({ stake: 0, currency: Currency.CHIPS })),
+  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty, b.bots), () => ({ stake: 0, currency: Currency.CHIPS })),
 );
 app.post("/join", (res, req) =>
   withMatchmaking(
