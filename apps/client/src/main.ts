@@ -344,6 +344,7 @@ net.onMessage = (msg) => {
         renderer?.onMatchStart(); // start the 30s "find yourself" glow
         track("match_started", { players: state.roomPlayers.length });
       } else if (msg.phase === MatchPhase.SUDDEN_DEATH) {
+        assets.stopMusic(); // stop the battle loop so it doesn't overlap the last-minute track
         assets.play("sudden_death");
       } else if (msg.phase === MatchPhase.LOBBY) {
         prevSoftCount = -1;
