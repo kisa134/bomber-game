@@ -141,28 +141,32 @@ export async function renderShareCard(data: CardData, variant: number): Promise<
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // 2. Header: logo + tagline.
+  // 2. Header: logo (auto-fit to width) + tagline.
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  const lg = ctx.createLinearGradient(0, 70, 0, 150);
+  const lg = ctx.createLinearGradient(0, 56, 0, 132);
   lg.addColorStop(0, "#fff0a8");
   lg.addColorStop(1, v.accent);
   ctx.fillStyle = lg;
-  ctx.font = "900 92px 'Arial Black', Arial, sans-serif";
-  ctx.fillText("BOMBERPUMP", SIZE / 2, 130);
+  const LOGO = "BomberMeme.fun";
+  let lfs = 100;
+  do {
+    lfs -= 4;
+    ctx.font = `900 ${lfs}px 'Arial Black', Arial, sans-serif`;
+  } while (ctx.measureText(LOGO).width > SIZE - 120 && lfs > 44);
+  ctx.fillText(LOGO, SIZE / 2, 118);
   ctx.fillStyle = "rgba(231,233,238,0.85)";
   ctx.font = "600 30px Arial, sans-serif";
-  ctx.fillText("blow up your friends · pump.fun arena", SIZE / 2, 174);
+  ctx.fillText("blow up your friends · pump.fun arena", SIZE / 2, 162);
 
   // 3. Hero sprite (victory pose, fall back to front stand).
   const hero =
     (await loadImg(`/sprites/skin_${data.skin}_victory.webp?v=${ASSET_VER}`)) ??
     (await loadImg(`/sprites/skin_${data.skin}_down_0.webp?v=${ASSET_VER}`)) ??
     (await loadImg(`/sprites/skin_${data.skin}.webp?v=${ASSET_VER}`));
-  const hy = 210;
-  const hs = 440;
+  const hy = 196;
+  const hs = 396;
   if (hero) {
-    // soft glow under the hero
     const gr = ctx.createRadialGradient(SIZE / 2, hy + hs * 0.62, 20, SIZE / 2, hy + hs * 0.62, hs * 0.6);
     gr.addColorStop(0, v.accent + "66");
     gr.addColorStop(1, v.accent + "00");
@@ -175,24 +179,24 @@ export async function renderShareCard(data: CardData, variant: number): Promise<
 
   // 4. Placement / result badge over the hero.
   if (data.placeText) {
-    ctx.font = "900 60px 'Arial Black', Arial, sans-serif";
+    ctx.font = "900 58px 'Arial Black', Arial, sans-serif";
     const pw = ctx.measureText(data.placeText).width + 60;
     ctx.fillStyle = "rgba(8,10,16,0.66)";
-    rr(ctx, SIZE / 2 - pw / 2, 196, pw, 78, 39);
+    rr(ctx, SIZE / 2 - pw / 2, 184, pw, 76, 38);
     ctx.fill();
     ctx.fillStyle = data.won ? "#ffd95a" : "#ff8a8a";
-    ctx.fillText(data.placeText, SIZE / 2, 252);
+    ctx.fillText(data.placeText, SIZE / 2, 238);
   }
   if (data.firstBlood) {
     ctx.fillStyle = "#e60000";
     ctx.font = "900 34px 'Arial Black', Arial, sans-serif";
-    ctx.fillText("🩸 FIRST BLOOD", SIZE / 2, 300);
+    ctx.fillText("🩸 FIRST BLOOD", SIZE / 2, 288);
   }
 
   // 5. Nickname.
   ctx.fillStyle = "#fff";
   ctx.font = "800 52px Arial, sans-serif";
-  ctx.fillText(data.nickname, SIZE / 2, 712);
+  ctx.fillText(data.nickname, SIZE / 2, 648);
 
   // 6. Stat chips row.
   const chips: Array<[string, string]> =
@@ -207,12 +211,12 @@ export async function renderShareCard(data: CardData, variant: number): Promise<
           ["🪙 Chips", data.chips.toLocaleString()],
           ["📈 Rating", String(data.rating)],
         ];
-  const cw = 320, ch = 96, gap = 18;
+  const cw = 320, ch = 90, gap = 18;
   const total = cw * 3 + gap * 2;
   let cx = (SIZE - total) / 2;
-  const cy = 742;
+  const cy = 680;
   for (const [label, val] of chips) {
-    ctx.fillStyle = "rgba(20,24,34,0.78)";
+    ctx.fillStyle = "rgba(20,24,34,0.8)";
     rr(ctx, cx, cy, cw, ch, 18);
     ctx.fill();
     ctx.strokeStyle = "rgba(255,255,255,0.1)";
@@ -221,32 +225,32 @@ export async function renderShareCard(data: CardData, variant: number): Promise<
     ctx.stroke();
     ctx.fillStyle = "rgba(231,233,238,0.7)";
     ctx.font = "600 26px Arial, sans-serif";
-    ctx.fillText(label, cx + cw / 2, cy + 38);
+    ctx.fillText(label, cx + cw / 2, cy + 36);
     ctx.fillStyle = "#fff";
-    ctx.font = "800 38px Arial, sans-serif";
-    ctx.fillText(val, cx + cw / 2, cy + 80);
+    ctx.font = "800 36px Arial, sans-serif";
+    ctx.fillText(val, cx + cw / 2, cy + 76);
     cx += cw + gap;
   }
 
-  // 7. Bottom panel: QR + referral + CTA.
-  const qrSize = 188;
-  const qx = SIZE - 64 - qrSize;
-  const qy = SIZE - 64 - qrSize;
+  // 7. Bottom panel: QR (right) + referral / CTA (left). Kept clear of the chips.
+  const qrSize = 180;
+  const qx = SIZE - 58 - qrSize;
+  const qy = SIZE - 58 - qrSize;
   drawQR(ctx, data.refUrl, qx, qy, qrSize);
   ctx.textAlign = "left";
   ctx.fillStyle = "#fff";
   ctx.font = "800 44px Arial, sans-serif";
-  ctx.fillText("Scan to play 💣", 70, qy + 40);
+  ctx.fillText("Scan to play 💣", 64, qy + 38);
   ctx.fillStyle = "rgba(231,233,238,0.8)";
-  ctx.font = "600 28px Arial, sans-serif";
-  ctx.fillText("bomberpump · free in Telegram", 70, qy + 86);
+  ctx.font = "600 27px Arial, sans-serif";
+  ctx.fillText("BomberMeme.fun · free in Telegram", 64, qy + 82);
   if (data.refCode) {
     ctx.fillStyle = v.accent;
     ctx.font = "800 30px Arial, sans-serif";
-    ctx.fillText(`Ref: ${data.refCode}`, 70, qy + 150);
+    ctx.fillText(`Ref: ${data.refCode}`, 64, qy + 140);
     ctx.fillStyle = "rgba(231,233,238,0.6)";
     ctx.font = "600 24px Arial, sans-serif";
-    ctx.fillText("scan = you get credited", 70, qy + 184);
+    ctx.fillText("scan = you get credited", 64, qy + 174);
   }
   ctx.textAlign = "center";
   return cv;

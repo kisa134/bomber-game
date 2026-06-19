@@ -1809,7 +1809,7 @@ function referralLink(): string {
   return w ? `${location.origin}/?ref=${w.address}` : location.origin;
 }
 function shareText(): string {
-  return `💣 Play Bombermeme — blow up your friends & win $${TOKEN_TICKER}! Join me:`;
+  return `💣 Play BomberMeme.fun — blow up your friends & win $${TOKEN_TICKER}! Join me:`;
 }
 
 initAnalytics({ platform: isTelegram ? "telegram" : "web" });
@@ -2149,13 +2149,13 @@ document.getElementById("sc-download")?.addEventListener("click", () => {
   if (!scBlob) return;
   const a = document.createElement("a");
   a.href = URL.createObjectURL(scBlob);
-  a.download = "bomberpump.png";
+  a.download = "bombermeme.png";
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
 });
 document.getElementById("sc-share")?.addEventListener("click", () => {
   const url = referralLink();
-  const file = scBlob ? new File([scBlob], "bomberpump.png", { type: "image/png" }) : null;
+  const file = scBlob ? new File([scBlob], "bombermeme.png", { type: "image/png" }) : null;
   const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean };
   if (file && nav.canShare?.({ files: [file] })) {
     void navigator.share({ files: [file], title: "Bomberpump", text: shareText(), url }).catch(() => {});
