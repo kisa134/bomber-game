@@ -352,7 +352,7 @@ export class Renderer {
           if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
           const ni = ny * GRID_W + nx;
           if (this.prevGrid[ni] === TileType.HARD) {
-            this.hardDmg.set(ni, Math.min(3, (this.hardDmg.get(ni) ?? 0) + 1));
+            this.hardDmg.set(ni, Math.min(4, (this.hardDmg.get(ni) ?? 0) + 1));
           }
         }
       }
@@ -845,17 +845,19 @@ export class Renderer {
     const g = cv.getContext("2d");
     if (!g) return;
     g.clearRect(0, 0, W, H);
-    const pu = Math.max(2, Math.round(t / 8));
+    // Denser, finer pixels + higher coverage + calmer brightness so the burn
+    // reads as a smooth scorched patch instead of grainy salt-and-pepper noise.
+    const pu = Math.max(1, Math.round(t / 16));
     for (const [idx, lvl] of this.burn) {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
-      const cover = Math.min(0.96, 0.42 + lvl * 0.11); // more blasts -> fuller burn
-      const a = Math.min(0.74, 0.22 + lvl * 0.1); // and darker
+      const cover = Math.min(0.97, 0.62 + lvl * 0.09); // more blasts -> fuller burn
+      const a = Math.min(0.6, 0.18 + lvl * 0.085); // and a touch darker
       let h = (idx * 2654435761) >>> 0;
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
           h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
           if ((h & 1023) / 1023 > cover) continue;
-          const d = 8 + (h & 15);
+          const d = 11 + (h & 7); // 11..18 — low contrast, no flicker
           g.globalAlpha = a;
           g.fillStyle = `rgb(${d},${Math.max(0, d - 2)},${Math.max(0, d - 4)})`;
           g.fillRect(ox + gx, oy + gy, pu, pu);
