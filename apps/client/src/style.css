@@ -863,18 +863,15 @@ button.ghost {
 }
 
 /* Landscape phone — the real mobile play layout. Five horizontal zones:
-     [ controls ][ info strip ][   BOARD (max)   ][ info strip ][ controls ]
-   The board is centered and as big as the height allows; the HUD info splits
-   into two slim vertical strips hugging the board; the movement control and the
-   bomb button are pinned BIG to the far edges (vertically centered) so they're
-   easy to reach and never wander. */
+/* Landscape phone — maximize the board. A 17x11 board is ~1.55:1, so on a wide
+   phone (~2:1) it's limited by HEIGHT and naturally leaves side margins. We do
+   NOT reserve width for the controls (that shrinks the board); instead the board
+   grows to its full height and the controls + HUD info overlay the side margins:
+     - movement control + bomb: pinned to the far edges, vertically centered
+     - HUD info: compact translucent strips in the top corners
+   This keeps the board as big as the screen height allows. */
 @media (pointer: coarse) and (orientation: landscape) {
-  #game {
-    /* width of each edge zone: control button + the info strip beside it */
-    --ctrl-w: 110px;
-    --info-w: 82px;
-  }
-  /* #hud-panel stops being a bar; its two children become the side strips. */
+  /* #hud-panel stops being a bar; its two children become corner overlays. */
   #hud-panel {
     display: contents;
   }
@@ -882,69 +879,66 @@ button.ghost {
   #hud-right {
     position: absolute;
     top: 0;
-    bottom: 0;
-    width: var(--info-w);
+    bottom: auto;
+    width: auto;
+    max-width: 40vw;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
+    gap: 6px;
     z-index: 5;
-    padding: calc(8px + env(safe-area-inset-top)) 0 calc(8px + env(safe-area-inset-bottom));
-    overflow: visible;
+    padding: calc(6px + env(safe-area-inset-top)) 6px 0;
     background: none;
     border: 0;
     pointer-events: none;
   }
   #hud-left {
-    left: calc(var(--ctrl-w) + env(safe-area-inset-left));
+    left: env(safe-area-inset-left);
     align-items: flex-start;
   }
   #hud-right {
-    right: calc(var(--ctrl-w) + env(safe-area-inset-right));
+    right: env(safe-area-inset-right);
     align-items: flex-end;
   }
-  /* Scoreboard + emotes stack vertically in the right strip. */
+  /* Scoreboard + emotes stack vertically in the right corner. */
   #hud-right #players {
     flex: 0 0 auto;
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: flex-end;
-    gap: 6px;
+    gap: 5px;
   }
   #hud-right #game-emotes {
     pointer-events: auto;
     flex-wrap: wrap;
     justify-content: flex-end;
   }
-  /* Compact score cards so they fit the slim strip. */
-  #hud-right #players .pcard {
-    max-width: var(--info-w);
-    font-size: 0.62rem;
-    padding: 2px 5px;
-  }
-  /* Compact timer + kit in the left strip. */
-  #hud-left #timer {
-    font-size: 0.95rem;
-    padding: 2px 8px;
-  }
+  #hud-right #players .pcard,
+  #hud-left #timer,
   #hud-left #hud-bottom {
-    max-width: var(--info-w);
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 8px;
   }
-  /* Board fills the middle, between the two edge zones. */
+  #hud-right #players .pcard {
+    font-size: 0.64rem;
+    padding: 2px 6px;
+  }
+  #hud-left #timer {
+    font-size: 1rem;
+    padding: 2px 9px;
+  }
+  /* Board fills the screen height (no width reserved — see note above). */
   #play-area {
-    padding-left: calc(var(--ctrl-w) + var(--info-w) + env(safe-area-inset-left));
-    padding-right: calc(var(--ctrl-w) + var(--info-w) + env(safe-area-inset-right));
-    padding-top: 6px;
-    padding-bottom: 6px;
+    padding: calc(2px + env(safe-area-inset-top)) env(safe-area-inset-right)
+      calc(2px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
   }
-  /* Movement control: pinned to the far-left edge, vertically centered. */
+  /* Movement control: pinned to the far-left edge, vertically centered, in the
+     board's side margin. */
   #dpad {
-    left: calc(6px + env(safe-area-inset-left));
+    left: calc(4px + env(safe-area-inset-left));
     top: 50%;
     bottom: auto;
-    margin-top: -84px; /* half of the 168px dpad before scaling */
-    transform: scale(0.66);
+    margin-top: -76px; /* ~half of the scaled dpad */
+    transform: scale(0.62);
     transform-origin: left center;
   }
   #joystick {
@@ -954,20 +948,20 @@ button.ghost {
     bottom: 0;
     left: 0;
   }
-  /* Bomb: pinned to the far-right edge, vertically centered, nice and big. */
+  /* Bomb: pinned to the far-right edge, vertically centered. */
   #bomb-btn {
-    right: calc(8px + env(safe-area-inset-right));
+    right: calc(6px + env(safe-area-inset-right));
     bottom: auto;
     top: 50%;
-    margin-top: -56px; /* half of height */
-    width: 112px;
-    height: 112px;
-    font-size: 2.6rem;
+    margin-top: -52px;
+    width: 104px;
+    height: 104px;
+    font-size: 2.5rem;
   }
-  /* Keep the killfeed inside the board, clear of the right edge zone. */
+  /* Killfeed below the right-corner HUD. */
   #killfeed {
-    top: 8px;
-    right: calc(var(--ctrl-w) + var(--info-w) + 8px + env(safe-area-inset-right));
+    top: calc(96px + env(safe-area-inset-top));
+    right: calc(6px + env(safe-area-inset-right));
   }
 }
 
