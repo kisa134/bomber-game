@@ -547,6 +547,9 @@ export class Room {
       i++;
     }
     this.dedupeSkins(); // guarantee no two players share a skin this match
+    // Push the final roster (incl. bots) + deduped skins so the client maps every
+    // player id to a distinct character (snapshots don't carry skins).
+    this.broadcastRoomInfo();
     this.bombs = [];
     this.matchElapsedMs = 0;
     this.simTick = 0;
