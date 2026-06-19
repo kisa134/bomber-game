@@ -602,7 +602,7 @@ export class Renderer {
       }
 
       const sk = this.skinOf(p.id);
-      const frame = moving && p.alive ? WALK_SEQ[Math.floor(now / 130) % WALK_SEQ.length] : 0;
+      const frame = moving && p.alive ? WALK_SEQ[Math.floor(now / 95) % WALK_SEQ.length] : 0;
       const dirName = face === "up" ? "up" : face === "down" ? "down" : "side";
       let flip = face === "left";
       // Action-state pose overrides the walk frame when the skin has that sprite
