@@ -54,6 +54,8 @@ export interface ProfileData {
   chips: number;
   rating: number;
   week_points: number;
+  tokens_won?: number; // lifetime real-token winnings (base units)
+  chips_won?: number; // lifetime chips winnings
   gameTokens?: number; // custodial in-game token balance (whole tokens)
   walletTokens?: number; // live on-chain balance in the player's wallet
 }
@@ -126,8 +128,9 @@ export async function selectSkin(skin: number): Promise<{ skin?: number; error?:
   return res.json();
 }
 
-export async function fetchLeaderboard(period: "all" | "week" = "all"): Promise<ProfileData[]> {
-  const res = await fetch(`${SERVER_HTTP}/leaderboard?period=${period}`);
+export type LbBoard = "rating" | "tokens" | "chips";
+export async function fetchLeaderboard(board: LbBoard = "rating"): Promise<ProfileData[]> {
+  const res = await fetch(`${SERVER_HTTP}/leaderboard?board=${board}`);
   const { rows } = (await res.json()) as { rows: ProfileData[] };
   return rows ?? [];
 }

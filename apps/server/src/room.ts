@@ -1032,6 +1032,8 @@ export class Room {
         // Winner payout must not silently fail — that's owed money.
         if (r === null) alert(`PAYOUT FAILED: ${payout} to ${shortWallet(w)} (room ${this.id}) — owed, settle manually`);
       });
+      // Lifetime winnings for the earnings leaderboards (token or chips pot).
+      void store.recordWinnings(w, this.currency, payout);
       // Multi-level referral rewards come OUT of the house rake — token matches
       // only (rewards are paid in tokens). Each staker's chain gets a slice of
       // the rake their stake produced. Fully guarded inside the helper.
@@ -1099,8 +1101,11 @@ export class Room {
     if (this.stake > 0) return;
     for (const p of this.players.values()) {
       if (p.isBot || !p.wallet) continue;
-      const reward = p.id === this.winnerId ? CHIPS_WIN_REWARD : CHIPS_PLAY_REWARD;
+      const won = p.id === this.winnerId;
+      const reward = won ? CHIPS_WIN_REWARD : CHIPS_PLAY_REWARD;
       void store.adjustChips(p.wallet, reward);
+      // Free-board winnings: count the winner's reward as chips "поднял".
+      if (won) void store.recordWinnings(p.wallet, Currency.CHIPS, CHIPS_WIN_REWARD);
     }
   }
 

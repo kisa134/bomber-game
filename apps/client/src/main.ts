@@ -16,6 +16,7 @@ import {
   SPECTATOR_ID,
   TOKEN_MINT,
   TOKEN_TICKER,
+  TOKEN_DECIMALS,
   CalloutType,
   SKIN_COUNT,
   SKIN_PRICES,
@@ -1313,34 +1314,28 @@ async function openProfile(): Promise<void> {
     const p = await fetchProfile(w.address);
     setStats(p.chips, p.rating);
     setTokenBadge(p.gameTokens);
-    const into = p.xp % 200;
     const wr = p.matches ? Math.round((p.wins / p.matches) * 100) : 0;
+    const tokWon = (p.tokens_won ?? 0) / 10 ** TOKEN_DECIMALS;
     body.innerHTML = "";
     const lg = leagueFor(p.rating);
     body.append(
       el("div", "prof-addr", shortAddr(w.address)),
+      // League + rating is the rank/progression (no more cosmetic levels).
       el("div", "prof-level", `${lg.emoji} ${lg.name} · ${p.rating}`),
       el("div", "prof-chips", `🪙 ${p.chips.toLocaleString()} chips`),
       el("div", "prof-chips", `💎 ${(p.gameTokens ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} $${TOKEN_TICKER} in game`),
     );
-    const bar = document.createElement("div");
-    bar.className = "xp-bar";
-    const fill = document.createElement("div");
-    fill.className = "xp-fill";
-    fill.style.width = `${(into / 200) * 100}%`;
-    bar.appendChild(fill);
-    body.append(bar, el("div", "status", `${into} / 200 XP`));
     const grid = document.createElement("div");
     grid.className = "prof-grid";
     grid.append(
       profCell("Rating", p.rating),
-      profCell("Level", p.level),
+      profCell("League", `${lg.emoji} ${lg.name}`),
       profCell("Matches", p.matches),
       profCell("Wins", p.wins),
       profCell("Win rate", `${wr}%`),
       profCell("Frags", p.frags),
-      profCell("Deaths", p.deaths),
-      profCell("Best streak", p.best_streak),
+      profCell(`Won 💎`, tokWon.toLocaleString(undefined, { maximumFractionDigits: 2 })),
+      profCell("Won 🪙", (p.chips_won ?? 0).toLocaleString()),
     );
     body.append(grid);
 
@@ -1369,32 +1364,43 @@ async function openProfile(): Promise<void> {
   }
 }
 
-let lbPeriod: "all" | "week" = "all";
+let lbBoard: "rating" | "tokens" | "chips" = "rating";
 
 async function openLeaderboard(): Promise<void> {
   showScreen("leaderboard");
   const body = document.getElementById("leaderboard-body")!;
   body.innerHTML = '<li class="status">Loading…</li>';
-  document.getElementById("lb-alltime")?.classList.toggle("active", lbPeriod === "all");
-  document.getElementById("lb-week")?.classList.toggle("active", lbPeriod === "week");
+  document.getElementById("lb-rating")?.classList.toggle("active", lbBoard === "rating");
+  document.getElementById("lb-tokens")?.classList.toggle("active", lbBoard === "tokens");
+  document.getElementById("lb-chips")?.classList.toggle("active", lbBoard === "chips");
   try {
-    const rows = await fetchLeaderboard(lbPeriod);
+    const rows = await fetchLeaderboard(lbBoard);
     const myWallet = loadWallet()?.address ?? "";
     body.innerHTML = "";
     if (!rows.length) {
-      body.innerHTML =
-        lbPeriod === "week"
-          ? '<li class="status">No games this week yet — play to climb!</li>'
-          : '<li class="status">No players yet — be the first!</li>';
+      const empty =
+        lbBoard === "tokens"
+          ? "No token winners yet — win a staked match!"
+          : lbBoard === "chips"
+            ? "No chips won yet — play a free match!"
+            : "No players yet — be the first!";
+      body.innerHTML = `<li class="status">${empty}</li>`;
       return;
     }
+    const tokWhole = (base: number): number => base / 10 ** TOKEN_DECIMALS;
     rows.forEach((r, i) => {
       const li = document.createElement("li");
       const isMe = r.wallet === myWallet;
       li.className = "lb-row" + (isMe ? " me" : "");
       const lg = leagueFor(r.rating);
       const medal = ["🥇", "🥈", "🥉"][i] ?? `${i + 1}`;
-      const score = lbPeriod === "week" ? `${r.week_points} pts` : `${r.rating}`;
+      // Always show the league badge + name; the score column depends on the board.
+      const score =
+        lbBoard === "tokens"
+          ? `💎 ${tokWhole(r.tokens_won ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+          : lbBoard === "chips"
+            ? `🪙 ${(r.chips_won ?? 0).toLocaleString()}`
+            : `${r.rating}`;
       li.append(
         el("span", "lb-rank", medal),
         el("span", "lb-name", `${lg.emoji} ${r.name || shortAddr(r.wallet)}${isMe ? " (you)" : ""}`),
@@ -1641,15 +1647,16 @@ function setupOnboarding(): void {
 function wireMenuLinks(): void {
   setupOnboarding();
   document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
-  document.getElementById("open-leaderboard")!.addEventListener("click", () => { lbPeriod = "all"; void openLeaderboard(); });
+  document.getElementById("open-leaderboard")!.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
   document.getElementById("open-skins")?.addEventListener("click", openSkinShop); // skins shop disabled for now
   document.getElementById("skin-close")!.addEventListener("click", () =>
     document.getElementById("skin-modal")!.classList.add("hidden"),
   );
   document.getElementById("profile-back")!.addEventListener("click", () => showScreen("menu"));
   document.getElementById("leaderboard-back")!.addEventListener("click", () => showScreen("menu"));
-  document.getElementById("lb-alltime")!.addEventListener("click", () => { lbPeriod = "all"; void openLeaderboard(); });
-  document.getElementById("lb-week")!.addEventListener("click", () => { lbPeriod = "week"; void openLeaderboard(); });
+  document.getElementById("lb-rating")!.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
+  document.getElementById("lb-tokens")!.addEventListener("click", () => { lbBoard = "tokens"; void openLeaderboard(); });
+  document.getElementById("lb-chips")!.addEventListener("click", () => { lbBoard = "chips"; void openLeaderboard(); });
 }
 
 // --- background video -----------------------------------------------------

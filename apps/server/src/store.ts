@@ -24,6 +24,8 @@ export interface Profile {
   week_key: string; // ISO week this player's weekly score belongs to
   week_points: number; // resets each ISO week
   token_balance: number; // real token, in base units (custodial off-chain balance)
+  tokens_won: number; // lifetime real-token winnings (base units) — paid leaderboard
+  chips_won: number; // lifetime chips winnings — free leaderboard
   referred_by: string; // wallet of the referrer who invited this player ("" if none)
   referral_earned: number; // lifetime referral rewards, in token base units
 }
@@ -65,8 +67,12 @@ export interface ProfileStore {
   ping(): Promise<boolean>;
   recordMatch(results: MatchResult[]): Promise<void>;
   getProfile(wallet: string): Promise<Profile | null>;
-  /** Top players, all-time (by rating) or this week (by weekly points). */
-  leaderboard(limit: number, period?: "all" | "week"): Promise<Profile[]>;
+  /** Top players: global skill (rating), paid winnings (tokens_won) or free
+   *  winnings (chips_won). */
+  leaderboard(limit: number, board?: "rating" | "tokens" | "chips"): Promise<Profile[]>;
+  /** Add a finished match's winnings to lifetime totals (drives earnings boards).
+   *  currency: 0 = chips, 1 = token (amount in base units for tokens). */
+  recordWinnings(wallet: string, currency: number, amount: number): Promise<void>;
   /** Ensure a profile exists (granting starting chips), return it. */
   ensureProfile(wallet: string, name: string, skin: number): Promise<Profile>;
   /** Atomically add `delta` chips. Returns the new balance, or null if a
@@ -142,6 +148,8 @@ function blankProfile(wallet: string, name: string, skin: number): Profile {
     week_key: "",
     week_points: 0,
     token_balance: 0,
+    tokens_won: 0,
+    chips_won: 0,
     referred_by: "",
     referral_earned: 0,
   };
@@ -204,16 +212,23 @@ class InMemoryStore implements ProfileStore {
     return this.map.get(wallet) ?? null;
   }
 
-  async leaderboard(limit: number, period: "all" | "week" = "all"): Promise<Profile[]> {
+  async leaderboard(limit: number, board: "rating" | "tokens" | "chips" = "rating"): Promise<Profile[]> {
     const all = [...this.map.values()];
-    if (period === "week") {
-      const week = isoWeekKey();
-      return all
-        .filter((p) => p.week_key === week && p.week_points > 0)
-        .sort((a, b) => b.week_points - a.week_points)
-        .slice(0, limit);
+    if (board === "tokens") {
+      return all.filter((p) => p.tokens_won > 0).sort((a, b) => b.tokens_won - a.tokens_won).slice(0, limit);
+    }
+    if (board === "chips") {
+      return all.filter((p) => p.chips_won > 0).sort((a, b) => b.chips_won - a.chips_won).slice(0, limit);
     }
     return all.sort((a, b) => b.rating - a.rating).slice(0, limit);
+  }
+
+  async recordWinnings(wallet: string, currency: number, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    if (currency === 1) p.tokens_won += amount;
+    else p.chips_won += amount;
   }
 
   private nameTakenBy(name: string, exceptWallet: string): boolean {
@@ -446,12 +461,14 @@ class SupabaseStore implements ProfileStore {
     }
   }
 
-  async leaderboard(limit: number, period: "all" | "week" = "all"): Promise<Profile[]> {
+  async leaderboard(limit: number, board: "rating" | "tokens" | "chips" = "rating"): Promise<Profile[]> {
     try {
       const query =
-        period === "week"
-          ? `week_key=eq.${isoWeekKey()}&order=week_points.desc`
-          : `order=rating.desc`;
+        board === "tokens"
+          ? `tokens_won=gt.0&order=tokens_won.desc`
+          : board === "chips"
+            ? `chips_won=gt.0&order=chips_won.desc`
+            : `order=rating.desc`;
       const res = await fetch(`${this.url}/rest/v1/profiles?select=*&${query}&limit=${limit}`, {
         headers: this.headers(),
       });
@@ -459,6 +476,22 @@ class SupabaseStore implements ProfileStore {
     } catch (e) {
       console.error("[store] leaderboard failed", e);
       return [];
+    }
+  }
+
+  async recordWinnings(wallet: string, currency: number, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    const p = await this.getProfile(wallet);
+    const col = currency === 1 ? "tokens_won" : "chips_won";
+    const next = ((p?.[col as "tokens_won" | "chips_won"] as number) ?? 0) + amount;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ [col]: next }),
+      });
+    } catch {
+      /* best-effort */
     }
   }
 
@@ -785,6 +818,9 @@ class PostgresStore implements ProfileStore {
     // Referral system: who invited this wallet, and lifetime referral earnings.
     await this.pool.query(`alter table profiles add column if not exists referred_by text not null default ''`);
     await this.pool.query(`alter table profiles add column if not exists referral_earned bigint not null default 0`);
+    // Lifetime winnings for the earnings leaderboards.
+    await this.pool.query(`alter table profiles add column if not exists tokens_won bigint not null default 0`);
+    await this.pool.query(`alter table profiles add column if not exists chips_won bigint not null default 0`);
     await this.pool.query(`create index if not exists profiles_referred_by on profiles (referred_by)`);
     await this.pool.query(`
       create table if not exists processed_deposits (
@@ -856,6 +892,8 @@ class PostgresStore implements ProfileStore {
       ...(row as unknown as Profile),
       token_balance: Number(row.token_balance ?? 0),
       referral_earned: Number(row.referral_earned ?? 0),
+      tokens_won: Number(row.tokens_won ?? 0),
+      chips_won: Number(row.chips_won ?? 0),
     };
   }
 
@@ -870,20 +908,37 @@ class PostgresStore implements ProfileStore {
     }
   }
 
-  async leaderboard(limit: number, period: "all" | "week" = "all"): Promise<Profile[]> {
+  async leaderboard(limit: number, board: "rating" | "tokens" | "chips" = "rating"): Promise<Profile[]> {
     try {
       await this.ready;
       const res =
-        period === "week"
-          ? await this.pool.query(
-              "select * from profiles where week_key=$2 and week_points>0 order by week_points desc limit $1",
-              [limit, isoWeekKey()],
-            )
-          : await this.pool.query("select * from profiles order by rating desc limit $1", [limit]);
+        board === "tokens"
+          ? await this.pool.query("select * from profiles where tokens_won>0 order by tokens_won desc limit $1", [limit])
+          : board === "chips"
+            ? await this.pool.query("select * from profiles where chips_won>0 order by chips_won desc limit $1", [limit])
+            : await this.pool.query("select * from profiles order by rating desc limit $1", [limit]);
       return res.rows.map((r) => this.norm(r)!) as Profile[];
     } catch (e) {
       console.error("[store] pg leaderboard failed", e);
       return [];
+    }
+  }
+
+  async recordWinnings(wallet: string, currency: number, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    const col = currency === 1 ? "tokens_won" : "chips_won";
+    try {
+      await this.ready;
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
+      await this.pool.query(`update profiles set ${col} = ${col} + $2, updated_at=now() where wallet=$1`, [
+        wallet,
+        amount,
+      ]);
+    } catch (e) {
+      console.error("[store] pg recordWinnings failed", e);
     }
   }
 

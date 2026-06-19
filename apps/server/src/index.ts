@@ -367,7 +367,7 @@ app.get("/presence", (res, req) => {
 app.get("/admin/stats", (res, req) => {
   res.onAborted(() => {});
   if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
-  void Promise.all([store.leaderboard(10, "all"), store.referralOverview(15, REFERRAL_ROOT)])
+  void Promise.all([store.leaderboard(10, "rating"), store.referralOverview(15, REFERRAL_ROOT)])
     .then(([top, ref]) => {
       sendJson(res, {
         online: onlineCount(),
@@ -452,9 +452,10 @@ app.get("/profile", (res, req) => {
 
 app.get("/leaderboard", (res, req) => {
   res.onAborted(() => {});
-  const period = new URLSearchParams(req.getQuery()).get("period") === "week" ? "week" : "all";
+  const b = new URLSearchParams(req.getQuery()).get("board");
+  const board = b === "tokens" || b === "chips" ? b : "rating";
   store
-    .leaderboard(100, period)
+    .leaderboard(100, board)
     .then((rows) => sendJson(res, { rows }))
     .catch(() => sendJson(res, { rows: [] }));
 });
