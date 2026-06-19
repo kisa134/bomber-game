@@ -237,7 +237,7 @@ export class Renderer {
   // image per block per frame — the key mobile/iOS perf win.
   private scaled = new Map<string, HTMLCanvasElement>();
   private static readonly TILE_SPRITES = [
-    "hard", "soft", "soft_mobile", "bomb",
+    "hard", "hard_dmg1", "hard_dmg2", "hard_dmg3", "hard_dmg4", "soft", "soft_mobile", "bomb",
     "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
@@ -1245,12 +1245,18 @@ export class Renderer {
     // (Floor grass is blitted from the offscreen cache in render(), not here.)
 
     switch (tile) {
-      case TileType.HARD:
+      case TileType.HARD: {
         this.drawShadow(px + t / 2, py + t * 0.95, t * 0.42, t * 0.1, 0.3);
-        this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
-        if (this.hardDmg.size) this.drawCracks(px, py, index);
+        const dmg = this.hardDmg.get(index) ?? 0;
+        // Swap to the damage-stage sprite (1..4); if those frames aren't loaded,
+        // fall back to the pristine block + procedural cracks.
+        if (!(dmg > 0 && this.drawTileSprite(`hard_dmg${dmg}`, px, py))) {
+          this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
+          if (dmg > 0) this.drawCracks(px, py, index);
+        }
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
+      }
       case TileType.SOFT:
         this.drawShadow(px + t / 2, py + t * 0.95, t * 0.4, t * 0.1, 0.26);
         // Phones get the meme crate; desktop the detailed one. Fall back across

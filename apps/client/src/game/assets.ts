@@ -12,6 +12,11 @@ export const SPRITE_FILES: Record<string, string> = {
   hard: "/sprites/hard",
   soft: "/sprites/soft",
   soft_mobile: "/sprites/soft_mobile", // meme crate used on phones (lowFx)
+  // Hard (indestructible) block + its 4 accumulating blast-damage stages.
+  hard_dmg1: "/sprites/hard_dmg1",
+  hard_dmg2: "/sprites/hard_dmg2",
+  hard_dmg3: "/sprites/hard_dmg3",
+  hard_dmg4: "/sprites/hard_dmg4",
   bomb: "/sprites/bomb",
   // Explosion animation frames (ignite -> expand -> peak -> collapse -> fade).
   // A single explosion is used as a fallback if frames are absent.
@@ -40,7 +45,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "10";
+export const ASSET_VER = "11";
 
 // Directional walk frames (optional): skin<id>_<down|up|side>_<0..2>.
 // "side" is used for right; left is the same sprite mirrored. Missing frames
