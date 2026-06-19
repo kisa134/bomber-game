@@ -1868,7 +1868,7 @@ document.getElementById("ref-copy")?.addEventListener("click", () => {
 });
 document.getElementById("ref-share")?.addEventListener("click", () => {
   const url = referralLink();
-  if (navigator.share) void navigator.share({ title: "Bombermeme", text: shareText(), url });
+  if (navigator.share) void navigator.share({ title: "BomberMeme.fun", text: shareText(), url });
   else {
     void navigator.clipboard?.writeText(`${shareText()} ${url}`);
     setMenuStatus("Invite copied ✅");
@@ -2101,7 +2101,7 @@ document.getElementById("result-invite")?.addEventListener("click", () => {
   const btn = document.getElementById("result-invite") as HTMLButtonElement;
   const url = state.roomCode ? inviteUrl(state.roomCode) : `${location.origin}${location.pathname}`;
   if (navigator.share) {
-    void navigator.share({ title: "Bombermeme", text: "Come play Bombermeme with me 💣", url }).catch(() => {});
+    void navigator.share({ title: "BomberMeme.fun", text: "Come play BomberMeme.fun with me 💣", url }).catch(() => {});
   } else if (navigator.clipboard?.writeText) {
     void navigator.clipboard.writeText(url).then(() => {
       btn.textContent = "✅ Link copied!";
@@ -2171,9 +2171,9 @@ document.getElementById("sc-share")?.addEventListener("click", () => {
   const file = scBlob ? new File([scBlob], "bombermeme.png", { type: "image/png" }) : null;
   const nav = navigator as Navigator & { canShare?: (d: unknown) => boolean };
   if (file && nav.canShare?.({ files: [file] })) {
-    void navigator.share({ files: [file], title: "Bomberpump", text: shareText(), url }).catch(() => {});
+    void navigator.share({ files: [file], title: "BomberMeme.fun", text: shareText(), url }).catch(() => {});
   } else if (navigator.share) {
-    void navigator.share({ title: "Bomberpump", text: shareText(), url }).catch(() => {});
+    void navigator.share({ title: "BomberMeme.fun", text: shareText(), url }).catch(() => {});
   } else {
     void navigator.clipboard?.writeText(url);
   }
