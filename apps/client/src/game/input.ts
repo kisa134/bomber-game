@@ -130,7 +130,8 @@ export class Input {
     const safeBottom = parseInt(cs.getPropertyValue("--sai-bottom")) || 0;
     const safeLeft = parseInt(cs.getPropertyValue("--sai-left")) || 0;
     const landscape = window.innerWidth >= window.innerHeight;
-    if (landscape) return { x: 64 + safeLeft, y: window.innerHeight / 2 };
+    // Landscape: fixed near the bottom of the left zone (above the dpad slot).
+    if (landscape) return { x: 50 + safeLeft, y: window.innerHeight - 78 - safeBottom };
     return { x: 120 + safeLeft, y: window.innerHeight - 150 - safeBottom };
   }
 

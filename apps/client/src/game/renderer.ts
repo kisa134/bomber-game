@@ -99,6 +99,7 @@ export class Renderer {
   // The grass floor is static, so render it once into an offscreen canvas and
   // blit it each frame instead of redrawing ~10k blades per frame.
   private floor: HTMLCanvasElement | null = null;
+  private floorSpriteBaked = false; // true once the floor cache used the sprite
 
   /** Maps a player id to a skin index. Overridden by main. */
   skinOf: (id: number) => number = (id) => id % PLAYER_COLORS.length;
@@ -135,6 +136,7 @@ export class Renderer {
 
   setAssets(assets: Assets): void {
     this.assets = assets;
+    this.buildFloor(); // rebuild now that the floor sprite may be available
   }
 
   resize(): void {
@@ -186,9 +188,14 @@ export class Renderer {
     if (!g) return;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.clearRect(0, 0, W, H);
+    // On phones use the flat floor sprite (cheap, no procedural blades); on
+    // desktop keep the richer procedural grass. Both are baked once, here.
+    const floorImg = this.lowFx ? this.assets?.img("floor") : null;
+    this.floorSpriteBaked = !!floorImg;
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
-        this.drawGrass(g, x * t, y * t, x, y);
+        if (floorImg) g.drawImage(floorImg, x * t, y * t, t, t);
+        else this.drawGrass(g, x * t, y * t, x, y);
       }
     }
   }
@@ -207,6 +214,7 @@ export class Renderer {
   }
 
   shake(mag: number, ms = 220): void {
+    if (this.lowFx) return;
     this.shakeUntil = Math.max(this.shakeUntil, performance.now() + ms);
     this.shakeMag = Math.max(this.shakeMag, mag);
   }
@@ -218,6 +226,7 @@ export class Renderer {
   }
 
   burst(cx: number, cy: number, color: string, count: number, speed = 3): void {
+    if (this.lowFx) return;
     for (let i = 0; i < count; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = speed * (0.3 + Math.random() * 0.7);
@@ -238,6 +247,7 @@ export class Renderer {
    *  flying burned-dollar $ icons. Plus a scorch decal + a light shake. No white
    *  flashes (those were seizure-y). */
   onExplosion(cells: Array<{ x: number; y: number }>): void {
+    if (this.lowFx) return; // phones: explosion tiles still render; skip the VFX
     const now = performance.now();
     for (const c of cells) {
       const cx = c.x + 0.5;
@@ -281,6 +291,7 @@ export class Renderer {
   }
 
   onDeath(cx: number, cy: number, color: string): void {
+    if (this.lowFx) return; // phones: the death scale/fade still plays; skip gore VFX
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
     const reds = ["#8a0000", "#a30000", "#c81e1e", "#6a0000"];
@@ -381,7 +392,9 @@ export class Renderer {
       this.shakeMag = 0;
     }
 
-    // Blit the cached grass floor under everything (replaces per-tile grass).
+    // Blit the cached floor under everything. On phones, rebuild the cache once
+    // the floor sprite has finished loading (preload is async).
+    if (this.lowFx && !this.floorSpriteBaked && this.assets?.img("floor")) this.buildFloor();
     if (this.floor) ctx.drawImage(this.floor, 0, 0, W, H);
 
     if (view.grid) {
@@ -423,14 +436,16 @@ export class Renderer {
       // Owner-colored glow under the bomb, pulsing faster as the fuse burns down.
       const urgency = 1 - b.fuseLeftMs / BOMB_TIMER_MS; // 0 -> 1
       const beat = Math.sin(now / (90 - urgency * 55));
-      const glow = t * (0.5 + urgency * 0.25) * (0.8 + 0.2 * beat);
-      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glow);
-      grad.addColorStop(0, color + (urgency > 0.7 ? "ee" : "cc"));
-      grad.addColorStop(1, color + "00");
-      ctx.fillStyle = grad;
-      ctx.beginPath();
-      ctx.arc(cx, cy, glow, 0, Math.PI * 2);
-      ctx.fill();
+      if (!this.lowFx) {
+        const glow = t * (0.5 + urgency * 0.25) * (0.8 + 0.2 * beat);
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glow);
+        grad.addColorStop(0, color + (urgency > 0.7 ? "ee" : "cc"));
+        grad.addColorStop(1, color + "00");
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(cx, cy, glow, 0, Math.PI * 2);
+        ctx.fill();
+      }
       const img = this.assets?.img("bomb");
       if (img) {
         const s = t * 0.9 * (0.95 + 0.05 * beat) * pulse;
@@ -448,7 +463,7 @@ export class Renderer {
         ctx.fillRect(cx - 1.5, cy - r - t * 0.12, 3, t * 0.12);
       }
       // Fuse sparks above the bomb.
-      if (Math.random() < 0.5) {
+      if (!this.lowFx && Math.random() < 0.5) {
         this.push({
           x: b.x + 0.5 + (Math.random() - 0.5) * 0.18, y: b.y + 0.18, vx: (Math.random() - 0.5) * 0.8, vy: -1 - Math.random(),
           life: 0.22 + Math.random() * 0.2, max: 0.42, drag: 0.9, size: t * 0.04,
@@ -518,7 +533,7 @@ export class Renderer {
       // out over the last 4s. The local player glows a bit brighter.
       const HL_MS = 30_000;
       const sinceStart = this.matchStartMs ? now - this.matchStartMs : Infinity;
-      if (p.alive && sinceStart < HL_MS) {
+      if (!this.lowFx && p.alive && sinceStart < HL_MS) {
         const fade = sinceStart > HL_MS - 4000 ? (HL_MS - sinceStart) / 4000 : 1;
         const isMe = p.id === myId;
         const col = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
@@ -539,7 +554,7 @@ export class Renderer {
       }
 
       // Kick up dust / trample grass while moving.
-      if (moving && p.alive) {
+      if (!this.lowFx && moving && p.alive) {
         if (now - (this.lastDust.get(p.id) ?? 0) > 90) {
           this.lastDust.set(p.id, now);
           this.push({
@@ -634,6 +649,7 @@ export class Renderer {
 
   /** Brown/orange chunks flung out when a soft block is destroyed. */
   private emitDebris(gx: number, gy: number): void {
+    if (this.lowFx) return;
     const t = this.tile;
     for (let i = 0; i < Math.round(10 * this.fxScale); i++) {
       const a = Math.random() * Math.PI * 2;
@@ -651,19 +667,9 @@ export class Renderer {
   /** Pixelated blob shadow — a blocky ellipse made of squares on a pixel grid,
    *  gently swaying/breathing over time. */
   private drawShadow(cx: number, cy: number, rx: number, ry: number, alpha: number): void {
+    if (this.lowFx) return; // phones: no shadows at all (max speed)
     const ctx = this.ctx;
     const t = this.tile;
-    // Phones: one cheap ellipse instead of a per-pixel grid loop on every block.
-    if (this.lowFx) {
-      const prev = ctx.globalAlpha;
-      ctx.globalAlpha = prev * alpha;
-      ctx.fillStyle = "#000";
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = prev;
-      return;
-    }
     const pu = Math.max(2, Math.round(t / 12));
     const sw = Math.sin(this.lastTime / 900 + cx * 0.05 + cy * 0.03);
     const ox = cx + sw * pu * 0.7; // drift sideways a touch
@@ -1024,7 +1030,22 @@ export class Renderer {
       const [gr, gg, gb] = PU_GLOW[tile] ?? [255, 200, 110];
       const phase = now / 320 + (x * 0.9 + y * 1.3);
       const pulse = 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(phase));
-      const bob = Math.sin(phase * 0.8) * t * 0.06;
+      const bob = this.lowFx ? 0 : Math.sin(phase * 0.8) * t * 0.06;
+
+      // Phones: just draw the flat relic sprite — no glow, specular or bob.
+      if (this.lowFx) {
+        const img = key ? this.assets?.img(key) : null;
+        if (img) {
+          ctx.drawImage(img, px, py, t, t);
+        } else if (icon) {
+          ctx.font = `${Math.floor(t * 0.6)}px system-ui`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#fff";
+          ctx.fillText(icon, cx, cy + 1);
+        }
+        continue;
+      }
 
       // Bright pulsing colored glow (two additive rings for a brighter halo).
       ctx.save();
