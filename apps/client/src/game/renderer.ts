@@ -201,7 +201,7 @@ export class Renderer {
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
         if (floorImg) g.drawImage(floorImg, x * t, y * t, t, t);
-        else this.drawGrass(g, x * t, y * t, x, y);
+        else this.drawBaseGround(g, x * t, y * t, x, y); // desktop: blades drawn live
       }
     }
   }
@@ -428,6 +428,10 @@ export class Renderer {
         }
       }
     }
+
+    // Desktop: live swaying grass over the open ground, after blocks so the
+    // front tips overlap them for a layered 3D look. (Phones use the flat sprite.)
+    if (!this.lowFx) this.drawGrassOverlay(view, now);
 
     this.drawDecals(now);
     if (!this.lowFx) this.drawWind(now, W, H);
@@ -1110,28 +1114,62 @@ export class Renderer {
     return true;
   }
 
-  /** Procedural pixel grass floor — deterministic blades per tile. Drawn once
-   *  into the offscreen floor cache (see buildFloor), never per frame. */
-  private drawGrass(ctx: CanvasRenderingContext2D, px: number, py: number, x: number, y: number): void {
+  /** Baked base ground (two-tone checker) — static, blitted from the floor cache.
+   *  On desktop the swaying blades are drawn live on top (drawGrassBlades); on
+   *  phones the floor sprite replaces this entirely. */
+  private drawBaseGround(ctx: CanvasRenderingContext2D, px: number, py: number, x: number, y: number): void {
     const t = this.tile;
-    ctx.fillStyle = (x + y) % 2 === 0 ? "#345628" : "#2e4a24"; // base ground checker (brighter)
+    ctx.fillStyle = (x + y) % 2 === 0 ? "#345628" : "#2e4a24";
     ctx.fillRect(px, py, t, t);
-    const pu = Math.max(1, Math.round(t / 24)); // finer pixels
+  }
+
+  /** Live, wind-swayed pixel grass for ONE open-ground tile (desktop only). Tips
+   *  sway with a per-tile-phased sine; a few tall blades reach ABOVE the tile so
+   *  they overlap whatever is in the row above — when that's a block, the grass
+   *  reads as growing in front of it (the layered 3D look). */
+  private drawGrassBlades(px: number, py: number, x: number, y: number, now: number): void {
+    const ctx = this.ctx;
+    const t = this.tile;
+    const pu = Math.max(1, Math.round(t / 24));
     let seed = (x * 374761393 + y * 668265263) >>> 0;
-    const rnd = () => {
+    const rnd = (): number => {
       seed = ((seed ^ (seed >>> 13)) * 1274126177) >>> 0;
       return (seed & 1023) / 1023;
     };
-    const greens = ["#4b8a30", "#5aa53c", "#43802c", "#67bb46"]; // brighter greens
-    for (let i = 0; i < 28; i++) {
-      // ~2x denser
+    const greens = ["#4b8a30", "#5aa53c", "#43802c", "#67bb46"];
+    const wind = Math.sin(now / 620 + x * 0.55 + y * 0.3);
+    // Body blades across the tile.
+    for (let i = 0; i < 22; i++) {
       const bx = px + Math.floor(rnd() * (t - pu));
       const by = py + Math.floor(rnd() * (t - pu * 3));
-      const hgt = pu * (2 + Math.floor(rnd() * 2)); // a bit longer blades
-      const col = greens[(seed >> 3) & 3];
-      ctx.fillStyle = col;
+      const hgt = pu * (2 + Math.floor(rnd() * 2));
+      const sway = Math.round(wind * pu * (0.6 + rnd() * 0.8));
+      ctx.fillStyle = greens[(seed >> 3) & 3];
       ctx.fillRect(bx, by, pu, hgt); // stalk
-      ctx.fillRect(bx, by - pu, pu, pu); // tip
+      ctx.fillRect(bx + sway, by - pu, pu, pu); // swaying tip
+    }
+    // A few tall front blades whose tips poke ABOVE the tile (drawn after blocks,
+    // so they overlap onto the block above → depth/3D).
+    for (let i = 0; i < 5; i++) {
+      const bx = px + Math.floor(rnd() * (t - pu));
+      const top = py - pu * (1 + Math.floor(rnd() * 2));
+      const sway = Math.round(wind * pu * 1.3);
+      ctx.fillStyle = greens[(seed >> 5) & 3];
+      ctx.fillRect(bx + sway, top, pu, pu * 3);
+    }
+  }
+
+  /** Desktop grass pass: animated blades over every OPEN tile (not under blocks —
+   *  that's the optimization), drawn AFTER blocks so front tips overlap them. */
+  private drawGrassOverlay(view: RenderView, now: number): void {
+    if (!view.grid) return;
+    const t = this.tile;
+    for (let y = 0; y < GRID_H; y++) {
+      for (let x = 0; x < GRID_W; x++) {
+        const tile = view.grid[y * GRID_W + x] as TileType;
+        if (tile === TileType.HARD || tile === TileType.SOFT || tile === TileType.EXPLOSION) continue;
+        this.drawGrassBlades(x * t, y * t, x, y, now);
+      }
     }
   }
 
