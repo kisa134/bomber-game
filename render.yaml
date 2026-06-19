@@ -32,6 +32,10 @@ services:
         sync: false
       - key: SOLANA_RPC # paid RPC (Helius/QuickNode/…); public endpoint is inadequate
         sync: false
+      # Ops alerting: Discord/Slack incoming-webhook URL. Money-path failures
+      # (withdraw/payout/crash) POST here so you're never blind. Optional.
+      - key: ALERT_WEBHOOK
+        sync: false
       # Telegram Mini App: set these in the Render dashboard after BotFather.
       # TG_BOT = bot username (no @), TG_APP = Mini App short name from /newapp.
       # Used only to bounce the Phantom wallet flow back into the Mini App.

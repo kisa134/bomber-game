@@ -31,6 +31,7 @@ import { TOKEN_MINT, TOKEN_DECIMALS, HOLDER_MIN } from "@bomberpump/shared";
 import { store } from "./store.js";
 import { analytics } from "./analytics.js";
 import { logEvent, shortWallet } from "./events.js";
+import { alert } from "./alert.js";
 import { metrics } from "./metrics.js";
 
 // Default to the public mainnet RPC (rate-limited but keyless). For anything
@@ -395,17 +396,18 @@ export async function withdraw(wallet: string, amountBase: number): Promise<stri
           if (v && !v.err) {
             // Seen but not yet confirmed — status unknown. Do NOT refund (avoid
             // double-pay); flag for manual reconciliation.
-            console.error("[token] withdraw status uncertain; NOT refunding", sig);
+            alert(`withdraw UNCERTAIN ${fromBaseUnits(amountBase)} to ${shortWallet(wallet)} sig=${sig} — NOT refunded, check manually`);
             throw new Error("withdraw_pending");
           }
         } catch (e2) {
-          console.error("[token] withdraw status check failed; NOT refunding (manual check)", sig, e2);
+          if ((e2 as Error).message === "withdraw_pending") throw e2;
+          alert(`withdraw status check failed for ${shortWallet(wallet)} sig=${sig} — NOT refunded, check manually`);
           throw new Error("withdraw_pending");
         }
       }
       // Definitively never sent / failed before broadcast → safe to refund.
       await store.adjustToken(wallet, amountBase);
-      console.error("[token] withdraw failed, refunded", e);
+      alert(`withdraw failed (refunded) ${fromBaseUnits(amountBase)} to ${shortWallet(wallet)}: ${(e as Error).message}`);
       throw new Error("withdraw_failed");
     }
   } finally {

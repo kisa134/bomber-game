@@ -9,6 +9,7 @@ import { handleTgUpdate, tgWebhookSecretOk, setupTelegramBot } from "./tgbot.js"
 import { analytics } from "./analytics.js";
 import { REFERRAL_LEVEL_BPS } from "./referral.js";
 import { logEvent, recentEvents, shortWallet } from "./events.js";
+import { alert } from "./alert.js";
 import { metrics } from "./metrics.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
@@ -71,8 +72,8 @@ const SERVE_STATIC = existsSync(join(CLIENT_DIST, "index.html"));
 // One bad promise/exception must NOT take down the single instance (that strands
 // every live match). Log loudly instead of letting Node exit on unhandled
 // rejections; on SIGTERM (every Render deploy) refund in-flight staked pots first.
-process.on("unhandledRejection", (reason) => console.error("[fatal] unhandledRejection:", reason));
-process.on("uncaughtException", (err) => console.error("[fatal] uncaughtException:", err));
+process.on("unhandledRejection", (reason) => alert(`unhandledRejection: ${String(reason)}`, "unhandledRejection"));
+process.on("uncaughtException", (err) => alert(`uncaughtException: ${err?.message ?? err}`, "uncaughtException"));
 let shuttingDown = false;
 async function gracefulShutdown(sig: string): Promise<void> {
   if (shuttingDown) return;

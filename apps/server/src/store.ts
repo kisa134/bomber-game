@@ -655,7 +655,15 @@ class PostgresStore implements ProfileStore {
   private ready: Promise<void>;
 
   constructor(url: string) {
-    this.pool = new pg.Pool({ connectionString: url, ssl: { rejectUnauthorized: false } });
+    this.pool = new pg.Pool({
+      connectionString: url,
+      ssl: { rejectUnauthorized: false },
+      max: Number(process.env.PG_POOL_MAX ?? 10),
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 10_000,
+    });
+    // A pool error (dropped backend conn) must not crash the process.
+    this.pool.on("error", (e) => console.error("[store] pg pool error", e));
     this.ready = this.migrate();
   }
 

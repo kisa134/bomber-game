@@ -57,7 +57,8 @@ import { makeRng, encodeMatchSeed, advance } from "@bomberpump/shared";
 import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { analytics } from "./analytics.js";
 import { distributeReferralRewards } from "./referral.js";
-import { logEvent } from "./events.js";
+import { logEvent, shortWallet } from "./events.js";
+import { alert } from "./alert.js";
 import { metrics } from "./metrics.js";
 import { Player, type SendFn } from "./player.js";
 import { Bomb, dirVector } from "./bomb.js";
@@ -1000,7 +1001,12 @@ export class Room {
     if (winner && !winner.isBot && winner.wallet) {
       const rakeBp = Number(process.env.HOUSE_RAKE_BP ?? HOUSE_RAKE_BP) || 0;
       const rake = Math.floor((this.pot * rakeBp) / 10000);
-      void this.adjustBalance(winner.wallet, this.pot - rake);
+      const payout = this.pot - rake;
+      const w = winner.wallet;
+      void this.adjustBalance(w, payout).then((r) => {
+        // Winner payout must not silently fail — that's owed money.
+        if (r === null) alert(`PAYOUT FAILED: ${payout} to ${shortWallet(w)} (room ${this.id}) — owed, settle manually`);
+      });
       // Multi-level referral rewards come OUT of the house rake — token matches
       // only (rewards are paid in tokens). Each staker's chain gets a slice of
       // the rake their stake produced. Fully guarded inside the helper.
