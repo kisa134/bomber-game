@@ -125,21 +125,28 @@
         </div>
       </div>
 
-      <!-- Public tables browser = the main "Play online" lobby select -->
-      <div id="tables-modal" class="modal hidden">
-        <div class="modal-card">
-          <h3>🎮 Play online — pick a lobby</h3>
-          <div class="tables-actions">
-            <button id="tables-quick" class="primary">⚡ Quick match</button>
-            <button id="tables-new">➕ Create / options</button>
+      <!-- Full-screen lobby browser (server-browser style) — the Play Online screen -->
+      <section id="lobby" class="screen hidden">
+        <div class="lobby-wrap">
+          <div class="lobby-top">
+            <button id="lobby-back" class="ghost lobby-icon">←</button>
+            <h2 class="lobby-title">🌐 Find a Lobby</h2>
+            <button id="tables-refresh" class="ghost lobby-icon">↻</button>
           </div>
-          <div id="tables-sort" class="tables-sort"></div>
-          <div id="tables-filter" class="tables-filter hidden"></div>
+          <div class="lobby-bar">
+            <button id="tables-quick" class="primary">⚡ Quick Join</button>
+            <button id="tables-new">➕ Create Lobby</button>
+            <div class="lobby-code">
+              <input id="lobby-code-input" maxlength="4" placeholder="CODE" autocomplete="off" />
+              <button id="lobby-code-join">Join</button>
+            </div>
+          </div>
+          <div id="tables-filter" class="tables-filter"></div>
+          <div id="tables-sort" class="table-head"></div>
           <div id="tables-list" class="tables-list"></div>
-          <button id="tables-refresh" class="ghost">↻ Refresh</button>
-          <button id="tables-close" class="ghost">Close</button>
+          <p class="lobby-hint status">Tap a room to join · 🪙 free · 💎 paid · winner takes the pot</p>
         </div>
-      </div>
+      </section>
 
       <!-- Share card -->
       <div id="sharecard-modal" class="modal hidden">

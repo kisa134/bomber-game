@@ -455,6 +455,80 @@ button.ghost {
   margin-bottom: 4px;
 }
 
+/* --- Full-screen lobby browser (server-browser style) --- */
+#lobby {
+  justify-content: flex-start;
+  padding: calc(54px + var(--sai-top)) 16px calc(14px + var(--sai-bottom));
+}
+.lobby-wrap {
+  width: min(940px, 100%);
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(13, 16, 26, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  padding: 16px;
+}
+.lobby-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.lobby-top .lobby-title {
+  flex: 1 1 auto;
+  text-align: center;
+  font-size: 1.4rem;
+}
+.lobby-icon {
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 12px;
+  flex: none;
+  font-size: 1.3rem;
+}
+.lobby-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lobby-bar > button {
+  flex: 1 1 150px;
+  width: auto;
+}
+.lobby-code {
+  display: flex;
+  gap: 6px;
+  flex: 1 1 160px;
+}
+.lobby-code input {
+  flex: 1 1 0;
+  width: auto;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  font-weight: 700;
+}
+.lobby-code button {
+  width: auto;
+  flex: none;
+}
+#lobby .tables-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.lobby-hint {
+  text-align: center;
+  flex: none;
+}
+
 /* Referral earnings calculator */
 .ref-calc {
   border-top: 1px solid var(--border);
@@ -582,8 +656,16 @@ button.ghost {
   font-size: 0.72rem;
 }
 .table-row .td-players {
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.15;
   color: var(--text);
+}
+.table-row .td-players small {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.68rem;
 }
 .table-row .td-action {
   text-align: right;

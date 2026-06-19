@@ -1912,40 +1912,49 @@ setupMenu({
   join: (c, code) => { closePlay(); practiceMode = false; track("play_start", { mode: "join" }); connect(() => joinRoom(c.name, code, c.skin)); },
   tables: () => {
     closePlay();
-    document.getElementById("tables-modal")!.classList.remove("hidden");
-    void loadTables();
+    openLobby();
   },
 });
 
-// Play hub modal: the home PLAY button opens it; any action inside closes it.
+// Play hub modal: the create/options button opens it; any action inside closes it.
 function closePlay(): void {
   document.getElementById("play-modal")!.classList.add("hidden");
 }
-// PLAY lands straight on the lobby browser (see open rooms + join in one tap).
-document.getElementById("open-play")!.addEventListener("click", () => {
-  document.getElementById("tables-modal")!.classList.remove("hidden");
+/** Open the full-screen lobby browser and load the room list. */
+function openLobby(): void {
+  showScreen("lobby");
   void loadTables();
-});
-// Quick match (free) — one tap from the browser.
+}
+// PLAY lands straight on the full-screen lobby browser.
+document.getElementById("open-play")!.addEventListener("click", openLobby);
+document.getElementById("lobby-back")!.addEventListener("click", () => showScreen("menu"));
+// Quick Join (free match) — one tap.
 document.getElementById("tables-quick")!.addEventListener("click", () => {
-  document.getElementById("tables-modal")!.classList.add("hidden");
   const name = (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
   practiceMode = false;
   track("play_start", { mode: "quickplay", stake: 0 });
   void connect(() => quickplay(name, Math.floor(Math.random() * 4), 0));
 });
-// Create / Quick / Practice options live in the play hub.
+// Create Lobby → the create/options hub (stake picker + practice).
 document.getElementById("tables-new")!.addEventListener("click", () => {
-  document.getElementById("tables-modal")!.classList.add("hidden");
   document.getElementById("stake-group")?.classList.add("hidden");
   document.getElementById("play-modal")!.classList.remove("hidden");
+});
+// Join by code from the lobby header.
+document.getElementById("lobby-code-join")!.addEventListener("click", () => {
+  const inp = document.getElementById("lobby-code-input") as HTMLInputElement | null;
+  const code = (inp?.value || "").trim().toUpperCase();
+  if (code.length < 3) return;
+  const name = (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
+  track("play_start", { mode: "join" });
+  void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
 });
 document.getElementById("play-close")!.addEventListener("click", closePlay);
 document.getElementById("play-modal")!.addEventListener("click", (e) => {
   if (e.target === e.currentTarget) closePlay(); // tap the backdrop to dismiss
 });
 
-/** Fetch + render the public tables into the browser modal. */
+/** Fetch + render the public rooms into the lobby browser. */
 function loadTables(): Promise<void> {
   return fetchTables().then((tables) =>
     renderTables(
@@ -1953,13 +1962,11 @@ function loadTables(): Promise<void> {
       (code) => {
         const t = tables.find((x) => x.code === code);
         if (t && !walletGate(t.stake, t.currency)) return; // staked → needs wallet
-        document.getElementById("tables-modal")!.classList.add("hidden");
         const name = (localStorage.getItem("bp_nick") || "pumper").trim();
         track("play_start", { mode: "table_join" });
         void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
       },
       (code) => {
-        document.getElementById("tables-modal")!.classList.add("hidden");
         track("spectate", { code });
         void connect(() => watchMatch(code));
       },
@@ -1967,9 +1974,6 @@ function loadTables(): Promise<void> {
   );
 }
 
-document.getElementById("tables-close")!.addEventListener("click", () => {
-  document.getElementById("tables-modal")!.classList.add("hidden");
-});
 document.getElementById("tables-refresh")!.addEventListener("click", () => {
   void loadTables();
 });

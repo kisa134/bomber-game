@@ -45,6 +45,7 @@ export type ScreenName =
   | "settings"
   | "profile"
   | "leaderboard"
+  | "lobby"
   | "room"
   | "game"
   | "result";
@@ -54,6 +55,7 @@ const SCREENS: ScreenName[] = [
   "settings",
   "profile",
   "leaderboard",
+  "lobby",
   "room",
   "game",
   "result",
@@ -251,14 +253,16 @@ function drawTables(): void {
     const row = document.createElement("button");
     row.className = "table-row" + (t.live ? " live" : "");
     const sym = t.currency === 1 ? "💎" : "🪙";
-    const pot = t.stake > 0 ? `pot ${sym}${(t.stake * t.players).toLocaleString()}` : "open";
+    const tag = t.stake > 0 ? `${sym} ${t.stake.toLocaleString()}` : "🆓 FREE";
+    const pot = t.stake > 0 ? `pot ${sym}${(t.stake * t.players).toLocaleString()}` : "casual";
     const action = t.live ? "👁 Watch" : "Join";
     // Staked tables need a connected wallet — flag them with a lock.
     const lock = !t.live && t.stake > 0 && !hasWallet ? "🔒 " : "";
-    const label = t.live ? "🔴 LIVE" : lock + stakeLabel(t.stake, t.currency);
+    const status = t.live ? "in progress" : t.players >= t.max ? "full" : t.players >= 2 ? "filling…" : "open";
+    const label = t.live ? "🔴 LIVE" : lock + tag;
     row.innerHTML =
       `<span class="td-stake">${label}<small>${pot}</small></span>` +
-      `<span class="td-players">${t.players}/${t.max}</span>` +
+      `<span class="td-players">${t.players}/${t.max}<small>${status}</small></span>` +
       `<span class="td-action">${action}</span>`;
     row.addEventListener("click", () => (t.live ? lastOnWatch(t.code) : lastOnJoin(t.code)));
     list.appendChild(row);
