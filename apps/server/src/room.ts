@@ -416,6 +416,11 @@ export class Room {
         this.tickLobby();
         break;
       case MatchPhase.COUNTDOWN:
+        // Advance game-time during the countdown too (players are stationary), so
+        // the snapshot tick is monotonic from the start. Otherwise serverTime sits
+        // at 0 through the countdown then jumps when PLAYING begins, desyncing the
+        // client playback clock and jittering everyone for the first ~second.
+        this.simTick += 1;
         this.phaseTimerMs -= dt;
         if (this.phaseTimerMs <= 0) this.setPhase(MatchPhase.PLAYING);
         break;
