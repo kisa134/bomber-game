@@ -108,8 +108,15 @@ const HTTP_BURST = 16;
 const httpBuckets = new Map<string, { t: number; ts: number }>();
 
 function clientIp(res: uWS.HttpResponse, req: uWS.HttpRequest): string {
+  // Trust the RIGHTMOST x-forwarded-for entry: proxies APPEND the connecting IP,
+  // so the last hop is set by our trusted proxy (Render) and isn't client-spoofable
+  // — taking the first entry lets an attacker forge a fresh IP per request and
+  // bypass the rate limiter entirely.
   const xff = req.getHeader("x-forwarded-for");
-  if (xff) return xff.split(",")[0].trim();
+  if (xff) {
+    const parts = xff.split(",");
+    return parts[parts.length - 1].trim();
+  }
   try {
     return Buffer.from(res.getRemoteAddressAsText()).toString();
   } catch {
@@ -482,16 +489,21 @@ app.post("/deposit/claim", (res, req) => {
   if (!guard(res, req)) return;
   void readBody(res).then(async (body) => {
     let sig = "";
+    let wallet: string | null = null;
     try {
       const j = JSON.parse(body || "{}");
       if (typeof j.signature === "string") sig = j.signature.trim();
+      if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
     } catch {
       // ignore
     }
+    // Require a session: only credit a deposit the authenticated wallet sent
+    // (stops anonymous RPC-cost abuse and crediting arbitrary wallets).
+    if (!wallet) return sendJson(res, { ok: false, reason: "wallet_required" }, "401 Unauthorized");
     if (sig.length < 32 || sig.length > 100) {
       return sendJson(res, { ok: false, reason: "bad_signature" }, "400 Bad Request");
     }
-    const r = await claimBySignature(sig);
+    const r = await claimBySignature(sig, wallet);
     sendJson(res, r);
   });
 });
@@ -520,7 +532,14 @@ app.post("/withdraw", (res, req) => {
       sendJson(res, { signature, gameTokens: fromBaseUnits(p?.token_balance ?? 0) });
     } catch (e) {
       const msg = (e as Error).message;
-      const code = msg === "insufficient_balance" ? "402 Payment Required" : "500 Internal Server Error";
+      const code =
+        msg === "insufficient_balance"
+          ? "402 Payment Required"
+          : msg === "withdraw_in_progress"
+            ? "429 Too Many Requests"
+            : msg === "withdraw_pending"
+              ? "409 Conflict" // sent but unconfirmed — do NOT auto-retry; check wallet
+              : "500 Internal Server Error";
       sendJson(res, { error: msg }, code);
     }
   });

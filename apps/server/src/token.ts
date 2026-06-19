@@ -16,7 +16,6 @@ import {
   Keypair,
   PublicKey,
   Transaction,
-  sendAndConfirmTransaction,
   type ParsedInstruction,
 } from "@solana/web3.js";
 import {
@@ -213,6 +212,7 @@ async function creditFromTx(signature: string): Promise<boolean> {
     return false; // retry next scan
   }
   if (!tx) return false; // not available yet -> retry
+  if (tx.meta?.err) return true; // failed tx — fetched, never credit it
   const instrs: ParsedInstruction[] = [
     ...(tx.transaction.message.instructions as ParsedInstruction[]),
     ...(tx.meta?.innerInstructions ?? []).flatMap((i) => i.instructions as ParsedInstruction[]),
@@ -248,15 +248,13 @@ async function creditFromTx(signature: string): Promise<boolean> {
  *  Returns which wallet it credited and how much, or a reason it couldn't. */
 export async function claimBySignature(
   signature: string,
+  expectedWallet?: string,
 ): Promise<{
   ok: boolean;
   wallet?: string;
   amount?: number;
   already?: boolean;
   reason?: string;
-  expected?: string;
-  seen?: string[];
-  debug?: string;
 }> {
   await initToken();
   if (!treasuryAta) return { ok: false, reason: "deposits_disabled" };
@@ -267,6 +265,7 @@ export async function claimBySignature(
     return { ok: false, reason: "rpc_error" };
   }
   if (!tx) return { ok: false, reason: "tx_not_found" };
+  if (tx.meta?.err) return { ok: false, reason: "tx_failed" };
   const instrs: ParsedInstruction[] = [
     ...(tx.transaction.message.instructions as ParsedInstruction[]),
     ...(tx.meta?.innerInstructions ?? []).flatMap((i) => i.instructions as ParsedInstruction[]),
@@ -286,6 +285,9 @@ export async function claimBySignature(
     const amount = Number(ta?.amount ?? info.amount ?? 0);
     dbg = `type=${type} sender=${sender || "?"} amount=${amount} keys=${Object.keys(info).join(",")}`;
     if (!sender || !Number.isFinite(amount) || amount <= 0) continue;
+    // If a caller is claiming, only credit a deposit THEY sent (no crediting
+    // arbitrary wallets, and ties the RPC cost to an authenticated user).
+    if (expectedWallet && sender !== expectedWallet) continue;
     const credited = await store.creditDeposit(signature, sender, amount);
     if (credited) {
       cache.delete(sender);
@@ -295,13 +297,9 @@ export async function claimBySignature(
     }
     return { ok: true, wallet: sender, amount: fromBaseUnits(amount), already: !credited };
   }
-  return {
-    ok: false,
-    reason: dbg ? "matched_but_unparsed" : "no_token_transfer_to_treasury",
-    expected: treasuryAta.toBase58(),
-    seen,
-    debug: dbg,
-  };
+  // Server-side detail for logs only — never leak treasury/tx internals to clients.
+  if (dbg) console.warn("[token] claim matched no creditable transfer", signature, "seen=", seen, dbg);
+  return { ok: false, reason: expectedWallet ? "not_your_deposit" : "no_token_transfer_to_treasury" };
 }
 
 // --- deposit (server builds it, the player's wallet signs & sends) ----------
@@ -332,45 +330,85 @@ export async function buildDepositTx(wallet: string, amountBase: number): Promis
 }
 
 // --- withdraw (signs out of the treasury) ----------------------------------
+const withdrawInFlight = new Set<string>(); // serialize withdrawals per wallet
+
 /** Debit the off-chain balance and send the tokens on-chain to the wallet.
- *  Refunds the off-chain balance if the transfer fails. Returns the signature. */
+ *  Refunds the off-chain balance ONLY if we can prove the transfer never landed
+ *  (refunding a tx that actually went through would be a double-payout). */
 export async function withdraw(wallet: string, amountBase: number): Promise<string> {
   await initToken();
   if (!treasuryKeypair || !treasuryAta) throw new Error("withdrawals_disabled");
   if (!Number.isInteger(amountBase) || amountBase <= 0) throw new Error("bad_amount");
-
-  const owner = new PublicKey(wallet); // throws on a malformed address
-  const after = await store.adjustToken(wallet, -amountBase);
-  if (after === null) throw new Error("insufficient_balance");
-
+  if (withdrawInFlight.has(wallet)) throw new Error("withdraw_in_progress");
+  withdrawInFlight.add(wallet);
   try {
-    const destAta = await getOrCreateAssociatedTokenAccount(
-      connection,
-      treasuryKeypair,
-      MINT,
-      owner,
-      false,
-      undefined,
-      undefined,
-      tokenProgram,
-    );
-    const ix = createTransferInstruction(
-      treasuryAta,
-      destAta.address,
-      treasuryKeypair.publicKey,
-      amountBase,
-      [],
-      tokenProgram,
-    );
-    const sig = await sendAndConfirmTransaction(connection, new Transaction().add(ix), [treasuryKeypair]);
-    cache.delete(wallet);
-    analytics.withdrawal(wallet, fromBaseUnits(amountBase));
-    logEvent("⬆️", `${shortWallet(wallet)} withdrew ${fromBaseUnits(amountBase).toLocaleString()}`);
-    console.log(`[token] withdraw ${fromBaseUnits(amountBase)} to ${wallet} (${sig})`);
-    return sig;
-  } catch (e) {
-    await store.adjustToken(wallet, amountBase); // refund on failure
-    console.error("[token] withdraw failed, refunded", e);
-    throw new Error("withdraw_failed");
+    const owner = new PublicKey(wallet); // throws on a malformed address
+    const after = await store.adjustToken(wallet, -amountBase); // atomic, overdraw-safe
+    if (after === null) throw new Error("insufficient_balance");
+
+    let sig: string | undefined;
+    try {
+      const destAta = await getOrCreateAssociatedTokenAccount(
+        connection,
+        treasuryKeypair,
+        MINT,
+        owner,
+        false,
+        undefined,
+        undefined,
+        tokenProgram,
+      );
+      const ix = createTransferInstruction(
+        treasuryAta,
+        destAta.address,
+        treasuryKeypair.publicKey,
+        amountBase,
+        [],
+        tokenProgram,
+      );
+      const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+      const tx = new Transaction().add(ix);
+      tx.feePayer = treasuryKeypair.publicKey;
+      tx.recentBlockhash = blockhash;
+      tx.lastValidBlockHeight = lastValidBlockHeight;
+      tx.sign(treasuryKeypair);
+      // Send first so we capture the signature, then confirm separately — that
+      // way a confirmation timeout doesn't lose track of a tx that may have landed.
+      sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 5 });
+      await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+      cache.delete(wallet);
+      analytics.withdrawal(wallet, fromBaseUnits(amountBase));
+      logEvent("⬆️", `${shortWallet(wallet)} withdrew ${fromBaseUnits(amountBase).toLocaleString()}`);
+      console.log(`[token] withdraw ${fromBaseUnits(amountBase)} to ${wallet} (${sig})`);
+      return sig;
+    } catch (e) {
+      // The transfer errored. If we have a signature it MIGHT still have landed —
+      // never refund a withdrawal that actually went through.
+      if (sig) {
+        try {
+          const st = await connection.getSignatureStatus(sig, { searchTransactionHistory: true });
+          const v = st.value;
+          if (v && !v.err && (v.confirmationStatus === "confirmed" || v.confirmationStatus === "finalized")) {
+            console.warn("[token] withdraw confirm errored but tx landed; keeping debit", sig);
+            return sig;
+          }
+          if (v && !v.err) {
+            // Seen but not yet confirmed — status unknown. Do NOT refund (avoid
+            // double-pay); flag for manual reconciliation.
+            console.error("[token] withdraw status uncertain; NOT refunding", sig);
+            throw new Error("withdraw_pending");
+          }
+        } catch (e2) {
+          console.error("[token] withdraw status check failed; NOT refunding (manual check)", sig, e2);
+          throw new Error("withdraw_pending");
+        }
+      }
+      // Definitively never sent / failed before broadcast → safe to refund.
+      await store.adjustToken(wallet, amountBase);
+      console.error("[token] withdraw failed, refunded", e);
+      throw new Error("withdraw_failed");
+    }
+  } finally {
+    withdrawInFlight.delete(wallet);
   }
 }
