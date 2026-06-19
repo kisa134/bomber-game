@@ -1590,6 +1590,8 @@ function wireMenuLinks(): void {
 
 function setupBackground(): void {
   const v = document.getElementById("bg-video") as HTMLVideoElement;
+  // First-frame poster shows instantly while the video downloads (no empty gap).
+  v.poster = `/bg/menu-poster.webp?v=${ASSET_VER}`;
   // ?v= busts the cache when the file is replaced under the same name. The
   // boomerang mp4 loops seamlessly via the element's `loop` attr; webm dropped
   // (mp4 is universal and tried first).

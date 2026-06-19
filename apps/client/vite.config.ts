@@ -60,6 +60,18 @@ export default defineConfig({
               expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 30 },
             },
           },
+          {
+            // Background video + poster: cache so refreshes are instant (the
+            // server sends no-cache, so without this it re-downloads every load).
+            urlPattern: /\/bg\/.*\.(?:mp4|webm|webp)$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "bg",
+              rangeRequests: true,
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 12, maxAgeSeconds: 60 * 60 * 24 * 30 },
+            },
+          },
         ],
       },
     }),
