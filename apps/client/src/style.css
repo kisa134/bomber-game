@@ -957,7 +957,7 @@ button.ghost {
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
     position: absolute;
-    left: calc(22px + env(safe-area-inset-left));
+    left: calc(6px + env(safe-area-inset-left));
     bottom: calc(34px + env(safe-area-inset-bottom));
     width: 96px;
     height: 96px;

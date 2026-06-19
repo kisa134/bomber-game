@@ -126,14 +126,27 @@ export class Renderer {
   private shakeMag = 0;
   private lastTime = performance.now();
 
+  private lastW = -1;
+  private lastH = -1;
+  private lastDpr = -1;
+  private resizeRaf = 0;
+
   constructor(private canvas: HTMLCanvasElement) {
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("2d context unavailable");
     this.ctx = ctx;
     this.resize();
-    const onResize = () => this.resize();
+    // Mobile webviews (esp. Telegram) fire resize/visualViewport CONSTANTLY (URL
+    // bar, scroll, keyboard). Coalesce them into one resize per frame; resize()
+    // itself also no-ops when the board size hasn't actually changed.
+    const onResize = () => {
+      if (this.resizeRaf) return;
+      this.resizeRaf = requestAnimationFrame(() => {
+        this.resizeRaf = 0;
+        this.resize();
+      });
+    };
     window.addEventListener("resize", onResize);
-    // iOS/Telegram often resize the viewport without firing window.resize.
     window.addEventListener("orientationchange", onResize);
     window.visualViewport?.addEventListener("resize", onResize);
   }
@@ -144,21 +157,17 @@ export class Renderer {
   }
 
   resize(): void {
-    // Cap the device-pixel-ratio lower on phones: fewer pixels to fill = far
-    // less GPU/CPU work and heat, with little visible difference at arm's length.
-    const coarseDpr = window.matchMedia("(pointer: coarse)").matches ? 1.5 : 2;
-    this.dpr = Math.min(window.devicePixelRatio || 1, coarseDpr);
-    // Fit the canvas into the play area's *content* box (above the HUD strip).
-    // On desktop leave a margin so the framed board floats off the screen edges;
-    // on touch/mobile drop it (and the CSS border) so the board fills the area.
-    // #play-area carries padding (safe-area insets + the side gutters that hold
-    // the touch controls in landscape), so subtract it: clientWidth includes
-    // padding, and the board must stay inside it, never under the controls.
+    // Treat any touch device as "mobile" (lowFx) — relying on pointer:coarse alone
+    // can miss in some webviews, leaving the heavy desktop path on (= terrible lag).
     const coarse = window.matchMedia("(pointer: coarse)").matches;
-    this.lowFx = coarse;
-    this.fxScale = coarse ? 0.5 : 1;
-    this.maxParticles = coarse ? 240 : MAX_PARTICLES;
-    const margin = coarse ? 0 : 22;
+    const touch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    const mobile = coarse || touch;
+    // Cap DPR lower on phones: fewer pixels to fill = far less GPU/CPU and heat.
+    this.dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2);
+    this.lowFx = mobile;
+    this.fxScale = mobile ? 0.5 : 1;
+    this.maxParticles = mobile ? 240 : MAX_PARTICLES;
+    const margin = mobile ? 0 : 22;
     const host = this.canvas.parentElement;
     const cs = host ? getComputedStyle(host) : null;
     const padX = cs ? parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) : 0;
@@ -168,18 +177,24 @@ export class Renderer {
     this.tile = Math.floor(Math.min(availW / GRID_W, availH / GRID_H));
     const w = this.tile * GRID_W;
     const h = this.tile * GRID_H;
+
+    // Always refresh the side-margin var (cheap), but skip the EXPENSIVE work
+    // (canvas realloc + floor rebake) when the board size is unchanged. Mobile
+    // fires resize constantly with the same dimensions — this kills the churn.
+    const padL = cs ? parseFloat(cs.paddingLeft) : 0;
+    const side = Math.max(0, padL + ((host?.clientWidth || window.innerWidth) - padX - w) / 2);
+    document.documentElement.style.setProperty("--board-side", `${Math.round(side)}px`);
+    if (w === this.lastW && h === this.lastH && this.dpr === this.lastDpr) return;
+    this.lastW = w;
+    this.lastH = h;
+    this.lastDpr = this.dpr;
+
     this.canvas.width = w * this.dpr;
     this.canvas.height = h * this.dpr;
     this.canvas.style.width = `${w}px`;
     this.canvas.style.height = `${h}px`;
     this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-    this.ctx.imageSmoothingEnabled = true;
-    // Expose the board's actual side margin so the mobile control zones can fill
-    // exactly the empty space beside the (height-maxed) board — never overlapping
-    // it, never shrinking it.
-    const padL = cs ? parseFloat(cs.paddingLeft) : 0;
-    const side = Math.max(0, padL + ((host?.clientWidth || window.innerWidth) - padX - w) / 2);
-    document.documentElement.style.setProperty("--board-side", `${Math.round(side)}px`);
+    this.ctx.imageSmoothingEnabled = !this.lowFx; // crisp+cheaper on mobile
     this.buildFloor();
   }
 
