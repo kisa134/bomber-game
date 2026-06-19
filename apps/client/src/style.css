@@ -1503,9 +1503,35 @@ button.big {
   opacity: 0.7;
   margin-top: 6px;
 }
+/* Pre-launch alpha / test-token banner (fixed top, on all menu screens). */
+#alpha-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 18;
+  background: linear-gradient(180deg, #e0231f, #a30b08);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  letter-spacing: 0.2px;
+  padding: calc(6px + env(safe-area-inset-top)) 12px 6px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+}
+#alpha-banner a {
+  color: #fff;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+#alpha-banner.hidden {
+  display: none;
+}
+
 .icon-btn {
   position: absolute;
-  top: 16px;
+  top: calc(58px + env(safe-area-inset-top));
   right: 16px;
   width: 46px;
   height: 46px;

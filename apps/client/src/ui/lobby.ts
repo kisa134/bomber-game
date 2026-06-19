@@ -63,6 +63,8 @@ export function showScreen(name: ScreenName): void {
   for (const id of SCREENS) {
     document.getElementById(id)?.classList.toggle("hidden", id !== name);
   }
+  // Pre-launch alpha banner: on every menu screen, hidden during a match.
+  document.getElementById("alpha-banner")?.classList.toggle("hidden", name === "game");
   // Background video runs everywhere except in-game (saves CPU/battery).
   const bg = document.getElementById("bg");
   const video = document.getElementById("bg-video") as HTMLVideoElement | null;
