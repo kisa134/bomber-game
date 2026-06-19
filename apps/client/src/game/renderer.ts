@@ -1002,7 +1002,11 @@ export class Renderer {
         break;
       case TileType.SOFT:
         this.drawShadow(px + t / 2, py + t * 0.95, t * 0.4, t * 0.1, 0.26);
-        this.drawTileSprite("soft", px, py) || this.drawSoft(px, py);
+        // Phones get the meme crate; desktop the detailed one. Fall back across
+        // soft_mobile -> soft -> procedural.
+        ((this.lowFx && this.drawTileSprite("soft_mobile", px, py)) ||
+          this.drawTileSprite("soft", px, py) ||
+          this.drawSoft(px, py));
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       case TileType.EXPLOSION: {
