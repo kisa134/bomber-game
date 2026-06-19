@@ -22,11 +22,11 @@ async function tg(method: string, params: unknown): Promise<void> {
 }
 
 const WELCOME =
-  "💣 <b>Bomberpump</b> — fast browser bomberman for the pump.fun crowd.\n\n" +
+  "💣 <b>BomberMeme.fun</b> — fast browser bomberman for the pump.fun crowd.\n\n" +
   "Drop bombs, blow up your rivals, grab power-ups and win the pot. 2–4 players, " +
   "instant matches, right inside Telegram.\n\n" +
   "— — —\n\n" +
-  "💣 <b>Bomberpump</b> — быстрый браузерный бомбермен.\n\n" +
+  "💣 <b>BomberMeme.fun</b> — быстрый браузерный бомбермен.\n\n" +
   "Ставь бомбы, взрывай соперников, собирай бонусы и забирай банк. 2–4 игрока, " +
   "мгновенные матчи — прямо в Telegram.\n\n" +
   "👇 Play / Играть";
@@ -82,7 +82,7 @@ async function sendHowTo(chatId: number): Promise<void> {
   await tg("sendPhoto", {
     chat_id: chatId,
     photo: `${PUBLIC_URL}/howto/guide.png`,
-    caption: "💣 <b>Bomberpump — how to play / как играть</b>",
+    caption: "💣 <b>BomberMeme.fun — how to play / как играть</b>",
     parse_mode: "HTML",
   });
   await tg("sendMessage", {
@@ -147,7 +147,7 @@ export async function setupTelegramBot(): Promise<void> {
   });
   await tg("setMyCommands", {
     commands: [
-      { command: "start", description: "Play Bomberpump / Играть" },
+      { command: "start", description: "Play BomberMeme.fun / Играть" },
       { command: "help", description: "How to play / Как играть" },
     ],
   });

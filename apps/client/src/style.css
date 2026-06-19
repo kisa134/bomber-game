@@ -129,9 +129,10 @@ body {
 }
 
 .logo {
-  font-size: 2.6rem;
+  font-size: clamp(1.7rem, 8vw, 2.3rem);
   font-weight: 800;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
   text-shadow: 0 4px 24px rgba(255, 204, 51, 0.25);
 }
 
