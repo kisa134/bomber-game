@@ -340,9 +340,11 @@ net.onMessage = (msg) => {
       if (msg.phase === MatchPhase.COUNTDOWN) {
         enterGame();
         lastCountSec = -1;
+        renderer?.setCountdown(true); // highlight your corner while 3-2-1 runs
       } else if (msg.phase === MatchPhase.PLAYING) {
         assets.play("go");
         goUntil = performance.now() + 800;
+        renderer?.setCountdown(false);
         renderer?.onMatchStart(); // start the 30s "find yourself" glow
         track("match_started", { players: state.roomPlayers.length });
       } else if (msg.phase === MatchPhase.SUDDEN_DEATH) {
@@ -350,6 +352,7 @@ net.onMessage = (msg) => {
         assets.play("sudden_death");
       } else if (msg.phase === MatchPhase.LOBBY) {
         prevSoftCount = -1;
+        renderer?.setCountdown(false);
         if (!onResultScreen() && !spectating) {
           showScreen("room");
           renderRoom(state);

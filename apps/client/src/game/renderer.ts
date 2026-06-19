@@ -114,6 +114,7 @@ export class Renderer {
   private hurtUntil = new Map<number, number>(); // transient hurt pose
   private victorId = -1; // winner shows the victory pose after a match ends
   private matchStartMs = 0; // when PLAYING began — drives the start-of-match glow
+  private countdownActive = false; // 3-2-1 phase — highlight the local player's corner
   private particles: Particle[] = [];
   private decals: Decal[] = [];
   private lights: Array<{ x: number; y: number; born: number }> = []; // explosion light sources
@@ -264,6 +265,11 @@ export class Renderer {
 
   /** Mark the moment the match went live, so we glow each player in their color
    *  for a short window — long enough to find yourself, then it fades. */
+  /** Toggle the countdown "you are here" corner highlight. */
+  setCountdown(on: boolean): void {
+    this.countdownActive = on;
+  }
+
   onMatchStart(): void {
     this.matchStartMs = performance.now();
     this.placeBombUntil.clear();
@@ -607,6 +613,42 @@ export class Renderer {
 
       // Shadow grounding the player (under the feet).
       if (p.alive) this.drawShadow(cx, cy + t * 0.34, t * 0.3 * scale, t * 0.12 * scale, 0.26);
+
+      // Countdown: brightly mark YOUR corner in your color ("you are here").
+      if (this.countdownActive && p.id === myId && p.alive) {
+        const col = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
+        const pulse = 0.5 + 0.5 * Math.sin(now / 170);
+        const tx = Math.floor(rp.x) * t;
+        const ty = Math.floor(rp.y) * t;
+        ctx.save();
+        // Bright color wash filling the cell.
+        ctx.globalCompositeOperation = "lighter";
+        const rad = t * (0.75 + 0.15 * pulse);
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
+        g.addColorStop(0, col + "dd");
+        g.addColorStop(0.55, col + "55");
+        g.addColorStop(1, col + "00");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        // Pulsing outline around the tile.
+        ctx.save();
+        ctx.globalAlpha = 0.55 + 0.45 * pulse;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = Math.max(2, t * 0.07);
+        ctx.strokeRect(tx + 2, ty + 2, t - 4, t - 4);
+        ctx.restore();
+        // "YOU" tag bobbing above.
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = col;
+        ctx.font = `900 ${Math.floor(t * 0.34)}px system-ui`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillText("YOU", cx, ty - t * 0.12 - pulse * t * 0.08);
+        ctx.globalAlpha = alpha;
+      }
 
       // Start-of-match highlight: a soft, owner-colored glow under each player
       // for 30s so you can find yourself (replaces the old static ring). Fades
