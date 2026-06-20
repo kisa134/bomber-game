@@ -2080,8 +2080,8 @@ export class Renderer {
             this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
             if (dmg > 0) this.drawCracks(px, py, index);
           }
+          if (bm) this.drawBlockBlood(px, py, index); // fallback ONLY (mobile / sprite missing)
         }
-        if (bm) this.drawBlockBlood(px, py, index); // dynamic splatter + drips ON TOP of the block
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       }
@@ -2095,8 +2095,8 @@ export class Renderer {
           ((this.lowFx && this.drawTileSprite("soft_mobile", px, py)) ||
             this.drawTileSprite("soft", px, py) ||
             this.drawSoft(px, py));
+          if (sm) this.drawBlockBlood(px, py, index); // fallback ONLY (mobile / sprite missing)
         }
-        if (sm) this.drawBlockBlood(px, py, index); // dynamic splatter + drips ON TOP of the block
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       }
