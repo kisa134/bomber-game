@@ -427,6 +427,9 @@ net.onMessage = (msg) => {
     case ServerMsg.EVENT_EMOTE:
       showEmote(msg.playerId, msg.emote);
       break;
+    case ServerMsg.CHAT_MSG:
+      addChatMessage(msg.playerId, msg.text);
+      break;
     case ServerMsg.EVENT_CALLOUT:
       if (msg.kind === CalloutType.FIRST_BLOOD) {
         renderer?.firstBlood(); // pixel "FIRST BLOOD" text + blood drips
@@ -1893,6 +1896,34 @@ function cycleSkin(delta: number): void {
 }
 document.getElementById("skin-prev")?.addEventListener("click", () => cycleSkin(-1));
 document.getElementById("skin-next")?.addEventListener("click", () => cycleSkin(1));
+
+// --- Lobby chat -------------------------------------------------------------
+let chatReadyAt = 0;
+const chatInput = document.getElementById("chat-input") as HTMLInputElement | null;
+function addChatMessage(playerId: number, text: string): void {
+  const log = document.getElementById("chat-log");
+  if (!log) return;
+  log.querySelector(".chat-empty")?.remove();
+  const row = document.createElement("div");
+  row.className = "chat-msg" + (playerId === state.myId ? " me" : "");
+  const who = document.createElement("b");
+  who.textContent = state.nameOf(playerId) + ":";
+  row.appendChild(who);
+  // textContent (not innerHTML) — never render player text as HTML.
+  row.appendChild(document.createTextNode(" " + text));
+  log.appendChild(row);
+  while (log.childElementCount > 60) log.firstElementChild?.remove();
+  log.scrollTop = log.scrollHeight;
+}
+chatInput?.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter") return;
+  const text = chatInput.value.trim();
+  if (!text) return;
+  if (performance.now() < chatReadyAt) return; // client-side anti-spam
+  chatReadyAt = performance.now() + 800;
+  net.sendChat(text);
+  chatInput.value = "";
+});
 // While the lobby ready-countdown is running, refresh the waiting room once a
 // second so the "Starting in Ns" ticks down (the server broadcasts it once).
 setInterval(() => {
@@ -2212,6 +2243,7 @@ function onResultScreen(): boolean {
 function leaveToMenu(): void {
   spectating = false;
   practiceMode = false; // don't carry "Play again" into the next game
+  document.getElementById("chat-log")?.replaceChildren(); // fresh chat next room
   net.close();
   assets.stop("sudden_death");
   state.reset();

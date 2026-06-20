@@ -1166,6 +1166,8 @@ app.ws<SocketData>("/ws", {
       room.kick(ud.playerId, msg.targetId);
     } else if (msg.type === ClientMsg.SET_SKIN) {
       room.setSkin(ud.playerId, msg.skin);
+    } else if (msg.type === ClientMsg.CHAT) {
+      room.chat(ud.playerId, msg.text);
     }
   },
   close: (ws) => {

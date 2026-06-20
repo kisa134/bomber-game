@@ -48,6 +48,7 @@ export class Player {
   lastInputSeq: number = 0;
   lastMoveAtMs: number = 0; // for idle-kick detection
   lastEmoteAtMs: number = 0; // for emote rate-limit (anti-spam)
+  lastChatAtMs: number = 0; // for chat rate-limit (anti-spam)
   /** Tick-stamped input buffer for rollback: server tick -> intended direction. */
   inputs: Map<number, Direction> = new Map();
 

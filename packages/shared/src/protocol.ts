@@ -27,6 +27,7 @@ import {
   type PickupEvent,
   type MatchEndMsg,
   type KickedMsg,
+  type ChatMsg,
   type PongMsg,
   type EmoteEventMsg,
   type CalloutEvent,
@@ -117,6 +118,15 @@ export function encodeSetSkin(skin: number): Uint8Array {
   return new Uint8Array([ClientMsg.SET_SKIN, skin & 0xff]);
 }
 
+export function encodeChat(text: string): Uint8Array {
+  const tb = textEncoder.encode(text.slice(0, 160));
+  const buf = new Uint8Array(2 + tb.length);
+  buf[0] = ClientMsg.CHAT;
+  buf[1] = tb.length;
+  buf.set(tb, 2);
+  return buf;
+}
+
 export type ClientMessage =
   | { type: ClientMsg.INPUT_MOVE; dir: Direction; tick: number }
   | { type: ClientMsg.INPUT_PLACE_BOMB; seq: number }
@@ -128,7 +138,8 @@ export type ClientMessage =
   | { type: ClientMsg.PROPOSE_STAKE; stake: number }
   | { type: ClientMsg.VOTE_STAKE; accept: boolean }
   | { type: ClientMsg.KICK; targetId: number }
-  | { type: ClientMsg.SET_SKIN; skin: number };
+  | { type: ClientMsg.SET_SKIN; skin: number }
+  | { type: ClientMsg.CHAT; text: string };
 
 export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | null {
   const dv = asView(data);
@@ -167,6 +178,13 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
     case ClientMsg.SET_SKIN:
       if (dv.byteLength < 2) return null;
       return { type, skin: dv.getUint8(1) };
+    case ClientMsg.CHAT: {
+      if (dv.byteLength < 2) return null;
+      const len = dv.getUint8(1);
+      if (dv.byteLength < 2 + len) return null;
+      const slice = new Uint8Array(dv.buffer, dv.byteOffset + 2, len);
+      return { type, text: textDecoder.decode(slice) };
+    }
     default:
       return null;
   }
@@ -326,6 +344,16 @@ export function encodeMatchEnd(winnerId: number): Uint8Array {
 
 export function encodeKicked(reason: number): Uint8Array {
   return new Uint8Array([ServerMsg.KICKED, reason & 0xff]);
+}
+
+export function encodeChatMsg(playerId: number, text: string): Uint8Array {
+  const tb = textEncoder.encode(text.slice(0, 160));
+  const buf = new Uint8Array(3 + tb.length);
+  buf[0] = ServerMsg.CHAT_MSG;
+  buf[1] = playerId & 0xff;
+  buf[2] = tb.length;
+  buf.set(tb, 3);
+  return buf;
 }
 
 export function encodePong(timestamp: number): Uint8Array {
@@ -539,6 +567,12 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
     }
     case ServerMsg.KICKED: {
       const msg: KickedMsg = { type, reason: dv.getUint8(1) };
+      return msg;
+    }
+    case ServerMsg.CHAT_MSG: {
+      const len = dv.getUint8(2);
+      const text = textDecoder.decode(bytes.subarray(3, 3 + len));
+      const msg: ChatMsg = { type, playerId: dv.getUint8(1), text };
       return msg;
     }
     case ServerMsg.PONG: {

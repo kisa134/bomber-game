@@ -1,9 +1,45 @@
 import { PLAYER_COLORS, skinAvatar } from "../game/renderer.js";
+import { ASSET_VER } from "../game/assets.js";
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, MATCH_LENGTH_MS } from "../net/protocol.js";
 
-/** Display names for the meme characters (by skin index — matches SKIN_COUNT=11). */
-const SKIN_NAMES = ["Shiba", "Pepe", "Fox", "Wojak", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bog", "Giga"];
+/** Character names by skin index — verified against the actual sprites. */
+const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Wojak", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad"];
 const skinName = (skin: number): string => SKIN_NAMES[skin] ?? `Fighter ${skin + 1}`;
+
+// Character stage: cycle the walk frames so the picked skin "runs on the spot"
+// and turns down → right → up → left (a full circle) while you choose.
+const TURN_FRAMES: Array<[dir: string, frame: number, flip: boolean]> = [
+  ["down", 0, false], ["down", 1, false], ["down", 2, false],
+  ["side", 0, false], ["side", 1, false], ["side", 2, false],
+  ["up", 0, false], ["up", 1, false], ["up", 2, false],
+  ["side", 0, true], ["side", 1, true], ["side", 2, true],
+];
+let skinAnimTimer: ReturnType<typeof setInterval> | null = null;
+let skinAnimSkin = -1;
+function animateSkin(skin: number): void {
+  const hero = document.getElementById("skin-hero");
+  if (!hero) return;
+  let img = hero.querySelector("img") as HTMLImageElement | null;
+  if (!img) {
+    img = document.createElement("img");
+    img.className = "skin-big";
+    hero.innerHTML = "";
+    hero.appendChild(img);
+  }
+  if (skin === skinAnimSkin && skinAnimTimer) return; // already running this skin
+  skinAnimSkin = skin;
+  if (skinAnimTimer) clearInterval(skinAnimTimer);
+  let i = 0;
+  const step = (): void => {
+    if (!img || document.getElementById("room")?.classList.contains("hidden")) return; // paused off-screen
+    const [dir, f, flip] = TURN_FRAMES[i % TURN_FRAMES.length];
+    i++;
+    img.src = `/sprites/skin_${skin}_${dir}_${f}.webp?v=${ASSET_VER}`;
+    img.style.transform = flip ? "scaleX(-1)" : "none";
+  };
+  step();
+  skinAnimTimer = setInterval(step, 150);
+}
 
 /** Live token→USD price, set from main; 0 = unknown. */
 let tokenUsd = 0;
@@ -403,15 +439,11 @@ export function renderRoom(state: GameState): void {
     }
   }
 
-  // --- Left rail: your character (read-only preview; selection added later) -
+  // --- Left rail: your character (animated — runs on the spot, turning) -----
   const me0 = state.roomPlayers.find((p) => p.id === state.myId);
-  const hero = document.getElementById("skin-hero");
-  const skinNm = document.getElementById("skin-name");
-  if (hero && me0) {
-    hero.innerHTML = "";
-    const big = skinAvatar(me0.skin, PLAYER_COLORS[me0.id % PLAYER_COLORS.length]);
-    big.classList.add("skin-big");
-    hero.appendChild(big);
+  if (me0) {
+    animateSkin(me0.skin);
+    const skinNm = document.getElementById("skin-name");
     if (skinNm) skinNm.textContent = skinName(me0.skin);
   }
 

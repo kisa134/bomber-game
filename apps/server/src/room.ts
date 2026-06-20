@@ -42,6 +42,7 @@ import {
   encodeStakeVote,
   encodeMatchEnd,
   encodeKicked,
+  encodeChatMsg,
   encodeWelcome,
   encodeRoomInfo,
   encodeEmoteEvent,
@@ -72,6 +73,7 @@ const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
 const RECONNECT_GRACE_MS = 60_000; // hold a dropped player's slot this long
 const REGION = process.env.REGION_ID ?? ""; // scopes crash-refund reconciliation
 const EMOTE_COOLDOWN_MS = 1500; // per-player anti-spam for reactions
+const CHAT_COOLDOWN_MS = 800; // per-player anti-spam for chat
 // Once enough players are ready but someone is still stalling, give the
 // straggler(s) this long, then drop them and start so nobody is held hostage.
 const READY_COUNTDOWN_MS = 10_000;
@@ -425,6 +427,19 @@ export class Room {
     let n = 0;
     for (const p of this.players.values()) if (!p.isBot && p.ready) n++;
     return n;
+  }
+
+  /** Broadcast a chat message to the room (rate-limited + sanitized). */
+  chat(id: number, raw: string): void {
+    const p = this.players.get(id);
+    if (!p || p.isBot) return;
+    const now = Date.now();
+    if (now - p.lastChatAtMs < CHAT_COOLDOWN_MS) return; // anti-spam
+    // Sanitize: strip control chars / newlines, collapse spaces, cap length.
+    const text = raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+    if (!text) return;
+    p.lastChatAtMs = now;
+    this.broadcast(encodeChatMsg(id, text));
   }
 
   /** Broadcast a quick reaction to everyone in the room (rate-limited). */
