@@ -411,7 +411,26 @@ export class Renderer {
           if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
           const ni = ny * GRID_W + nx;
           if (this.prevGrid[ni] === TileType.HARD) {
-            this.hardDmg.set(ni, Math.min(6, (this.hardDmg.get(ni) ?? 0) + 1));
+            const cur = this.hardDmg.get(ni) ?? 0;
+            // Per-block toughness: each block plateaus at a seeded max stage (3..6),
+            // so the field stays visually VARIED late game instead of every block
+            // maxing out identically. Advance probabilistically so blocks crack at
+            // different moments (staggered "damage animation" over time).
+            const maxStage = 3 + ((((ni * 2654435761) >>> 0) >> 9) % 4);
+            if (cur < maxStage && Math.random() < 0.55) {
+              this.hardDmg.set(ni, cur + 1);
+              if (!this.lowFx) { // a stone-chip puff so the crack visibly "happens"
+                for (let d = 0; d < 4; d++) {
+                  const aa = Math.random() * Math.PI * 2, ss = 1 + Math.random() * 2.2;
+                  this.push({
+                    x: nx + 0.5, y: ny + 0.5, vx: Math.cos(aa) * ss, vy: Math.sin(aa) * ss - 1.2,
+                    life: 0.4 + Math.random() * 0.35, max: 0.75, size: this.tile * (0.04 + Math.random() * 0.05),
+                    color: Math.random() < 0.5 ? "#8a8276" : "#5e564c", gravity: 16, drag: 0.95,
+                    shape: "rect", rot: Math.random() * 3, spin: (Math.random() - 0.5) * 12,
+                  });
+                }
+              }
+            }
           }
         }
       }
@@ -427,6 +446,12 @@ export class Renderer {
     for (const c of cells) {
       const cx = c.x + 0.5;
       const cy = c.y + 0.5;
+      // Impact pop: a brief, bright additive bloom at the blast core (1-2 frames).
+      // Localized per-cell (not a full-screen white flash) for cross-modal punch.
+      this.push({
+        x: cx, y: cy, vx: 0, vy: 0, life: 0.1, max: 0.1, drag: 1,
+        size: this.tile * (0.7 + Math.random() * 0.15), color: "rgba(255,242,205,0.85)", shape: "flash",
+      });
       // Flames.
       for (let i = 0; i < Math.round(7 * this.fxScale); i++) {
         const a = Math.random() * Math.PI * 2;
