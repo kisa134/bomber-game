@@ -285,6 +285,7 @@ export function setupMenu(h: MenuHandlers): void {
   coopBtn?.addEventListener("click", () => {
     coop = !coop;
     coopBtn.classList.toggle("on", coop);
+    refreshTrainMode(); // start button becomes "Create co-op lobby"
   });
   const segPick = (group: HTMLElement, btn: HTMLElement): void => {
     for (const el of group.querySelectorAll(".seg-btn")) el.classList.remove("active");
@@ -331,7 +332,13 @@ export function setupMenu(h: MenuHandlers): void {
         : "⚪ Rewards OFF · pure practice, nothing saved";
       rewardEl.className = "train-reward " + (competitive ? "on" : "off");
     }
-    if (startBtn) startBtn.textContent = competitive ? "▶ Start Competitive Match" : "▶ Start Sandbox";
+    if (startBtn) {
+      startBtn.textContent = competitive
+        ? "▶ Start Competitive Match"
+        : coop
+          ? "👥 Create co-op lobby"
+          : "▶ Start Sandbox";
+    }
     // Sandbox-only panels (cheats + loadout) hide in Competitive.
     for (const el of document.querySelectorAll<HTMLElement>(".train-sandbox-only")) {
       el.classList.toggle("hidden", competitive);
