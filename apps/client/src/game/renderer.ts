@@ -75,6 +75,13 @@ interface Particle {
   spin?: number; // rad/s
   shape?: "circle" | "rect" | "glyph" | "flash";
   glyph?: string;
+  // Optional pseudo-3D height physics (gore/debris): arc up via vz, bounce on the
+  // ground (z=0) with restitution, friction-stick on landing. Screen Y is raised by z.
+  z?: number; // height above ground (cells)
+  vz?: number; // vertical velocity (cells/s) — presence enables the height physics
+  gz?: number; // z-gravity (cells/s^2)
+  rest?: number; // restitution on bounce (gore ~0.15, debris ~0.6)
+  fric?: number; // horizontal friction multiplier applied on each ground contact
 }
 
 interface Decal {
@@ -632,15 +639,16 @@ export class Renderer {
     const reds = ["#8a0000", "#a30000", "#c81e1e", "#6a0000"];
     for (let i = 0; i < Math.round(50 * this.fxScale); i++) {
       const a = Math.random() * Math.PI * 2;
-      const s = 3 + Math.random() * 5.5;
+      const s = 2 + Math.random() * 4; // ground-plane spray speed
       this.push({
         x: cx + 0.5, y: cy + 0.5,
-        vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1.6,
-        life: 0.55 + Math.random() * 0.65, max: 1.2,
+        vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+        vz: 4.5 + Math.random() * 5.5, // launched upward, then falls fast
+        gz: 34, rest: 0.18, fric: 0.84, // gore: heavy wet shlap, low bounce, sticks
+        life: 0.7 + Math.random() * 0.7, max: 1.4,
         size: this.tile * (0.06 + Math.random() * 0.13),
         color: reds[(Math.random() * reds.length) | 0],
-        gravity: 17, drag: 0.96, shape: "rect",
-        rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 16,
+        shape: "rect", rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 16,
       });
     }
     this.burst(cx, cy, "#d61e1e", 26, 5.5); // fine blood spray
@@ -1404,10 +1412,11 @@ export class Renderer {
     const t = this.tile;
     for (let i = 0; i < Math.round(10 * this.fxScale); i++) {
       const a = Math.random() * Math.PI * 2;
-      const s = 1.5 + Math.random() * 3;
+      const s = 1.2 + Math.random() * 2.4;
       this.push({
-        x: gx + 0.5, y: gy + 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 1.5,
-        life: 0.4 + Math.random() * 0.35, max: 0.75, gravity: 16, drag: 0.99,
+        x: gx + 0.5, y: gy + 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+        vz: 4 + Math.random() * 5, gz: 30, rest: 0.6, fric: 0.9, // crate debris: crunchy bouncy
+        life: 0.5 + Math.random() * 0.4, max: 0.9,
         size: t * (0.06 + Math.random() * 0.07), shape: "rect",
         rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 14,
         color: ["#8a5a3c", "#a06b48", "#6e4a30", "#b5743f"][i % 4],
@@ -1762,18 +1771,37 @@ export class Renderer {
         this.particles.splice(i, 1);
         continue;
       }
-      if (p.gravity) p.vy += p.gravity * dt;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      const drag = p.drag ?? 0.92;
-      p.vx *= drag;
-      p.vy *= drag;
+      if (p.vz !== undefined) {
+        // Pseudo-3D gore/debris: arc up, fall fast, bounce + stick on the ground.
+        p.vz -= (p.gz ?? 26) * dt;
+        p.z = (p.z ?? 0) + p.vz * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        if (p.z <= 0) {
+          p.z = 0;
+          if (Math.abs(p.vz) < 1.1) {
+            p.vz = 0; p.vx *= 0.45; p.vy *= 0.45; // settle / friction-stick
+          } else {
+            p.vz = -p.vz * (p.rest ?? 0.4); // bounce
+            p.vx *= (p.fric ?? 0.9); p.vy *= (p.fric ?? 0.9);
+          }
+        }
+        const damp = Math.max(0, 1 - 3 * dt); // air resistance "chokes" the flight
+        p.vx *= damp; p.vy *= damp;
+      } else {
+        if (p.gravity) p.vy += p.gravity * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        const drag = p.drag ?? 0.92;
+        p.vx *= drag;
+        p.vy *= drag;
+      }
       if (p.grow) p.size += p.grow * dt;
       if (p.spin) p.rot = (p.rot ?? 0) + p.spin * dt;
 
       const a = Math.max(0, p.life / p.max);
       const px = p.x * t;
-      const py = p.y * t;
+      const py = (p.y - (p.z ?? 0)) * t; // height raises it on screen
       if (p.shape === "flash") {
         ctx.globalCompositeOperation = "lighter";
         ctx.globalAlpha = a;
