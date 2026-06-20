@@ -139,7 +139,8 @@ export class Renderer {
   private bloodGround = new Map<number, number>();
   private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
   private bloodDirty = false;
-  private bakedBlood = new Set<number>(); // blood cells scorched by a blast -> dried/baked dark crust
+  private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
+  private chips: Array<{ x: number; y: number; seed: number }> = []; // wood splinters from broken crates (x,y in cells)
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
   private lastCell = new Map<number, number>(); // player id -> last grid cell (footprint stepping)
   // Foot-shaped blood prints left while walking with bloody feet (x,y in cells; dx,dy = facing).
@@ -338,6 +339,7 @@ export class Renderer {
     this.footprints = [];
     this.bones = [];
     this.meat = [];
+    this.chips = [];
     this.floaters = [];
     this.danger = 0;
     this.selfKnown = false;
@@ -499,9 +501,9 @@ export class Renderer {
       const idx = c.y * GRID_W + c.x;
       this.burn.set(idx, Math.min(6, (this.burn.get(idx) ?? 0) + 2)); // burn harder per blast
       this.scorchDirty = true;
-      // A blast doesn't wipe blood — it BAKES it into a dried dark crust, so the
-      // field only gets grimier over the match.
-      if (this.bloodGround.has(idx) && !this.bakedBlood.has(idx)) { this.bakedBlood.add(idx); this.bloodDirty = true; }
+      // A blast doesn't wipe blood — it BAKES it. Each blast on a blood cell chars
+      // it further: fresh -> dried crust -> darker -> charcoal. Field only gets grimier.
+      if (this.bloodGround.has(idx)) { this.bakedBlood.set(idx, Math.min(3, (this.bakedBlood.get(idx) ?? 0) + 1)); this.bloodDirty = true; }
       if (this.prevGrid) {
         for (const [dx, dy] of NB) {
           const nx = c.x + dx, ny = c.y + dy;
@@ -714,7 +716,8 @@ export class Renderer {
       // driven by value-noise (NOT a clean circle), and varies cell to cell.
       let s = (idx * 2654435761) >>> 0;
       s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0;
-      const baked = this.bakedBlood.has(idx); // scorched by a blast -> dried crust
+      const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh, 1 crust, 2 darker, 3 charcoal
+      const baked = bakeLvl > 0;
       const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14);
       g.globalAlpha = Math.min(0.95, (baked ? 0.6 : 0.5) + lvl * 0.08);
       const NB = pu * 4; // coarse noise block -> irregular outline/holes
@@ -729,8 +732,15 @@ export class Renderer {
           const localCover = cover * ((baked ? 0.6 : 0.45) + cn * 1.15); // crust spreads more
           if ((f & 1023) / 1023 > Math.min(1, localCover)) continue;
           if (baked) {
-            const br = 30 + (f % 50); // dark brown/maroon dried crust (varied)
-            g.fillStyle = `rgb(${br},${(br * (0.34 + ((f >> 6) & 7) * 0.03)) | 0},${(br * 0.2) | 0})`;
+            // Bake stages: 1 = dried brown crust, 2 = darker, 3 = charcoal (near black)
+            // with the odd glowing ember fleck.
+            const darken = 1 - (bakeLvl - 1) * 0.42; // 1.0 / 0.58 / 0.16
+            if (bakeLvl >= 3 && (f & 15) === 0) {
+              g.fillStyle = `rgb(${90 + (f % 60)},${18 + (f % 18)},6)`; // ember in the char
+            } else {
+              const br = ((22 + (f % 44)) * darken) | 0;
+              g.fillStyle = `rgb(${br},${(br * (0.4 - (bakeLvl - 1) * 0.12)) | 0},${(br * 0.22) | 0})`;
+            }
           } else {
             // Distance from cell centre (0 centre .. 1 edge): blood pools DEEP and
             // dark in the middle, thinner/lighter at the edges.
@@ -750,11 +760,40 @@ export class Renderer {
         }
       }
     }
-    for (const fp of this.footprints) this.drawFoot(g, fp, pu); // foot-shaped smears on top
+    for (const ch of this.chips) this.drawChip(g, ch, pu); // wood splinters (under gore)
+    for (const fp of this.footprints) this.drawFoot(g, fp, pu); // smears on top
     for (const mt of this.meat) this.drawMeat(g, mt, pu); // flesh chunks
     for (const b of this.bones) this.drawBone(g, b, pu); // bone shards on top
     g.globalAlpha = 1;
     this.bloodCanvas = cv;
+  }
+
+  /** A small wood splinter from a broken crate: a short brown shard with a lighter
+   *  top edge and a soft shadow, randomly oriented. Lives in the cached overlay. */
+  private drawChip(g: CanvasRenderingContext2D, c: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const px = c.x * t, py = c.y * t;
+    let s = c.seed >>> 0;
+    const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
+    const ang = rnd() * Math.PI;
+    const ux = Math.cos(ang), uy = Math.sin(ang), vx = -uy, vy = ux;
+    const len = t * (0.05 + rnd() * 0.05);
+    const woods = ["#8a5a3c", "#a06b48", "#6e4a30", "#b5743f"];
+    const col = woods[(rnd() * woods.length) | 0];
+    g.globalAlpha = 0.25; // shadow
+    g.fillStyle = "#000000";
+    for (let aa = -len; aa <= len; aa += pu) {
+      const wx = px + ux * aa + vx * pu, wy = py + uy * aa + vy * pu + pu;
+      g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
+    }
+    g.globalAlpha = 1;
+    for (let aa = -len; aa <= len; aa += pu) { // 2px shard with a lighter top edge
+      for (let bb = -pu; bb <= 0; bb += pu) {
+        const wx = px + ux * aa + vx * bb, wy = py + uy * aa + vy * bb;
+        g.fillStyle = bb < 0 ? "#c9925e" : col;
+        g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
+      }
+    }
   }
 
   /** Boot bones/meat lying on `cell` aside when a player runs over them — they
@@ -785,6 +824,7 @@ export class Renderer {
     };
     boot(this.bones, "#ece4cf");
     boot(this.meat, "#9c1414");
+    boot(this.chips, "#a06b48");
     if (kicked) this.bloodDirty = true;
   }
 
@@ -1056,6 +1096,16 @@ export class Renderer {
             const bx = i % GRID_W, by = (i / GRID_W) | 0;
             this.emitDebris(bx, by);
             this.shatters.push({ x: bx, y: by, born: now });
+            // Persistent wood splinters scattered around the broken crate.
+            const nChips = 2 + ((Math.random() * 3) | 0);
+            for (let d = 0; d < nChips; d++) {
+              const sx = bx + 0.5 + (Math.random() - 0.5) * 1.8;
+              const sy = by + 0.5 + (Math.random() - 0.5) * 1.8;
+              if (sx < 0.2 || sy < 0.2 || sx > GRID_W - 0.2 || sy > GRID_H - 0.2) continue;
+              this.chips.push({ x: sx, y: sy, seed: (Math.random() * 0xffffffff) >>> 0 });
+            }
+            if (this.chips.length > 140) this.chips.splice(0, this.chips.length - 140);
+            this.bloodDirty = true; // chips live in the cached ground overlay
             // Burned cash bursts out when a soft block (the "loot crate") is destroyed.
             if (!this.lowFx) {
               for (let d = 0; d < 1 + (Math.random() < 0.5 ? 1 : 0); d++) {
@@ -1441,14 +1491,14 @@ export class Renderer {
     const pu = Math.max(1, Math.round(t / 16));
     for (const [idx, lvl] of this.burn) {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
-      const cover = Math.min(0.97, 0.62 + lvl * 0.09); // more blasts -> fuller burn
-      const a = Math.min(0.6, 0.18 + lvl * 0.085); // and a touch darker
+      const cover = Math.min(0.99, 0.66 + lvl * 0.09); // more blasts -> fuller burn
+      const a = Math.min(0.78, 0.24 + lvl * 0.1); // darker, heavier scorch
       let h = (idx * 2654435761) >>> 0;
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
           h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
           if ((h & 1023) / 1023 > cover) continue;
-          const d = 11 + (h & 7); // 11..18 — low contrast, no flicker
+          const d = 6 + (h & 7); // 6..13 — darker charred ground
           g.globalAlpha = a;
           g.fillStyle = `rgb(${d},${Math.max(0, d - 2)},${Math.max(0, d - 4)})`;
           g.fillRect(ox + gx, oy + gy, pu, pu);
