@@ -1072,8 +1072,8 @@ export class Renderer {
       const r = t * 0.36 * scale;
       ctx.globalAlpha = alpha;
 
-      // Shadow grounding the player (under the feet).
-      if (p.alive) this.drawShadow(cx, cy + t * 0.34, t * 0.3 * scale, t * 0.12 * scale, 0.26);
+      // (Player shadow is drawn just after the colour glow below, so the glow
+      // doesn't wash it out.)
 
       // Countdown: brightly mark YOUR corner in your color ("you are here").
       if (this.countdownActive && p.id === myId && p.alive) {
@@ -1126,20 +1126,24 @@ export class Renderer {
         const col = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
         const beat = 0.88 + 0.12 * Math.sin(now / 240);
         const boost = sinceStart < HL_MS ? (sinceStart > HL_MS - 4000 ? (HL_MS - sinceStart) / 4000 : 1) : 0;
-        const glow = t * (isMe ? 0.82 : 0.66) * beat;
-        const gy = cy + t * 0.2;
-        const a = Math.min(1, (isMe ? 0.62 : 0.48) + boost * (isMe ? 0.22 : 0.16));
+        // Smaller, MORE SATURATED color pool (tighter falloff -> denser core).
+        const glow = t * (isMe ? 0.5 : 0.42) * beat;
+        const gy = cy + t * 0.22;
+        const a = Math.min(1, (isMe ? 0.88 : 0.7) + boost * (isMe ? 0.12 : 0.1));
         const ah = Math.round(a * 255).toString(16).padStart(2, "0");
-        const mh = Math.round(a * 0.5 * 255).toString(16).padStart(2, "0");
+        const mh = Math.round(a * 0.6 * 255).toString(16).padStart(2, "0");
         const grad = ctx.createRadialGradient(cx, gy, 0, cx, gy, glow);
         grad.addColorStop(0, col + ah);
-        grad.addColorStop(0.55, col + mh);
+        grad.addColorStop(0.38, col + mh);
         grad.addColorStop(1, col + "00");
         ctx.globalAlpha = 1;
         ctx.fillStyle = grad;
         ctx.beginPath();
         ctx.arc(cx, gy, glow, 0, Math.PI * 2);
         ctx.fill();
+        // Shadow on TOP of the glow so it reads as a real grounded shadow (the
+        // colour pool no longer washes it out).
+        this.drawShadow(cx, cy + t * 0.36, t * 0.3 * scale, t * 0.12 * scale, 0.36);
         ctx.globalAlpha = alpha;
       }
 

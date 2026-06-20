@@ -162,12 +162,13 @@ export class Assets {
     this.sfxEnabled = on;
   }
 
-  play(key: string, volume?: number): void {
+  play(key: string, volume?: number, rate?: number): void {
     if (!this.sfxEnabled) return;
     const url = this.sounds.get(key);
     if (!url) return;
     const a = new Audio(url);
     a.volume = volume ?? SFX_GAIN[key] ?? DEFAULT_SFX_GAIN;
+    if (rate && rate > 0) a.playbackRate = rate; // higher rate -> higher pitch (rising reward)
     this.active.set(key, a);
     void a.play().catch(() => {});
   }

@@ -158,6 +158,7 @@ let prevMyLives = -1; // track HP to flash on damage
 const prevLives = new Map<number, number>(); // per-player HP, to sfx wounds
 let prevBombIds = new Set<number>(); // bomb ids last seen, to detect placements
 let iGotFirstBlood = false; // did the local player take first blood this match
+let myPickupStep = 0; // count of bonuses I've collected this match -> rising pickup pitch
 let hitStopUntil = 0; // brief full-view freeze for kill impact (game feel)
 let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean } | null = null;
 // Handle for the 3s "result screen" timer, so a new match starting within that
@@ -416,13 +417,18 @@ net.onMessage = (msg) => {
       renderer?.onExplosion(msg.cells);
       break;
     case ServerMsg.EVENT_PICKUP: {
-      assets.play("pickup");
       const snap = state.latest();
       const pp = snap?.players.find((p) => p.id === msg.playerId);
       if (pp) renderer?.burst(Math.floor(pp.x), Math.floor(pp.y), "#7CFC00", 10, 3);
       if (pp && msg.playerId === state.myId) {
+        // Rising reward ladder: each bonus you collect this match plays a semitone
+        // higher (up to an octave) — accumulating dopamine cue.
+        myPickupStep++;
+        assets.play("pickup", undefined, Math.pow(2, Math.min(myPickupStep, 12) / 12));
         showPickupToast(msg.powerup);
         renderer?.popText(pp.x, pp.y, POWERUP_META[msg.powerup].label, "#ffe14a"); // springy pickup popup
+      } else {
+        assets.play("pickup");
       }
       break;
     }
@@ -490,6 +496,7 @@ function enterGame(): void {
   // match's grid and sprays debris/scorch all over ("remnants of last round").
   renderer.onMatchStart();
   assets.stop("sudden_death");
+  myPickupStep = 0;
   prevSoftCount = -1;
   killLines.length = 0;
   killfeedEl.innerHTML = "";
