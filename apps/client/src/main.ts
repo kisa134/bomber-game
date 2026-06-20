@@ -69,7 +69,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
@@ -1164,6 +1164,7 @@ function setStats(chips: number, rating: number): void {
   lastChips = chips;
   document.getElementById("player-stats")?.classList.remove("hidden");
   updateBalanceBars();
+  syncChrome();
   refreshHub(); // equipped character may have synced from the profile
 }
 /** Chips-only update when we don't have a fresh rating (keeps the last one). */
@@ -1231,6 +1232,7 @@ function setTokenBadge(balance: number | undefined): void {
   const usd = document.getElementById("token-usd");
   if (usd) usd.textContent = usdOf(balance);
   badge.classList.remove("hidden");
+  syncChrome();
 }
 
 /** Open the Bank modal: deposit address + balances + withdraw. */
@@ -1721,6 +1723,7 @@ function setProgress(level: number, xp: number): void {
   if (fill) fill.style.width = `${Math.max(4, Math.min(100, ((xp % 200) / 200) * 100))}%`;
   const txt = document.getElementById("hub-xptext");
   if (txt) txt.textContent = `${xp % 200} / 200 XP`;
+  syncChrome();
 }
 // --- friends ----------------------------------------------------------------
 let lastFriends: FriendsData = { friends: [], incoming: [], outgoing: [] };

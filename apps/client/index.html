@@ -25,34 +25,18 @@
         <video id="bg-video" autoplay muted loop playsinline preload="auto"></video>
       </div>
 
-      <!-- Pre-launch alpha notice (shown on every menu screen, hidden in-match) -->
-      <div id="alpha-banner">
-        🔴 FINAL ALPHA — NOT LAUNCHED YET. You're on a <b>temporary TEST token</b> only. The official token
-        launches <b>TOMORROW</b> (it will be a NEW token).
-        <a href="https://pump.fun/coin/2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump" target="_blank" rel="noopener">Current test token ↗</a>
-      </div>
-
-      <!-- First-launch onboarding (also re-openable via the ❓ menu button) -->
-      <div id="onboard" class="hidden">
-        <div class="onboard-card">
-          <button id="onboard-skip" class="onboard-skip" title="Skip">✕</button>
-          <div id="onboard-body" class="onboard-body"></div>
-          <div id="onboard-dots" class="onboard-dots"></div>
-          <button id="onboard-next" class="primary big">Next →</button>
+      <!-- Persistent top chrome: alpha notice + global status bar (every screen
+           except the in-game view). -->
+      <div id="chrome">
+        <!-- Pre-launch alpha notice -->
+        <div id="alpha-banner">
+          🔴 FINAL ALPHA — NOT LAUNCHED YET. You're on a <b>temporary TEST token</b> only. The official token
+          launches <b>TOMORROW</b> (it will be a NEW token).
+          <a href="https://pump.fun/coin/2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump" target="_blank" rel="noopener">Current test token ↗</a>
         </div>
-      </div>
 
-      <!-- Loading -->
-      <section id="loading" class="screen">
-        <div class="logo">BomberMeme.fun</div>
-        <div class="spinner"></div>
-        <p id="loading-status" class="status">loading…</p>
-      </section>
-
-      <!-- Home — main hub -->
-      <section id="menu" class="screen hidden">
-        <div class="hub">
-          <!-- Top status bar -->
+        <!-- Global status bar: brand · rating · chips · balance · wallet -->
+        <div id="topbar" class="topbar">
           <div class="hub-top">
             <div class="hub-brand">BomberMeme.fun</div>
             <div class="hub-status">
@@ -74,14 +58,34 @@
               <button id="open-help" class="icon-btn" title="How to play / Как играть">❓</button>
             </div>
           </div>
-
-          <!-- Level / XP progress -->
           <div id="hub-progress" class="hub-progress hidden">
             <span class="lvl">LV <span id="hub-level">1</span></span>
             <div class="xpbar"><div id="hub-xpfill" class="xpfill"></div></div>
             <span id="hub-xptext" class="xptext"></span>
           </div>
+        </div>
+      </div>
 
+      <!-- First-launch onboarding (also re-openable via the ❓ menu button) -->
+      <div id="onboard" class="hidden">
+        <div class="onboard-card">
+          <button id="onboard-skip" class="onboard-skip" title="Skip">✕</button>
+          <div id="onboard-body" class="onboard-body"></div>
+          <div id="onboard-dots" class="onboard-dots"></div>
+          <button id="onboard-next" class="primary big">Next →</button>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <section id="loading" class="screen">
+        <div class="logo">BomberMeme.fun</div>
+        <div class="spinner"></div>
+        <p id="loading-status" class="status">loading…</p>
+      </section>
+
+      <!-- Home — main hub (the global status bar + XP live in #chrome above) -->
+      <section id="menu" class="screen hidden">
+        <div class="hub">
           <!-- Main: hero (left) + module rail (right) -->
           <div class="hub-main">
             <div class="hub-hero">
@@ -339,7 +343,6 @@
               </div>
               <div id="skin-name" class="skin-name"></div>
               <button id="skin-buy" class="ghost skin-buy hidden">🔒 Unlock in SHOP</button>
-              <div id="bal-room" class="bal-bar hidden"></div>
             </div>
 
             <!-- Center: player seats + match settings -->

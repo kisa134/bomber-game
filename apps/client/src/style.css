@@ -121,7 +121,7 @@ body {
   justify-content: center;
   gap: 16px;
   /* Clear notches / the Telegram header + the fixed alpha banner up top. */
-  padding: calc(54px + var(--sai-top)) 24px calc(24px + var(--sai-bottom));
+  padding: calc(var(--chrome-h, 120px) + 6px) 24px calc(24px + var(--sai-bottom));
 }
 
 .hidden {
@@ -478,7 +478,7 @@ button.ghost {
 /* --- Full-screen lobby browser (server-browser style) --- */
 #lobby {
   justify-content: flex-start;
-  padding: calc(54px + var(--sai-top)) 16px calc(14px + var(--sai-bottom));
+  padding: calc(var(--chrome-h, 120px) + 6px) 16px calc(14px + var(--sai-bottom));
 }
 .lobby-wrap {
   width: min(940px, 100%);
@@ -728,7 +728,7 @@ button.ghost {
 /* --- Main hub (spatial online-game home, not a centered card) --- */
 #menu {
   justify-content: flex-start;
-  padding: calc(54px + var(--sai-top)) 16px calc(12px + var(--sai-bottom));
+  padding: calc(var(--chrome-h, 120px) + 6px) 16px calc(12px + var(--sai-bottom));
 }
 .hub {
   width: min(1120px, 100%);
@@ -1044,7 +1044,7 @@ button.ghost {
 /* --- Training Setup screen (Sandbox vs Competitive) --- */
 #training {
   justify-content: flex-start;
-  padding: calc(54px + var(--sai-top)) 16px calc(14px + var(--sai-bottom));
+  padding: calc(var(--chrome-h, 120px) + 6px) 16px calc(14px + var(--sai-bottom));
 }
 .train-wrap {
   width: min(720px, 100%);
@@ -1145,7 +1145,7 @@ button.ghost {
 /* --- Pre-match lobby room (wide, zoned, glass) --- */
 #room {
   justify-content: flex-start;
-  padding: calc(54px + var(--sai-top)) 16px calc(14px + var(--sai-bottom));
+  padding: calc(var(--chrome-h, 120px) + 6px) 16px calc(14px + var(--sai-bottom));
 }
 .room-wrap {
   width: min(1100px, 100%);
@@ -2676,13 +2676,27 @@ button.big {
   opacity: 0.7;
   margin-top: 6px;
 }
-/* Pre-launch alpha / test-token banner (fixed top, on all menu screens). */
-#alpha-banner {
+/* Persistent top chrome: alpha banner + global status bar + XP. Fixed to the
+   top on every screen except the in-game view (toggled .hidden by showScreen). */
+#chrome {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   z-index: 18;
+}
+#chrome.hidden {
+  display: none;
+}
+/* Global status bar wrapper (under the alpha banner). */
+.topbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px;
+}
+/* Pre-launch alpha / test-token banner (first row of the chrome). */
+#alpha-banner {
   background: linear-gradient(180deg, #e0231f, #a30b08);
   color: #fff;
   font-size: 0.74rem;

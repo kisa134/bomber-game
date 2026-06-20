@@ -153,8 +153,10 @@ export function showScreen(name: ScreenName): void {
   for (const id of SCREENS) {
     document.getElementById(id)?.classList.toggle("hidden", id !== name);
   }
-  // Pre-launch alpha banner: on every menu screen, hidden during a match.
-  document.getElementById("alpha-banner")?.classList.toggle("hidden", name === "game");
+  // Persistent top chrome (alpha notice + global status bar + XP): on every
+  // screen except the in-game view (the board is a Canvas with its own HUD).
+  document.getElementById("chrome")?.classList.toggle("hidden", name === "game");
+  syncChrome();
   // Background video runs everywhere except in-game (saves CPU/battery).
   const bg = document.getElementById("bg");
   const video = document.getElementById("bg-video") as HTMLVideoElement | null;
@@ -164,6 +166,17 @@ export function showScreen(name: ScreenName): void {
     if (showBg) void video.play().catch(() => {});
     else video.pause();
   }
+}
+
+/** Measure the persistent chrome and expose its height so screens can pad below
+ *  it. 0 when hidden (in-game) so the board uses the full viewport. */
+export function syncChrome(): void {
+  const chrome = document.getElementById("chrome");
+  const h = chrome && !chrome.classList.contains("hidden") ? chrome.offsetHeight : 0;
+  document.documentElement.style.setProperty("--chrome-h", h + "px");
+}
+if (typeof window !== "undefined") {
+  window.addEventListener("resize", syncChrome);
 }
 
 export interface Choice {
