@@ -535,7 +535,7 @@ export class Renderer {
     const NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     for (const c of cells) {
       const idx = c.y * GRID_W + c.x;
-      this.burn.set(idx, Math.min(8, (this.burn.get(idx) ?? 0) + 3)); // burn much harder per blast
+      this.burn.set(idx, Math.min(10, (this.burn.get(idx) ?? 0) + 1)); // +1 per blast -> gradual darkening (epicenter darkest)
       this.scorchDirty = true;
       // A blast doesn't wipe blood — it BAKES it. Each blast on a blood cell chars
       // it further: fresh -> dried crust -> darker -> charcoal. Field only gets grimier.
@@ -1579,14 +1579,19 @@ export class Renderer {
     const pu = Math.max(1, Math.round(t / 16));
     for (const [idx, lvl] of this.burn) {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
-      const cover = Math.min(1, 0.72 + lvl * 0.08); // more blasts -> fuller burn
-      const a = Math.min(0.9, 0.34 + lvl * 0.1); // strong, dark, obvious scorch
+      // Gradual over MANY blasts (cap 10): coverage, darkness and opacity all ramp
+      // smoothly with the burn level, so a spot goes light-scorch -> charcoal step by
+      // step (the epicentre, hit most often, ends up darkest). No sudden all-black.
+      const p = Math.min(1, lvl / 10); // 0..1 burn progress
+      const cover = 0.4 + p * 0.55; // patch fills in as it's hit more
+      const a = 0.16 + p * 0.52; // and gets more opaque
+      const base = Math.round(22 - p * 16); // 22 (light brown-grey) -> 6 (near black)
       let h = (idx * 2654435761) >>> 0;
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
           h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
           if ((h & 1023) / 1023 > cover) continue;
-          const d = 4 + (h & 7); // 4..11 — near-black charred ground
+          const d = base + (h & 7); // scorch shade for this stage + grain
           g.globalAlpha = a;
           g.fillStyle = `rgb(${d},${Math.max(0, d - 2)},${Math.max(0, d - 4)})`;
           g.fillRect(ox + gx, oy + gy, pu, pu);
