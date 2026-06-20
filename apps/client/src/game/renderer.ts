@@ -818,11 +818,23 @@ export class Renderer {
             g.globalAlpha = Math.min(0.92, 0.4 + norm * 0.45);
             if (bk >= 3 && (fn & 15) === 0) g.fillStyle = `rgb(${90 + (fn % 60)},${18 + (fn % 18)},6)`;
             else { const br = ((22 + (fn % 44)) * darken) | 0; g.fillStyle = `rgb(${br},${(br * (0.4 - (bk - 1) * 0.12)) | 0},${(br * 0.22) | 0})`; }
-          } else { // fresh: dark deep centre -> thin light transparent edge
-            g.globalAlpha = Math.min(0.9, 0.28 + norm * 0.62);
+          } else { // fresh: a deep MEATY dark-red pool at the epicentre, varied tones,
+            // thinning to lighter transparent traces outward.
+            g.globalAlpha = Math.min(0.94, 0.3 + norm * 0.66);
             const tone = (fn >> 7) & 7;
-            if (tone >= 7 && norm > 0.62 && (fn & 7) < 2) g.fillStyle = `rgb(${190 + (fn % 60)},${70 + (fn % 40)},68)`; // wet glint near centre
-            else { const base = (tone === 0 ? 40 : 120) + (fn % 70); const rr = (base * (0.42 + 0.58 * (1 - norm))) | 0; g.fillStyle = `rgb(${rr},${(rr * 0.1) | 0},${(rr * 0.08) | 0})`; }
+            if (tone === 7 && norm > 0.5 && (fn & 7) < 2) {
+              g.fillStyle = `rgb(${180 + (fn % 55)},${64 + (fn % 36)},62)`; // wet glint near the pool
+            } else {
+              // pick a base tone: near-black clots, very dark, mid, occasional brighter fleck
+              let base: number;
+              if (tone === 0) base = 16 + (fn % 18);       // near-black clot
+              else if (tone <= 2) base = 30 + (fn % 26);   // very dark maroon
+              else if (tone === 6) base = 110 + (fn % 60); // brighter fresh fleck
+              else base = 52 + (fn % 56);                  // mid dark red
+              const rr = Math.max(8, (base * (0.38 + 0.62 * (1 - norm * 0.85))) | 0); // darkest/meatiest at the centre
+              const gtone = 0.07 + ((fn >> 4) & 3) * 0.025; // subtle green variation for richness
+              g.fillStyle = `rgb(${rr},${(rr * gtone) | 0},${(rr * 0.06) | 0})`;
+            }
           }
           g.fillRect(gx, gy, pu, pu);
         }
@@ -1033,7 +1045,7 @@ export class Renderer {
     const L = t * (0.16 + fp.a * 0.36); // total smear length (stronger -> longer)
     const W0 = t * (0.055 + fp.a * 0.05); // wide-end half width
     // The wide contact head sits slightly behind the step, tapering forward to a tip.
-    const bx = px - ux * L * 0.32, by = py - uy * L * 0.32;
+    const bx = px - ux * L * 0.15, by = py - uy * L * 0.15; // keep the smear centred on the step
     // Rounded wide head (the heavy contact blob).
     g.globalAlpha = fp.a;
     for (let yy = -W0; yy <= W0; yy += pu) {
