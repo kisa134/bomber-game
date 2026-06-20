@@ -464,17 +464,12 @@ export class Renderer {
           size: this.tile * 0.18, color: "rgba(70,66,60,0.5)",
         });
       }
-      // Flying burned dollars.
-      if (Math.random() < 0.7) {
-        const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
-        const s = 2.2 + Math.random() * 2;
-        this.push({
-          x: cx, y: cy, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
-          life: 0.8 + Math.random() * 0.4, max: 1.2, gravity: 9, drag: 0.99,
-          size: this.tile * 0.34, color: "#7bd66a", shape: "glyph", glyph: "$",
-          rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 10,
-        });
-      }
+      // Hot core bloom: a brief WARM additive glow at the blast core (localized,
+      // not a full-screen flash) — gives the explosion an extra punch.
+      this.push({
+        x: cx, y: cy, vx: 0, vy: 0, life: 0.14, max: 0.14, drag: 1,
+        size: this.tile * (0.85 + Math.random() * 0.2), color: "rgba(255,196,96,0.7)", shape: "flash",
+      });
       this.addDecal(c.x, c.y, "scorch");
       // Volumetric light source for this blast cell.
       this.lights.push({ x: cx, y: cy, born: now });
@@ -858,8 +853,22 @@ export class Renderer {
       if (this.prevGrid && this.prevGrid.length === view.grid.length) {
         for (let i = 0; i < view.grid.length; i++) {
           if (this.prevGrid[i] === TileType.SOFT && view.grid[i] !== TileType.SOFT) {
-            this.emitDebris(i % GRID_W, (i / GRID_W) | 0);
-            this.shatters.push({ x: i % GRID_W, y: (i / GRID_W) | 0, born: now });
+            const bx = i % GRID_W, by = (i / GRID_W) | 0;
+            this.emitDebris(bx, by);
+            this.shatters.push({ x: bx, y: by, born: now });
+            // Burned cash bursts out when a soft block (the "loot crate") is destroyed.
+            if (!this.lowFx) {
+              for (let d = 0; d < 1 + (Math.random() < 0.5 ? 1 : 0); d++) {
+                const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
+                const sp = 2.2 + Math.random() * 2;
+                this.push({
+                  x: bx + 0.5, y: by + 0.5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+                  life: 0.8 + Math.random() * 0.4, max: 1.2, gravity: 9, drag: 0.99,
+                  size: this.tile * 0.34, color: "#7bd66a", shape: "glyph", glyph: "$",
+                  rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 10,
+                });
+              }
+            }
           }
         }
       }
