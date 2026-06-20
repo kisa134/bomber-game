@@ -163,6 +163,7 @@ export class Renderer {
   private danger = 0; // 0..1 threat level -> pulsing red edge vignette (low HP / sudden death)
   private selfX = 0; private selfY = 0; private selfKnown = false; // local player pos (for distance shake)
   private lastClatter = 0; // throttle for bone/chip clatter sfx
+  private colorTemp = 1; // +1 cozy warm (match start) .. -1 mortuary cold (end / sudden death)
   private lastTime = performance.now();
 
   private lastW = -1;
@@ -344,6 +345,7 @@ export class Renderer {
     this.chips = [];
     this.floaters = [];
     this.danger = 0;
+    this.colorTemp = 1; // start each match cozy-warm
     this.selfKnown = false;
     this.shatters.length = 0;
     this.scorch = null;
@@ -466,6 +468,35 @@ export class Renderer {
       ctx.fillText(f.text, px, py);
       ctx.restore();
     }
+  }
+
+  /** Match-time colour temperature: +1 = cozy warm (safe, early), 0 = neutral,
+   *  −1 = mortuary cold (sudden death / round end). Drives a screen-space grade. */
+  setColorTemp(w: number): void {
+    this.colorTemp = Math.max(-1, Math.min(1, w));
+  }
+
+  private drawColorGrade(W: number, H: number): void {
+    const w = this.colorTemp;
+    if (Math.abs(w) < 0.02) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = "soft-light"; // tint highlights/shadows, don't wash
+    if (w > 0) { // cozy golden warmth
+      ctx.globalAlpha = w * 0.5;
+      ctx.fillStyle = "#ffae3d";
+    } else { // cold steel-blue
+      ctx.globalAlpha = -w * 0.6;
+      ctx.fillStyle = "#3f74c0";
+    }
+    ctx.fillRect(0, 0, W, H);
+    if (w < -0.3) { // deep cold also slightly drains/darkens the scene
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = (-w - 0.3) * 0.18;
+      ctx.fillStyle = "#0a1626";
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.restore();
   }
 
   /** Threat level 0..1 (set from the local player's HP / sudden death) that drives
@@ -1370,6 +1401,7 @@ export class Renderer {
     ctx.restore();
 
     if (!this.lowFx) this.drawAmbient(W, H); // warm key light + vignette for depth
+    this.drawColorGrade(W, H); // cozy-warm early -> mortuary-cold by sudden death
     this.drawDangerVignette(W, H, now); // pulsing red threat vignette at low HP / sudden death
     this.drawFirstBlood(now); // screen-space announcement, above the world
   }

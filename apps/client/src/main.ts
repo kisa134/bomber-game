@@ -771,6 +771,18 @@ function updateHud(): void {
   assets.shepard(shep);
   assets.setMusicScale(1 - shep * 0.8); // fade music under the Shepard tone so they don't clash
 
+  // Colour temperature over the match: cozy-warm early (safety), draining to a
+  // mortuary cold through sudden death (cortisol).
+  let warmth = 1;
+  if (state.phase === MatchPhase.PLAYING) {
+    const el = Math.max(0, Math.min(1, (120000 - state.phaseTimeLeft()) / 120000));
+    warmth = 1 - el * 0.5; // 1.0 cozy -> ~0.5 by 2:00
+  } else if (state.phase === MatchPhase.SUDDEN_DEATH) {
+    const el = Math.max(0, Math.min(1, (60000 - state.phaseTimeLeft()) / 60000));
+    warmth = 0.4 - el * 1.3; // 0.4 -> cold (clamped to -1)
+  }
+  renderer?.setColorTemp(warmth);
+
   const snap = state.latest();
   if (!snap) return;
 
