@@ -69,7 +69,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setWalletState } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, setWalletState } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
@@ -992,6 +992,7 @@ function refreshWalletBtn(): void {
         setStats(p.chips, p.rating);
         setTokenBadge(p.gameTokens);
         setProgress(p.level ?? 1, p.xp ?? 0);
+        setLobbySkins(p.skins ?? DEFAULT_SKINS, p.level ?? 1); // owned skins for the lobby strip
         // Show the wallet's claimed (unique) nickname in the field.
         const nick = document.getElementById("nickname") as HTMLInputElement | null;
         if (nick && p.name) {
@@ -1939,6 +1940,14 @@ function wireMenuLinks(): void {
   document.getElementById("skin-close")!.addEventListener("click", () => {
     document.getElementById("skin-modal")!.classList.add("hidden");
     refreshHub(); // reflect a newly equipped character on the hub
+    // Owned skins may have changed — refresh the lobby strip if we're in a room.
+    const w = loadWallet();
+    if (w) {
+      void fetchProfile(w.address).then((p) => {
+        setLobbySkins(p.skins ?? DEFAULT_SKINS, p.level ?? 1);
+        if (!document.getElementById("room")?.classList.contains("hidden")) renderRoom(state);
+      });
+    }
   });
   document.getElementById("profile-back")!.addEventListener("click", () => showScreen("menu"));
   document.getElementById("leaderboard-back")!.addEventListener("click", () => showScreen("menu"));
@@ -2173,20 +2182,14 @@ wireMenuLinks();
 wireBank();
 setProfileHandler((p) => openPlayerCard(p));
 setKickHandler((playerId) => net.sendKick(playerId));
-// Character (skin) picker: cycle skins; the server echoes the roster so the seat
-// avatar + the character stage update.
-function cycleSkin(delta: number): void {
-  const me = state.roomPlayers.find((p) => p.id === state.myId);
-  if (!me) return;
-  const next = (me.skin + delta + SKIN_COUNT) % SKIN_COUNT;
-  net.sendSkin(next); // change it for this match (server dedupes)
-  // Also remember it as your default character, so the hub Loadout + future
-  // matches use the same pick (the two selection points stay in sync).
-  localStorage.setItem("bp_skin", String(next));
+// Lobby character strip: pick an OWNED skin (applies this match + becomes your
+// default); tapping a LOCKED skin opens the SHOP to unlock it.
+setSkinSelectHandler((skin) => {
+  net.sendSkin(skin); // applies this match (server dedupes)
+  localStorage.setItem("bp_skin", String(skin)); // also your default everywhere
   refreshHub();
-}
-document.getElementById("skin-prev")?.addEventListener("click", () => cycleSkin(-1));
-document.getElementById("skin-next")?.addEventListener("click", () => cycleSkin(1));
+});
+setShopHandler(openSkinShop);
 
 // --- Lobby chat -------------------------------------------------------------
 let chatReadyAt = 0;

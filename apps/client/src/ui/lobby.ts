@@ -1,6 +1,23 @@
 import { PLAYER_COLORS, skinAvatar } from "../game/renderer.js";
 import { ASSET_VER } from "../game/assets.js";
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, MATCH_LENGTH_MS } from "../net/protocol.js";
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, DEFAULT_SKINS, MATCH_LENGTH_MS } from "../net/protocol.js";
+
+/** Which skins the local player owns (bitmask) + their level — for the lobby
+ *  character strip (set from main after the profile loads). */
+let ownedSkins = DEFAULT_SKINS;
+export function setLobbySkins(owned: number, _level: number): void {
+  ownedSkins = owned;
+}
+/** Select an owned skin (wired to net.sendSkin in main). */
+let onSelectSkin: (skin: number) => void = () => {};
+export function setSkinSelectHandler(fn: (skin: number) => void): void {
+  onSelectSkin = fn;
+}
+/** Open the SHOP to buy a locked skin (wired in main). */
+let onOpenShop: () => void = () => {};
+export function setShopHandler(fn: () => void): void {
+  onOpenShop = fn;
+}
 
 /** Character names by skin index — verified against the actual sprites. */
 const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad"];
@@ -459,12 +476,26 @@ export function renderRoom(state: GameState): void {
     }
   }
 
-  // --- Left rail: your character (animated — runs on the spot, turning) -----
+  // --- Left rail: your character (animated) + pick from OWNED skins ---------
   const me0 = state.roomPlayers.find((p) => p.id === state.myId);
   if (me0) {
     animateSkin(me0.skin);
     const skinNm = document.getElementById("skin-name");
     if (skinNm) skinNm.textContent = skinName(me0.skin);
+    const strip = document.getElementById("skin-strip");
+    if (strip) {
+      strip.innerHTML = "";
+      for (let i = 0; i < SKIN_COUNT; i++) {
+        const owns = (ownedSkins & (1 << i)) !== 0;
+        const b = document.createElement("button");
+        b.className = "skin-thumb" + (i === me0.skin ? " sel" : "") + (owns ? "" : " locked");
+        b.title = owns ? skinName(i) : `${skinName(i)} — locked (tap to unlock in SHOP)`;
+        b.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
+        if (!owns) b.appendChild(Object.assign(document.createElement("span"), { className: "lock", textContent: "🔒" }));
+        b.addEventListener("click", () => (owns ? onSelectSkin(i) : onOpenShop()));
+        strip.appendChild(b);
+      }
+    }
   }
 
   document.getElementById("room-stake")?.classList.add("hidden");
