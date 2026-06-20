@@ -2345,34 +2345,77 @@ function attributeReferralOnce(): void {
   });
 }
 
-/** Partner program modal: your link, referrals, lifetime earnings, share. */
+/** Fallback level payout % (our fixed design) when the server hasn't replied. */
+const REF_LEVEL_PCT = [10, 5, 3, 2, 1];
+
+/** Full-screen Invite & Earn hub: KPIs · share · how-it-works · tree · estimate. */
 async function openReferral(): Promise<void> {
   const w = loadWallet();
-  const modal = document.getElementById("referral-modal")!;
+  showScreen("referral");
+  const linkEl = document.getElementById("ref-link") as HTMLElement;
+  linkEl.textContent = w ? referralLink() : "Connect a wallet to get your link";
+  const kpis = document.getElementById("ref-kpis")!;
+  const tree = document.getElementById("ref-tree")!;
+  const levelsEl = document.getElementById("ref-levels")!;
+  const empty = document.getElementById("ref-empty")!;
+  const kpi = (label: string, val: string, cls = ""): string =>
+    `<div class="ref-kpi ${cls}"><span class="ref-kpi-v">${val}</span><span class="ref-kpi-l">${label}</span></div>`;
+
+  // How-it-works level breakdown renders immediately (even without a wallet).
+  const renderLevels = (pcts: number[], counts: number[]): void => {
+    levelsEl.innerHTML = pcts
+      .map(
+        (pct, i) =>
+          `<div class="ref-level"><span class="ref-level-n">L${i + 1}</span>` +
+          `<span class="ref-level-pct">${pct}% of rake</span>` +
+          `<span class="ref-level-cnt">${counts.length ? `${(counts[i] ?? 0).toLocaleString()} 👤` : ""}</span></div>`,
+      )
+      .join("");
+  };
+
   if (!w) {
-    setMenuStatus("Connect a wallet to get your invite link");
+    kpis.innerHTML = kpi("Earned", "—", "token") + kpi("Direct refs", "—") + kpi("Network", "—");
+    tree.innerHTML = '<p class="ref-empty">Connect a wallet to get your invite link and start earning.</p>';
+    empty.classList.add("hidden");
+    renderLevels(REF_LEVEL_PCT, []);
+    calcRakePct = 0;
+    updateCalc();
     return;
   }
-  const link = `${location.origin}/?ref=${w.address}`;
-  (document.getElementById("ref-link") as HTMLElement).textContent = link;
-  (document.getElementById("ref-ticker") as HTMLElement).textContent = `$${TOKEN_TICKER}`;
-  modal.classList.remove("hidden");
+
+  // Optimistic render, then fill from the server.
+  kpis.innerHTML = kpi("Earned", "…", "token") + kpi("Direct refs", "…") + kpi("Network", "…");
+  renderLevels(REF_LEVEL_PCT, []);
   const s = await fetchReferralStats(w.address);
-  const net = (s.network ?? []).reduce((a, b) => a + b, 0);
-  (document.getElementById("ref-stats") as HTMLElement).innerHTML =
-    `<div class="stat-badge"><span>Direct</span><b>${s.direct.toLocaleString()}</b></div>` +
-    `<div class="stat-badge"><span>Network</span><b>${net.toLocaleString()}</b></div>` +
-    `<div class="stat-badge token"><span>Earned</span><b>${s.earned.toLocaleString()} ${TOKEN_TICKER}</b></div>`;
-  // Per-level tree: count of your downline at each level + its payout %.
-  const levels = s.levels ?? [];
+  if (document.getElementById("referral")?.classList.contains("hidden")) return; // left already
+  const pcts = (s.levels ?? []).length ? s.levels : REF_LEVEL_PCT;
   const network = s.network ?? [];
-  (document.getElementById("ref-levels") as HTMLElement).innerHTML =
-    "<b>Your referral tree</b>" +
-    levels
-      .map((pct, i) => `<div class="ref-lvl"><span>Level ${i + 1} · ${pct}% of rake</span><b>${(network[i] ?? 0).toLocaleString()}</b></div>`)
+  const net = network.reduce((a, b) => a + b, 0);
+  kpis.innerHTML =
+    kpi("Earned", `💎 ${s.earned.toLocaleString()}`, "token") +
+    kpi("Direct refs", s.direct.toLocaleString()) +
+    kpi("Network", net.toLocaleString());
+  renderLevels(pcts, network);
+  // Network panel: per-level bars (your downline). Empty state when nobody yet.
+  if (net === 0 && s.direct === 0) {
+    tree.innerHTML = "";
+    empty.classList.remove("hidden");
+  } else {
+    empty.classList.add("hidden");
+    const max = Math.max(1, ...network);
+    tree.innerHTML = pcts
+      .map((_pct, i) => {
+        const c = network[i] ?? 0;
+        return (
+          `<div class="ref-treerow"><span class="ref-treelvl">L${i + 1}</span>` +
+          `<div class="ref-treebar"><div class="ref-treefill" style="width:${(c / max) * 100}%"></div></div>` +
+          `<span class="ref-treecnt">${c.toLocaleString()}</span></div>`
+        );
+      })
       .join("");
+  }
   calcRakePct = s.rakePct ?? 0;
-  calcL1Pct = levels[0] ?? 10;
+  calcL1Pct = pcts[0] ?? 10;
   updateCalc();
 }
 
@@ -2488,14 +2531,14 @@ document.getElementById("pubprofile-close")!.addEventListener("click", () =>
 );
 // Referral / partner program wiring.
 document.getElementById("open-referral")?.addEventListener("click", () => void openReferral());
-document.getElementById("referral-close")?.addEventListener("click", () =>
-  document.getElementById("referral-modal")!.classList.add("hidden"),
-);
+document.getElementById("referral-back")?.addEventListener("click", () => showScreen("menu"));
 document.getElementById("ref-copy")?.addEventListener("click", () => {
+  if (!loadWallet()) return setMenuStatus("Connect a wallet to get your link");
   void navigator.clipboard?.writeText(referralLink());
   setMenuStatus("Invite link copied ✅");
 });
 document.getElementById("ref-share")?.addEventListener("click", () => {
+  if (!loadWallet()) return setMenuStatus("Connect a wallet to get your link");
   const url = referralLink();
   if (navigator.share) void navigator.share({ title: "BomberMeme.fun", text: shareText(), url });
   else {
@@ -2505,7 +2548,11 @@ document.getElementById("ref-share")?.addEventListener("click", () => {
 });
 document.getElementById("ref-share-x")?.addEventListener("click", () => {
   const intent = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText())}&url=${encodeURIComponent(referralLink())}`;
-  window.open(intent, "_blank");
+  window.open(intent, "_blank", "noopener");
+});
+document.getElementById("ref-share-tg")?.addEventListener("click", () => {
+  const u = `https://t.me/share/url?url=${encodeURIComponent(referralLink())}&text=${encodeURIComponent(shareText())}`;
+  window.open(u, "_blank", "noopener");
 });
 for (const id of ["calc-refs", "calc-matches", "calc-stake"]) {
   document.getElementById(id)?.addEventListener("input", updateCalc);

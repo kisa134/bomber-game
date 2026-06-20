@@ -542,30 +542,65 @@
         </div>
       </div>
 
-      <!-- Referral / partner program -->
-      <div id="referral-modal" class="modal hidden">
-        <div class="modal-card">
-          <h3>👥 Invite &amp; earn</h3>
-          <p class="status fair">Earn <span id="ref-ticker">$TOKEN</span> from <b>5 levels</b> of referrals — a share of the house rake from everyone you bring in and everyone they bring in.</p>
-          <div id="ref-stats" class="bank-balances"></div>
-          <div class="bank-addr"><code id="ref-link">connect a wallet to get your link</code><button id="ref-copy" class="ghost">Copy</button></div>
-          <div class="result-actions">
-            <button id="ref-share-x" class="ghost">𝕏 Share</button>
-            <button id="ref-share" class="ghost">🔗 Share link</button>
+      <!-- Referral / partner program — full-screen invite & earn hub -->
+      <section id="referral" class="screen hidden">
+        <div class="ref-wrap">
+          <div class="ref-top">
+            <button id="referral-back" class="ghost lobby-icon">←</button>
+            <h2 class="lobby-title">👥 Invite &amp; Earn</h2>
+            <span class="lobby-icon" style="visibility:hidden">.</span>
           </div>
-          <p id="ref-levels" class="status fair"></p>
-          <div class="ref-calc">
-            <div class="section-head">📈 Earnings calculator</div>
-            <div class="calc-row">
-              <label>Direct referrals<input id="calc-refs" type="number" min="0" value="100" /></label>
-              <label>Matches/day each<input id="calc-matches" type="number" min="0" value="5" /></label>
-              <label>Avg stake<input id="calc-stake" type="number" min="0" value="1000" /></label>
+
+          <!-- KPI strip: confirmed facts -->
+          <div class="ref-kpis" id="ref-kpis"></div>
+
+          <div class="ref-grid">
+            <div class="ref-col">
+              <!-- Invite / share (primary action) -->
+              <div class="ref-card ref-invite">
+                <div class="ref-card-h">🔗 Your invite link</div>
+                <div class="ref-linkrow">
+                  <code id="ref-link">connect a wallet to get your link</code>
+                  <button id="ref-copy" class="ghost">⧉ Copy</button>
+                </div>
+                <div class="ref-share-row">
+                  <button id="ref-share" class="primary big">📤 Share link</button>
+                  <button id="ref-share-x" class="ghost">𝕏</button>
+                  <button id="ref-share-tg" class="ghost">✈️</button>
+                </div>
+                <p id="ref-empty" class="ref-empty hidden">No referrals yet — share your link to invite your first player. You earn a cut of the house rake from everyone who joins through you, and everyone they bring in.</p>
+              </div>
+
+              <!-- Your network (facts) -->
+              <div class="ref-card">
+                <div class="ref-card-h">🌳 Your network</div>
+                <div id="ref-tree" class="ref-tree"></div>
+              </div>
             </div>
-            <p id="calc-out" class="status"></p>
+
+            <div class="ref-col">
+              <!-- How it works (mechanics) -->
+              <div class="ref-card">
+                <div class="ref-card-h">❓ How it works</div>
+                <p class="ref-explain">You earn a <b>share of the house rake</b> — the small % the game takes from each <i>paid</i> match — across <b>5 levels</b>: the players you invite, and the players <i>they</i> invite, five levels deep. Deeper levels pay a smaller share. Free/practice matches don't generate rake.</p>
+                <div id="ref-levels" class="ref-levels"></div>
+              </div>
+
+              <!-- Calculator (projection — visually separated from facts) -->
+              <div class="ref-card ref-calc-card">
+                <div class="ref-card-h">📈 Earnings estimate <span class="ref-badge">PROJECTION</span></div>
+                <div class="calc-row">
+                  <label>Direct referrals<input id="calc-refs" type="number" min="0" value="100" /></label>
+                  <label>Matches/day each<input id="calc-matches" type="number" min="0" value="5" /></label>
+                  <label>Avg stake<input id="calc-stake" type="number" min="0" value="1000" /></label>
+                </div>
+                <p id="calc-out" class="status"></p>
+                <p class="ref-disclaimer">Estimate only — real earnings depend on actual play. Not a guarantee.</p>
+              </div>
+            </div>
           </div>
-          <button id="referral-close" class="ghost">Close</button>
         </div>
-      </div>
+      </section>
 
       <!-- Skin shop — full-screen game store: filters · grid · detail panel -->
       <section id="shop" class="screen hidden">

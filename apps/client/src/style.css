@@ -1794,19 +1794,216 @@ button.ghost {
   .room-character .skin-stage { flex: 1 1 auto; }
 }
 
-/* Referral earnings calculator */
-.ref-calc {
-  border-top: 1px solid var(--border);
-  padding-top: 10px;
+/* --- Invite & Earn hub (KPIs · share · how-it-works · network · estimate) --- */
+#referral {
+  justify-content: flex-start;
+  padding: calc(var(--chrome-h, 120px) + 6px) 16px calc(12px + var(--sai-bottom));
+}
+.ref-wrap {
+  width: min(1000px, 100%);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(13, 16, 26, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  padding: 16px;
+}
+.ref-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ref-top .lobby-title {
+  flex: 1 1 auto;
+  text-align: center;
+}
+/* KPI strip (confirmed facts) */
+.ref-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.ref-kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.ref-kpi.token {
+  background: rgba(57, 255, 155, 0.08);
+  border-color: rgba(57, 255, 155, 0.3);
+}
+.ref-kpi-v {
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+.ref-kpi-l {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+/* Two-column zone grid */
+.ref-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.ref-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.ref-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ref-card-h {
+  font-weight: 800;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ref-linkrow {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.ref-linkrow code {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+.ref-linkrow button {
+  width: auto;
+  flex: none;
+}
+.ref-share-row {
+  display: flex;
+  gap: 8px;
+}
+.ref-share-row .primary {
+  flex: 1 1 auto;
+}
+.ref-share-row .ghost {
+  width: auto;
+  flex: none;
+  padding: 0 16px;
+}
+.ref-empty {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.ref-explain {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #cfd6e6;
+}
+.ref-levels {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ref-level {
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.84rem;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.ref-level-n {
+  font-weight: 800;
+  color: var(--accent);
+}
+.ref-level-pct {
+  color: var(--muted);
+}
+.ref-level-cnt {
+  font-weight: 700;
+}
+.ref-tree {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.ref-calc .calc-row {
+.ref-treerow {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.82rem;
+}
+.ref-treelvl {
+  font-weight: 800;
+  color: var(--accent);
+}
+.ref-treebar {
+  height: 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.ref-treefill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #ffe487);
+  border-radius: 6px;
+}
+.ref-treecnt {
+  font-weight: 700;
+  min-width: 2em;
+  text-align: right;
+}
+/* Calculator — projection, visually distinct from the factual cards. */
+.ref-calc-card {
+  background: rgba(120, 90, 255, 0.06);
+  border-color: rgba(120, 90, 255, 0.3);
+}
+.ref-badge {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(120, 90, 255, 0.25);
+  color: #c879ff;
+}
+.calc-row {
   display: flex;
   gap: 8px;
 }
-.ref-calc label {
+.calc-row label {
   flex: 1 1 0;
   display: flex;
   flex-direction: column;
@@ -1815,23 +2012,20 @@ button.ghost {
   color: var(--muted);
   text-align: center;
 }
-.ref-calc label input {
+.calc-row label input {
   width: 100%;
   padding: 8px 6px;
   font-size: 0.95rem;
 }
-
-/* Referral tree per-level rows in the Invite & earn modal */
-.ref-lvl {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 5px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 0.85rem;
-}
-.ref-lvl span {
+.ref-disclaimer {
+  font-size: 0.72rem;
   color: var(--muted);
+  font-style: italic;
+}
+@media (max-width: 760px) {
+  .ref-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Live stake-raise vote banner in the waiting room */
@@ -3175,6 +3369,14 @@ button.big {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Glass panel like the lobby/training windows (don't float over the scene). */
+  background: rgba(13, 16, 26, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  padding: 16px;
 }
 .shop-top {
   display: flex;
@@ -3199,8 +3401,9 @@ button.big {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 150px 1fr 320px;
+  grid-template-columns: 150px minmax(0, 1fr) 300px;
   gap: 12px;
+  overflow: hidden;
 }
 /* Filters */
 .shop-filters {
@@ -3223,10 +3426,12 @@ button.big {
 }
 /* Grid */
 .shop-grid {
+  min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   align-content: start;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
   gap: 10px;
   padding-right: 4px;
 }
@@ -3303,13 +3508,15 @@ button.big {
 /* Detail / preview panel */
 .shop-detail {
   --rarity: #9aa3b2;
+  min-height: 0;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   padding: 16px;
   border-radius: 16px;
-  background: rgba(13, 16, 26, 0.55);
+  background: rgba(20, 24, 36, 0.7);
   border: 1px solid var(--rarity);
   box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.35);
 }
@@ -3362,17 +3569,26 @@ button.big {
 .shop-token-btn:not(:disabled):hover {
   background: rgba(57, 255, 155, 0.14);
 }
-/* Mobile: stack the three zones; show the focused item on top. */
+/* Mobile: one scrolling column; focused item on top, filters as a chip row. */
 @media (max-width: 760px) {
+  .shop-wrap {
+    overflow-y: auto;
+  }
   .shop-body {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
   }
   .shop-filters {
     flex-direction: row;
     flex-wrap: wrap;
   }
+  .shop-grid {
+    overflow: visible;
+  }
   .shop-detail {
     order: -1;
+    overflow: visible;
   }
 }
 /* Lobby character name (kept) */
