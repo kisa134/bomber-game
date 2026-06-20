@@ -896,6 +896,17 @@ button.ghost {
   color: var(--accent);
   font-weight: 700;
 }
+/* Inline leaderboard tabs in the rail */
+.hub-lb-tabs {
+  margin: 8px 0 4px;
+  gap: 4px;
+}
+.hub-lb-tabs .seg-btn {
+  flex: 1 1 0;
+  width: auto;
+  padding: 6px 0;
+  font-size: 0.74rem;
+}
 .hub-hero .hub-play {
   width: min(420px, 100%);
 }

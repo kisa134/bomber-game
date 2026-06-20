@@ -103,11 +103,16 @@
                 <div class="hub-mod-label">👥 Friends <span id="hub-friends-count" class="friends-count"></span></div>
                 <div id="hub-friends-sub" class="hub-mod-sub">Add friends &amp; play together</div>
               </button>
-              <!-- Top this week → opens the full leaderboard -->
-              <button id="open-leaderboard" class="hub-module topweek">
-                <div class="hub-mod-label">🏆 Top this week <span class="mod-go">View all ▸</span></div>
+              <!-- Leaderboard inline: switch boards, list updates in place -->
+              <div class="hub-module topweek">
+                <div class="hub-mod-label">🏆 Leaderboard</div>
+                <div id="hub-lb-tabs" class="hub-lb-tabs seg">
+                  <button class="seg-btn active" data-board="rating">🏆 Rating</button>
+                  <button class="seg-btn" data-board="tokens">💎 Earned</button>
+                  <button class="seg-btn" data-board="chips">🪙 Free</button>
+                </div>
                 <ol id="hub-top" class="hub-top-list"></ol>
-              </button>
+              </div>
               <!-- All navigation lives in the rail now -->
               <div class="hub-nav">
                 <button id="open-profile" class="hub-util">👤 Profile</button>

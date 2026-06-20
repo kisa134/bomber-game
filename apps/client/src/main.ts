@@ -49,6 +49,7 @@ import {
   acceptFriend,
   removeFriend,
   type FriendsData,
+  type ProfileData,
   type JoinResponse,
 } from "./net/socket.js";
 import { GameState } from "./game/state.js";
@@ -1749,10 +1750,14 @@ function renderFriendsModal(): void {
   empty.classList.toggle("hidden", lastFriends.friends.length > 0 || lastFriends.incoming.length > 0);
 }
 
-/** Populate the hub's "Top this week" module from the live leaderboard. */
+/** The hub leaderboard board currently shown (switched in-place via the tabs). */
+let hubBoard: "rating" | "tokens" | "chips" = "rating";
+/** Populate the hub's inline leaderboard from the live board (no screen change). */
 function loadHubTop(): void {
-  void fetchLeaderboard("rating")
+  const board = hubBoard;
+  void fetchLeaderboard(board)
     .then((rows) => {
+      if (board !== hubBoard) return; // a newer tab click superseded this fetch
       const ol = document.getElementById("hub-top");
       if (!ol) return;
       ol.innerHTML = "";
@@ -1760,10 +1765,16 @@ function loadHubTop(): void {
         ol.innerHTML = '<li class="hub-mod-sub">No ranked players yet</li>';
         return;
       }
+      const val = (p: ProfileData): string => {
+        if (board === "tokens") return `💎 ${Math.round((p.tokens_won ?? 0) / 10 ** TOKEN_DECIMALS).toLocaleString()}`;
+        if (board === "chips") return `🪙 ${(p.chips_won ?? 0).toLocaleString()}`;
+        return (p.rating ?? 0).toLocaleString();
+      };
       rows.slice(0, 5).forEach((p, i) => {
         const li = document.createElement("li");
-        li.innerHTML = `<span class="rk">${i + 1}</span><span class="nm"></span><span class="rt">${(p.rating ?? 0).toLocaleString()}</span>`;
+        li.innerHTML = `<span class="rk">${i + 1}</span><span class="nm"></span><span class="rt"></span>`;
         (li.querySelector(".nm") as HTMLElement).textContent = p.name || "anon";
+        (li.querySelector(".rt") as HTMLElement).textContent = val(p);
         ol.appendChild(li);
       });
     })
@@ -1864,7 +1875,16 @@ function setupOnboarding(): void {
 function wireMenuLinks(): void {
   setupOnboarding();
   document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
-  document.getElementById("open-leaderboard")!.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
+  document.getElementById("open-leaderboard")?.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
+  // Hub inline leaderboard tabs: switch board, refresh the list in place.
+  document.getElementById("hub-lb-tabs")?.addEventListener("click", (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-board]");
+    if (!btn) return;
+    hubBoard = (btn.dataset.board as "rating" | "tokens" | "chips") ?? "rating";
+    for (const b of document.querySelectorAll("#hub-lb-tabs .seg-btn")) b.classList.remove("active");
+    btn.classList.add("active");
+    loadHubTop();
+  });
   document.getElementById("open-skins")?.addEventListener("click", openSkinShop);
   // Rail SHOP button opens the character shop.
   document.getElementById("open-shop")?.addEventListener("click", openSkinShop);
