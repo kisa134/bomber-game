@@ -57,16 +57,29 @@
             <div class="hub-brand">BomberMeme.fun</div>
             <div class="hub-status">
               <span id="player-stats" class="player-stats hidden">
-                <span id="rating-badge" class="stat-badge" title="Your rating">🌱 1000</span>
-                <span class="stat-badge chips" title="Your chips">🪙 <span id="chip-amount">0</span></span>
+                <span class="stat-badge ratingb" title="Your rating — beat stronger players to climb">
+                  <span class="stat-cap">RATING</span><span id="rating-badge">🌱 1000</span>
+                </span>
+                <span class="stat-badge chips" title="Your free chips">
+                  <span class="stat-cap">CHIPS</span>🪙 <span id="chip-amount">0</span>
+                </span>
               </span>
-              <a id="token-badge" class="stat-badge token hidden" target="_blank" rel="noopener" title="Your token balance — tap to view on pump.fun">💎 <span id="token-amount">0</span> <span id="token-ticker"></span></a>
+              <a id="token-badge" class="stat-badge token hidden" target="_blank" rel="noopener" title="Your token balance — tap to view on pump.fun">
+                <span class="stat-cap">BALANCE</span>💎 <span id="token-amount">0</span> <span id="token-ticker"></span><span id="token-usd" class="token-usd"></span>
+              </a>
             </div>
             <div class="hub-top-actions">
               <button id="wallet-btn">🔗 Connect</button>
               <button id="open-settings" class="icon-btn" title="Settings">⚙</button>
               <button id="open-help" class="icon-btn" title="How to play / Как играть">❓</button>
             </div>
+          </div>
+
+          <!-- Level / XP progress -->
+          <div id="hub-progress" class="hub-progress hidden">
+            <span class="lvl">LV <span id="hub-level">1</span></span>
+            <div class="xpbar"><div id="hub-xpfill" class="xpfill"></div></div>
+            <span id="hub-xptext" class="xptext"></span>
           </div>
 
           <!-- Main: hero (left) + module rail (right) -->
@@ -90,22 +103,18 @@
                 <div class="hub-mod-label">👥 Friends <span id="hub-friends-count" class="friends-count"></span></div>
                 <div id="hub-friends-sub" class="hub-mod-sub">Add friends &amp; play together</div>
               </button>
-              <div class="hub-module topweek">
-                <div class="hub-mod-label">🏆 Top this week</div>
+              <!-- Top this week → opens the full leaderboard -->
+              <button id="open-leaderboard" class="hub-module topweek">
+                <div class="hub-mod-label">🏆 Top this week <span class="mod-go">View all ▸</span></div>
                 <ol id="hub-top" class="hub-top-list"></ol>
-              </div>
-              <button id="hub-loadout" class="hub-module loadout">
-                <div class="hub-mod-label">🎭 Loadout</div>
-                <div id="hub-loadout-name" class="hub-mod-sub">Choose your character</div>
               </button>
+              <!-- All navigation lives in the rail now -->
+              <div class="hub-nav">
+                <button id="open-profile" class="hub-util">👤 Profile</button>
+                <button id="open-shop" class="hub-util">🛒 SHOP</button>
+                <button id="open-referral" class="hub-util">👥 Invite &amp; earn</button>
+              </div>
             </div>
-          </div>
-
-          <!-- Bottom utility bar -->
-          <div class="hub-utility">
-            <button id="open-profile" class="hub-util">👤 Profile</button>
-            <button id="open-leaderboard" class="hub-util">🏆 Leaderboard</button>
-            <button id="open-referral" class="hub-util">👥 Invite &amp; earn</button>
           </div>
         </div>
       </section>
@@ -456,8 +465,8 @@
 
       <!-- Skin shop -->
       <div id="skin-modal" class="modal hidden">
-        <div class="modal-card">
-          <h3>🎨 Skins</h3>
+        <div class="modal-card skin-modal-card">
+          <h3>🛒 SHOP</h3>
           <p id="skin-balance" class="prof-chips"></p>
           <div id="skin-grid" class="skin-grid"></div>
           <p id="skin-status" class="status"></p>

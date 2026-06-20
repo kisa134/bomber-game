@@ -808,16 +808,93 @@ button.ghost {
   font-size: clamp(1.8rem, 4vw, 2.6rem);
 }
 .hub-hero-stage {
-  height: clamp(140px, 26vh, 240px);
+  height: clamp(170px, 32vh, 300px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.55));
 }
 .hub-hero-img {
   height: 100%;
   width: auto;
   image-rendering: pixelated;
+}
+/* Status-bar captions (RATING / CHIPS / BALANCE) */
+.stat-cap {
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-right: 5px;
+  opacity: 0.85;
+}
+.token-usd {
+  color: #7bd66a;
+  font-weight: 700;
+  margin-left: 4px;
+}
+/* Level / XP progress bar */
+.hub-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: rgba(13, 16, 26, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.hub-progress .lvl {
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.hub-progress .xpbar {
+  flex: 1 1 auto;
+  height: 12px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+.hub-progress .xpfill {
+  height: 100%;
+  width: 4%;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #ffd95a, var(--accent), #ff9a3d);
+  box-shadow: 0 0 10px rgba(255, 204, 51, 0.5);
+  transition: width 0.5s ease;
+}
+.hub-progress .xptext {
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+/* Rail nav (Profile / SHOP / Invite) */
+.hub-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.hub-nav .hub-util {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 12px 8px;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+}
+.hub-nav .hub-util:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+.mod-go {
+  float: right;
+  font-size: 0.72rem;
+  color: var(--accent);
+  font-weight: 700;
 }
 .hub-hero .hub-play {
   width: min(420px, 100%);

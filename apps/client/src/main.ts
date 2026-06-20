@@ -985,6 +985,7 @@ function refreshWalletBtn(): void {
       .then((p) => {
         setStats(p.chips, p.rating);
         setTokenBadge(p.gameTokens);
+        setProgress(p.level ?? 1, p.xp ?? 0);
         // Show the wallet's claimed (unique) nickname in the field.
         const nick = document.getElementById("nickname") as HTMLInputElement | null;
         if (nick && p.name) {
@@ -1198,6 +1199,9 @@ function setTokenBadge(balance: number | undefined): void {
   const tick = document.getElementById("token-ticker");
   if (amt) amt.textContent = balance.toLocaleString(undefined, { maximumFractionDigits: 2 });
   if (tick) tick.textContent = `$${TOKEN_TICKER}`;
+  // Show the live USD value of the balance next to it (blank if no price yet).
+  const usd = document.getElementById("token-usd");
+  if (usd) usd.textContent = usdOf(balance);
   badge.classList.remove("hidden");
 }
 
@@ -1604,13 +1608,47 @@ function openSkinShop(): void {
 }
 
 // --- main hub modules -------------------------------------------------------
-/** Refresh the hub's hero art + Loadout label from the equipped character. */
+// Animate the hub hero like the lobby stage: run on the spot + turn in a circle.
+const HUB_TURN: Array<[string, number, boolean]> = [
+  ["down", 0, false], ["down", 1, false], ["down", 2, false],
+  ["side", 0, false], ["side", 1, false], ["side", 2, false],
+  ["up", 0, false], ["up", 1, false], ["up", 2, false],
+  ["side", 0, true], ["side", 1, true], ["side", 2, true],
+];
+let hubAnimTimer: ReturnType<typeof setInterval> | null = null;
+let hubAnimSkin = -1;
+function animateHubHero(skin: number): void {
+  const img = document.getElementById("hub-hero-img") as HTMLImageElement | null;
+  if (!img) return;
+  if (skin === hubAnimSkin && hubAnimTimer) return;
+  hubAnimSkin = skin;
+  if (hubAnimTimer) clearInterval(hubAnimTimer);
+  let i = 0;
+  const step = (): void => {
+    if (!img || document.getElementById("menu")?.classList.contains("hidden")) return; // paused off the hub
+    const [dir, f, flip] = HUB_TURN[i % HUB_TURN.length];
+    i++;
+    img.src = `/sprites/skin_${skin}_${dir}_${f}.webp?v=${ASSET_VER}`;
+    img.style.transform = flip ? "scaleX(-1)" : "none";
+  };
+  step();
+  hubAnimTimer = setInterval(step, 150);
+}
+/** Refresh the hub's hero (equipped character, animated). */
 function refreshHub(): void {
-  const equipped = Number(localStorage.getItem("bp_skin")) || 0;
-  const heroImg = document.getElementById("hub-hero-img") as HTMLImageElement | null;
-  if (heroImg) heroImg.src = `/sprites/skin_${equipped}.webp?v=${ASSET_VER}`;
-  const name = document.getElementById("hub-loadout-name");
-  if (name) name.textContent = SKIN_NAMES[equipped] ?? `Skin ${equipped}`;
+  animateHubHero(Number(localStorage.getItem("bp_skin")) || 0);
+}
+/** Update the level / XP progress bar from a profile (200 XP per level). */
+function setProgress(level: number, xp: number): void {
+  const box = document.getElementById("hub-progress");
+  if (!box) return;
+  box.classList.remove("hidden");
+  const lv = document.getElementById("hub-level");
+  if (lv) lv.textContent = String(level);
+  const fill = document.getElementById("hub-xpfill") as HTMLElement | null;
+  if (fill) fill.style.width = `${Math.max(4, Math.min(100, ((xp % 200) / 200) * 100))}%`;
+  const txt = document.getElementById("hub-xptext");
+  if (txt) txt.textContent = `${xp % 200} / 200 XP`;
 }
 // --- friends ----------------------------------------------------------------
 let lastFriends: FriendsData = { friends: [], incoming: [], outgoing: [] };
@@ -1828,8 +1866,8 @@ function wireMenuLinks(): void {
   document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
   document.getElementById("open-leaderboard")!.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
   document.getElementById("open-skins")?.addEventListener("click", openSkinShop);
-  // Hub Loadout module opens the character (skin) shop.
-  document.getElementById("hub-loadout")?.addEventListener("click", openSkinShop);
+  // Rail SHOP button opens the character shop.
+  document.getElementById("open-shop")?.addEventListener("click", openSkinShop);
   document.getElementById("skin-close")!.addEventListener("click", () => {
     document.getElementById("skin-modal")!.classList.add("hidden");
     refreshHub(); // reflect a newly equipped character on the hub
