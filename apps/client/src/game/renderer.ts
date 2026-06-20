@@ -1624,13 +1624,12 @@ export class Renderer {
     const pu = Math.max(1, Math.round(t / 16));
     for (const [idx, lvl] of this.burn) {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
-      // Gradual over MANY blasts (cap 10): coverage, darkness and opacity all ramp
-      // smoothly with the burn level, so a spot goes light-scorch -> charcoal step by
-      // step (the epicentre, hit most often, ends up darkest). No sudden all-black.
-      const p = Math.min(1, lvl / 10); // 0..1 burn progress
-      const cover = 0.4 + p * 0.55; // patch fills in as it's hit more
-      const a = 0.16 + p * 0.52; // and gets more opaque
-      const base = Math.round(22 - p * 16); // 22 (light brown-grey) -> 6 (near black)
+      // One blast already leaves a clearly dark scorch; repeated blasts deepen it to
+      // near-black charcoal (the epicentre, hit most, ends up darkest).
+      const p = Math.min(1, 0.45 + lvl * 0.11); // 1 blast ~0.56, ~5 blasts -> 1.0
+      const cover = 0.55 + p * 0.42; // fuller patch
+      const a = 0.32 + p * 0.5; // clearly opaque
+      const base = Math.round(16 - p * 11); // 16 (dark) -> 5 (near black)
       let h = (idx * 2654435761) >>> 0;
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
