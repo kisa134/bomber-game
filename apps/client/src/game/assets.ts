@@ -552,27 +552,25 @@ export class Assets {
     if (!ctx) { this.play("block_break", 0.35 * v); return; }
     const out = this.pannedOut(ctx, pan);
     const t0 = ctx.currentTime;
-    // block_break sample for the body (panned if decoded, else plain).
+    // A touch after the blast transient so it doesn't fight the explosion.
+    const t0d = t0 + 0.02;
+    // block_break sample for the body (panned if decoded, else plain) — quieter.
     const buf = this.fxBuffers.get("block_break");
-    if (buf) { const s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = 0.5 * v; s.connect(g); g.connect(out); s.start(t0); }
-    else { this.ensureBuffer("block_break"); this.play("block_break", 0.35 * v); }
-    // Sharp wood crack (bandpassed noise burst).
+    if (buf) { const s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = 0.28 * v; s.connect(g); g.connect(out); s.start(t0d); }
+    else { this.ensureBuffer("block_break"); this.play("block_break", 0.22 * v); }
+    // Sharp wood crack (bandpassed noise burst) — the only prominent layer.
     const nb = ctx.createBufferSource(); nb.buffer = this.getNoise(ctx);
-    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1500; bp.Q.value = 1.4;
-    const g1 = ctx.createGain(); g1.gain.setValueAtTime(0.5 * v, t0); g1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07);
-    nb.connect(bp); bp.connect(g1); g1.connect(out); nb.start(t0); nb.stop(t0 + 0.09);
-    // Low thud body.
-    const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.setValueAtTime(95, t0); o.frequency.exponentialRampToValueAtTime(48, t0 + 0.16);
-    const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, t0); g2.gain.exponentialRampToValueAtTime(0.4 * v, t0 + 0.008); g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
-    o.connect(g2); g2.connect(out); o.start(t0); o.stop(t0 + 0.22);
-    // Debris rattle tail (highpassed noise, choppy).
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1600; bp.Q.value = 1.6;
+    const g1 = ctx.createGain(); g1.gain.setValueAtTime(0.32 * v, t0d); g1.gain.exponentialRampToValueAtTime(0.0001, t0d + 0.06);
+    nb.connect(bp); bp.connect(g1); g1.connect(out); nb.start(t0d); nb.stop(t0d + 0.08);
+    // Light debris rattle tail (no low thud — it muddied the explosion's sub-bass).
     const rb = ctx.createBufferSource(); rb.buffer = this.getNoise(ctx); rb.playbackRate.value = 0.7;
-    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2600;
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2800;
     const g3 = ctx.createGain();
-    g3.gain.setValueAtTime(0.0001, t0 + 0.04);
-    for (let k = 0; k < 4; k++) { const tk = t0 + 0.05 + k * 0.04; g3.gain.exponentialRampToValueAtTime(0.18 * v, tk); g3.gain.exponentialRampToValueAtTime(0.02 * v, tk + 0.025); }
-    g3.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
-    rb.connect(hp); hp.connect(g3); g3.connect(out); rb.start(t0 + 0.04); rb.stop(t0 + 0.28);
+    g3.gain.setValueAtTime(0.0001, t0d + 0.04);
+    for (let k = 0; k < 4; k++) { const tk = t0d + 0.05 + k * 0.04; g3.gain.exponentialRampToValueAtTime(0.1 * v, tk); g3.gain.exponentialRampToValueAtTime(0.015 * v, tk + 0.025); }
+    g3.gain.exponentialRampToValueAtTime(0.0001, t0d + 0.26);
+    rb.connect(hp); hp.connect(g3); g3.connect(out); rb.start(t0d + 0.04); rb.stop(t0d + 0.28);
   }
 
   /** Dry little clatter for bones/wood being knocked or blown about — a few short

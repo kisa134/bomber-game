@@ -432,6 +432,7 @@ net.onMessage = (msg) => {
       const snap = state.latest();
       const pp = snap?.players.find((p) => p.id === msg.playerId);
       if (pp) renderer?.burst(Math.floor(pp.x), Math.floor(pp.y), "#7CFC00", 10, 3);
+      // Only YOU get the reward cue — other players'/bots' pickups are silent.
       if (pp && msg.playerId === state.myId) {
         // Rising reward ladder: each bonus you collect this match plays a semitone
         // higher (up to an octave) — accumulating dopamine cue.
@@ -439,8 +440,6 @@ net.onMessage = (msg) => {
         assets.play("pickup", undefined, Math.pow(2, Math.min(myPickupStep, 12) / 12));
         showPickupToast(msg.powerup);
         renderer?.popText(pp.x, pp.y, POWERUP_META[msg.powerup].label, "#ffe14a"); // springy pickup popup
-      } else {
-        assets.play("pickup");
       }
       break;
     }
