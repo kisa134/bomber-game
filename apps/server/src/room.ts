@@ -25,7 +25,6 @@ import {
   TileType,
   BET_SIZES,
   TOKEN_BET_SIZES,
-  TOKEN_DECIMALS,
   HOUSE_RAKE_BP,
   Currency,
   BotDifficulty,
@@ -57,6 +56,7 @@ import { makeRng, encodeMatchSeed, advance } from "@bomberpump/shared";
 import { World, SPAWNS, powerupOfTile } from "./world.js";
 import { analytics } from "./analytics.js";
 import { distributeReferralRewards } from "./referral.js";
+import { getTokenDecimals } from "./token.js";
 import { logEvent, shortWallet } from "./events.js";
 import { alert } from "./alert.js";
 import { metrics } from "./metrics.js";
@@ -871,7 +871,7 @@ export class Room {
   /** Per-player stake in the currency's smallest unit (base units for tokens). */
   private stakeBase(): number {
     return this.currency === Currency.TOKEN
-      ? Math.round(this.stake * 10 ** TOKEN_DECIMALS)
+      ? Math.round(this.stake * 10 ** getTokenDecimals())
       : this.stake;
   }
 
@@ -892,7 +892,7 @@ export class Room {
     if (stake === this.stake) return;
     if (stake > 0) {
       const needBase =
-        this.currency === Currency.TOKEN ? Math.round(stake * 10 ** TOKEN_DECIMALS) : stake;
+        this.currency === Currency.TOKEN ? Math.round(stake * 10 ** getTokenDecimals()) : stake;
       for (const p of this.players.values()) {
         if (p.isBot || !p.wallet) continue;
         const prof = await store.getProfile(p.wallet);
@@ -946,7 +946,7 @@ export class Room {
     // Everyone agreed — verify affordability, then apply.
     const stake = pr.stake;
     const needBase =
-      this.currency === Currency.TOKEN ? Math.round(stake * 10 ** TOKEN_DECIMALS) : stake;
+      this.currency === Currency.TOKEN ? Math.round(stake * 10 ** getTokenDecimals()) : stake;
     for (const p of humans) {
       if (!p.wallet) continue;
       const prof = await store.getProfile(p.wallet);

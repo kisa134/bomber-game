@@ -289,6 +289,60 @@ app.get("/health", (res) => {
     );
 });
 
+// Prometheus-style metrics for external monitoring (Grafana/Prometheus/etc.).
+// Guarded by METRICS_TOKEN if set (?token=…); open otherwise (it's only counts).
+const METRICS_TOKEN = (process.env.METRICS_TOKEN ?? "").trim();
+app.get("/metrics", (res, req) => {
+  res.onAborted(() => {
+    (res as ResWithAbort).aborted = true;
+  });
+  if (METRICS_TOKEN) {
+    const token = new URLSearchParams(req.getQuery()).get("token") ?? "";
+    if (token !== METRICS_TOKEN) {
+      sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+      return;
+    }
+  }
+  const load = mm.load;
+  const live = mm.adminStats;
+  const g = metrics.snapshot();
+  const lines: string[] = [];
+  const m = (name: string, help: string, value: number, type = "gauge"): void => {
+    lines.push(`# HELP ${name} ${help}`, `# TYPE ${name} ${type}`, `${name} ${value}`);
+  };
+  // Game-loop health — the single most important scaling signal.
+  m("bomber_tick_ms", "EMA of one full simulation tick across all rooms (ms)", load.tickMs);
+  m("bomber_tick_peak_ms", "Recent peak tick duration (ms)", load.peakMs);
+  m("bomber_tick_budget_ms", "Per-tick budget at 60Hz (ms)", load.budgetMs);
+  m("bomber_loop_busy", "1 when the sim thread is saturated and shedding new rooms", load.busy ? 1 : 0);
+  // Live state.
+  m("bomber_online", "Connected clients (presence)", onlineCount());
+  m("bomber_rooms", "Active rooms", live.rooms);
+  m("bomber_humans", "Human players in rooms", live.humans);
+  m("bomber_bots", "Bot players in rooms", live.bots);
+  m("bomber_rooms_playing", "Rooms currently in a live match", live.playing);
+  m("bomber_rooms_lobby", "Rooms in lobby/waiting", live.lobby);
+  // Daily growth counters (reset at UTC midnight).
+  m("bomber_dau", "Unique devices today", g.dau);
+  m("bomber_players_today", "Wallets that played a match today", g.players);
+  m("bomber_paying_players_today", "Wallets that played a token match today", g.payingPlayers);
+  m("bomber_matches_today", "Matches finished today", g.matches, "counter");
+  m("bomber_token_matches_today", "Token matches finished today", g.tokenMatches, "counter");
+  m("bomber_deposits_today", "Deposits today", g.deposits, "counter");
+  m("bomber_deposit_volume_today", "Whole tokens deposited today", g.depositVolume, "counter");
+  if ((res as ResWithAbort).aborted) return;
+  try {
+    res.cork(() => {
+      if ((res as ResWithAbort).aborted) return;
+      writeCors(res);
+      res.writeHeader("Content-Type", "text/plain; version=0.0.4");
+      res.end(lines.join("\n") + "\n");
+    });
+  } catch {
+    /* socket gone */
+  }
+});
+
 // --- multi-region groundwork (inert until REGIONS holds 2+ entries) ----------
 // REGION_ID  = this instance's region id (e.g. "eu"). REGIONS = JSON array of
 // {id,label,url} for every deployed region. The client probes /ping on each and
@@ -481,12 +535,31 @@ app.get("/profile", (res, req) => {
     .catch(() => sendJson(res, { error: "profile_failed" }, "500 Internal Server Error"));
 });
 
-app.get("/leaderboard", (res, req) => {
-  res.onAborted(() => {});
-  const b = new URLSearchParams(req.getQuery()).get("board");
-  const board = b === "tokens" || b === "chips" ? b : "rating";
-  store
+// The leaderboard is the hottest public read. Cache each board briefly so a
+// traffic spike hits the DB at most ~once per board per TTL, not per request.
+const LB_TTL_MS = 8000;
+type LbBoard = "rating" | "tokens" | "chips";
+const lbCache = new Map<LbBoard, { at: number; rows: unknown[] }>();
+function cachedLeaderboard(board: LbBoard): Promise<unknown[]> {
+  const now = Date.now();
+  const hit = lbCache.get(board);
+  if (hit && now - hit.at < LB_TTL_MS) return Promise.resolve(hit.rows);
+  return store
     .leaderboard(100, board)
+    .then((rows) => {
+      lbCache.set(board, { at: now, rows });
+      return rows as unknown[];
+    })
+    .catch(() => hit?.rows ?? []); // serve stale on a DB blip if we have any
+}
+
+app.get("/leaderboard", (res, req) => {
+  res.onAborted(() => {
+    (res as ResWithAbort).aborted = true;
+  });
+  const b = new URLSearchParams(req.getQuery()).get("board");
+  const board: LbBoard = b === "tokens" || b === "chips" ? b : "rating";
+  cachedLeaderboard(board)
     .then((rows) => sendJson(res, { rows }))
     .catch(() => sendJson(res, { rows: [] }));
 });

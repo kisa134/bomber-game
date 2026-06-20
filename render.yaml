@@ -86,6 +86,8 @@ services:
         sync: false
       - key: REFERRAL_ROOT # owner wallet = top of the pyramid; un-invited players attach here
         sync: false
+      - key: METRICS_TOKEN # optional: require ?token=… on /metrics (Prometheus). Empty = open
+        sync: false
       # Daily growth targets for the /admin cockpit (optional; defaults 10 / 30).
       - key: GROWTH_TARGET_PAYING # paying players/day goal (default 10)
         sync: false

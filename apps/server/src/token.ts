@@ -63,6 +63,11 @@ export const withdrawalsEnabled = !!treasuryKeypair && !!treasuryPubkey;
 export const toBaseUnits = (whole: number): number => Math.round(whole * 10 ** mintDecimals);
 export const fromBaseUnits = (base: number): number => base / 10 ** mintDecimals;
 
+/** The mint's REAL decimals, detected at startup (falls back to the compile-time
+ *  constant until init runs). Stake escrow MUST use this so room math and on-chain
+ *  deposit/withdraw math share one scale. */
+export const getTokenDecimals = (): number => mintDecimals;
+
 let inited = false;
 /** Detect the mint's token program (classic vs Token-2022) + decimals, and
  *  recompute the treasury ATA for that program. Idempotent. */
@@ -77,6 +82,14 @@ async function initToken(): Promise<void> {
     if (data && typeof data === "object" && "parsed" in data) {
       const dec = (data.parsed as { info?: { decimals?: number } })?.info?.decimals;
       if (Number.isFinite(dec)) mintDecimals = dec as number;
+    }
+    if (mintDecimals !== TOKEN_DECIMALS) {
+      // Escrow used TOKEN_DECIMALS until now; if the real mint differs, stake and
+      // on-chain math would diverge. Surface loudly — verify before real-money play.
+      alert(
+        `MINT DECIMALS MISMATCH: on-chain=${mintDecimals} vs TOKEN_DECIMALS=${TOKEN_DECIMALS} — ` +
+          `escrow now uses the on-chain value; double-check stake/withdraw amounts`,
+      );
     }
     if (treasuryPubkey) {
       treasuryAta = getAssociatedTokenAddressSync(MINT, treasuryPubkey, true, tokenProgram);
