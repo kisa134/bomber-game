@@ -228,26 +228,72 @@
       </section>
 
       <!-- Waiting room -->
+      <!-- Pre-match lobby room: wide, zoned (seats + prize + character + chat) -->
       <section id="room" class="screen hidden">
-        <div class="panel">
-          <h2 id="room-title">Waiting room</h2>
-          <div id="room-code-box" class="hidden">
-            <span class="label">Room code — share with friends</span>
-            <div id="room-code" class="code"></div>
-            <button id="copy-invite" class="ghost">🔗 Copy invite link</button>
+        <div class="room-wrap">
+          <!-- Top bar: room identity / type / code / invite -->
+          <div class="room-top">
+            <button id="leave-room" class="ghost lobby-icon" title="Leave">←</button>
+            <div class="room-id">
+              <span id="room-type" class="room-type">🌐 Public Arena</span>
+              <div id="room-code-box" class="room-code-inline hidden">
+                <span class="room-code-label">CODE</span>
+                <span id="room-code" class="code"></span>
+                <button id="copy-invite" class="ghost room-copy">⧉ Invite</button>
+              </div>
+            </div>
+            <span id="room-region" class="room-region"></span>
           </div>
-          <ul id="room-players" class="players-list"></ul>
-          <div id="bal-room" class="bal-bar hidden"></div>
-          <div id="room-stake" class="room-stake hidden"></div>
-          <!-- Live stake-raise vote (anyone can propose; everyone votes) -->
+
+          <!-- Main 3-column grid -->
+          <div class="room-grid">
+            <!-- Left rail: your character -->
+            <div class="room-rail room-character">
+              <div class="zone-label">Your character</div>
+              <div id="skin-stage" class="skin-stage">
+                <button id="skin-prev" class="skin-arrow hidden">◀</button>
+                <div id="skin-hero" class="skin-hero"></div>
+                <button id="skin-next" class="skin-arrow hidden">▶</button>
+              </div>
+              <div id="skin-name" class="skin-name"></div>
+              <div id="bal-room" class="bal-bar hidden"></div>
+            </div>
+
+            <!-- Center: player seats + match settings -->
+            <div class="room-center">
+              <div class="zone-label">Players <span id="room-seatcount" class="seatcount"></span></div>
+              <ul id="room-players" class="seat-grid"></ul>
+              <div class="zone-label">Match settings</div>
+              <div id="room-settings" class="room-settings"></div>
+            </div>
+
+            <!-- Right rail: prize + reactions/chat -->
+            <div class="room-rail room-side">
+              <div id="room-prize" class="room-prize"></div>
+              <div class="room-social">
+                <div class="zone-label">Reactions</div>
+                <div id="room-emotes" class="emote-bar"></div>
+                <div class="chat-stub">
+                  <input id="chat-input" placeholder="💬 Chat — coming soon" disabled />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live stake-raise vote (anyone proposes; everyone votes) -->
           <div id="stake-vote" class="stake-vote hidden"></div>
           <div id="propose-picker" class="stake-picker hidden"></div>
-          <p id="room-status" class="status"></p>
-          <div id="room-emotes" class="emote-bar"></div>
-          <button id="ready-btn" class="primary">✅ Ready</button>
-          <button id="propose-stake" class="ghost">⬆ Raise stake</button>
-          <button id="start-now" class="ghost hidden">▶ Start now (host)</button>
-          <button id="leave-room" class="ghost">Leave</button>
+          <div id="room-stake" class="room-stake hidden"></div>
+
+          <!-- Bottom action bar -->
+          <div class="room-actions">
+            <span id="room-status" class="status room-status"></span>
+            <div class="room-actions-btns">
+              <button id="propose-stake" class="ghost">⬆ Raise stake</button>
+              <button id="ready-btn" class="primary">✅ Ready up</button>
+              <button id="start-now" class="primary hidden">▶ Start now</button>
+            </div>
+          </div>
         </div>
       </section>
 

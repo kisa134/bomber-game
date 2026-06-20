@@ -1,11 +1,9 @@
 import { PLAYER_COLORS, skinAvatar } from "../game/renderer.js";
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT } from "../net/protocol.js";
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, MATCH_LENGTH_MS } from "../net/protocol.js";
 
-/** Format a stake with its currency symbol (💎 token / 🪙 chips). */
-function stakeLabel(stake: number, currency: number): string {
-  if (stake <= 0) return "Casual";
-  return `${currency === 1 ? "💎" : "🪙"}${stake.toLocaleString()}`;
-}
+/** Display names for the meme characters (by skin index). */
+const SKIN_NAMES = ["Doge", "Pepe", "Trump", "Musk"];
+const skinName = (skin: number): string => SKIN_NAMES[skin] ?? `Fighter ${skin + 1}`;
 
 /** Live token→USD price, set from main; 0 = unknown. */
 let tokenUsd = 0;
@@ -302,52 +300,53 @@ export function setMenuStatus(text: string): void {
 
 /** Refresh the waiting-room screen from current state. */
 export function renderRoom(state: GameState): void {
+  const count = state.roomPlayers.length;
+  const sym = state.roomCurrency === 1 ? "💎" : "🪙";
+  const isToken = state.roomCurrency === 1;
+
+  // --- Top bar: room type + code -------------------------------------------
   const codeBox = document.getElementById("room-code-box")!;
   const codeEl = document.getElementById("room-code")!;
   codeEl.textContent = state.roomCode;
   codeBox.classList.toggle("hidden", !state.roomCode);
-
-  const title = document.getElementById("room-title");
-  if (title) {
-    const n = state.roomPlayers.length || 1;
-    const sym = state.roomCurrency === 1 ? "💎" : "🪙";
-    const pot = state.roomStake * n;
-    const potUsd = state.roomCurrency === 1 ? usdSuffix(pot) : "";
-    title.textContent =
+  const typeEl = document.getElementById("room-type");
+  if (typeEl) {
+    typeEl.textContent =
       state.roomStake > 0
-        ? `${stakeLabel(state.roomStake, state.roomCurrency)} table · pot ${sym}${pot.toLocaleString()}${potUsd}`
-        : "Waiting room";
+        ? isToken
+          ? "💎 Token Arena"
+          : "🪙 Chips Table"
+        : "🆓 Casual Match";
   }
 
+  // --- Center: player seats (2×2 grid, empty slots shown) -------------------
+  const seatCount = document.getElementById("room-seatcount");
+  if (seatCount) seatCount.textContent = `${count}/${MAX_PLAYERS_PER_ROOM}`;
   const seriesOn = state.roomPlayers.some((p) => p.wins > 0);
   const list = document.getElementById("room-players")!;
   list.innerHTML = "";
   for (const p of state.roomPlayers) {
     const li = document.createElement("li");
-    li.appendChild(skinAvatar(p.skin, PLAYER_COLORS[p.id % PLAYER_COLORS.length]));
-    const name = document.createElement("span");
+    li.className =
+      "seat" + (p.ready ? " ready" : "") + (p.id === state.myId ? " you" : "") + (p.id === state.hostId ? " host" : "");
+    const av = skinAvatar(p.skin, PLAYER_COLORS[p.id % PLAYER_COLORS.length]);
+    av.classList.add("seat-av");
+    li.appendChild(av);
+    const name = document.createElement("div");
+    name.className = "seat-name";
     name.textContent = p.name + (p.id === state.myId ? " (you)" : "");
     li.appendChild(name);
-    li.style.cursor = "pointer";
+    const badges = document.createElement("div");
+    badges.className = "seat-badges";
+    if (p.id === state.hostId) badges.innerHTML += `<span class="host-tag">👑 HOST</span>`;
+    if (seriesOn) badges.innerHTML += `<span class="win-tag">🏆 ${p.wins}</span>`;
+    li.appendChild(badges);
+    const ready = document.createElement("div");
+    ready.className = "seat-ready" + (p.ready ? " on" : "");
+    ready.textContent = p.ready ? "✅ READY" : "▢ not ready";
+    li.appendChild(ready);
     li.title = "View card";
     li.addEventListener("click", () => onOpenProfile(p));
-    if (seriesOn) {
-      const wins = document.createElement("span");
-      wins.className = "win-tag";
-      wins.textContent = `🏆 ${p.wins}`;
-      li.appendChild(wins);
-    }
-    if (p.id === state.hostId) {
-      const tag = document.createElement("span");
-      tag.className = "host-tag";
-      tag.textContent = "HOST";
-      li.appendChild(tag);
-    }
-    const ready = document.createElement("span");
-    ready.className = "ready-tag" + (p.ready ? " on" : "");
-    ready.textContent = p.ready ? "✅ READY" : "…";
-    ready.style.marginLeft = state.hostId === p.id ? "8px" : "auto";
-    li.appendChild(ready);
     // Host can remove anyone but themselves.
     if (state.isHost && p.id !== state.hostId) {
       const kick = document.createElement("button");
@@ -355,18 +354,69 @@ export function renderRoom(state: GameState): void {
       kick.textContent = "✕";
       kick.title = "Kick player";
       kick.addEventListener("click", (e) => {
-        e.stopPropagation(); // don't also open the player card
+        e.stopPropagation();
         onKick(p.id);
       });
       li.appendChild(kick);
     }
     list.appendChild(li);
   }
+  // Empty seats — first one invites, the rest say "waiting".
+  for (let i = count; i < MAX_PLAYERS_PER_ROOM; i++) {
+    const li = document.createElement("li");
+    li.className = "seat empty";
+    const first = i === count;
+    li.innerHTML = `<div class="seat-empty">${first ? "＋ Invite a friend" : "Waiting…"}</div>`;
+    if (first) li.addEventListener("click", () => document.getElementById("copy-invite")?.click());
+    list.appendChild(li);
+  }
 
-  // The stake is fixed when the table is created — shown read-only in the title.
+  // --- Match settings (read-only for now; host-editable in a later step) ----
+  const settings = document.getElementById("room-settings");
+  if (settings) {
+    const mins = Math.round(MATCH_LENGTH_MS / 60000);
+    settings.innerHTML =
+      `<span class="setting-chip">⏱ ${mins}:00</span>` +
+      `<span class="setting-chip">🗺 Mode: Last Man Standing</span>` +
+      `<span class="setting-hint">${state.isHost ? "you can change these soon" : "host decides"}</span>`;
+  }
+
+  // --- Prize / what's on the line ------------------------------------------
+  const prize = document.getElementById("room-prize");
+  if (prize) {
+    if (state.roomStake > 0) {
+      const pot = state.roomStake * Math.max(count, 1);
+      const usd = isToken ? usdSuffix(pot).trim().replace("≈", "≈ ") : "";
+      prize.className = "room-prize " + (isToken ? "prize-token" : "prize-chips");
+      prize.innerHTML =
+        `<div class="prize-label">PRIZE POOL</div>` +
+        `<div class="prize-pot">${sym}${pot.toLocaleString()}</div>` +
+        (usd ? `<div class="prize-usd">${usd}</div>` : "") +
+        `<div class="prize-meta">Buy-in ${sym}${state.roomStake.toLocaleString()} / player</div>` +
+        `<div class="prize-rule">🏆 Winner takes the pot</div>`;
+    } else {
+      prize.className = "room-prize prize-free";
+      prize.innerHTML =
+        `<div class="prize-label">CASUAL</div>` +
+        `<div class="prize-pot">🆓</div>` +
+        `<div class="prize-meta">Play for fun — no stakes</div>`;
+    }
+  }
+
+  // --- Left rail: your character (read-only preview; selection added later) -
+  const me0 = state.roomPlayers.find((p) => p.id === state.myId);
+  const hero = document.getElementById("skin-hero");
+  const skinNm = document.getElementById("skin-name");
+  if (hero && me0) {
+    hero.innerHTML = "";
+    const big = skinAvatar(me0.skin, PLAYER_COLORS[me0.id % PLAYER_COLORS.length]);
+    big.classList.add("skin-big");
+    hero.appendChild(big);
+    if (skinNm) skinNm.textContent = skinName(me0.skin);
+  }
+
   document.getElementById("room-stake")?.classList.add("hidden");
 
-  const count = state.roomPlayers.length;
   const readyCount = state.roomPlayers.filter((p) => p.ready).length;
   const status = document.getElementById("room-status")!;
   const allReady = count >= MIN_PLAYERS_TO_START && readyCount === count;
