@@ -68,7 +68,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState, type ScreenName } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
@@ -1612,74 +1612,204 @@ function openPlayerCard(p: { wallet?: string | null; name: string; skin: number 
 
 const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad"];
 
-async function refreshSkinShop(): Promise<void> {
-  const grid = document.getElementById("skin-grid")!;
-  const bal = document.getElementById("skin-balance")!;
+/** Rarity by index (price tier) — drives the card/border colour + label. */
+function rarityOf(i: number): { name: string; color: string } {
+  if (i < 4) return { name: "Common", color: "#9aa3b2" };
+  if (i < 6) return { name: "Rare", color: "#4aa3ff" };
+  if (i < 8) return { name: "Epic", color: "#c879ff" };
+  if (i < 10) return { name: "Legendary", color: "#ffcc33" };
+  return { name: "Mythic", color: "#ff5a5a" };
+}
+
+// Shop state (a real screen: filters → grid → focused detail panel).
+type ShopFilter = "all" | "owned" | "available" | "locked";
+let shopFilter: ShopFilter = "all";
+let shopSelected = -1; // skin focused in the detail panel
+let shopReturn: ScreenName = "menu"; // where ← goes back to
+const shop = { owned: DEFAULT_SKINS, equipped: 0, level: 1, chips: 0, tokens: 0, wallet: false };
+
+const skinOwned = (i: number): boolean => (shop.owned & (1 << i)) !== 0;
+const skinBuyableChips = (i: number): boolean =>
+  !skinOwned(i) && shop.level >= (SKIN_UNLOCK_LEVEL[i] ?? 0) && shop.chips >= SKIN_PRICES[i];
+
+/** Pull the player's wallet/economy snapshot for the shop. */
+async function loadShopData(): Promise<void> {
   const w = loadWallet();
-  let owned = DEFAULT_SKINS;
-  let equipped = Number(localStorage.getItem("bp_skin")) || 0;
-  let level = 1;
+  shop.wallet = !!w;
   if (w) {
     try {
       const p = await fetchProfile(w.address);
-      owned = p.skins ?? DEFAULT_SKINS;
-      equipped = p.skin ?? 0;
-      level = p.level ?? 1;
-      localStorage.setItem("bp_skin", String(equipped));
-      bal.textContent = `🪙 ${(p.chips ?? 0).toLocaleString()}  ·  💎 ${(p.gameTokens ?? 0).toLocaleString()}  ·  LV ${level}`;
+      shop.owned = p.skins ?? DEFAULT_SKINS;
+      shop.equipped = p.skin ?? 0;
+      shop.level = p.level ?? 1;
+      shop.chips = p.chips ?? 0;
+      shop.tokens = p.gameTokens ?? 0;
+      localStorage.setItem("bp_skin", String(shop.equipped));
     } catch {
-      bal.textContent = "";
+      /* keep last known */
     }
   } else {
-    bal.textContent = "Connect a wallet to buy & save skins.";
-  }
-  grid.innerHTML = "";
-  for (let i = 0; i < SKIN_COUNT; i++) {
-    const owns = (owned & (1 << i)) !== 0;
-    const card = document.createElement("div");
-    card.className = "skin-card" + (i === equipped ? " equipped" : "") + (owns ? "" : " locked");
-    card.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
-    card.appendChild(el("div", "skin-name", SKIN_NAMES[i] ?? `Skin ${i}`));
-    if (i === equipped) {
-      const b = document.createElement("button");
-      b.textContent = "✔ Equipped";
-      b.disabled = true;
-      b.className = "ghost";
-      card.appendChild(b);
-    } else if (owns) {
-      const b = document.createElement("button");
-      b.textContent = "Equip";
-      b.className = "primary";
-      b.addEventListener("click", () => void doSelectSkin(i));
-      card.appendChild(b);
-    } else {
-      // Locked: unlock with chips (if level allows) OR buy instantly with token.
-      const needLevel = SKIN_UNLOCK_LEVEL[i] ?? 0;
-      const chipBtn = document.createElement("button");
-      if (level < needLevel) {
-        chipBtn.textContent = `🔒 LV ${needLevel}`;
-        chipBtn.disabled = true;
-        chipBtn.className = "ghost";
-      } else {
-        chipBtn.textContent = `🪙 ${SKIN_PRICES[i].toLocaleString()}`;
-        chipBtn.className = "primary";
-        chipBtn.addEventListener("click", () => void doBuySkin(i));
-      }
-      card.appendChild(chipBtn);
-      const tokBtn = document.createElement("button");
-      tokBtn.textContent = `💎 ${SKIN_TOKEN_PRICES[i].toLocaleString()}`;
-      tokBtn.className = "ghost token-buy";
-      tokBtn.addEventListener("click", () => void doBuySkinToken(i));
-      card.appendChild(tokBtn);
-    }
-    grid.appendChild(card);
+    shop.owned = DEFAULT_SKINS;
+    shop.equipped = Number(localStorage.getItem("bp_skin")) || 0;
+    shop.level = 1;
+    shop.chips = 0;
+    shop.tokens = 0;
   }
 }
 
+async function refreshSkinShop(): Promise<void> {
+  await loadShopData();
+  if (shopSelected < 0) shopSelected = shop.equipped;
+  const econ = document.getElementById("shop-econ");
+  if (econ) {
+    econ.innerHTML = shop.wallet
+      ? `<span>🪙 ${shop.chips.toLocaleString()}</span><span>💎 ${shop.tokens.toLocaleString()}</span><span>LV ${shop.level}</span>`
+      : `<span class="shop-econ-warn">Connect a wallet to buy &amp; save skins</span>`;
+  }
+  renderShopGrid();
+  renderShopDetail();
+}
+
+/** True if skin `i` matches the active filter. */
+function passesFilter(i: number): boolean {
+  switch (shopFilter) {
+    case "owned": return skinOwned(i);
+    case "available": return skinBuyableChips(i); // can unlock with chips right now
+    case "locked": return !skinOwned(i) && shop.level < (SKIN_UNLOCK_LEVEL[i] ?? 0);
+    default: return true;
+  }
+}
+
+function renderShopGrid(): void {
+  const grid = document.getElementById("shop-grid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  let shown = 0;
+  for (let i = 0; i < SKIN_COUNT; i++) {
+    if (!passesFilter(i)) continue;
+    shown++;
+    const owns = skinOwned(i);
+    const r = rarityOf(i);
+    const card = document.createElement("button");
+    card.className =
+      "shop-card" +
+      (i === shopSelected ? " selected" : "") +
+      (i === shop.equipped ? " equipped" : "") +
+      (owns ? " owned" : " unowned");
+    card.style.setProperty("--rarity", r.color);
+    card.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
+    card.appendChild(el("div", "shop-card-name", SKIN_NAMES[i] ?? `Skin ${i}`));
+    // Status line: equipped / owned / price / locked-by-level.
+    let tag: HTMLElement;
+    if (i === shop.equipped) tag = el("div", "shop-card-tag equipped", "✔ Equipped");
+    else if (owns) tag = el("div", "shop-card-tag owned", "Owned");
+    else if (shop.level < (SKIN_UNLOCK_LEVEL[i] ?? 0)) tag = el("div", "shop-card-tag locked", `🔒 LV ${SKIN_UNLOCK_LEVEL[i]}`);
+    else tag = el("div", "shop-card-tag price", `🪙 ${SKIN_PRICES[i].toLocaleString()}`);
+    card.appendChild(tag);
+    if (!owns) card.appendChild(el("div", "shop-card-rarity", r.name));
+    card.addEventListener("click", () => {
+      shopSelected = i;
+      renderShopGrid();
+      renderShopDetail();
+    });
+    grid.appendChild(card);
+  }
+  if (!shown) grid.appendChild(el("div", "shop-empty", "Nothing here — try another filter."));
+}
+
+const SHOP_TURN: Array<[string, number, boolean]> = [
+  ["down", 0, false], ["down", 1, false], ["down", 2, false],
+  ["side", 0, false], ["side", 1, false], ["side", 2, false],
+  ["up", 0, false], ["up", 1, false], ["up", 2, false],
+  ["side", 0, true], ["side", 1, true], ["side", 2, true],
+];
+let shopAnimTimer: ReturnType<typeof setInterval> | null = null;
+function animateShopPreview(skin: number): void {
+  const img = document.getElementById("shop-pic") as HTMLImageElement | null;
+  if (!img) return;
+  if (shopAnimTimer) clearInterval(shopAnimTimer);
+  let i = 0;
+  const step = (): void => {
+    if (document.getElementById("shop")?.classList.contains("hidden")) return; // paused off-screen
+    const [dir, f, flip] = SHOP_TURN[i % SHOP_TURN.length];
+    i++;
+    img.src = `/sprites/skin_${skin}_${dir}_${f}.webp?v=${ASSET_VER}`;
+    img.style.transform = flip ? "scaleX(-1)" : "none";
+  };
+  step();
+  shopAnimTimer = setInterval(step, 150);
+}
+
+function renderShopDetail(): void {
+  const panel = document.getElementById("shop-detail");
+  if (!panel) return;
+  const i = shopSelected;
+  const owns = skinOwned(i);
+  const r = rarityOf(i);
+  const needLevel = SKIN_UNLOCK_LEVEL[i] ?? 0;
+  const chipPrice = SKIN_PRICES[i];
+  const tokPrice = SKIN_TOKEN_PRICES[i];
+  panel.innerHTML = "";
+  panel.style.setProperty("--rarity", r.color);
+
+  const stage = el("div", "shop-stage", "");
+  const img = document.createElement("img");
+  img.id = "shop-pic";
+  img.className = "shop-pic";
+  stage.appendChild(img);
+  panel.appendChild(stage);
+
+  panel.appendChild(el("div", "shop-rarity-badge", r.name));
+  panel.appendChild(el("div", "shop-detail-name", SKIN_NAMES[i] ?? `Skin ${i}`));
+
+  const statusText =
+    i === shop.equipped ? "✔ Equipped" : owns ? "Owned" : needLevel && shop.level < needLevel ? `🔒 Unlocks at level ${needLevel}` : "Not owned";
+  panel.appendChild(el("div", "shop-detail-status", statusText));
+
+  const actions = el("div", "shop-actions", "");
+  if (i === shop.equipped) {
+    const b = document.createElement("button");
+    b.className = "primary big"; b.textContent = "✔ Equipped"; b.disabled = true;
+    actions.appendChild(b);
+  } else if (owns) {
+    const b = document.createElement("button");
+    b.className = "primary big"; b.textContent = "Equip";
+    b.addEventListener("click", () => void doSelectSkin(i));
+    actions.appendChild(b);
+  } else {
+    // Chips path (gated by level + balance), then token path.
+    const chip = document.createElement("button");
+    chip.className = "primary big";
+    if (shop.level < needLevel) {
+      chip.textContent = `🔒 Reach LV ${needLevel}`; chip.disabled = true;
+    } else if (shop.chips < chipPrice) {
+      chip.textContent = `🪙 ${chipPrice.toLocaleString()} — not enough`; chip.disabled = true;
+    } else {
+      chip.textContent = `Buy · 🪙 ${chipPrice.toLocaleString()}`;
+      chip.addEventListener("click", () => void doBuySkin(i));
+    }
+    actions.appendChild(chip);
+
+    const tok = document.createElement("button");
+    tok.className = "big shop-token-btn";
+    if (shop.tokens < tokPrice) {
+      tok.textContent = `💎 ${tokPrice.toLocaleString()} — not enough`; tok.disabled = true;
+    } else {
+      tok.textContent = `Buy instantly · 💎 ${tokPrice.toLocaleString()}`;
+      tok.addEventListener("click", () => void doBuySkinToken(i));
+    }
+    actions.appendChild(tok);
+    panel.appendChild(el("div", "shop-detail-hint", `Unlock with chips at LV ${needLevel || 1}, or skip the wait with 💎.`));
+  }
+  panel.appendChild(actions);
+  animateShopPreview(i);
+}
+
 async function doSelectSkin(skin: number): Promise<void> {
-  const status = document.getElementById("skin-status")!;
+  const status = document.getElementById("shop-status")!;
   if (!loadWallet()) {
     localStorage.setItem("bp_skin", String(skin)); // local-only without a wallet
+    shop.equipped = skin;
     void refreshSkinShop();
     return;
   }
@@ -1694,7 +1824,7 @@ async function doSelectSkin(skin: number): Promise<void> {
 }
 
 async function doBuySkin(skin: number): Promise<void> {
-  const status = document.getElementById("skin-status")!;
+  const status = document.getElementById("shop-status")!;
   if (!loadWallet()) {
     status.textContent = "Connect a wallet first.";
     return;
@@ -1717,7 +1847,7 @@ async function doBuySkin(skin: number): Promise<void> {
 }
 
 async function doBuySkinToken(skin: number): Promise<void> {
-  const status = document.getElementById("skin-status")!;
+  const status = document.getElementById("shop-status")!;
   if (!loadWallet()) {
     status.textContent = "Connect a wallet first.";
     return;
@@ -1735,9 +1865,12 @@ async function doBuySkinToken(skin: number): Promise<void> {
   void refreshSkinShop();
 }
 
-function openSkinShop(): void {
-  document.getElementById("skin-status")!.textContent = "";
-  document.getElementById("skin-modal")!.classList.remove("hidden");
+/** Open the SHOP screen. `from` is the screen ← returns to (hub or the lobby room). */
+function openSkinShop(from: ScreenName = "menu"): void {
+  shopReturn = from;
+  shopSelected = -1; // re-focus the equipped skin on open
+  document.getElementById("shop-status")!.textContent = "";
+  showScreen("shop");
   void refreshSkinShop();
 }
 
@@ -2036,11 +2169,19 @@ function wireMenuLinks(): void {
     btn.classList.add("active");
     loadHubTop();
   });
-  document.getElementById("open-skins")?.addEventListener("click", openSkinShop);
-  // Rail SHOP button opens the character shop.
-  document.getElementById("open-shop")?.addEventListener("click", openSkinShop);
-  document.getElementById("skin-close")!.addEventListener("click", () => {
-    document.getElementById("skin-modal")!.classList.add("hidden");
+  document.getElementById("open-skins")?.addEventListener("click", () => openSkinShop("menu"));
+  // Rail SHOP button opens the character shop (full screen).
+  document.getElementById("open-shop")?.addEventListener("click", () => openSkinShop("menu"));
+  // Shop filter chips switch which skins the grid shows.
+  document.querySelectorAll<HTMLElement>(".shop-filter").forEach((b) =>
+    b.addEventListener("click", () => {
+      shopFilter = (b.dataset.filter as ShopFilter) || "all";
+      document.querySelectorAll(".shop-filter").forEach((x) => x.classList.toggle("active", x === b));
+      renderShopGrid();
+    }),
+  );
+  document.getElementById("shop-back")!.addEventListener("click", () => {
+    showScreen(shopReturn); // back to the hub or the lobby room we came from
     refreshHub(); // reflect a newly equipped character on the hub
     // Owned skins may have changed — refresh the lobby strip if we're in a room.
     const w = loadWallet();
@@ -2290,7 +2431,7 @@ setSkinSelectHandler((skin) => {
   localStorage.setItem("bp_skin", String(skin)); // also your default everywhere
   refreshHub();
 });
-setShopHandler(openSkinShop);
+setShopHandler(() => openSkinShop("room"));
 
 // --- Lobby chat -------------------------------------------------------------
 let chatReadyAt = 0;

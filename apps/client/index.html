@@ -567,16 +567,27 @@
         </div>
       </div>
 
-      <!-- Skin shop -->
-      <div id="skin-modal" class="modal hidden">
-        <div class="modal-card skin-modal-card">
-          <h3>🛒 SHOP</h3>
-          <p id="skin-balance" class="prof-chips"></p>
-          <div id="skin-grid" class="skin-grid"></div>
-          <p id="skin-status" class="status"></p>
-          <button id="skin-close" class="ghost">Close</button>
+      <!-- Skin shop — full-screen game store: filters · grid · detail panel -->
+      <section id="shop" class="screen hidden">
+        <div class="shop-wrap">
+          <div class="shop-top">
+            <button id="shop-back" class="ghost lobby-icon">←</button>
+            <h2 class="lobby-title">🛒 SHOP</h2>
+            <div id="shop-econ" class="shop-econ"></div>
+          </div>
+          <div class="shop-body">
+            <aside class="shop-filters" id="shop-filters">
+              <button class="shop-filter active" data-filter="all">All</button>
+              <button class="shop-filter" data-filter="owned">Owned</button>
+              <button class="shop-filter" data-filter="available">Available now</button>
+              <button class="shop-filter" data-filter="locked">Locked</button>
+            </aside>
+            <div class="shop-grid" id="shop-grid"></div>
+            <aside class="shop-detail" id="shop-detail"></aside>
+          </div>
+          <p id="shop-status" class="status"></p>
         </div>
-      </div>
+      </section>
 
       <!-- Bank modal: deposit / withdraw the real token -->
       <div id="bank-modal" class="modal hidden">

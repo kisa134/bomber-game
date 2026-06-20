@@ -3163,57 +3163,221 @@ button.big {
   gap: 8px;
 }
 
-/* Skin shop */
-.skin-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 8px 0;
+/* --- SHOP (full-screen game store: filters · grid · focused detail panel) --- */
+#shop {
+  justify-content: flex-start;
+  padding: calc(var(--chrome-h, 120px) + 6px) 16px calc(12px + var(--sai-bottom));
 }
-.skin-card {
-  background: var(--bg2);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 10px;
+.shop-wrap {
+  width: min(1100px, 100%);
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.shop-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.shop-top .lobby-title {
+  flex: 1 1 auto;
+  text-align: center;
+}
+.shop-econ {
+  display: flex;
+  gap: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.shop-econ-warn {
+  color: var(--muted);
+  font-weight: 600;
+}
+.shop-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 150px 1fr 320px;
+  gap: 12px;
+}
+/* Filters */
+.shop-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.shop-filter {
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 700;
+}
+.shop-filter.active {
+  border-color: var(--accent);
+  background: rgba(255, 204, 51, 0.12);
+  color: var(--accent);
+}
+/* Grid */
+.shop-grid {
+  overflow-y: auto;
+  align-content: start;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 10px;
+  padding-right: 4px;
+}
+.shop-card {
+  --rarity: #9aa3b2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  background: rgba(13, 16, 26, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.1s ease;
 }
-.skin-card.equipped {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset;
+.shop-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--rarity);
 }
-.skin-card .avatar {
+.shop-card.selected {
+  border-color: var(--rarity);
+  box-shadow: 0 0 0 2px var(--rarity) inset, 0 8px 20px rgba(0, 0, 0, 0.4);
+}
+.shop-card.equipped {
+  background: rgba(57, 255, 155, 0.08);
+}
+.shop-card.unowned .avatar {
+  opacity: 0.55;
+  filter: grayscale(0.4);
+}
+.shop-card .avatar {
   width: 56px;
   height: 56px;
   font-size: 2rem;
 }
-.skin-card .avatar img {
+.shop-card .avatar img {
   width: 100%;
   height: 100%;
 }
-.skin-name {
+.shop-card-name {
+  font-weight: 800;
+  font-size: 0.86rem;
+}
+.shop-card-tag {
+  font-size: 0.76rem;
   font-weight: 700;
 }
-.skin-card button {
+.shop-card-tag.equipped {
+  color: #5fd96a;
+}
+.shop-card-tag.owned {
+  color: var(--muted);
+}
+.shop-card-tag.locked {
+  color: #ff9a9a;
+}
+.shop-card-tag.price {
+  color: var(--accent);
+}
+.shop-card-rarity {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rarity);
+}
+.shop-empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--muted);
+  padding: 30px;
+}
+/* Detail / preview panel */
+.shop-detail {
+  --rarity: #9aa3b2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 16px;
+  background: rgba(13, 16, 26, 0.55);
+  border: 1px solid var(--rarity);
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.35);
+}
+.shop-stage {
+  height: clamp(140px, 22vh, 220px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.shop-pic {
+  height: 100%;
+  width: auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.55));
+}
+.shop-rarity-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rarity);
+}
+.shop-detail-name {
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+.shop-detail-status {
+  color: var(--muted);
+  font-weight: 700;
+}
+.shop-detail-hint {
+  font-size: 0.76rem;
+  color: var(--muted);
+  text-align: center;
+}
+.shop-actions {
   width: 100%;
-  padding: 6px 8px;
-  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: auto;
 }
-/* Locked skins: dim the character so it reads as "not yours yet". */
-.skin-card.locked .avatar {
-  opacity: 0.4;
-  filter: grayscale(0.6);
+.shop-actions button {
+  width: 100%;
 }
-.skin-card .token-buy {
-  margin-top: 4px;
-  border-color: rgba(57, 255, 155, 0.4);
+.shop-token-btn {
+  border-color: rgba(57, 255, 155, 0.45);
   color: #b6ffd9;
-  font-size: 0.82rem;
 }
-.skin-card .token-buy:hover {
+.shop-token-btn:not(:disabled):hover {
   background: rgba(57, 255, 155, 0.14);
+}
+/* Mobile: stack the three zones; show the focused item on top. */
+@media (max-width: 760px) {
+  .shop-body {
+    grid-template-columns: 1fr;
+  }
+  .shop-filters {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .shop-detail {
+    order: -1;
+  }
+}
+/* Lobby character name (kept) */
+.skin-name {
+  font-weight: 700;
 }
 .prof-cell {
   background: rgba(255, 255, 255, 0.04);

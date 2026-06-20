@@ -131,6 +131,7 @@ export type ScreenName =
   | "settings"
   | "profile"
   | "leaderboard"
+  | "shop"
   | "lobby"
   | "training"
   | "room"
@@ -142,6 +143,7 @@ const SCREENS: ScreenName[] = [
   "settings",
   "profile",
   "leaderboard",
+  "shop",
   "lobby",
   "training",
   "room",
