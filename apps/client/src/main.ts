@@ -420,13 +420,20 @@ net.onMessage = (msg) => {
       const snap = state.latest();
       const pp = snap?.players.find((p) => p.id === msg.playerId);
       if (pp) renderer?.burst(Math.floor(pp.x), Math.floor(pp.y), "#7CFC00", 10, 3);
-      if (msg.playerId === state.myId) showPickupToast(msg.powerup);
+      if (pp && msg.playerId === state.myId) {
+        showPickupToast(msg.powerup);
+        renderer?.popText(pp.x, pp.y, POWERUP_META[msg.powerup].label, "#ffe14a"); // springy pickup popup
+      }
       break;
     }
     case ServerMsg.EVENT_KILL:
       killLines.push({ killerId: msg.killerId, victimId: msg.victimId, until: performance.now() + 4500 });
       if (killLines.length > 5) killLines.shift();
-      if (msg.killerId === state.myId && msg.victimId !== state.myId) registerMyKill();
+      if (msg.killerId === state.myId && msg.victimId !== state.myId) {
+        registerMyKill();
+        const v = state.latest()?.players.find((p) => p.id === msg.victimId);
+        if (v) renderer?.popText(v.x, v.y, "FRAG!", "#ff5a4a", true); // elastic kill reward popup
+      }
       break;
     case ServerMsg.EVENT_PLAYER_DEATH: {
       assets.play("die");

@@ -138,6 +138,8 @@ export class Renderer {
   // Foot-shaped blood prints left while walking with bloody feet (x,y in cells; dx,dy = facing).
   private footprints: Array<{ x: number; y: number; dx: number; dy: number; a: number; seed: number }> = [];
   private bones: Array<{ x: number; y: number; seed: number }> = []; // scattered bone-shard decals (x,y in cells)
+  // Floating reward/event popups that pop in with ease-out-back/elastic, rise, fade.
+  private floaters: Array<{ x: number; y: number; text: string; color: string; born: number; big: boolean }> = [];
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
   private scorch: HTMLCanvasElement | null = null; // cached burnt-ground overlay
   private scorchDirty = false;
@@ -326,6 +328,7 @@ export class Renderer {
     this.lastCell.clear();
     this.footprints = [];
     this.bones = [];
+    this.floaters = [];
     this.danger = 0;
     this.shatters.length = 0;
     this.scorch = null;
@@ -371,6 +374,47 @@ export class Renderer {
       this.shakeDur = ms;
       this.shakeMag = mag;
       this.shakePh = Math.random() * Math.PI * 2;
+    }
+  }
+
+  /** Spawn a floating popup at a world cell (x,y in cells) that pops in with an
+   *  ease-out-back overshoot (or elastic when `big`), rises, and fades. */
+  popText(x: number, y: number, text: string, color: string, big = false): void {
+    this.floaters.push({ x: x + 0.5, y, text, color, born: performance.now(), big });
+    if (this.floaters.length > 24) this.floaters.shift();
+  }
+
+  private drawFloaters(now: number): void {
+    if (!this.floaters.length) return;
+    const ctx = this.ctx, t = this.tile;
+    const life = 1050;
+    const c1 = 1.70158, c3 = c1 + 1;
+    for (let i = this.floaters.length - 1; i >= 0; i--) {
+      const f = this.floaters[i];
+      const age = now - f.born;
+      if (age >= life) { this.floaters.splice(i, 1); continue; }
+      const k = age / life;
+      const pin = Math.min(1, age / (f.big ? 460 : 240));
+      // ease-out-back (overshoot) for normal, ease-out-elastic for big rewards.
+      const s = f.big
+        ? (pin >= 1 ? 1 : Math.pow(2, -10 * pin) * Math.sin((pin * 10 - 0.75) * (2 * Math.PI / 3)) + 1)
+        : 1 + c3 * Math.pow(pin - 1, 3) + c1 * Math.pow(pin - 1, 2);
+      const rise = (f.big ? 0.5 : 0.85) * k;
+      const alpha = k > 0.6 ? (1 - k) / 0.4 : 1;
+      const px = f.x * t, py = (f.y - 0.4 - rise) * t;
+      const fs = Math.max(1, Math.round(t * (f.big ? 0.5 : 0.34) * Math.max(0.04, s)));
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+      ctx.font = `900 ${fs}px "Arial Black", "Arial", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = Math.max(2, fs * 0.2);
+      ctx.strokeStyle = "#180008";
+      ctx.strokeText(f.text, px, py);
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, px, py);
+      ctx.restore();
     }
   }
 
@@ -976,6 +1020,7 @@ export class Renderer {
     this.drawPlayers(view, myId, now);
     this.drawLights(now);
     this.updateParticles(dt);
+    this.drawFloaters(now); // upbeat reward/event popups (ease-out-back / elastic)
     ctx.restore();
 
     if (!this.lowFx) this.drawAmbient(W, H); // warm key light + vignette for depth
