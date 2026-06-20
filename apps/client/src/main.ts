@@ -149,6 +149,9 @@ const prevLives = new Map<number, number>(); // per-player HP, to sfx wounds
 let prevBombIds = new Set<number>(); // bomb ids last seen, to detect placements
 let iGotFirstBlood = false; // did the local player take first blood this match
 let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean } | null = null;
+// Handle for the 3s "result screen" timer, so a new match starting within that
+// window can cancel the previous match's deferred result (no overlay/stale data).
+let announceTimer: ReturnType<typeof setTimeout> | null = null;
 
 const inGame = (p: MatchPhase) =>
   p === MatchPhase.COUNTDOWN || p === MatchPhase.PLAYING || p === MatchPhase.SUDDEN_DEATH;
@@ -431,6 +434,13 @@ net.onMessage = (msg) => {
 // --- game lifecycle -------------------------------------------------------
 
 function enterGame(): void {
+  // A new match is starting in this room — drop any pending result screen and
+  // wipe the previous match's playback state so it can't bleed into this one.
+  if (announceTimer) {
+    clearTimeout(announceTimer);
+    announceTimer = null;
+  }
+  state.newMatch();
   const canvas = document.getElementById("canvas") as HTMLCanvasElement;
   if (!renderer) {
     renderer = new Renderer(canvas);
@@ -482,8 +492,13 @@ function announceResult(winnerId: number): void {
   // Settlement (chips) + rating update happened server-side. Refresh the wallet
   // and show the chip swing AND the rating change on the result screen.
   const stake = state.roomStake;
-  const won = winnerId === state.myId;
+  // Guard against a never-assigned id (-1) matching some sentinel; you only won
+  // if you have a real seat AND you're the winner.
+  const won = state.myId >= 0 && winnerId === state.myId;
   const draw = winnerId === DRAW_WINNER_ID;
+  // Snapshot the FINAL players of THIS match now — the 3s result timer below must
+  // not read state.latest() later (a new match may have overwritten the buffer).
+  const finalPlayers = [...(state.latest()?.players ?? [])];
   const sym = state.roomCurrency === 1 ? "💎" : "🪙";
   let chipNote = "";
   if (stake > 0) {
@@ -524,13 +539,14 @@ function announceResult(winnerId: number): void {
       })
       .catch(() => {});
   }
-  setTimeout(() => {
+  announceTimer = setTimeout(() => {
+    announceTimer = null;
     showResult(title);
     const lobbyBtn = document.getElementById("result-lobby")!;
     lobbyBtn.textContent = practiceMode ? "🔁 Play again" : "↩ Back to lobby";
-    // Render the board here (not earlier): by now the final snapshot — the one
-    // carrying the killing blow's frag — has arrived, so kill counts are right.
-    renderResultBoard(winnerId);
+    // Use the players captured at MATCH_END (not state.latest(), which a new
+    // match may have overwritten) so placement/frags reflect THIS match.
+    renderResultBoard(winnerId, finalPlayers);
     const fair = document.getElementById("result-fair")!;
     fair.textContent =
       state.seed && state.seedCommit
@@ -539,11 +555,11 @@ function announceResult(winnerId: number): void {
   }, 3000); // linger on the battlefield (corpses + blood) before the scoreboard
 }
 
-/** Final scoreboard on the result screen: placement, frags, your row marked. */
-function renderResultBoard(winnerId: number): void {
+/** Final scoreboard on the result screen: placement, frags, your row marked.
+ *  `players` is captured at MATCH_END so it reflects the match that just ended. */
+function renderResultBoard(winnerId: number, players: { id: number; alive: boolean; frags: number }[]): void {
   const board = document.getElementById("result-board");
   if (!board) return;
-  const players = state.latest()?.players ?? [];
   // Winner first, then by frags, then survivors above the fallen.
   const ranked = [...players].sort((a, b) => {
     if (a.id === winnerId) return -1;
@@ -1989,6 +2005,7 @@ document.getElementById("lobby-code-join")!.addEventListener("click", () => {
   const code = (inp?.value || "").trim().toUpperCase();
   if (code.length < 3) return;
   const name = (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
+  practiceMode = false; // joining a real room — "Back to lobby", not "Play again"
   track("play_start", { mode: "join" });
   void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
 });
@@ -2011,10 +2028,12 @@ function loadTables(): Promise<void> {
         const t = tables.find((x) => x.code === code);
         if (t && !walletGate(t.stake, t.currency)) return; // staked → needs wallet
         const name = (localStorage.getItem("bp_nick") || "pumper").trim();
+        practiceMode = false; // real room → "Back to lobby", not "Play again"
         track("play_start", { mode: "table_join" });
         void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
       },
       (code) => {
+        practiceMode = false;
         track("spectate", { code });
         void connect(() => watchMatch(code));
       },
@@ -2037,15 +2056,20 @@ document.getElementById("ready-btn")!.addEventListener("click", () => {
 // --- stake-raise vote (anyone proposes; everyone votes within 30s) ----------
 const stakeSym = (): string => (state.roomCurrency === 1 ? "💎" : "🪙");
 let stakeVoteTimer: ReturnType<typeof setInterval> | null = null;
+// The proposal the local player has already voted on (so the Accept/Decline
+// buttons don't reappear on the next tally update). Keyed by proposer:stake.
+let votedProposalKey: string | null = null;
 
 function onStakeVote(msg: {
   stake: number; by: number; msLeft: number; yes: number; total: number; closed: boolean; accepted: boolean;
 }): void {
   const banner = document.getElementById("stake-vote")!;
   if (stakeVoteTimer) { clearInterval(stakeVoteTimer); stakeVoteTimer = null; }
+  const key = `${msg.by}:${msg.stake}`;
   if (msg.closed) {
     banner.classList.add("hidden");
     document.getElementById("propose-picker")!.classList.add("hidden");
+    votedProposalKey = null; // ready for the next proposal
     showBanner(msg.accepted ? `Stake raised to ${stakeSym()}${msg.stake.toLocaleString()}` : "Stake raise declined");
     return;
   }
@@ -2054,11 +2078,20 @@ function onStakeVote(msg: {
   const who = mine ? "You propose" : `${state.nameOf(msg.by)} proposes`;
   const render = (): void => {
     const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    // Show Accept/Decline only to non-proposers who haven't voted yet; once you
+    // vote the buttons vanish and you just see the live tally.
+    const canVote = !mine && votedProposalKey !== key;
+    const voted = !mine && votedProposalKey === key;
     banner.innerHTML =
-      `<div class="sv-text">${who} raising to <b>${stakeSym()}${msg.stake.toLocaleString()}</b> · ${left}s · ${msg.yes}/${msg.total} ✅</div>` +
-      (mine ? "" : `<div class="sv-actions"><button id="sv-yes" class="primary">✅ Accept</button><button id="sv-no" class="ghost">❌ Decline</button></div>`);
-    document.getElementById("sv-yes")?.addEventListener("click", () => { net.sendVoteStake(true); banner.classList.add("hidden"); });
-    document.getElementById("sv-no")?.addEventListener("click", () => { net.sendVoteStake(false); banner.classList.add("hidden"); });
+      `<div class="sv-text">${who} raising to <b>${stakeSym()}${msg.stake.toLocaleString()}</b> · ${left}s · ${msg.yes}/${msg.total} ✅${voted ? " · you voted ✓" : ""}</div>` +
+      (canVote ? `<div class="sv-actions"><button id="sv-yes" class="primary">✅ Accept</button><button id="sv-no" class="ghost">❌ Decline</button></div>` : "");
+    const vote = (accept: boolean): void => {
+      net.sendVoteStake(accept);
+      votedProposalKey = key; // remember so buttons don't return on the next update
+      render(); // immediately drop the buttons, keep the tally visible
+    };
+    document.getElementById("sv-yes")?.addEventListener("click", () => vote(true));
+    document.getElementById("sv-no")?.addEventListener("click", () => vote(false));
   };
   banner.classList.remove("hidden");
   render();
@@ -2135,6 +2168,7 @@ function onResultScreen(): boolean {
 
 function leaveToMenu(): void {
   spectating = false;
+  practiceMode = false; // don't carry "Play again" into the next game
   net.close();
   assets.stop("sudden_death");
   state.reset();

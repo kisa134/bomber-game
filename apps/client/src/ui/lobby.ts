@@ -161,8 +161,9 @@ export function setupMenu(h: MenuHandlers): void {
   });
 }
 
-/** Stake filter for the public tables browser (-1 = show all). */
-let tableFilter = -1;
+/** Currency-category filter for the public tables browser. */
+type TableFilter = "all" | "free" | "chips" | "token";
+let tableFilter: TableFilter = "all";
 /** Sort order for the browser. */
 type TableSort = "stake-desc" | "stake-asc" | "players-desc" | "players-asc";
 let tableSort: TableSort = "players-desc";
@@ -189,13 +190,17 @@ function drawTables(): void {
   const head = document.getElementById("tables-sort");
   if (!list || !filter) return;
 
-  // Filter chips: All + each stake currently present among open tables.
-  const stakes = Array.from(new Set(lastTables.map((t) => t.stake))).sort((a, b) => a - b);
-  const chips: Array<{ v: number; label: string }> = [
-    { v: -1, label: "All" },
-    ...stakes.map((s) => ({ v: s, label: s > 0 ? `🪙${s}` : "Casual" })),
-  ];
-  filter.classList.toggle("hidden", lastTables.length === 0);
+  // Filter chips by currency category — only show categories actually present,
+  // each with the CORRECT symbol (🆓 free / 🪙 chips / 💎 token).
+  const hasFree = lastTables.some((t) => t.stake === 0);
+  const hasChips = lastTables.some((t) => t.currency === 0 && t.stake > 0);
+  const hasToken = lastTables.some((t) => t.currency === 1);
+  const chips: Array<{ v: TableFilter; label: string }> = [{ v: "all", label: "All" }];
+  if (hasFree) chips.push({ v: "free", label: "🆓 Free" });
+  if (hasChips) chips.push({ v: "chips", label: "🪙 Chips" });
+  if (hasToken) chips.push({ v: "token", label: "💎 Token" });
+  // Only one real category present → the chips add nothing; hide them.
+  filter.classList.toggle("hidden", lastTables.length === 0 || chips.length <= 2);
   filter.innerHTML = "";
   for (const c of chips) {
     const b = document.createElement("button");
@@ -238,7 +243,15 @@ function drawTables(): void {
     );
   }
 
-  const shown = (tableFilter === -1 ? lastTables : lastTables.filter((t) => t.stake === tableFilter)).slice();
+  const matchesFilter = (t: TableInfo): boolean => {
+    switch (tableFilter) {
+      case "free": return t.stake === 0;
+      case "chips": return t.currency === 0 && t.stake > 0;
+      case "token": return t.currency === 1;
+      default: return true; // "all"
+    }
+  };
+  const shown = lastTables.filter(matchesFilter).slice();
   shown.sort((a, b) => {
     switch (tableSort) {
       case "stake-desc": return b.stake - a.stake || b.players - a.players;
@@ -256,15 +269,20 @@ function drawTables(): void {
     const row = document.createElement("button");
     row.className = "table-row" + (t.live ? " live" : "");
     const sym = t.currency === 1 ? "💎" : "🪙";
-    const tag = t.stake > 0 ? `${sym} ${t.stake.toLocaleString()}` : "🆓 FREE";
-    const pot = t.stake > 0 ? `pot ${sym}${(t.stake * t.players).toLocaleString()}` : "casual";
+    const isToken = t.currency === 1;
+    const potVal = t.stake * t.players; // total on the line right now
+    const usd = isToken ? usdSuffix(potVal) : "";
+    // Buy-in (the stake one player puts up) — the headline figure.
+    const stakeTag = t.stake > 0 ? `${sym}${t.stake.toLocaleString()}` : "🆓 FREE";
+    // What's actually at stake: the whole pot (winner takes it), + USD for token.
+    const potTag = t.stake > 0 ? `🏆 pot ${sym}${potVal.toLocaleString()}${usd}` : "casual · for fun";
     const action = t.live ? "👁 Watch" : "Join";
     // Staked tables need a connected wallet — flag them with a lock.
     const lock = !t.live && t.stake > 0 && !hasWallet ? "🔒 " : "";
     const status = t.live ? "in progress" : t.players >= t.max ? "full" : t.players >= 2 ? "filling…" : "open";
-    const label = t.live ? "🔴 LIVE" : lock + tag;
+    const label = t.live ? "🔴 LIVE" : lock + stakeTag;
     row.innerHTML =
-      `<span class="td-stake">${label}<small>${pot}</small></span>` +
+      `<span class="td-stake">${label}<small>${potTag}</small></span>` +
       `<span class="td-players">${t.players}/${t.max}<small>${status}</small></span>` +
       `<span class="td-action">${action}</span>`;
     row.addEventListener("click", () => (t.live ? lastOnWatch(t.code) : lastOnJoin(t.code)));

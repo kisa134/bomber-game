@@ -307,6 +307,18 @@ export class Renderer {
     this.shatters.length = 0;
     this.scorch = null;
     this.scorchDirty = false;
+    // Per-match caches that must NOT bleed across a rematch in the same room:
+    // otherwise the first new grid diffs against the old one (spurious debris),
+    // and stale positions/emotes/particles flash on top of the new match.
+    this.prevGrid = null;
+    this.fireStart.clear();
+    this.lastPos.clear();
+    this.facing.clear();
+    this.deadAt.clear();
+    this.emotes.clear();
+    this.particles.length = 0;
+    this.decals.length = 0;
+    this.lights.length = 0;
   }
 
   /** Transient action poses (fall back to the walk frame if the skin has no

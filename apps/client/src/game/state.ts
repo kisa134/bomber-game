@@ -200,7 +200,10 @@ export class GameState {
     return { players, bombs, grid: this.grid };
   }
 
-  reset(): void {
+  /** Clear per-match playback state (snapshot buffer, grid, winner, clock)
+   *  WITHOUT touching the current phase — used when a NEW match begins in the
+   *  same room (rematch / play-again) so the previous match can't bleed in. */
+  newMatch(): void {
     this.buffer = [];
     this.clockReady = false;
     this.clockOffset = 0;
@@ -209,6 +212,10 @@ export class GameState {
     this.interpDelay = MIN_DELAY;
     this.grid.fill(0);
     this.winnerId = -1;
+  }
+
+  reset(): void {
+    this.newMatch();
     this.phase = MatchPhase.LOBBY;
   }
 }

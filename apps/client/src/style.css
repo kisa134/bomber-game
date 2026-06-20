@@ -694,12 +694,13 @@ button.ghost {
   flex: none;
 }
 
-/* Smooth hover lift on room rows (glass terminal feel) */
+/* Room rows: highlight on hover (border + subtle glow), no lift/jump. */
 .table-row {
-  transition: transform 0.12s ease, border-color 0.12s ease;
+  transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
 }
 .table-row:hover {
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
 }
 
 /* Stack the Bento cards on narrow screens */
