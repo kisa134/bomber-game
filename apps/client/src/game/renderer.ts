@@ -685,13 +685,13 @@ export class Renderer {
             this.markBlockBlood(ni, -dx, -dy);
             this.markBlockBlood(ni, -dx, -dy); // doubled -> heavy splatter on the face
           } else {
-            this.markGround(ni, dx === 0 || dy === 0 ? 4 : 3); // drenched neighbours
+            this.markGround(ni, dx === 0 || dy === 0 ? 3 : 2); // tight pool that falls off fast
           }
-        } else { // outer ring: scattered spray
+        } else { // outer ring: only the odd satellite speck (keep the pool concentrated)
           if (isBlock) {
-            if (Math.random() < 0.5) this.markBlockBlood(ni, -dx, -dy);
-          } else if (Math.random() < 0.7) {
-            this.markGround(ni, 1 + (Math.random() < 0.4 ? 1 : 0));
+            if (Math.random() < 0.3) this.markBlockBlood(ni, -dx, -dy);
+          } else if (Math.random() < 0.3) {
+            this.markGround(ni, 1);
           }
         }
       }
@@ -811,7 +811,7 @@ export class Renderer {
           // bilinear intensity (smooth radial falloff from the epicentre)
           const i00 = cellI(cx0, cy0), i10 = cellI(cx0 + 1, cy0), i01 = cellI(cx0, cy0 + 1), i11 = cellI(cx0 + 1, cy0 + 1);
           const inten = (i00 * (1 - tx) + i10 * tx) * (1 - ty) + (i01 * (1 - tx) + i11 * tx) * ty;
-          if (inten < 0.18) continue;
+          if (inten < 1.1) continue; // higher threshold -> clean grass BETWEEN pools (no red carpet)
           const norm = Math.min(1, inten / 6); // 0..1 (1 = epicentre)
           // global continuous noise (absolute coords) -> organic breakup, no tile repeat
           let cn = (((gx / (pu * 3)) | 0) * 374761393 ^ ((gy / (pu * 3)) | 0) * 668265263) >>> 0; cn = ((cn ^ (cn >>> 13)) * 1274126177) >>> 0; const coarse = (cn & 1023) / 1023;
@@ -819,7 +819,7 @@ export class Renderer {
           const bk = Math.max(bakeI(cx0, cy0), bakeI(cx0 + 1, cy0), bakeI(cx0, cy0 + 1), bakeI(cx0 + 1, cy0 + 1));
           // coverage: fresh blood falls off with intensity; CHARRED blood is dense
           // (the burn fills the cell), so it reads as a solid scorched-black patch.
-          const cov = bk > 0 ? Math.min(1, 0.5 + 0.45 * coarse) : norm * (0.32 + 0.95 * coarse);
+          const cov = bk > 0 ? Math.min(1, 0.5 + 0.45 * coarse) : norm * norm * (0.5 + 0.9 * coarse); // norm² -> concentrated near the epicentre, sparse at edges
           if (fine > cov) continue;
           if (bk > 0) { // baked: dark crust -> charcoal/black with the odd ember
             const darken = 1 - (bk - 1) * 0.46; // 1.0 / 0.54 / 0.08
@@ -828,18 +828,18 @@ export class Renderer {
             else { const br = Math.max(3, ((14 + (fn % 32)) * darken) | 0); g.fillStyle = `rgb(${br},${(br * (0.38 - (bk - 1) * 0.13)) | 0},${(br * 0.2) | 0})`; }
           } else { // fresh: a deep MEATY dark-red pool at the epicentre, varied tones,
             // thinning to lighter transparent traces outward.
-            g.globalAlpha = Math.min(0.94, 0.3 + norm * 0.66);
+            g.globalAlpha = Math.min(0.95, 0.35 + norm * 0.6);
             const tone = (fn >> 7) & 7;
-            if (tone === 7 && norm > 0.5 && (fn & 7) < 2) {
-              g.fillStyle = `rgb(${180 + (fn % 55)},${64 + (fn % 36)},62)`; // wet glint near the pool
+            if (tone === 7 && norm > 0.65 && (fn & 15) < 2) {
+              g.fillStyle = `rgb(${150 + (fn % 45)},${52 + (fn % 30)},50)`; // rare wet glint at the pool core
             } else {
-              // pick a base tone: near-black clots, very dark, mid, occasional brighter fleck
+              // darker palette: mostly near-black clots / dark maroon, a few mid reds.
               let base: number;
-              if (tone === 0) base = 16 + (fn % 18);       // near-black clot
-              else if (tone <= 2) base = 30 + (fn % 26);   // very dark maroon
-              else if (tone === 6) base = 110 + (fn % 60); // brighter fresh fleck
-              else base = 52 + (fn % 56);                  // mid dark red
-              const rr = Math.max(8, (base * (0.38 + 0.62 * (1 - norm * 0.85))) | 0); // darkest/meatiest at the centre
+              if (tone <= 1) base = 14 + (fn % 16);        // near-black clot
+              else if (tone <= 4) base = 26 + (fn % 24);   // very dark maroon (most of it)
+              else if (tone === 7) base = 74 + (fn % 40);  // occasional brighter fleck
+              else base = 40 + (fn % 38);                  // mid dark red
+              const rr = Math.max(7, (base * (0.42 + 0.58 * (1 - norm * 0.8))) | 0); // darkest/meatiest at the centre
               const gtone = 0.07 + ((fn >> 4) & 3) * 0.025; // subtle green variation for richness
               g.fillStyle = `rgb(${rr},${(rr * gtone) | 0},${(rr * 0.06) | 0})`;
             }
@@ -1507,7 +1507,8 @@ export class Renderer {
             const jx = (Math.random() - 0.5) * 0.16, jy = (Math.random() - 0.5) * 0.16;
             this.footprints.push({ x: ccx + jx - uy * off, y: ccy + jy + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
             if (this.footprints.length > 160) this.footprints.shift();
-            if (feet >= 10) this.markGround(ci, 1); // smeared blotch under the freshest steps
+            // (footprints are drawn as their own smears — they no longer add to the
+            // ground-blood field, which used to carpet the whole map in thin red.)
             this.bloodDirty = true;
           }
         }
