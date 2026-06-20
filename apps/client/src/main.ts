@@ -335,6 +335,7 @@ net.onMessage = (msg) => {
         if (prev !== undefined && p.alive && p.lives > 0 && p.lives < prev) {
           assets.play(Math.random() < 0.5 ? "wound" : "wound2");
           renderer?.setHurt(p.id);
+          renderer?.flash(p.id === state.myId ? 0.6 : 0.22); // white impact flash, strong when it's you
         }
         prevLives.set(p.id, p.lives);
       }
@@ -427,6 +428,7 @@ net.onMessage = (msg) => {
       const snap = state.latest();
       const dp = snap?.players.find((p) => p.id === msg.playerId);
       if (dp) renderer?.onDeath(Math.floor(dp.x), Math.floor(dp.y), PLAYER_COLORS[dp.id % PLAYER_COLORS.length]);
+      renderer?.flash(msg.playerId === state.myId ? 0.7 : 0.45); // white impact flash on a kill
       if (msg.playerId === state.myId) flashHit();
       break;
     }

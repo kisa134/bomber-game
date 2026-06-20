@@ -132,6 +132,7 @@ export class Renderer {
   private bloodGround = new Map<number, number>();
   private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
   private bloodDirty = false;
+  private bakedBlood = new Set<number>(); // blood cells scorched by a blast -> dried/baked dark crust
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
   private lastCell = new Map<number, number>(); // player id -> last grid cell (footprint stepping)
   // Foot-shaped blood prints left while walking with bloody feet (x,y in cells; dx,dy = facing).
@@ -146,6 +147,7 @@ export class Renderer {
   private shakeDur = 0;
   private shakeMag = 0;
   private shakePh = 0;
+  private impactFlash = 0; // screen-space white impact flash (decays over 1-3 frames)
   private lastTime = performance.now();
 
   private lastW = -1;
@@ -316,6 +318,7 @@ export class Renderer {
     this.hardDmg.clear();
     this.bloodBlocks.clear();
     this.bloodGround.clear();
+    this.bakedBlood.clear();
     this.bloodCanvas = null;
     this.bloodDirty = false;
     this.bloodyFeet.clear();
@@ -353,6 +356,25 @@ export class Renderer {
   /** Show a reaction bubble above a player for a short time. */
   showEmote(playerId: number, e: string): void {
     this.emotes.set(playerId, { e, until: performance.now() + 1800 });
+  }
+
+  /** Cross-modal impact flash: a brief screen-space white pop synced to a hit/kill/
+   *  blast (per the dopamine doc: white-flash on impact, ~1-3 frames). */
+  flash(strength: number): void {
+    if (this.lowFx && strength < 0.45) return; // keep only the big ones on phones
+    this.impactFlash = Math.max(this.impactFlash, Math.min(1, strength));
+  }
+
+  private drawImpactFlash(W: number, H: number): void {
+    if (this.impactFlash <= 0.01) return;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha = Math.min(0.7, this.impactFlash * 0.7);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+    this.impactFlash *= 0.4; // fade out fast -> a 1-3 frame flash, not a strobe
+    if (this.impactFlash < 0.02) this.impactFlash = 0;
   }
 
   shake(mag: number, ms = 250): void {
@@ -404,7 +426,9 @@ export class Renderer {
       const idx = c.y * GRID_W + c.x;
       this.burn.set(idx, Math.min(6, (this.burn.get(idx) ?? 0) + 1));
       this.scorchDirty = true;
-      if (this.bloodGround.delete(idx)) this.bloodDirty = true; // blast scorches blood off too
+      // A blast doesn't wipe blood — it BAKES it into a dried dark crust, so the
+      // field only gets grimier over the match.
+      if (this.bloodGround.has(idx) && !this.bakedBlood.has(idx)) { this.bakedBlood.add(idx); this.bloodDirty = true; }
       if (this.prevGrid) {
         for (const [dx, dy] of NB) {
           const nx = c.x + dx, ny = c.y + dy;
@@ -434,13 +458,6 @@ export class Renderer {
           }
         }
       }
-    }
-    // Burn away any footprints sitting on the blast cells.
-    if (this.footprints.length) {
-      const blast = new Set(cells.map((c) => c.y * GRID_W + c.x));
-      const before = this.footprints.length;
-      this.footprints = this.footprints.filter((f) => !blast.has((f.y | 0) * GRID_W + (f.x | 0)));
-      if (this.footprints.length !== before) this.bloodDirty = true;
     }
     if (this.lowFx) return; // phones: explosion tiles still render; skip the heavy VFX
     for (const c of cells) {
@@ -488,6 +505,7 @@ export class Renderer {
       if (this.lights.length > 80) this.lights.shift();
     }
     this.shake(Math.min(13, 5 + cells.length * 0.7), 240);
+    this.flash(Math.min(0.4, 0.16 + cells.length * 0.03)); // bright blast impact flash
   }
 
   onDeath(cx: number, cy: number, color: string): void {
@@ -602,8 +620,9 @@ export class Renderer {
       // driven by value-noise (NOT a clean circle), and varies cell to cell.
       let s = (idx * 2654435761) >>> 0;
       s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0;
-      const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.62, 0.12 + lvl * 0.13);
-      g.globalAlpha = Math.min(0.94, 0.5 + lvl * 0.08);
+      const baked = this.bakedBlood.has(idx); // scorched by a blast -> dried crust
+      const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14);
+      g.globalAlpha = Math.min(0.95, (baked ? 0.6 : 0.5) + lvl * 0.08);
       const NB = pu * 4; // coarse noise block -> irregular outline/holes
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
@@ -613,10 +632,15 @@ export class Renderer {
           const cn = (n & 1023) / 1023; // coarse clump field
           let f = (idx * 97 + gx * 131 + gy * 923) >>> 0;
           f = (f ^ (f << 13)) >>> 0; f = (f ^ (f >>> 17)) >>> 0; f = (f ^ (f << 5)) >>> 0;
-          const localCover = cover * (0.45 + cn * 1.15); // clumps -> blotchy edges
+          const localCover = cover * ((baked ? 0.6 : 0.45) + cn * 1.15); // crust spreads more
           if ((f & 1023) / 1023 > Math.min(1, localCover)) continue;
-          const r = 58 + (f % 96); // dark crimson with brighter gore flecks
-          g.fillStyle = `rgb(${r},${(r * 0.09) | 0},${(r * 0.07) | 0})`;
+          if (baked) {
+            const br = 36 + (f % 46); // dark brown/maroon dried crust
+            g.fillStyle = `rgb(${br},${(br * 0.42) | 0},${(br * 0.2) | 0})`;
+          } else {
+            const r = 58 + (f % 96); // fresh dark crimson with brighter gore flecks
+            g.fillStyle = `rgb(${r},${(r * 0.09) | 0},${(r * 0.07) | 0})`;
+          }
           g.fillRect(ox + gx, oy + gy, pu, pu);
         }
       }
@@ -885,6 +909,7 @@ export class Renderer {
 
     if (!this.lowFx) this.drawAmbient(W, H); // warm key light + vignette for depth
     this.drawFirstBlood(now); // screen-space announcement, above the world
+    this.drawImpactFlash(W, H); // white impact flash, on top of everything
   }
 
   private drawPlayers(view: RenderView, myId: number, now: number): void {
@@ -1027,16 +1052,17 @@ export class Renderer {
           this.lastCell.set(p.id, ci);
           let mdx = 0, mdy = 0; // travel direction (from the previous cell)
           if (prevCi !== undefined) { mdx = (ci % GRID_W) - (prevCi % GRID_W); mdy = ((ci / GRID_W) | 0) - ((prevCi / GRID_W) | 0); }
-          if ((this.bloodGround.get(ci) ?? 0) >= 3) this.bloodyFeet.set(p.id, 8); // stepped in a pool
+          if ((this.bloodGround.get(ci) ?? 0) >= 3) this.bloodyFeet.set(p.id, 12); // stepped in a pool -> long bloody trail
           const feet = this.bloodyFeet.get(p.id) ?? 0;
           if (feet > 0 && (mdx || mdy)) {
             this.bloodyFeet.set(p.id, feet - 1);
-            // First ~2 cells smear strongly, then fade.
-            const a = feet >= 7 ? 0.8 : feet >= 5 ? 0.5 : feet >= 3 ? 0.3 : 0.18;
+            // First ~2 cells smear strongly, then fade over the trail.
+            const a = feet >= 10 ? 0.85 : feet >= 7 ? 0.55 : feet >= 4 ? 0.34 : 0.2;
             let ux = mdx, uy = mdy; const mm = Math.hypot(ux, uy) || 1; ux /= mm; uy /= mm;
             const off = ((feet & 1) === 0 ? -1 : 1) * 0.14; // alternate left/right foot
             this.footprints.push({ x: rp.x + 0.5 - uy * off, y: rp.y + 0.5 + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
-            if (this.footprints.length > 140) this.footprints.shift();
+            if (this.footprints.length > 160) this.footprints.shift();
+            if (feet >= 10) this.markGround(ci, 1); // smeared blotch under the freshest steps
             this.bloodDirty = true;
           }
         }
@@ -1567,8 +1593,10 @@ export class Renderer {
         // Swap to the damage-stage sprite (1..6), picking one of two variants per
         // cell so neighbouring blocks crack differently. Fall back to the pristine
         // block + procedural cracks if a frame isn't loaded.
-        const variant = (((index * 2654435761) >>> 0) % 2) + 1;
-        if (!(dmg > 0 && this.drawTileSprite(`hard_dmg${dmg}_v${variant}`, px, py))) {
+        const hseed = (index * 2654435761) >>> 0;
+        const variant = (hseed % 2) + 1;
+        const flip = ((hseed >> 3) & 1) === 1; // mirror half the blocks -> 2x more looks per stage
+        if (!(dmg > 0 && this.drawTileSprite(`hard_dmg${dmg}_v${variant}`, px, py, flip))) {
           this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
           if (dmg > 0) this.drawCracks(px, py, index);
         }
@@ -1684,10 +1712,20 @@ export class Renderer {
     }
   }
 
-  private drawTileSprite(key: string, px: number, py: number): boolean {
+  private drawTileSprite(key: string, px: number, py: number, flip = false): boolean {
     const img = this.sprite(key); // pre-scaled to tile size -> 1:1 blit
     if (!img) return false;
-    this.ctx.drawImage(img, px, py, this.tile, this.tile);
+    const t = this.tile;
+    if (flip) { // mirror horizontally (cheap per-block variety)
+      const ctx = this.ctx;
+      ctx.save();
+      ctx.translate(px + t, py);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, 0, 0, t, t);
+      ctx.restore();
+    } else {
+      this.ctx.drawImage(img, px, py, t, t);
+    }
     return true;
   }
 
