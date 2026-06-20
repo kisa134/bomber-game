@@ -46,6 +46,12 @@ let tokenUsd = 0;
 export function setTokenUsd(v: number): void {
   tokenUsd = v;
 }
+/** Current exchange rate as "1 $ ≈ N 💎", or "" if the price is unknown. */
+function rateLine(): string {
+  if (!tokenUsd || tokenUsd <= 0) return "";
+  const perUsd = Math.round(1 / tokenUsd);
+  return `1 $ ≈ ${perUsd.toLocaleString()} 💎`;
+}
 
 /** Whether a wallet is connected (set from main). Drives the 🔒 on staked tables. */
 let hasWallet = false;
@@ -299,6 +305,13 @@ function drawTables(): void {
       default: return b.players - a.players || b.stake - a.stake; // players-desc
     }
   });
+  // Show the live exchange rate in the hint so players can read token stakes.
+  const hint = document.querySelector(".lobby-hint");
+  if (hint) {
+    const r = rateLine();
+    hint.textContent =
+      "Tap a room to join · 🪙 free · 💎 paid · winner takes the pot" + (r ? ` · ${r}` : "");
+  }
   list.innerHTML = "";
   if (shown.length === 0) {
     list.innerHTML = '<div class="status">No open tables here — start one!</div>';
@@ -424,12 +437,14 @@ export function renderRoom(state: GameState): void {
       const pot = state.roomStake * Math.max(count, 1);
       const usd = isToken ? usdSuffix(pot).trim().replace("≈", "≈ ") : "";
       prize.className = "room-prize " + (isToken ? "prize-token" : "prize-chips");
+      const rate = isToken ? rateLine() : "";
       prize.innerHTML =
         `<div class="prize-label">PRIZE POOL</div>` +
         `<div class="prize-pot">${sym}${pot.toLocaleString()}</div>` +
         (usd ? `<div class="prize-usd">${usd}</div>` : "") +
         `<div class="prize-meta">Buy-in ${sym}${state.roomStake.toLocaleString()} / player</div>` +
-        `<div class="prize-rule">🏆 Winner takes the pot</div>`;
+        `<div class="prize-rule">🏆 Winner takes the pot</div>` +
+        (rate ? `<div class="prize-rate">${rate}</div>` : "");
     } else {
       prize.className = "room-prize prize-free";
       prize.innerHTML =

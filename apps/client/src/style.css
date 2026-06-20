@@ -1018,6 +1018,12 @@ button.ghost {
   font-size: 0.76rem;
   color: var(--muted);
 }
+.prize-rate {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  opacity: 0.85;
+}
 /* Social: chat + reactions */
 .room-social {
   display: flex;
