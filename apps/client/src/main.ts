@@ -417,7 +417,7 @@ net.onMessage = (msg) => {
     case ServerMsg.EVENT_PLAYER_DEATH: {
       assets.play("die");
       assets.playGore(); // wet splat layered over the death cue
-      hitStopUntil = performance.now() + 65; // hit-stop: weighty kill freeze
+      hitStopUntil = performance.now() + 85; // hit-stop: weighty kill freeze
       const snap = state.latest();
       const dp = snap?.players.find((p) => p.id === msg.playerId);
       if (dp) renderer?.onDeath(Math.floor(dp.x), Math.floor(dp.y), PLAYER_COLORS[dp.id % PLAYER_COLORS.length]);
