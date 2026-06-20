@@ -564,21 +564,21 @@ export class Renderer {
       const idx = c.y * GRID_W + c.x;
       this.burn.set(idx, Math.min(10, (this.burn.get(idx) ?? 0) + 1)); // +1 per blast -> gradual darkening (epicenter darkest)
       this.scorchDirty = true;
-      // A blast BAKES blood into charcoal. If the blast lands on/near blood (the
-      // continuous spread bleeds a tile past the source cells), char the BLAST CELL
-      // itself: drop a charred-blood patch there and darken it toward black.
+      // A blast BURNS blood to charcoal. If there's blood on the blast cell or any
+      // of its 8 neighbours (the spread bleeds past the source cells), drop a dense
+      // charred-black patch on the blast cell.
       {
-        let nearBlood = this.bloodGround.has(idx);
-        if (!nearBlood) {
-          for (const [dx, dy] of NB) {
+        let nearBlood = false;
+        for (let dy = -1; dy <= 1 && !nearBlood; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
             const nx = c.x + dx, ny = c.y + dy;
             if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
             if (this.bloodGround.has(ny * GRID_W + nx)) { nearBlood = true; break; }
           }
         }
         if (nearBlood) {
-          this.bloodGround.set(idx, Math.max(this.bloodGround.get(idx) ?? 0, 5)); // ensure a visible patch
-          this.bakedBlood.set(idx, Math.min(3, (this.bakedBlood.get(idx) ?? 0) + 2)); // char it
+          this.bloodGround.set(idx, Math.max(this.bloodGround.get(idx) ?? 0, 6)); // a solid patch to char
+          this.bakedBlood.set(idx, 3); // straight to charcoal-black
           this.bloodDirty = true;
         }
       }
@@ -2154,13 +2154,13 @@ export class Renderer {
           hg.addColorStop(0, `rgba(255,255,255,${0.38 * pulse})`);
           hg.addColorStop(1, "rgba(255,255,255,0)");
           bg.fillStyle = hg; bg.fillRect(0, 0, t, t);
-          // diagonal metallic sheen — sweeps BACK AND FORTH (ping-pong), dimmer.
-          const sweep = 0.5 + 0.5 * Math.sin(now / 1100 + (x * 0.27 + y * 0.19) * 6);
-          const sxc = -t * 0.6 + sweep * (t * 2.2);
-          const bw = t * 0.2;
+          // diagonal metallic sheen — fast back-and-forth (ping-pong), bright, NARROW.
+          const sweep = 0.5 + 0.5 * Math.sin(now / 600 + (x * 0.27 + y * 0.19) * 6);
+          const sxc = -t * 0.4 + sweep * (t * 1.8); // tighter travel range
+          const bw = t * 0.11; // narrow band
           const sg = bg.createLinearGradient(sxc - bw, 0, sxc + bw, t);
           sg.addColorStop(0, "rgba(255,255,255,0)");
-          sg.addColorStop(0.5, "rgba(255,255,255,0.32)");
+          sg.addColorStop(0.5, "rgba(255,255,255,0.65)");
           sg.addColorStop(1, "rgba(255,255,255,0)");
           bg.fillStyle = sg; bg.fillRect(0, 0, t, t);
           bg.globalCompositeOperation = "destination-in"; // clip the shine to the icon shape
