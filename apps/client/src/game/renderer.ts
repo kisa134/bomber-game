@@ -759,6 +759,27 @@ export class Renderer {
           g.fillRect(ox + gx, oy + gy, pu, pu);
         }
       }
+      // Satellite spatter halo: small thrown droplets around a heavy FRESH pool.
+      if (!baked && lvl >= 4) {
+        let hh = (idx * 2246822519) >>> 0;
+        const sr = (): number => { hh = (hh ^ (hh << 13)) >>> 0; hh = (hh ^ (hh >>> 17)) >>> 0; hh = (hh ^ (hh << 5)) >>> 0; return (hh & 1023) / 1023; };
+        const cxc = ox + t / 2, cyc = oy + t / 2;
+        const nd = 5 + lvl;
+        for (let d = 0; d < nd; d++) {
+          const ang = sr() * Math.PI * 2;
+          const dist = t * (0.34 + sr() * 0.16);
+          const dx = cxc + Math.cos(ang) * dist, dy = cyc + Math.sin(ang) * dist * 0.9;
+          if (dx < ox || dy < oy || dx >= ox + t || dy >= oy + t) continue; // keep inside the tile
+          const sz = pu * (1 + (sr() < 0.35 ? 1 : 0));
+          const rr = 120 + ((hh >> 3) % 70);
+          g.globalAlpha = 0.85;
+          g.fillStyle = `rgb(${rr},${(rr * 0.1) | 0},${(rr * 0.08) | 0})`;
+          g.fillRect(Math.round((dx - sz / 2) / pu) * pu, Math.round((dy - sz / 2) / pu) * pu, sz, sz);
+          if (sz > pu) { // a thin spatter tail pointing outward (directional droplet)
+            g.fillRect(Math.round((dx + Math.cos(ang) * pu - pu / 2) / pu) * pu, Math.round((dy + Math.sin(ang) * pu - pu / 2) / pu) * pu, pu, pu);
+          }
+        }
+      }
     }
     for (const ch of this.chips) this.drawChip(g, ch, pu); // wood splinters (under gore)
     for (const fp of this.footprints) this.drawFoot(g, fp, pu); // smears on top
@@ -915,17 +936,22 @@ export class Renderer {
         g.fillRect(Math.round((bx + xx) / pu) * pu, Math.round((by + yy) / pu) * pu, pu, pu);
       }
     }
-    // Tapering tail forward: half-width shrinks wide→narrow, alpha fades out.
+    // Tapering tail forward: half-width shrinks wide→narrow, alpha fades out, with
+    // longitudinal STREAKS (light/dark ridges) so it reads as wet dragged blood.
     const steps = Math.max(4, Math.round(L / pu));
+    const phase = (fp.seed % 100) / 100 * Math.PI * 2;
     for (let i = 1; i <= steps; i++) {
       const f = i / steps; // 0 wide -> 1 narrow tip
       const hw = W0 * Math.pow(1 - f, 1.5);
       g.globalAlpha = fp.a * (1 - f * 0.55);
-      const shade = (r * (1 - f * 0.25)) | 0;
-      g.fillStyle = `rgb(${shade},${(shade * 0.1) | 0},${(shade * 0.08) | 0})`;
+      const shade = r * (1 - f * 0.25);
       const jit = (rnd() - 0.5) * pu * 1.4; // ragged edge
       const cxp = bx + ux * (f * L), cyp = by + uy * (f * L);
       for (let b = -hw; b <= hw; b += pu) {
+        // streak ridges along the drag direction (some bands darker, some lighter)
+        const streak = 0.65 + 0.35 * Math.sin((b / Math.max(pu, W0)) * 6 + phase);
+        const sh = Math.max(0, (shade * streak) | 0);
+        g.fillStyle = `rgb(${sh},${(sh * 0.1) | 0},${(sh * 0.08) | 0})`;
         const wx = cxp + vx * (b + jit), wy = cyp + vy * (b + jit);
         g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
       }
@@ -971,6 +997,22 @@ export class Renderer {
       ctx.fillStyle = reds[(rnd() * reds.length) | 0];
       ctx.fillRect(Math.round((bx - sz / 2) / pu) * pu, Math.round((by - sz / 2) / pu) * pu, sz, sz);
     }
+    // Cast-off spatter spines — thin streaks shooting out from the impact, each
+    // ending in a little terminal droplet (the signature of real blood spatter).
+    const spines = 5 + n * 2;
+    for (let i = 0; i < spines; i++) {
+      const ang = rnd() * Math.PI * 2;
+      const reach = topR * (0.7 + rnd() * 0.7);
+      const wob = (rnd() - 0.5) * 0.25;
+      ctx.fillStyle = reds[2 + ((rnd() * 3) | 0)];
+      for (let sdist = poolR * 0.5; sdist < reach; sdist += pu) {
+        const aa = ang + wob * (sdist / reach);
+        const sx = cxp + Math.cos(aa) * sdist, sy = py + t * 0.2 + Math.sin(aa) * sdist * 0.55;
+        ctx.fillRect(Math.round(sx / pu) * pu, Math.round(sy / pu) * pu, pu, pu);
+      }
+      const ex = cxp + Math.cos(ang + wob) * reach, ey = py + t * 0.2 + Math.sin(ang + wob) * reach * 0.55;
+      ctx.fillRect(Math.round((ex - pu) / pu) * pu, Math.round((ey - pu) / pu) * pu, pu * 2, pu * 2); // terminal droplet
+    }
     // FRONT-face drips that slowly ooze down over time (staggered per drip).
     const frontStrong = m.dirs & BF_S ? 1 : 0.6;
     const drips = Math.max(3, Math.round((3 + n * 1.9) * (0.7 + frontStrong)));
@@ -984,10 +1026,21 @@ export class Renderer {
       const len = maxLen * (1 - (1 - prog) * (1 - prog)); // ease-out
       const w = pu * (1 + Math.floor(rnd() * 1.6));
       ctx.fillStyle = reds[1 + ((rnd() * 3) | 0)];
-      for (let y = 0; y < len; y += pu) ctx.fillRect(Math.round((dx - w / 2) / pu) * pu, Math.round((top + y) / pu) * pu, w, pu);
-      if (len > pu) {
-        ctx.fillStyle = reds[0]; // darker rounded drip tip
-        ctx.fillRect(Math.round((dx - (w + pu) / 2) / pu) * pu, Math.round((top + len) / pu) * pu, w + pu, pu * 2);
+      // Trail: thin at the top, widening toward the bottom (gravity-fed run).
+      for (let y = 0; y < len; y += pu) {
+        const ww = Math.max(pu, Math.round((w * (0.45 + 0.55 * (y / Math.max(pu, len)))) / pu) * pu);
+        ctx.fillRect(Math.round((dx - ww / 2) / pu) * pu, Math.round((top + y) / pu) * pu, ww, pu);
+      }
+      if (len > pu * 2) {
+        // Heavy rounded bead pooling at the bottom of the run.
+        ctx.fillStyle = reds[0];
+        const bw = w + pu, bh = pu * 1.6;
+        for (let yy = -pu; yy <= bh; yy += pu) {
+          for (let xx = -bw; xx <= bw; xx += pu) {
+            if ((xx * xx) / (bw * bw) + (yy * yy) / (bh * bh) > 1) continue;
+            ctx.fillRect(Math.round((dx + xx) / pu) * pu, Math.round((top + len + yy) / pu) * pu, pu, pu);
+          }
+        }
       }
     }
     // A droplet pinches off a drip and falls — more active now, and it POOLS on the
