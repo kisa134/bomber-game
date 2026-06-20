@@ -412,11 +412,28 @@ net.onMessage = (msg) => {
       state.seedCommit = msg.commit;
       if (msg.seed) state.seed = msg.seed;
       break;
-    case ServerMsg.EVENT_EXPLOSION:
-      assets.play("explode");
+    case ServerMsg.EVENT_EXPLOSION: {
+      // Spatial + power-scaled explosion: louder/punchier the bigger the blast and
+      // the closer it is to you; panned by its horizontal offset. Shake matches it.
+      const power = Math.min(1, msg.cells.length / 13);
+      let vol = 0.6, pan = 0;
+      const meX = state.latest()?.players.find((p) => p.id === state.myId);
+      if (meX?.alive && msg.cells.length) {
+        let dmin = Infinity, nx = meX.x;
+        for (const c of msg.cells) {
+          const dx = c.x - meX.x, dy = c.y - meX.y, dd = dx * dx + dy * dy;
+          if (dd < dmin) { dmin = dd; nx = c.x; }
+        }
+        vol = (0.3 + 0.7 * power) * Math.max(0.22, 1 / (1 + dmin / 16)); // distance falloff
+        pan = Math.max(-1, Math.min(1, (nx - meX.x) / 8.5));
+      } else {
+        vol = 0.3 + 0.4 * power;
+      }
+      assets.explosion(power, vol, pan);
       assets.duck(0.72, 150); // sidechain "vacuum": music drops ~-12dB / 150ms then snaps back
       renderer?.onExplosion(msg.cells);
       break;
+    }
     case ServerMsg.EVENT_PICKUP: {
       const snap = state.latest();
       const pp = snap?.players.find((p) => p.id === msg.playerId);

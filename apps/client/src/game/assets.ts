@@ -139,6 +139,8 @@ export class Assets {
   private audioCtx: AudioContext | null = null; // lazy Web Audio (for fx with reverb)
   private reverbIR: AudioBuffer | null = null;
   private fxBuffers = new Map<string, AudioBuffer>();
+  private noiseBuf: AudioBuffer | null = null; // cached white noise for crack transients
+  private decoding = new Set<string>(); // keys currently being decoded into fxBuffers
 
   private sfxEnabled = true;
   private musicEnabled = true;
@@ -435,6 +437,89 @@ export class Assets {
       o.start(start);
       o.stop(start + 0.2);
     });
+  }
+
+  private getNoise(ctx: AudioContext): AudioBuffer {
+    if (this.noiseBuf) return this.noiseBuf;
+    const len = Math.floor(ctx.sampleRate * 0.25);
+    const b = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    this.noiseBuf = b;
+    return b;
+  }
+
+  private ensureBuffer(key: string): void {
+    if (this.fxBuffers.has(key) || this.decoding.has(key) || !this.audioCtx) return;
+    const url = this.sounds.get(key);
+    if (!url) return;
+    this.decoding.add(key);
+    void (async (): Promise<void> => {
+      try {
+        const data = await (await fetch(url)).arrayBuffer();
+        const buf = await this.audioCtx!.decodeAudioData(data);
+        this.fxBuffers.set(key, buf);
+      } catch { /* leave it; HTMLAudio fallback covers playback */ }
+      this.decoding.delete(key);
+    })();
+  }
+
+  /** Multi-layered, spatial explosion: the sample + a sub-bass body thump + a bright
+   *  crack transient, all panned by `pan` (−1..1) and scaled by blast `power` (0..1)
+   *  and `vol` (0..1, distance falloff). Heavier/closer = louder & punchier. */
+  explosion(power: number, vol: number, pan: number): void {
+    if (!this.sfxEnabled) return;
+    const p = Math.max(0, Math.min(1, power));
+    const v = Math.max(0, Math.min(1, vol));
+    const pn = Math.max(-1, Math.min(1, pan));
+    if (!this.audioCtx) {
+      try {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        this.audioCtx = new AC();
+      } catch {
+        this.play("explode", 0.75 * v);
+        return;
+      }
+    }
+    const ctx = this.audioCtx;
+    if (ctx.state === "suspended") void ctx.resume();
+    const out = ctx.createGain();
+    out.gain.value = 1;
+    const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    if (panner) { panner.pan.value = pn; out.connect(panner); panner.connect(ctx.destination); } else { out.connect(ctx.destination); }
+    const t0 = ctx.currentTime;
+    // Layer 1 — the explode sample (panned via buffer if decoded; else HTMLAudio).
+    const buf = this.fxBuffers.get("explode");
+    if (buf) {
+      const s = ctx.createBufferSource();
+      s.buffer = buf;
+      const g = ctx.createGain();
+      g.gain.value = (0.55 + 0.45 * p) * v * 0.85;
+      s.connect(g); g.connect(out); s.start(t0);
+    } else {
+      this.ensureBuffer("explode"); // decode for next time
+      this.play("explode", 0.7 * v);
+    }
+    // Layer 2 — sub-bass body thump (~80→40 Hz), the weight/power.
+    const o1 = ctx.createOscillator();
+    o1.type = "sine";
+    o1.frequency.setValueAtTime(85, t0);
+    o1.frequency.exponentialRampToValueAtTime(40, t0 + 0.2);
+    const g1 = ctx.createGain();
+    g1.gain.setValueAtTime(0.0001, t0);
+    g1.gain.exponentialRampToValueAtTime((0.5 + 0.5 * p) * v * 0.9, t0 + 0.012);
+    g1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
+    o1.connect(g1); g1.connect(out); o1.start(t0); o1.stop(t0 + 0.38);
+    // Layer 3 — bright crack transient (highpassed noise burst), the snap/impact.
+    const nb = ctx.createBufferSource();
+    nb.buffer = this.getNoise(ctx);
+    const hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = 1700;
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime((0.22 + 0.4 * p) * v, t0);
+    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
+    nb.connect(hp); hp.connect(g2); g2.connect(out); nb.start(t0); nb.stop(t0 + 0.12);
   }
 
   /** Shepard tone: drive an ever-rising-pitch illusion at intensity 0..1 (round-end
