@@ -47,13 +47,22 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "14";
+export const ASSET_VER = "15";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.
 for (let s = 1; s <= 6; s++) {
   for (let v = 1; v <= 2; v++) {
     SPRITE_FILES[`hard_dmg${s}_v${v}`] = `/sprites/hard_dmg${s}_v${v}`;
+  }
+}
+// Blood baked onto the block sprites (in the block's perspective): 2 intensities
+// x 2 variants for both hard and soft blocks. Shown when a block is bloodied.
+for (const b of ["hard", "soft"]) {
+  for (let i = 1; i <= 2; i++) {
+    for (let v = 1; v <= 2; v++) {
+      SPRITE_FILES[`${b}_blood${i}_v${v}`] = `/sprites/${b}_blood${i}_v${v}`;
+    }
   }
 }
 

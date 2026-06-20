@@ -1082,7 +1082,7 @@ export class Renderer {
 
   /** Draw blood on a block: a squashed splatter on the TOP face + drips running
    *  down the FRONT face, biased toward the side the kill came from. */
-  private drawBlockBlood(px: number, py: number, index: number, now: number): void {
+  private drawBlockBlood(px: number, py: number, index: number): void {
     const m = this.bloodBlocks.get(index);
     if (!m) return;
     const ctx = this.ctx, t = this.tile;
@@ -1145,57 +1145,8 @@ export class Renderer {
         ctx.fillRect(Math.round((ex - pu) / pu) * pu, Math.round((ey - pu) / pu) * pu, pu * 2, pu * 2);
       }
     }
-    // FRONT-face drips — only when blood actually hit the front (or the odd heavy
-    // block), and varied in count/length, so most blocks DON'T have runs.
-    const frontStrong = m.dirs & BF_S ? 1 : 0.55;
-    const wantDrips = (m.dirs & BF_S) !== 0 || sv > 0.6;
-    const drips = wantDrips ? Math.max(1, Math.round((1 + n * 1.3) * (0.5 + frontStrong) * (0.6 + sv * 0.8))) : 0;
-    for (let d = 0; d < drips; d++) {
-      const dx = cxp + (rnd() - 0.5) * t * 0.8;
-      const top = py + t * 0.4;
-      const maxLen = t * (0.2 + rnd() * 0.52 * frontStrong);
-      const delay = rnd() * 700;
-      const grow = 1400 + rnd() * 1500;
-      const prog = Math.max(0, Math.min(1, (now - m.born - delay) / grow));
-      const len = maxLen * (1 - (1 - prog) * (1 - prog)); // ease-out
-      const w = pu * (1 + Math.floor(rnd() * 1.6));
-      ctx.fillStyle = reds[1 + ((rnd() * 3) | 0)];
-      // Trail: thin at the top, widening toward the bottom (gravity-fed run).
-      for (let y = 0; y < len; y += pu) {
-        const ww = Math.max(pu, Math.round((w * (0.45 + 0.55 * (y / Math.max(pu, len)))) / pu) * pu);
-        ctx.fillRect(Math.round((dx - ww / 2) / pu) * pu, Math.round((top + y) / pu) * pu, ww, pu);
-      }
-      if (len > pu * 2) {
-        // Heavy rounded bead pooling at the bottom of the run.
-        ctx.fillStyle = reds[0];
-        const bw = w + pu, bh = pu * 1.6;
-        for (let yy = -pu; yy <= bh; yy += pu) {
-          for (let xx = -bw; xx <= bw; xx += pu) {
-            if ((xx * xx) / (bw * bw) + (yy * yy) / (bh * bh) > 1) continue;
-            ctx.fillRect(Math.round((dx + xx) / pu) * pu, Math.round((top + len + yy) / pu) * pu, pu, pu);
-          }
-        }
-      }
-    }
-    // A droplet pinches off a drip and falls — more active now, and it POOLS on the
-    // free ground cell in front of the block (not off the bottom of the screen).
-    if (!this.lowFx && now > m.nextDrip) {
-      m.nextDrip = now + 800 + Math.random() * 1600; // drips more often
-      const drops = 1 + (Math.random() < 0.5 ? 1 : 0);
-      for (let d = 0; d < drops; d++) {
-        const dx = cxp + (Math.random() - 0.5) * t * 0.7;
-        this.push({
-          x: dx / t, y: (py + t * 0.74) / t, vx: (Math.random() - 0.5) * 0.4, vy: 0.45,
-          life: 0.6 + Math.random() * 0.4, max: 1.0, gravity: 12, drag: 0.99,
-          size: pu * (1.3 + Math.random() * 1.2), shape: "rect", color: reds[1 + ((Math.random() * 4) | 0)],
-        });
-      }
-      // Pool the blood onto the free GROUND cell directly in front (below) the block.
-      const below = index + GRID_W;
-      if (below < GRID_W * GRID_H && this.prevGrid && this.prevGrid[below] !== TileType.HARD && this.prevGrid[below] !== TileType.SOFT) {
-        this.markGround(below, 1);
-      }
-    }
+    // (No procedural front-face "drip" lines any more — blocks get baked blood
+    // sprites on desktop; this fallback is just top spatter + spines.)
   }
 
   /** FIRST BLOOD announcement (first kill of the match). Builds the chunky pixel
@@ -2081,30 +2032,38 @@ export class Renderer {
       case TileType.HARD: {
         this.drawShadow(px + t / 2, py + t * 0.95, t * 0.42, t * 0.1, 0.3);
         const dmg = this.hardDmg.get(index) ?? 0;
-        // Swap to the damage-stage sprite (1..6), picking one of two variants per
-        // cell so neighbouring blocks crack differently. Fall back to the pristine
-        // block + procedural cracks if a frame isn't loaded.
         const hseed = (index * 2654435761) >>> 0;
         const variant = (hseed % 2) + 1;
-        const flip = ((hseed >> 3) & 1) === 1; // mirror half the blocks -> 2x more looks per stage
-        if (!(dmg > 0 && this.drawTileSprite(`hard_dmg${dmg}_v${variant}`, px, py, flip))) {
-          this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
-          if (dmg > 0) this.drawCracks(px, py, index);
+        const flip = ((hseed >> 3) & 1) === 1; // mirror half the blocks -> 2x more looks
+        const bm = this.bloodBlocks.get(index);
+        // Bloodied: a BAKED blood-on-block sprite (blood sits in the block's
+        // perspective). Else damage-stage sprite, else pristine + procedural cracks.
+        const bloodDrawn = !!bm && !this.lowFx && this.drawTileSprite(`hard_blood${bm.n >= 2 ? 2 : 1}_v${variant}`, px, py, flip);
+        if (!bloodDrawn) {
+          if (!(dmg > 0 && this.drawTileSprite(`hard_dmg${dmg}_v${variant}`, px, py, flip))) {
+            this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
+            if (dmg > 0) this.drawCracks(px, py, index);
+          }
+          if (bm) this.drawBlockBlood(px, py, index); // phones / sprite-missing fallback
         }
-        if (this.bloodBlocks.size) this.drawBlockBlood(px, py, index, now);
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       }
-      case TileType.SOFT:
+      case TileType.SOFT: {
         this.drawShadow(px + t / 2, py + t * 0.95, t * 0.4, t * 0.1, 0.26);
-        // Phones get the meme crate; desktop the detailed one. Fall back across
-        // soft_mobile -> soft -> procedural.
-        ((this.lowFx && this.drawTileSprite("soft_mobile", px, py)) ||
-          this.drawTileSprite("soft", px, py) ||
-          this.drawSoft(px, py));
-        if (this.bloodBlocks.size) this.drawBlockBlood(px, py, index, now);
+        const sseed = (index * 2654435761) >>> 0;
+        const svar = (sseed % 2) + 1;
+        const sm = this.bloodBlocks.get(index);
+        const sBloodDrawn = !!sm && !this.lowFx && this.drawTileSprite(`soft_blood${sm.n >= 2 ? 2 : 1}_v${svar}`, px, py);
+        if (!sBloodDrawn) {
+          ((this.lowFx && this.drawTileSprite("soft_mobile", px, py)) ||
+            this.drawTileSprite("soft", px, py) ||
+            this.drawSoft(px, py));
+          if (sm) this.drawBlockBlood(px, py, index); // phones / sprite-missing fallback
+        }
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
+      }
       case TileType.EXPLOSION: {
         const start = this.fireStart.get(index) ?? now;
         // Past its lifetime, don't draw it — otherwise a stuck EXPLOSION tile
