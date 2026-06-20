@@ -44,6 +44,11 @@ import {
   selectSkin,
   attributeReferral,
   fetchReferralStats,
+  fetchFriends,
+  addFriend,
+  acceptFriend,
+  removeFriend,
+  type FriendsData,
   type JoinResponse,
 } from "./net/socket.js";
 import { GameState } from "./game/state.js";
@@ -1607,6 +1612,105 @@ function refreshHub(): void {
   const name = document.getElementById("hub-loadout-name");
   if (name) name.textContent = SKIN_NAMES[equipped] ?? `Skin ${equipped}`;
 }
+// --- friends ----------------------------------------------------------------
+let lastFriends: FriendsData = { friends: [], incoming: [], outgoing: [] };
+const friendsModal = () => document.getElementById("friends-modal");
+const friendsModalOpen = (): boolean => !friendsModal()?.classList.contains("hidden");
+
+/** Where am I right now (for presence shown to friends). */
+function currentPresence(): { room: string; status: string } {
+  if (!document.getElementById("game")?.classList.contains("hidden")) return { room: state.roomCode, status: "game" };
+  if (!document.getElementById("room")?.classList.contains("hidden")) return { room: state.roomCode, status: "lobby" };
+  return { room: "", status: "menu" };
+}
+
+/** Poll friends + beat presence; refresh the hub module and the modal if open. */
+function friendsBeat(): void {
+  if (!loadWallet()) {
+    renderFriendsModule();
+    return;
+  }
+  const { room, status } = currentPresence();
+  void fetchFriends(room, status).then((d) => {
+    lastFriends = d;
+    renderFriendsModule();
+    if (friendsModalOpen()) renderFriendsModal();
+  });
+}
+
+function renderFriendsModule(): void {
+  const count = document.getElementById("hub-friends-count");
+  const sub = document.getElementById("hub-friends-sub");
+  if (!count || !sub) return;
+  if (!loadWallet()) {
+    count.textContent = "";
+    sub.textContent = "Connect a wallet to add friends";
+    return;
+  }
+  const online = lastFriends.friends.filter((f) => f.online).length;
+  const reqs = lastFriends.incoming.length;
+  count.textContent = online > 0 ? `· ${online} online` : "";
+  sub.textContent = reqs
+    ? `${reqs} friend request${reqs > 1 ? "s" : ""} ▸`
+    : lastFriends.friends.length
+      ? `${lastFriends.friends.length} friends ▸`
+      : "Add friends & play together ▸";
+}
+
+function renderFriendsModal(): void {
+  const reqBox = document.getElementById("friends-requests")!;
+  const listBox = document.getElementById("friends-list")!;
+  const empty = document.getElementById("friends-empty")!;
+  reqBox.innerHTML = "";
+  listBox.innerHTML = "";
+  // Incoming requests first.
+  for (const r of lastFriends.incoming) {
+    const row = el("div", "friend-row", "");
+    row.append(el("span", "friend-name", r.name));
+    const accept = document.createElement("button");
+    accept.className = "primary friend-mini";
+    accept.textContent = "✓ Accept";
+    accept.addEventListener("click", () => void acceptFriend(r.wallet).then(friendsBeat));
+    const decline = document.createElement("button");
+    decline.className = "ghost friend-mini";
+    decline.textContent = "✕";
+    decline.title = "Decline";
+    decline.addEventListener("click", () => void removeFriend(r.wallet).then(friendsBeat));
+    row.append(accept, decline);
+    reqBox.appendChild(row);
+  }
+  // Accepted friends — online first.
+  const friends = [...lastFriends.friends].sort((a, b) => Number(b.online) - Number(a.online));
+  for (const f of friends) {
+    const row = el("div", "friend-row", "");
+    const dot = el("span", "friend-dot" + (f.online ? " on" : ""), "");
+    row.append(dot, el("span", "friend-name", f.name));
+    if (f.room) {
+      const join = document.createElement("button");
+      join.className = "primary friend-mini";
+      join.textContent = "Join";
+      join.addEventListener("click", () => {
+        friendsModal()?.classList.add("hidden");
+        const name = (localStorage.getItem("bp_nick") || "pumper").trim();
+        practiceMode = false;
+        track("play_start", { mode: "friend_join" });
+        void connect(() => joinRoom(name, f.room, randSkin()));
+      });
+      row.append(join);
+    } else {
+      row.append(el("span", "friend-state", f.online ? "online" : "offline"));
+    }
+    const rm = document.createElement("button");
+    rm.className = "ghost friend-mini";
+    rm.textContent = "✕";
+    rm.title = "Remove friend";
+    rm.addEventListener("click", () => void removeFriend(f.wallet).then(friendsBeat));
+    row.append(rm);
+    listBox.appendChild(row);
+  }
+  empty.classList.toggle("hidden", lastFriends.friends.length > 0 || lastFriends.incoming.length > 0);
+}
+
 /** Populate the hub's "Top this week" module from the live leaderboard. */
 function loadHubTop(): void {
   void fetchLeaderboard("rating")
@@ -1735,6 +1839,39 @@ function wireMenuLinks(): void {
   document.getElementById("lb-rating")!.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
   document.getElementById("lb-tokens")!.addEventListener("click", () => { lbBoard = "tokens"; void openLeaderboard(); });
   document.getElementById("lb-chips")!.addEventListener("click", () => { lbBoard = "chips"; void openLeaderboard(); });
+
+  // Friends module → modal.
+  document.getElementById("hub-friends")?.addEventListener("click", () => {
+    if (!loadWallet()) {
+      setMenuStatus("Connect a wallet to add friends");
+      return;
+    }
+    document.getElementById("friends-status")!.textContent = "";
+    friendsModal()!.classList.remove("hidden");
+    friendsBeat();
+  });
+  document.getElementById("friends-close")?.addEventListener("click", () =>
+    friendsModal()!.classList.add("hidden"),
+  );
+  const doAddFriend = (): void => {
+    const inp = document.getElementById("friend-add-name") as HTMLInputElement;
+    const name = inp.value.trim();
+    const status = document.getElementById("friends-status")!;
+    if (name.length < 2) return;
+    status.textContent = "Sending…";
+    void addFriend(name).then((r) => {
+      if (r.error === "not_found") status.textContent = "No player with that nickname.";
+      else if (r.error === "self") status.textContent = "You can't add yourself 🙂";
+      else if (r.result === "already") status.textContent = "Already added / request pending.";
+      else status.textContent = `Request sent to ${name} ✅`;
+      inp.value = "";
+      friendsBeat();
+    });
+  };
+  document.getElementById("friend-add-btn")?.addEventListener("click", doAddFriend);
+  document.getElementById("friend-add-name")?.addEventListener("keydown", (e) => {
+    if ((e as KeyboardEvent).key === "Enter") doAddFriend();
+  });
 }
 
 // --- background video -----------------------------------------------------
@@ -1917,6 +2054,8 @@ initErrorTracking();
 refreshHub(); // hero art + Loadout label
 loadHubTop(); // "Top this week" module
 setInterval(loadHubTop, 60_000);
+friendsBeat(); // friends list + presence beat
+setInterval(friendsBeat, 15_000);
 track("app_loaded", { platform: isTelegram ? "telegram" : "web", ...attribution });
 input.attach();
 void assets.preload();

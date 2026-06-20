@@ -933,6 +933,27 @@ button.ghost {
   }
 }
 
+/* Friends */
+.friends-count { color: #5fd96a; font-size: 0.8rem; }
+.friends-add { display: flex; gap: 8px; }
+.friends-add input { flex: 1 1 auto; width: auto; }
+.friends-add button { width: auto; }
+.friends-section { display: flex; flex-direction: column; gap: 6px; }
+.friend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.friend-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.friend-dot.on { background: #5fd96a; box-shadow: 0 0 6px #5fd96a; }
+.friend-name { flex: 1 1 auto; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friend-state { font-size: 0.74rem; color: var(--muted); }
+.friend-mini { width: auto; padding: 6px 12px; font-size: 0.82rem; }
+
 /* --- Pre-match lobby room (wide, zoned, glass) --- */
 #room {
   justify-content: flex-start;

@@ -246,6 +246,43 @@ export async function fetchReferralStats(wallet: string): Promise<ReferralStats>
   }
 }
 
+// --- friends + presence ----------------------------------------------------
+export interface FriendInfo {
+  wallet: string;
+  name: string;
+  status: string; // "friends" | "in" | "out"
+  online: boolean;
+  room: string; // joinable lobby code, "" if not joinable
+}
+export interface FriendsData {
+  friends: FriendInfo[];
+  incoming: Array<{ wallet: string; name: string }>;
+  outgoing: Array<{ wallet: string; name: string }>;
+}
+
+/** Fetch friends/requests AND beat presence (marks you online with `room`). */
+export async function fetchFriends(room = "", status = "menu"): Promise<FriendsData> {
+  try {
+    const res = await fetch(
+      `${SERVER_HTTP}/friends?room=${encodeURIComponent(room)}&status=${encodeURIComponent(status)}${sessionQS()}`,
+    );
+    if (!res.ok) return { friends: [], incoming: [], outgoing: [] };
+    return (await res.json()) as FriendsData;
+  } catch {
+    return { friends: [], incoming: [], outgoing: [] };
+  }
+}
+export async function addFriend(name: string): Promise<{ ok?: boolean; result?: string; error?: string }> {
+  const r = await post("/friends/add", { name });
+  return r.json();
+}
+export async function acceptFriend(wallet: string): Promise<void> {
+  await post("/friends/accept", { wallet });
+}
+export async function removeFriend(wallet: string): Promise<void> {
+  await post("/friends/remove", { wallet });
+}
+
 const MAX_RECONNECT_ATTEMPTS = 8;
 const RECONNECT_DELAY_MS = 1500;
 

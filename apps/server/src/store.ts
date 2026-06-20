@@ -130,7 +130,21 @@ export interface ProfileStore {
     rootLevels: number[]; // count at depth 1..5 below the root wallet
     top: Array<{ wallet: string; name: string; direct: number; earned: number }>;
   }>;
+  // --- friends ---
+  /** Resolve a (case-insensitive) nickname to its wallet, or null. */
+  walletByName(name: string): Promise<string | null>;
+  /** Send a friend request (creates the out/in edges). */
+  addFriend(wallet: string, friend: string): Promise<"ok" | "already" | "self">;
+  /** Accept a pending INCOMING request — both sides become friends. */
+  acceptFriend(wallet: string, friend: string): Promise<boolean>;
+  /** Remove a friend, or decline/cancel a request (clears both directions). */
+  removeFriend(wallet: string, friend: string): Promise<void>;
+  /** This wallet's friends + pending requests (with display names). */
+  listFriends(wallet: string): Promise<Array<{ wallet: string; name: string; status: FriendStatus }>>;
 }
+
+/** A friend edge from the caller's point of view. */
+export type FriendStatus = "friends" | "in" | "out";
 
 function blankProfile(wallet: string, name: string, skin: number): Profile {
   return {
@@ -402,6 +416,44 @@ class InMemoryStore implements ProfileStore {
       .sort((a, b) => b.earned - a.earned || b.direct - a.direct)
       .slice(0, limit);
     return { networkSize, totalEarned, unattached, rootLevels, top };
+  }
+
+  // --- friends (in-memory) ---
+  private edges = new Map<string, Map<string, FriendStatus>>();
+  private edge(owner: string): Map<string, FriendStatus> {
+    let m = this.edges.get(owner);
+    if (!m) this.edges.set(owner, (m = new Map()));
+    return m;
+  }
+  async walletByName(name: string): Promise<string | null> {
+    const lower = name.trim().toLowerCase();
+    for (const p of this.map.values()) if (p.name.toLowerCase() === lower) return p.wallet;
+    return null;
+  }
+  async addFriend(wallet: string, friend: string): Promise<"ok" | "already" | "self"> {
+    if (wallet === friend) return "self";
+    const cur = this.edge(wallet).get(friend);
+    if (cur) return "already";
+    this.edge(wallet).set(friend, "out");
+    this.edge(friend).set(wallet, "in");
+    return "ok";
+  }
+  async acceptFriend(wallet: string, friend: string): Promise<boolean> {
+    if (this.edge(wallet).get(friend) !== "in") return false;
+    this.edge(wallet).set(friend, "friends");
+    this.edge(friend).set(wallet, "friends");
+    return true;
+  }
+  async removeFriend(wallet: string, friend: string): Promise<void> {
+    this.edge(wallet).delete(friend);
+    this.edge(friend).delete(wallet);
+  }
+  async listFriends(wallet: string): Promise<Array<{ wallet: string; name: string; status: FriendStatus }>> {
+    const out: Array<{ wallet: string; name: string; status: FriendStatus }> = [];
+    for (const [w, status] of this.edge(wallet)) {
+      out.push({ wallet: w, name: this.map.get(w)?.name ?? "anon", status });
+    }
+    return out;
   }
 }
 
@@ -758,6 +810,21 @@ class SupabaseStore implements ProfileStore {
       return empty;
     }
   }
+
+  // --- friends: not implemented on the REST store (production uses Postgres) ---
+  async walletByName(): Promise<string | null> {
+    return null;
+  }
+  async addFriend(): Promise<"ok" | "already" | "self"> {
+    return "already";
+  }
+  async acceptFriend(): Promise<boolean> {
+    return false;
+  }
+  async removeFriend(): Promise<void> {}
+  async listFriends(): Promise<Array<{ wallet: string; name: string; status: FriendStatus }>> {
+    return [];
+  }
 }
 
 // Direct Postgres (any provider). Auto-creates the schema on boot, so the only
@@ -861,6 +928,17 @@ class PostgresStore implements ProfileStore {
     // collisions first, or the index build would fail and break boot. Tracked as
     // a follow-up; setName/ensureProfile already guard with a NOT EXISTS check.
     await this.pool.query(`create index if not exists profiles_name_lower on profiles (lower(name)) where name <> ''`);
+    // Friends: directed edges. status: 'out' (request sent), 'in' (received),
+    // 'friends' (accepted). Both directions are kept in sync by the methods.
+    await this.pool.query(`
+      create table if not exists friend_edges (
+        owner text not null,
+        friend text not null,
+        status text not null,
+        created_at timestamptz not null default now(),
+        primary key (owner, friend)
+      )`);
+    await this.pool.query(`create index if not exists friend_edges_owner on friend_edges (owner)`);
   }
 
   async recordMatch(results: MatchResult[]): Promise<void> {
@@ -1332,6 +1410,105 @@ class PostgresStore implements ProfileStore {
     } catch (e) {
       console.error("[store] pg referralOverview failed", e);
       return empty;
+    }
+  }
+
+  // --- friends (Postgres) ---
+  async walletByName(name: string): Promise<string | null> {
+    try {
+      await this.ready;
+      const r = await this.pool.query(
+        `select wallet from profiles where lower(name)=lower($1) limit 1`,
+        [name.trim()],
+      );
+      return r.rows[0]?.wallet ?? null;
+    } catch (e) {
+      console.error("[store] pg walletByName failed", e);
+      return null;
+    }
+  }
+  async addFriend(wallet: string, friend: string): Promise<"ok" | "already" | "self"> {
+    if (wallet === friend) return "self";
+    const client = await this.pool.connect();
+    try {
+      await this.ready;
+      const exists = await client.query(
+        `select 1 from friend_edges where owner=$1 and friend=$2`,
+        [wallet, friend],
+      );
+      if (exists.rowCount) return "already";
+      await client.query("begin");
+      await client.query(
+        `insert into friend_edges (owner,friend,status) values ($1,$2,'out')
+         on conflict (owner,friend) do nothing`,
+        [wallet, friend],
+      );
+      await client.query(
+        `insert into friend_edges (owner,friend,status) values ($1,$2,'in')
+         on conflict (owner,friend) do nothing`,
+        [friend, wallet],
+      );
+      await client.query("commit");
+      return "ok";
+    } catch (e) {
+      await client.query("rollback").catch(() => {});
+      console.error("[store] pg addFriend failed", e);
+      return "already";
+    } finally {
+      client.release();
+    }
+  }
+  async acceptFriend(wallet: string, friend: string): Promise<boolean> {
+    const client = await this.pool.connect();
+    try {
+      await this.ready;
+      const r = await client.query(
+        `select status from friend_edges where owner=$1 and friend=$2`,
+        [wallet, friend],
+      );
+      if (r.rows[0]?.status !== "in") return false; // only accept a real incoming request
+      await client.query("begin");
+      await client.query(`update friend_edges set status='friends' where owner=$1 and friend=$2`, [wallet, friend]);
+      await client.query(
+        `insert into friend_edges (owner,friend,status) values ($1,$2,'friends')
+         on conflict (owner,friend) do update set status='friends'`,
+        [friend, wallet],
+      );
+      await client.query("commit");
+      return true;
+    } catch (e) {
+      await client.query("rollback").catch(() => {});
+      console.error("[store] pg acceptFriend failed", e);
+      return false;
+    } finally {
+      client.release();
+    }
+  }
+  async removeFriend(wallet: string, friend: string): Promise<void> {
+    try {
+      await this.ready;
+      await this.pool.query(
+        `delete from friend_edges where (owner=$1 and friend=$2) or (owner=$2 and friend=$1)`,
+        [wallet, friend],
+      );
+    } catch (e) {
+      console.error("[store] pg removeFriend failed", e);
+    }
+  }
+  async listFriends(wallet: string): Promise<Array<{ wallet: string; name: string; status: FriendStatus }>> {
+    try {
+      await this.ready;
+      const r = await this.pool.query(
+        `select e.friend as wallet, coalesce(p.name,'anon') as name, e.status
+         from friend_edges e left join profiles p on p.wallet = e.friend
+         where e.owner = $1
+         order by case e.status when 'in' then 0 when 'friends' then 1 else 2 end, name`,
+        [wallet],
+      );
+      return r.rows.map((row) => ({ wallet: row.wallet, name: row.name, status: row.status as FriendStatus }));
+    } catch (e) {
+      console.error("[store] pg listFriends failed", e);
+      return [];
     }
   }
 }

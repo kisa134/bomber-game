@@ -86,10 +86,10 @@
                 <div class="hub-mod-label">★ Season 1 · Toxic Arena</div>
                 <div class="hub-mod-sub">Live events & rewards — coming soon</div>
               </div>
-              <div class="hub-module friends">
-                <div class="hub-mod-label">👥 Friends</div>
-                <div class="hub-mod-sub">Online presence — coming soon</div>
-              </div>
+              <button id="hub-friends" class="hub-module friends">
+                <div class="hub-mod-label">👥 Friends <span id="hub-friends-count" class="friends-count"></span></div>
+                <div id="hub-friends-sub" class="hub-mod-sub">Add friends &amp; play together</div>
+              </button>
               <div class="hub-module topweek">
                 <div class="hub-mod-label">🏆 Top this week</div>
                 <ol id="hub-top" class="hub-top-list"></ol>
@@ -109,6 +109,22 @@
           </div>
         </div>
       </section>
+
+      <!-- Friends: add by nickname, accept requests, see who's online -->
+      <div id="friends-modal" class="modal hidden">
+        <div class="modal-card">
+          <h3>👥 Friends</h3>
+          <div class="friends-add">
+            <input id="friend-add-name" maxlength="16" placeholder="Add by nickname" autocomplete="off" />
+            <button id="friend-add-btn" class="primary">Add</button>
+          </div>
+          <p id="friends-status" class="status"></p>
+          <div id="friends-requests" class="friends-section"></div>
+          <div id="friends-list" class="friends-section"></div>
+          <p id="friends-empty" class="status fair hidden">No friends yet — add someone by their nickname.</p>
+          <button id="friends-close" class="ghost">Close</button>
+        </div>
+      </div>
 
       <!-- Create a lobby: only the settings needed to make a room -->
       <div id="create-modal" class="modal hidden">

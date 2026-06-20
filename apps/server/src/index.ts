@@ -747,6 +747,99 @@ app.post("/profile/name", (res, req) => {
   }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 
+// --- friends + presence ---
+// Lightweight presence: the client polls GET /friends (which marks it online with
+// its current room), so we know who's online and where without extra WS infra.
+const PRESENCE_WALLET_TTL_MS = 45_000;
+const onlineWallets = new Map<string, { at: number; room: string; status: string }>();
+function markOnline(wallet: string, room: string, status: string): void {
+  onlineWallets.set(wallet, { at: Date.now(), room: room.slice(0, 8), status: status.slice(0, 8) });
+}
+function presenceOf(wallet: string): { online: boolean; room: string; status: string } {
+  const e = onlineWallets.get(wallet);
+  if (!e || Date.now() - e.at > PRESENCE_WALLET_TTL_MS) return { online: false, room: "", status: "" };
+  return { online: true, room: e.room, status: e.status };
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [w, e] of onlineWallets) if (now - e.at > PRESENCE_WALLET_TTL_MS) onlineWallets.delete(w);
+}, 60_000).unref?.();
+
+// Friends list + presence beat. Marks the caller online (with their current room)
+// and returns their friends/requests enriched with online/room/joinable info.
+app.get("/friends", (res, req) => {
+  res.onAborted(() => {
+    (res as ResWithAbort).aborted = true;
+  });
+  const q = new URLSearchParams(req.getQuery());
+  const wallet = verifySession(q.get("session") ?? "");
+  if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+  markOnline(wallet, q.get("room") ?? "", q.get("status") ?? "menu");
+  void store
+    .listFriends(wallet)
+    .then((rows) => {
+      const enrich = (r: { wallet: string; name: string; status: string }) => {
+        const pr = presenceOf(r.wallet);
+        const room = mm.getRoom(pr.room);
+        const joinable = pr.online && pr.status === "lobby" && !!room && room.acceptsPlayers();
+        return { wallet: r.wallet, name: r.name, status: r.status, online: pr.online, room: joinable ? pr.room : "" };
+      };
+      sendJson(res, {
+        friends: rows.filter((r) => r.status === "friends").map(enrich),
+        incoming: rows.filter((r) => r.status === "in").map((r) => ({ wallet: r.wallet, name: r.name })),
+        outgoing: rows.filter((r) => r.status === "out").map((r) => ({ wallet: r.wallet, name: r.name })),
+      });
+    })
+    .catch(() => sendJson(res, { friends: [], incoming: [], outgoing: [] }));
+});
+
+// Send a friend request by nickname.
+app.post("/friends/add", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    let wallet: string | null = null;
+    let name = "";
+    try {
+      const j = JSON.parse(body || "{}");
+      if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+      if (typeof j.name === "string") name = j.name.trim().slice(0, 16);
+    } catch {
+      /* ignore */
+    }
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    if (name.length < 2) return sendJson(res, { error: "bad_name" }, "400 Bad Request");
+    const friend = await store.walletByName(name);
+    if (!friend) return sendJson(res, { error: "not_found" }, "404 Not Found");
+    const r = await store.addFriend(wallet, friend);
+    if (r === "self") return sendJson(res, { error: "self" }, "400 Bad Request");
+    sendJson(res, { ok: true, result: r });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
+// Accept / remove (decline / unfriend) by wallet.
+function friendAction(path: string, fn: (wallet: string, friend: string) => Promise<unknown>): void {
+  app.post(path, (res, req) => {
+    if (!guard(res, req)) return;
+    void readBody(res).then(async (body) => {
+      let wallet: string | null = null;
+      let friend = "";
+      try {
+        const j = JSON.parse(body || "{}");
+        if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+        if (typeof j.wallet === "string") friend = j.wallet.trim();
+      } catch {
+        /* ignore */
+      }
+      if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+      if (!friend) return sendJson(res, { error: "bad_wallet" }, "400 Bad Request");
+      await fn(wallet, friend);
+      sendJson(res, { ok: true });
+    }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+  });
+}
+friendAction("/friends/accept", (w, f) => store.acceptFriend(w, f));
+friendAction("/friends/remove", (w, f) => store.removeFriend(w, f));
+
 // --- referral ---
 // Bind the inviter for a freshly-connected wallet (one-time, session-verified).
 app.post("/referral/attribute", (res, req) => {
