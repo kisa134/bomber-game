@@ -1548,6 +1548,48 @@ function leagueProgress(rating: number): { pct: number; label: string } {
   return { pct, label: `${(higher.min - rating).toLocaleString()} rating to ${higher.emoji} ${higher.name}` };
 }
 
+/** Tier colours: green (early) → orange → red → gold (top), part of the rank
+ *  hierarchy (not just decoration). */
+const LEAGUE_COLORS: Record<string, string> = {
+  Beginner: "#5fd96a",
+  Advanced: "#ff9a3d",
+  Pro: "#ff5a5a",
+  Champion: "#ffcc33",
+};
+/** Build the rating ladder: every tier visible ahead, current one highlighted +
+ *  filling, past ones full, future ones dimmed. */
+function buildRankLadder(rating: number): HTMLElement {
+  const tiers = [...LEAGUES].sort((a, b) => a.min - b.min); // ascending
+  const ladder = el("div", "rank-ladder", "");
+  tiers.forEach((t, i) => {
+    const next = tiers[i + 1];
+    const cap = next ? next.min : t.min + 400; // top tier spans ~400 for the fill
+    let state: "past" | "current" | "future";
+    let fillPct = 0;
+    if (next && rating >= next.min) {
+      state = "past";
+      fillPct = 100;
+    } else if (rating >= t.min) {
+      state = "current";
+      fillPct = Math.max(6, Math.min(100, ((rating - t.min) / (cap - t.min)) * 100));
+    } else {
+      state = "future";
+      fillPct = 0;
+    }
+    const color = LEAGUE_COLORS[t.name] ?? "#9aa3b2";
+    const seg = el("div", `ladder-seg ${state}`, "");
+    seg.style.setProperty("--c", color);
+    const bar = el("div", "ladder-bar", "");
+    const fill = el("div", "ladder-fill", "");
+    fill.style.width = `${fillPct}%`;
+    bar.appendChild(fill);
+    seg.appendChild(bar);
+    seg.appendChild(el("div", "ladder-label", `${t.emoji} ${t.name}`));
+    ladder.appendChild(seg);
+  });
+  return ladder;
+}
+
 async function openProfile(): Promise<void> {
   showScreen("profile");
   const body = document.getElementById("profile-body")!;
@@ -1605,18 +1647,28 @@ async function openProfile(): Promise<void> {
     };
     const zones = el("div", "prof-zones", "");
 
-    // Progression
-    const prog = card("📈 Progression");
+    // Rank ladder (competitive progression) — full width, primary.
+    const rankCard = card("🏆 Rank");
     const pr = leagueProgress(p.rating);
-    prog.appendChild(el("div", "prof-bigstat", `${lg.emoji} ${p.rating}`));
-    const bar = el("div", "prof-prog", "");
-    const fill = el("div", "prof-progfill", "");
-    fill.style.width = `${pr.pct}%`;
-    bar.appendChild(fill);
-    prog.appendChild(bar);
-    prog.appendChild(el("div", "prof-sub", pr.label));
-    prog.appendChild(row(`Level ${p.level ?? 1}`, `${(p.xp ?? 0) % 200}/200 XP`));
-    zones.appendChild(prog);
+    const head = el("div", "rank-head", "");
+    head.append(
+      el("div", "rank-rating", `${lg.emoji} ${p.rating.toLocaleString()}`),
+      el("div", "rank-name", lg.name),
+    );
+    rankCard.appendChild(head);
+    rankCard.appendChild(buildRankLadder(p.rating));
+    rankCard.appendChild(el("div", "prof-sub", pr.label));
+    zones.appendChild(rankCard);
+
+    // Account level / XP (separate, calmer progression).
+    const lvlCard = card("📊 Account level");
+    lvlCard.appendChild(row(`Level ${p.level ?? 1}`, `${(p.xp ?? 0) % 200} / 200 XP`));
+    const xpbar = el("div", "lvl-bar", "");
+    const xpfill = el("div", "lvl-fill", "");
+    xpfill.style.width = `${Math.max(3, Math.min(100, (((p.xp ?? 0) % 200) / 200) * 100))}%`;
+    xpbar.appendChild(xpfill);
+    lvlCard.appendChild(xpbar);
+    zones.appendChild(lvlCard);
 
     // Career stats
     const stats = card("⚔️ Career stats");
