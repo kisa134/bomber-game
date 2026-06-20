@@ -819,17 +819,20 @@ export class Renderer {
     g.textBaseline = "middle";
     const mx = c.width / 2;
     const my = c.height / 2;
-    // Thick black pixel outline so the red reads on ANY background.
-    g.fillStyle = "#140000";
-    for (let dx = -2; dx <= 2; dx++) {
-      for (let dy = -2; dy <= 2; dy++) {
+    // Thick DARK-RED blood outline (edges), so the whole thing reads as written
+    // in blood rather than black-outlined.
+    g.fillStyle = "#2a0000";
+    for (let dx = -3; dx <= 3; dx++) {
+      for (let dy = -3; dy <= 3; dy++) {
         if (dx || dy) g.fillText(text, mx + dx, my + dy);
       }
     }
-    // Blood-red fill with a darker lower half for depth.
-    g.fillStyle = "#7a0000";
+    // Blood-red fill, brighter at the top -> darker, congealed lower half.
+    g.fillStyle = "#6e0000";
+    g.fillText(text, mx, my + 2);
+    g.fillStyle = "#a80000";
     g.fillText(text, mx, my + 1);
-    g.fillStyle = "#e60000";
+    g.fillStyle = "#e01414";
     g.fillText(text, mx, my);
     this.fbCanvas = c;
   }
@@ -1507,10 +1510,11 @@ export class Renderer {
     ctx.restore();
   }
 
-  /** Center-screen FIRST BLOOD: chunky pixel text + falling pixel blood drips. */
+  /** Center-screen FIRST BLOOD: chunky blood-written text + streaming pixel blood
+   *  drips. Sits high, pops in, and clears quickly. */
   private drawFirstBlood(now: number): void {
     if (!this.fbCanvas || this.firstBloodAt === 0) return;
-    const dur = 3000;
+    const dur = 1800; // clears fast
     const k = (now - this.firstBloodAt) / dur;
     if (k >= 1) {
       this.firstBloodAt = 0;
@@ -1520,10 +1524,10 @@ export class Renderer {
     const W = this.tile * GRID_W;
     const H = this.tile * GRID_H;
     const cx = W / 2;
-    const cy = H * 0.38;
-    const pop = Math.min(1, (now - this.firstBloodAt) / 160);
-    const fade = k > 0.82 ? (1 - k) / 0.18 : 1;
-    const dw = W * 0.78 * (0.85 + 0.15 * pop);
+    const cy = H * 0.26; // higher up
+    const pop = Math.min(1, (now - this.firstBloodAt) / 140);
+    const fade = k > 0.72 ? (1 - k) / 0.28 : 1;
+    const dw = W * 0.82 * (0.82 + 0.18 * pop);
     const dh = (dw * this.fbCanvas.height) / this.fbCanvas.width;
     ctx.save();
     ctx.globalAlpha = fade;
@@ -1531,15 +1535,15 @@ export class Renderer {
     ctx.imageSmoothingEnabled = false; // crisp pixel scaling
     ctx.drawImage(this.fbCanvas, cx - dw / 2, cy - dh / 2, dw, dh);
     ctx.imageSmoothingEnabled = smooth;
-    // Falling pixel blood drips from under the text.
-    const pu = Math.max(4, Math.round(this.tile / 6));
-    for (let i = 0; i < 22; i++) {
-      const fx = cx + (((i * 53) % 100) / 100 - 0.5) * dw * 0.95;
-      const delay = (i % 9) * 0.04;
+    // Blood streaming down from under the text (starts immediately, runs long).
+    const pu = Math.max(3, Math.round(this.tile / 8));
+    for (let i = 0; i < 40; i++) {
+      const fx = cx + (((i * 37) % 100) / 100 - 0.5) * dw * 0.98;
+      const delay = (i % 12) * 0.02;
       const dk = Math.max(0, k - delay);
-      const dy = cy + dh * 0.42 + dk * dk * H * 0.6;
-      const h = pu * (2 + (i % 4));
-      ctx.fillStyle = i % 3 === 0 ? "#9e0000" : "#d40d0d";
+      const dy = cy + dh * 0.4 + dk * dk * H * 0.85; // accelerating fall
+      const h = pu * (2 + (i % 5)); // varied streak length
+      ctx.fillStyle = i % 4 === 0 ? "#7a0000" : i % 4 === 1 ? "#b00000" : "#d40d0d";
       ctx.fillRect(Math.round(fx / pu) * pu, Math.round(dy / pu) * pu, pu, h);
     }
     ctx.restore();

@@ -447,7 +447,8 @@ net.onMessage = (msg) => {
     case ServerMsg.EVENT_CALLOUT:
       if (msg.kind === CalloutType.FIRST_BLOOD) {
         renderer?.firstBlood(); // pixel "FIRST BLOOD" text + blood drips
-        void assets.playReverb("first_blood"); // echo + reverb
+        assets.play("first_blood"); // direct hit so EVERY player clearly hears it
+        void assets.playReverb("first_blood"); // + echo/reverb tail for impact
         if (msg.playerId === state.myId) iGotFirstBlood = true; // for the share card
       }
       break;
