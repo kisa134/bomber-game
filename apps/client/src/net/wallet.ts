@@ -5,7 +5,7 @@
 
 import { getWallets } from "@wallet-standard/app";
 import { SERVER_HTTP } from "../config.js";
-import { TG_WALLET_NAME, telegramSignAndSend } from "./telegram-wallet.js";
+import { isTgWalletName, telegramSignAndSend } from "./telegram-wallet.js";
 
 // Wallet Standard feature keys (namespaced strings).
 const F_CONNECT = "standard:connect";
@@ -111,7 +111,7 @@ export async function signAndSendBase64(base64Tx: string): Promise<void> {
   if (!stored) throw new Error("Connect a wallet first");
   // Inside Telegram the wallet is driven by Phantom deeplinks (navigates away
   // and resumes on return), not the in-page Wallet Standard.
-  if (stored.walletName === TG_WALLET_NAME) {
+  if (isTgWalletName(stored.walletName)) {
     await telegramSignAndSend(base64Tx);
     return;
   }

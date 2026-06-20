@@ -72,6 +72,7 @@ import {
   startTelegramConnect,
   resumeTelegramWallet,
   disconnectTelegramWallet,
+  TG_WALLETS,
 } from "./net/telegram-wallet.js";
 import { registerSW } from "virtual:pwa-register";
 
@@ -991,15 +992,19 @@ function openWalletModal(): void {
   if (isTelegram) {
     empty.classList.add("hidden");
     document.querySelector(".wc-section")?.classList.add("hidden");
-    const row = document.createElement("button");
-    row.className = "wallet-row";
-    row.textContent = "👻 Connect with Phantom";
-    row.addEventListener("click", () => {
-      status.textContent = "Opening Phantom…";
-      track("wallet_connect_start", { provider: "telegram-phantom" });
-      void startTelegramConnect();
-    });
-    list.appendChild(row);
+    // One row per deeplink wallet (Phantom / Solflare). The chosen wallet drives
+    // the whole connect→sign→deposit deeplink flow.
+    for (const w of TG_WALLETS) {
+      const row = document.createElement("button");
+      row.className = "wallet-row";
+      row.textContent = `${w.emoji} Connect with ${w.name}`;
+      row.addEventListener("click", () => {
+        status.textContent = `Opening ${w.name}…`;
+        track("wallet_connect_start", { provider: `telegram-${w.name.toLowerCase()}` });
+        void startTelegramConnect({ name: w.name, base: w.base });
+      });
+      list.appendChild(row);
+    }
     modal.classList.remove("hidden");
     return;
   }

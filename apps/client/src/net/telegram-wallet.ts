@@ -11,13 +11,38 @@ import bs58 from "bs58";
 import { SERVER_HTTP } from "../config.js";
 import { getStartParam, openExternal } from "../platform/telegram.js";
 
-export const TG_WALLET_NAME = "Telegram (Phantom)";
-const PHANTOM_BASE = "https://phantom.app/ul/v1";
+// Wallets that implement the Phantom-style encrypted universal-link deeplink
+// protocol (identical params + flow; only the base URL and the returned
+// "<wallet>_encryption_public_key" key differ). Phantom and Solflare both do.
+export const TG_WALLETS = [
+  { name: "Phantom", emoji: "👻", base: "https://phantom.app/ul/v1" },
+  { name: "Solflare", emoji: "🔆", base: "https://solflare.com/ul/v1" },
+] as const;
+
+const TG_NAME_PREFIX = "Telegram"; // bp_wallet.walletName = "Telegram (Phantom)"…
+export const TG_WALLET_NAME = `${TG_NAME_PREFIX} (Phantom)`; // back-compat default
+/** True for any wallet connected via the Telegram deeplink flow. */
+export function isTgWalletName(name: string): boolean {
+  return name.startsWith(TG_NAME_PREFIX);
+}
 const CLUSTER = "mainnet-beta";
 
 const K_KP = "bp_tg_dapp"; // dapp encryption keypair
 const K_SESS = "bp_tg_sess"; // shared secret + phantom session + address
 const K_PENDING = "bp_tg_pending"; // in-flight deeplink op
+const K_WALLET = "bp_tg_wallet"; // which deeplink wallet is in use ({name,base})
+
+interface TgWalletChoice {
+  name: string;
+  base: string;
+}
+function setTgWallet(w: TgWalletChoice): void {
+  localStorage.setItem(K_WALLET, JSON.stringify(w));
+}
+/** The wallet currently driving the deeplink flow (defaults to Phantom). */
+function tgWallet(): TgWalletChoice {
+  return load<TgWalletChoice>(K_WALLET) ?? { name: "Phantom", base: TG_WALLETS[0].base };
+}
 
 interface DappKp {
   secret: string;
@@ -96,8 +121,9 @@ export function isTgWalletConnected(): boolean {
 
 // --- outbound deeplinks ----------------------------------------------------
 
-/** Step 1: open Phantom to connect. On return we kick off the sign-in step. */
-export async function startTelegramConnect(): Promise<void> {
+/** Step 1: open the chosen wallet to connect. On return we kick off sign-in. */
+export async function startTelegramConnect(wallet: TgWalletChoice = tgWallet()): Promise<void> {
+  setTgWallet(wallet);
   const kp = dappKeypair();
   const state = await newState();
   setPending({ kind: "connect", state });
@@ -107,7 +133,7 @@ export async function startTelegramConnect(): Promise<void> {
     redirect_link: redirectLink(state),
     cluster: CLUSTER,
   });
-  openExternal(`${PHANTOM_BASE}/connect?${params.toString()}`);
+  openExternal(`${wallet.base}/connect?${params.toString()}`);
 }
 
 /** Deposit: have Phantom sign+send a server-built (base64) transaction. */
@@ -128,7 +154,7 @@ export async function telegramSignAndSend(base64Tx: string): Promise<void> {
     redirect_link: redirectLink(state),
     payload,
   });
-  openExternal(`${PHANTOM_BASE}/signAndSendTransaction?${params.toString()}`);
+  openExternal(`${tgWallet().base}/signAndSendTransaction?${params.toString()}`);
 }
 
 async function startSignIn(address: string): Promise<void> {
@@ -157,7 +183,7 @@ async function startSignIn(address: string): Promise<void> {
     redirect_link: redirectLink(state),
     payload: enc.payload,
   });
-  openExternal(`${PHANTOM_BASE}/signMessage?${params.toString()}`);
+  openExternal(`${tgWallet().base}/signMessage?${params.toString()}`);
 }
 
 // --- inbound: resume a pending flow on app load ----------------------------
@@ -198,8 +224,14 @@ export async function resumeTelegramWallet(h: ResumeHandlers): Promise<boolean> 
     const nonce = q.get("nonce") ?? "";
 
     if (pending.kind === "connect") {
-      const phantomPub = q.get("phantom_encryption_public_key") ?? "";
-      const shared = nacl.box.before(bs58.decode(phantomPub), dappKeypair().secretKey);
+      // Phantom returns phantom_encryption_public_key; Solflare returns
+      // solflare_encryption_public_key — accept whichever is present.
+      const walletPub =
+        q.get("phantom_encryption_public_key") ??
+        q.get("solflare_encryption_public_key") ??
+        "";
+      if (!walletPub) throw new Error("Wallet did not return an encryption key");
+      const shared = nacl.box.before(bs58.decode(walletPub), dappKeypair().secretKey);
       const res = decrypt(data, nonce, shared);
       const address = String(res.public_key ?? "");
       const session = String(res.session ?? "");
@@ -235,7 +267,11 @@ export async function resumeTelegramWallet(h: ResumeHandlers): Promise<boolean> 
       const { session } = (await verifyRes.json()) as { session: string };
       localStorage.setItem(
         "bp_wallet",
-        JSON.stringify({ address: pending.address, session, walletName: TG_WALLET_NAME }),
+        JSON.stringify({
+          address: pending.address,
+          session,
+          walletName: `${TG_NAME_PREFIX} (${tgWallet().name})`,
+        }),
       );
       localStorage.removeItem(K_PENDING);
       h.onConnected(pending.address);

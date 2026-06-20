@@ -55,23 +55,44 @@ export function takeRelayPayload(state: string): string | null {
   return e.payload;
 }
 
-/** Tiny HTML page that bounces the user back into the Mini App. */
+/** Tiny HTML page that bounces the user back into the Mini App.
+ *  We auto-redirect via the tg:// scheme (resolves straight to the Mini App and
+ *  avoids the t.me web page that can land on the bot CHAT instead of the app),
+ *  and show the https t.me link as a tappable fallback.
+ *
+ *  CONFIG: `TG_BOT` = the bot username (no @). `TG_APP` = the BotFather Mini App
+ *  short name (from /newapp). If you use the Main Mini App (Bot Settings → enable,
+ *  no short name) leave `TG_APP` empty — but the Main Mini App MUST be enabled,
+ *  otherwise the link opens the bot chat (the "it just opens the bot" bug). */
 export function reopenHtml(state: string): string {
-  // Named Mini App (BotFather /newapp): t.me/<bot>/<app>. Main Mini App
-  // (Bot Settings -> Enable Mini App, no short name): t.me/<bot>. Both accept
-  // ?startapp=<state>, surfaced to the client as start_param.
-  const path = APP ? `${BOT}/${APP}` : BOT;
-  const link = BOT ? `https://t.me/${path}?startapp=${encodeURIComponent(state)}` : "";
-  const safe = JSON.stringify(link);
+  const s = encodeURIComponent(state);
+  const tg = BOT
+    ? APP
+      ? `tg://resolve?domain=${BOT}&appname=${APP}&startapp=${s}`
+      : `tg://resolve?domain=${BOT}&startapp=${s}`
+    : "";
+  const https = BOT
+    ? APP
+      ? `https://t.me/${BOT}/${APP}?startapp=${s}`
+      : `https://t.me/${BOT}?startapp=${s}`
+    : "";
+  const tgJson = JSON.stringify(tg);
+  const httpsJson = JSON.stringify(https);
   return `<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Returning…</title>
 <style>html,body{height:100%}body{margin:0;background:#0e1018;color:#e7e9ee;
 font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;
-justify-content:center;text-align:center}a{color:#ffcc33;font-weight:700;
-text-decoration:none}</style></head><body><div>
+justify-content:center;text-align:center;padding:24px}a{color:#ffcc33;font-weight:700;
+text-decoration:none;font-size:1.1rem}</style></head><body><div>
 <p>Returning to Bombermeme…</p>
-${link ? `<p><a href="${link}">Tap here if it doesn't reopen</a></p>` : `<p>Reopen the game from your Telegram chat.</p>`}
-</div><script>${link ? `setTimeout(function(){location.replace(${safe});},150);` : ""}</script>
+${https ? `<p><a id="open" href="${https}">Tap to reopen the game ▸</a></p>` : `<p>Reopen the game from your Telegram chat.</p>`}
+</div><script>
+${tg || https ? `(function(){var tg=${tgJson},h=${httpsJson};
+  // Prefer the tg:// scheme (lands on the Mini App), fall back to https t.me.
+  try{ if(tg) location.href=tg; }catch(e){}
+  setTimeout(function(){ try{ if(h) location.replace(h); }catch(e){} }, 600);
+})();` : ""}
+</script>
 </body></html>`;
 }

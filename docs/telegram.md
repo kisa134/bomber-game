@@ -15,9 +15,19 @@ both require it. Set these env vars on the server:
 | `SOLANA_RPC` | (already used) RPC endpoint for token | Helius/QuickNode URL |
 | `TREASURY_ADDRESS` / `TREASURY_SECRET` | (already used) custodial treasury | … |
 
-`TG_BOT` + `TG_APP` are used only by the Phantom deeplink relay to bounce the
-user back into the Mini App (`https://t.me/<TG_BOT>/<TG_APP>?startapp=<state>`).
-Leave them unset for plain web/PWA — wallet-in-Telegram simply won't be offered.
+`TG_BOT` + `TG_APP` are used only by the wallet deeplink relay to bounce the
+user back into the Mini App. Leave them unset for plain web/PWA — wallet-in-
+Telegram simply won't be offered.
+
+> ⚠️ **"After approving in the wallet it just opens the bot chat, not the game"**
+> is almost always a `TG_BOT`/`TG_APP` config problem:
+> - If you created a **named** Mini App with `/newapp`, set `TG_APP` to that exact
+>   short name. The relay then returns to `tg://resolve?domain=<bot>&appname=<app>`.
+> - If you use the **Main** Mini App (Bot Settings → Configure Mini App, no short
+>   name), leave `TG_APP` empty — but the Main Mini App **must be enabled**, or
+>   `t.me/<bot>` opens the chat instead of the app.
+> The return page now auto-redirects via the `tg://` scheme (lands on the app)
+> with a tappable `t.me` fallback, but it still needs these values to be correct.
 
 ## 2. BotFather
 
@@ -32,9 +42,11 @@ Direct launch link: `https://t.me/<TG_BOT>/<TG_APP>`.
 
 ## 3. How the in-Telegram wallet works
 
-Telegram's webview has no wallet extension, so we drive **Phantom deeplinks**
-with a server relay (`apps/server/src/tgrelay.ts`, client
-`apps/client/src/net/telegram-wallet.ts`):
+Telegram's webview has no wallet extension, so we drive **encrypted wallet
+deeplinks** with a server relay (`apps/server/src/tgrelay.ts`, client
+`apps/client/src/net/telegram-wallet.ts`). Both **Phantom** and **Solflare**
+implement the same universal-link protocol, so the connect modal offers both
+(`TG_WALLETS`); the chosen wallet drives the whole connect→sign→deposit flow:
 
 ```
 Mini App ──(open Phantom deeplink, redirect_link=/tg/cb?state=…)──▶ Phantom app
