@@ -147,8 +147,13 @@ export async function isHolder(wallet: string): Promise<boolean> {
 let priceUsd = 0;
 let priceAt = 0;
 /** USD price of one whole token (0 if unknown). Cached ~60s. */
+// Manual price fallback (USD per whole token). Set TOKEN_PRICE_USD when the token
+// has no DEX liquidity yet (e.g. a fresh/test mint) so the in-game $ values still
+// show. A real DexScreener price always takes precedence once a pool exists.
+const PRICE_OVERRIDE = Number(process.env.TOKEN_PRICE_USD) || 0;
+
 export async function tokenPriceUsd(): Promise<number> {
-  if (Date.now() - priceAt < 60_000) return priceUsd;
+  if (Date.now() - priceAt < 60_000) return priceUsd || PRICE_OVERRIDE;
   try {
     const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${TOKEN_MINT}`);
     const j = (await res.json()) as { pairs?: Array<{ priceUsd?: string; liquidity?: { usd?: number } }> };
@@ -163,7 +168,8 @@ export async function tokenPriceUsd(): Promise<number> {
   } catch (e) {
     console.error("[token] price fetch failed", e);
   }
-  return priceUsd;
+  // Real market price if we have one, otherwise the manual override (may be 0).
+  return priceUsd || PRICE_OVERRIDE;
 }
 
 // --- deposit watcher -------------------------------------------------------

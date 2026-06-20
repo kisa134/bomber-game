@@ -32,6 +32,8 @@ services:
         sync: false
       - key: SOLANA_RPC # paid RPC (Helius/QuickNode/…); public endpoint is inadequate
         sync: false
+      - key: TOKEN_PRICE_USD # manual USD/token fallback when no DEX price yet (e.g. 0.0001)
+        sync: false
       # Ops alerting: Discord/Slack incoming-webhook URL. Money-path failures
       # (withdraw/payout/crash) POST here so you're never blind. Optional.
       - key: ALERT_WEBHOOK
