@@ -960,11 +960,12 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
   let currency = Currency.CHIPS;
   let difficulty = BotDifficulty.NORMAL;
   let bots = 3;
+  let competitive = false;
   try {
     const parsed = JSON.parse(body || "{}");
     if (typeof parsed.name === "string" && parsed.name.trim()) name = parsed.name.trim().slice(0, 16);
     if (typeof parsed.code === "string") code = parsed.code.trim().toUpperCase().slice(0, 8);
-    if (Number.isFinite(parsed.skin)) skin = Math.max(0, Math.min(3, Math.floor(parsed.skin)));
+    if (Number.isFinite(parsed.skin)) skin = Math.max(0, Math.min(SKIN_COUNT - 1, Math.floor(parsed.skin)));
     if (typeof parsed.session === "string" && parsed.session) wallet = verifySession(parsed.session);
     if (parsed.currency === 1) currency = Currency.TOKEN;
     const tiers = currency === Currency.TOKEN ? TOKEN_BET_SIZES : BET_SIZES;
@@ -975,10 +976,11 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
       difficulty = parsed.difficulty as BotDifficulty;
     }
     if (Number.isFinite(parsed.bots)) bots = Math.max(1, Math.min(3, Math.floor(parsed.bots)));
+    if (parsed.competitive === true) competitive = true;
   } catch {
     // ignore malformed body
   }
-  return { name, code, skin, wallet, stake, currency, difficulty, bots };
+  return { name, code, skin, wallet, stake, currency, difficulty, bots, competitive };
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
@@ -1097,6 +1099,7 @@ type Body = {
   currency: Currency;
   difficulty: BotDifficulty;
   bots: number;
+  competitive: boolean;
 };
 
 function withMatchmaking(
@@ -1179,7 +1182,7 @@ app.post("/create", (res, req) =>
   withMatchmaking(res, req, (b) => mm.createTable(b.name, b.skin, b.wallet, b.stake, b.currency)),
 );
 app.post("/practice", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty, b.bots), () => ({ stake: 0, currency: Currency.CHIPS })),
+  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty, b.bots, b.competitive), () => ({ stake: 0, currency: Currency.CHIPS })),
 );
 app.post("/join", (res, req) =>
   withMatchmaking(

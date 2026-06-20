@@ -70,15 +70,17 @@ export class Matchmaker {
     return this.reserve(room, name, skin, wallet);
   }
 
-  /** Solo practice room: fills with bots and auto-starts. Never staked. */
+  /** Solo practice room: fills with bots and auto-starts. Never staked.
+   *  competitive = a fair bots match that grants tiny rewards (vs sandbox). */
   practice(
     name: string,
     skin: number,
     wallet: string | null,
     difficulty: BotDifficulty = BotDifficulty.NORMAL,
     botCount = 3,
+    competitive = false,
   ): { code: string; token: string } {
-    const room = this.newRoom(false, true, 0, difficulty, Currency.CHIPS, botCount);
+    const room = this.newRoom(false, true, 0, difficulty, Currency.CHIPS, botCount, competitive);
     return this.reserve(room, name, skin, wallet);
   }
 
@@ -131,13 +133,14 @@ export class Matchmaker {
     botDifficulty: BotDifficulty = BotDifficulty.NORMAL,
     currency: Currency = Currency.CHIPS,
     botCount = 3,
+    competitive = false,
   ): Room {
     // Refuse new rooms when at the hard cap OR when the sim thread is saturated
     // (load shedding) — existing matches keep running smoothly.
     if (this.rooms.size >= MAX_ROOMS || this.load.busy) throw new ServerFullError();
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
-    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency, botCount);
+    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency, botCount, competitive);
     this.rooms.set(code, room);
     return room;
   }

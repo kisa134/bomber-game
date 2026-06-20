@@ -107,6 +107,9 @@ export interface ProfileStore {
   /** Credit a referral reward: add `amount` token base units to both the live
    *  balance and the lifetime `referral_earned` counter. */
   creditReferral(wallet: string, amount: number): Promise<void>;
+  /** Add XP (and recompute level) WITHOUT touching rating — used for the tiny
+   *  Competitive Bots Match reward. 200 XP per level. */
+  addXp(wallet: string, amount: number): Promise<void>;
   /** Persist the stakes escrowed for a live staked match, so a hard crash
    *  (SIGKILL/host failure) can refund them on the next boot. Returns false if
    *  the escrow could NOT be durably recorded — the caller must abort the match
@@ -363,6 +366,14 @@ class InMemoryStore implements ProfileStore {
     this.map.set(wallet, p);
     p.token_balance += amount;
     p.referral_earned += amount;
+  }
+
+  async addXp(wallet: string, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    p.xp += amount;
+    p.level = 1 + Math.floor(p.xp / 200);
   }
 
   private openStakes = new Map<string, Array<{ wallet: string; amount: number; currency: number }>>();
@@ -750,6 +761,21 @@ class SupabaseStore implements ProfileStore {
         method: "PATCH",
         headers: this.headers(),
         body: JSON.stringify({ referral_earned: earned }),
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  async addXp(wallet: string, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    const p = await this.getProfile(wallet);
+    const xp = (p?.xp ?? 0) + amount;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ xp, level: 1 + Math.floor(xp / 200) }),
       });
     } catch {
       /* best-effort */
@@ -1340,6 +1366,23 @@ class PostgresStore implements ProfileStore {
       );
     } catch (e) {
       console.error("[store] pg creditReferral failed", e);
+    }
+  }
+
+  async addXp(wallet: string, amount: number): Promise<void> {
+    if (amount <= 0) return;
+    try {
+      await this.ready;
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
+      await this.pool.query(
+        `update profiles set xp = xp + $2, level = 1 + ((xp + $2) / 200), updated_at=now() where wallet=$1`,
+        [wallet, amount],
+      );
+    } catch (e) {
+      console.error("[store] pg addXp failed", e);
     }
   }
 

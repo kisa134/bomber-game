@@ -69,7 +69,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, setWalletState } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
@@ -1673,12 +1673,10 @@ function openSkinShop(): void {
 }
 
 // --- main hub modules -------------------------------------------------------
-// Animate the hub hero like the lobby stage: run on the spot + turn in a circle.
+// Hub hero walks FORWARD toward the viewer (down-facing walk cycle), unlike the
+// lobby stage which turns in a circle.
 const HUB_TURN: Array<[string, number, boolean]> = [
-  ["down", 0, false], ["down", 1, false], ["down", 2, false],
-  ["side", 0, false], ["side", 1, false], ["side", 2, false],
-  ["up", 0, false], ["up", 1, false], ["up", 2, false],
-  ["side", 0, true], ["side", 1, true], ["side", 2, true],
+  ["down", 0, false], ["down", 1, false], ["down", 2, false], ["down", 1, false],
 ];
 let hubAnimTimer: ReturnType<typeof setInterval> | null = null;
 let hubAnimSkin = -1;
@@ -2330,20 +2328,18 @@ setupMenu({
     track("play_start", { mode: "create", stake: c.stake, currency: c.currency });
     connect(() => createRoom(c.name, c.skin, c.stake, c.currency));
   },
-  practice: (c, difficulty, bots) => {
-    closeModals();
+  practice: (c, difficulty, bots, competitive) => {
     practiceMode = true;
-    track("play_start", { mode: "practice", difficulty, bots });
-    connect(() => practiceRoom(c.name, c.skin, difficulty, bots));
+    track("play_start", { mode: competitive ? "competitive_bots" : "sandbox", difficulty, bots });
+    // The match auto-starts; the COUNTDOWN phase switches to the game screen.
+    connect(() => practiceRoom(c.name, c.skin, difficulty, bots, competitive));
   },
 });
 
 // --- Main-menu entry points -------------------------------------------------
 const createModal = document.getElementById("create-modal")!;
-const practiceModal = document.getElementById("practice-modal")!;
 function closeModals(): void {
   createModal.classList.add("hidden");
-  practiceModal.classList.add("hidden");
 }
 /** Open the full-screen lobby browser and load the room list. */
 function openLobby(): void {
@@ -2352,10 +2348,9 @@ function openLobby(): void {
 }
 // PLAY ONLINE lands straight on the full-screen lobby browser.
 document.getElementById("open-play")!.addEventListener("click", openLobby);
-// Practice vs bots opens its own setup modal (difficulty + bot count).
-document.getElementById("open-practice")!.addEventListener("click", () => {
-  practiceModal.classList.remove("hidden");
-});
+// Train vs bots opens the full-screen Training Setup screen.
+document.getElementById("open-practice")!.addEventListener("click", () => showScreen("training"));
+document.getElementById("train-back")!.addEventListener("click", () => showScreen("menu"));
 document.getElementById("lobby-back")!.addEventListener("click", () => showScreen("menu"));
 
 // Create Lobby → the create-only settings modal (chips or token).
@@ -2416,14 +2411,11 @@ document.getElementById("lobby-code-join")!.addEventListener("click", () => {
   void connect(() => joinRoom(name, code, randSkin()));
 });
 
-// Modal dismissal: Cancel buttons + tap-the-backdrop.
+// Modal dismissal: Cancel button + tap-the-backdrop (create modal).
 document.getElementById("create-cancel")!.addEventListener("click", closeModals);
-document.getElementById("practice-cancel")!.addEventListener("click", closeModals);
-for (const m of [createModal, practiceModal]) {
-  m.addEventListener("click", (e) => {
-    if (e.target === e.currentTarget) closeModals();
-  });
-}
+createModal.addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeModals();
+});
 
 /** Fetch + render the public rooms into the lobby browser. */
 function loadTables(): Promise<void> {
@@ -2579,6 +2571,7 @@ function onResultScreen(): boolean {
 function leaveToMenu(): void {
   spectating = false;
   practiceMode = false; // don't carry "Play again" into the next game
+  resetCharacterBrowse(); // next room starts on your current character
   document.getElementById("chat-log")?.replaceChildren(); // fresh chat next room
   net.close();
   assets.stop("sudden_death");

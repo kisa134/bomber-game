@@ -80,6 +80,11 @@ export const HOUSE_RAKE_BP = 0; // house rake in basis points (server env can ov
 // instead, so these flat rewards apply only when stake === 0.
 export const CHIPS_WIN_REWARD = 100; // winner of a free match
 export const CHIPS_PLAY_REWARD = 20; // everyone else who finished
+// Competitive Bots Match: tiny rewards (well below real PvP); Sandbox gives none.
+export const BOT_WIN_CHIPS = 20;
+export const BOT_PLAY_CHIPS = 5;
+export const BOT_WIN_XP = 15;
+export const BOT_PLAY_XP = 5;
 
 // --- Skins (cosmetic; unlock by leveling up + chips, OR buy with token) -----
 // Index: 0 Shiba, 1 Pepe, 2 Trump, 3 Musk, 4 Doge, 5 Pump, 6 Durov, 7 Vitalik,

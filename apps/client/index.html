@@ -156,14 +156,32 @@
         </div>
       </div>
 
-      <!-- Practice vs bots: difficulty + how many bots -->
-      <div id="practice-modal" class="modal hidden">
-        <div class="modal-card">
-          <h3>🤖 Practice vs bots</h3>
+      <!-- Training Setup: Practice Sandbox vs Competitive Bots Match -->
+      <section id="training" class="screen hidden">
+        <div class="train-wrap">
+          <div class="train-top">
+            <button id="train-back" class="ghost lobby-icon">←</button>
+            <h2 class="lobby-title">🤖 Train vs Bots</h2>
+            <span class="lobby-icon" style="visibility:hidden">.</span>
+          </div>
+
+          <!-- Mode selection -->
+          <div class="train-modes">
+            <button id="mode-sandbox" class="train-mode active" data-mode="sandbox">
+              <div class="tm-title">🧪 Practice Sandbox</div>
+              <div class="tm-sub">Full practice · <b>no rewards</b></div>
+            </button>
+            <button id="mode-competitive" class="train-mode" data-mode="competitive">
+              <div class="tm-title">⚔️ Competitive Bots</div>
+              <div class="tm-sub">Fair rules · <b>tiny XP &amp; coins</b></div>
+            </button>
+          </div>
+
+          <!-- Basic settings -->
           <div class="stake-label">Difficulty</div>
           <div class="seg" id="diff-seg">
-            <button class="seg-btn active" data-diff="0">😴 Easy</button>
-            <button class="seg-btn" data-diff="1">🤖 Normal</button>
+            <button class="seg-btn" data-diff="0">😴 Easy</button>
+            <button class="seg-btn active" data-diff="1">🤖 Normal</button>
             <button class="seg-btn" data-diff="2">💀 Hard</button>
           </div>
           <div class="stake-label">Bots</div>
@@ -172,10 +190,11 @@
             <button class="seg-btn" data-bots="2">2</button>
             <button class="seg-btn active" data-bots="3">3</button>
           </div>
-          <button id="practice-play" class="primary big">▶ Play</button>
-          <button id="practice-cancel" class="ghost">Cancel</button>
+
+          <div id="train-reward" class="train-reward"></div>
+          <button id="practice-play" class="primary big train-start">▶ Start</button>
         </div>
-      </div>
+      </section>
 
       <!-- Full-screen lobby browser (Glass Terminal: Bento mode cards + room list) -->
       <section id="lobby" class="screen hidden">
@@ -313,10 +332,13 @@
             <div class="room-rail room-character">
               <div class="zone-label">Your character</div>
               <div id="skin-stage" class="skin-stage">
+                <button id="skin-prev" class="skin-arrow" title="Previous character">◀</button>
                 <div id="skin-hero" class="skin-hero"></div>
+                <button id="skin-next" class="skin-arrow" title="Next character">▶</button>
+                <div id="skin-lock" class="skin-lock hidden">🔒</div>
               </div>
               <div id="skin-name" class="skin-name"></div>
-              <div id="skin-strip" class="skin-strip"></div>
+              <button id="skin-buy" class="ghost skin-buy hidden">🔒 Unlock in SHOP</button>
               <div id="bal-room" class="bal-bar hidden"></div>
             </div>
 

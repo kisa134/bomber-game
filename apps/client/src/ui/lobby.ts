@@ -58,6 +58,30 @@ function animateSkin(skin: number): void {
   skinAnimTimer = setInterval(step, 150);
 }
 
+// --- Lobby character browser (arrows cycle ALL skins; owned = selected, locked
+//     = dimmed + 🔒 with "Unlock in SHOP"). ----------------------------------
+let browseSkin = -1; // currently-previewed skin (lazy-init to your current)
+/** Reset the previewed character (e.g. when leaving a room). */
+export function resetCharacterBrowse(): void {
+  browseSkin = -1;
+}
+function renderCharacter(): void {
+  if (browseSkin < 0) return;
+  animateSkin(browseSkin);
+  const owned = (ownedSkins & (1 << browseSkin)) !== 0;
+  document.getElementById("skin-hero")?.classList.toggle("locked", !owned);
+  document.getElementById("skin-lock")?.classList.toggle("hidden", owned);
+  document.getElementById("skin-buy")?.classList.toggle("hidden", owned);
+  const nm = document.getElementById("skin-name");
+  if (nm) nm.textContent = skinName(browseSkin) + (owned ? "" : " 🔒");
+}
+function cycleBrowse(delta: number): void {
+  if (browseSkin < 0) return;
+  browseSkin = (browseSkin + delta + SKIN_COUNT) % SKIN_COUNT;
+  if ((ownedSkins & (1 << browseSkin)) !== 0) onSelectSkin(browseSkin); // apply owned pick
+  renderCharacter();
+}
+
 /** Live token→USD price, set from main; 0 = unknown. */
 let tokenUsd = 0;
 export function setTokenUsd(v: number): void {
@@ -108,6 +132,7 @@ export type ScreenName =
   | "profile"
   | "leaderboard"
   | "lobby"
+  | "training"
   | "room"
   | "game"
   | "result";
@@ -118,6 +143,7 @@ const SCREENS: ScreenName[] = [
   "profile",
   "leaderboard",
   "lobby",
+  "training",
   "room",
   "game",
   "result",
@@ -151,7 +177,7 @@ export interface MenuHandlers {
   /** Create & open a new lobby at the chosen currency + stake. */
   create: (c: Choice) => void;
   /** Start a solo practice match vs N bots at a difficulty. */
-  practice: (c: Choice, difficulty: number, bots: number) => void;
+  practice: (c: Choice, difficulty: number, bots: number, competitive: boolean) => void;
 }
 
 /** Build a Choice from the current nickname + the equipped character (Loadout).
@@ -202,13 +228,34 @@ export function setupMenu(h: MenuHandlers): void {
   curChips.addEventListener("click", () => setCurrency(0));
   curToken.addEventListener("click", () => setCurrency(1));
 
-  // --- Practice modal: difficulty + bot-count segments -----------------------
+  // --- Training Setup: mode + difficulty + bot-count -------------------------
   let diff = 1;
   let bots = 3;
+  let competitive = false; // false = Practice Sandbox, true = Competitive Bots
   const segPick = (group: HTMLElement, btn: HTMLElement): void => {
     for (const el of group.querySelectorAll(".seg-btn")) el.classList.remove("active");
     btn.classList.add("active");
   };
+  const rewardEl = document.getElementById("train-reward");
+  const startBtn = document.getElementById("practice-play");
+  const refreshTrainMode = (): void => {
+    if (rewardEl) {
+      rewardEl.textContent = competitive
+        ? "🟢 Tiny rewards ON · small XP + chips (no rating)"
+        : "⚪ Rewards OFF · pure practice";
+      rewardEl.className = "train-reward " + (competitive ? "on" : "off");
+    }
+    if (startBtn) startBtn.textContent = competitive ? "▶ Start Competitive Match" : "▶ Start Sandbox";
+  };
+  const setMode = (m: string): void => {
+    competitive = m === "competitive";
+    document.getElementById("mode-sandbox")?.classList.toggle("active", !competitive);
+    document.getElementById("mode-competitive")?.classList.toggle("active", competitive);
+    refreshTrainMode();
+  };
+  document.getElementById("mode-sandbox")?.addEventListener("click", () => setMode("sandbox"));
+  document.getElementById("mode-competitive")?.addEventListener("click", () => setMode("competitive"));
+  refreshTrainMode();
   const diffSeg = document.getElementById("diff-seg")!;
   diffSeg.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-diff]");
@@ -224,8 +271,13 @@ export function setupMenu(h: MenuHandlers): void {
     segPick(botsSeg, btn);
   });
   document.getElementById("practice-play")!.addEventListener("click", () => {
-    h.practice(makeChoice(0), diff, bots);
+    h.practice(makeChoice(0), diff, bots, competitive);
   });
+
+  // Lobby character arrows + "unlock in SHOP" (wired once).
+  document.getElementById("skin-prev")?.addEventListener("click", () => cycleBrowse(-1));
+  document.getElementById("skin-next")?.addEventListener("click", () => cycleBrowse(1));
+  document.getElementById("skin-buy")?.addEventListener("click", () => onOpenShop());
 }
 
 /** Currency-category filter for the public tables browser. */
@@ -476,26 +528,12 @@ export function renderRoom(state: GameState): void {
     }
   }
 
-  // --- Left rail: your character (animated) + pick from OWNED skins ---------
+  // --- Left rail: your character (animated, turns in a circle) — cycle with the
+  //     arrows; owned = selected, locked = dimmed + 🔒 with Unlock in SHOP. ----
   const me0 = state.roomPlayers.find((p) => p.id === state.myId);
   if (me0) {
-    animateSkin(me0.skin);
-    const skinNm = document.getElementById("skin-name");
-    if (skinNm) skinNm.textContent = skinName(me0.skin);
-    const strip = document.getElementById("skin-strip");
-    if (strip) {
-      strip.innerHTML = "";
-      for (let i = 0; i < SKIN_COUNT; i++) {
-        const owns = (ownedSkins & (1 << i)) !== 0;
-        const b = document.createElement("button");
-        b.className = "skin-thumb" + (i === me0.skin ? " sel" : "") + (owns ? "" : " locked");
-        b.title = owns ? skinName(i) : `${skinName(i)} — locked (tap to unlock in SHOP)`;
-        b.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
-        if (!owns) b.appendChild(Object.assign(document.createElement("span"), { className: "lock", textContent: "🔒" }));
-        b.addEventListener("click", () => (owns ? onSelectSkin(i) : onOpenShop()));
-        strip.appendChild(b);
-      }
-    }
+    if (browseSkin < 0) browseSkin = me0.skin; // start on your current character
+    renderCharacter();
   }
 
   document.getElementById("room-stake")?.classList.add("hidden");

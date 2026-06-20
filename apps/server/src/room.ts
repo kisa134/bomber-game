@@ -32,6 +32,10 @@ import {
   PowerUpType,
   CHIPS_WIN_REWARD,
   CHIPS_PLAY_REWARD,
+  BOT_WIN_CHIPS,
+  BOT_PLAY_CHIPS,
+  BOT_WIN_XP,
+  BOT_PLAY_XP,
   encodeSnapshot,
   encodePhase,
   encodeExplosion,
@@ -84,6 +88,7 @@ export class Room {
   readonly id: string; // also used as the shareable room code
   readonly isPublic: boolean;
   readonly practice: boolean; // fill with bots and auto-start
+  readonly competitive: boolean = false; // bot match that grants tiny rewards (vs sandbox)
   readonly botDifficulty: BotDifficulty; // difficulty of bots in a practice room
   readonly botCount: number; // how many bots a practice match fills with
   stake: number; // amount wagered per player (0 = casual); host can change in lobby
@@ -136,10 +141,12 @@ export class Room {
     botDifficulty: BotDifficulty = BotDifficulty.NORMAL,
     currency: Currency = Currency.CHIPS,
     botCount = MAX_PLAYERS_PER_ROOM - 1,
+    competitive = false,
   ) {
     this.id = id;
     this.isPublic = isPublic;
     this.practice = practice;
+    this.competitive = competitive;
     this.stake = stake;
     this.currency = currency;
     this.botDifficulty = botDifficulty;
@@ -1234,16 +1241,28 @@ export class Room {
     if (results.length) void store.recordMatch(results);
   }
 
-  /** Flat chip rewards for a non-staked match (practice/bots, free quickplay) so
-   *  chips can be earned toward skins. Staked matches pay the pot instead. */
+  /** Flat chip rewards for a non-staked match. Staked matches pay the pot instead.
+   *  Bot rooms: Practice Sandbox gives NOTHING; Competitive Bots Match gives a
+   *  tiny chips + XP reward (no rating, not counted on the leaderboards) so it
+   *  can't be farmed in place of real play. */
   private awardPlayRewards(): void {
     if (this.stake > 0) return;
+    // Bot rooms (practice): sandbox = no rewards; competitive = tiny rewards.
+    if (this.practice) {
+      if (!this.competitive) return; // Practice Sandbox — no rewards
+      for (const p of this.players.values()) {
+        if (p.isBot || !p.wallet) continue;
+        const won = p.id === this.winnerId;
+        void store.adjustChips(p.wallet, won ? BOT_WIN_CHIPS : BOT_PLAY_CHIPS);
+        void store.addXp(p.wallet, won ? BOT_WIN_XP : BOT_PLAY_XP);
+      }
+      return;
+    }
+    // Free PvP / quickplay: full flat chip rewards (+ leaderboard winnings).
     for (const p of this.players.values()) {
       if (p.isBot || !p.wallet) continue;
       const won = p.id === this.winnerId;
-      const reward = won ? CHIPS_WIN_REWARD : CHIPS_PLAY_REWARD;
-      void store.adjustChips(p.wallet, reward);
-      // Free-board winnings: count the winner's reward as chips "поднял".
+      void store.adjustChips(p.wallet, won ? CHIPS_WIN_REWARD : CHIPS_PLAY_REWARD);
       if (won) void store.recordWinnings(p.wallet, Currency.CHIPS, CHIPS_WIN_REWARD);
     }
   }
