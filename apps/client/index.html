@@ -59,9 +59,18 @@
             </div>
           </div>
           <div id="hub-progress" class="hub-progress hidden">
-            <span class="lvl">LV <span id="hub-level">1</span></span>
-            <div class="xpbar"><div id="hub-xpfill" class="xpfill"></div></div>
-            <span id="hub-xptext" class="xptext"></span>
+            <!-- Primary: competitive rating rail (thick, glowing, with rank) -->
+            <div class="prog-row prog-rating">
+              <span id="hub-rank" class="rrk">🌱 Beginner</span>
+              <div class="ratebar"><div id="hub-ratefill" class="ratefill"></div></div>
+              <span id="hub-ratetext" class="ratetext"></span>
+            </div>
+            <!-- Secondary: account level / XP rail (thin, calm) -->
+            <div class="prog-row prog-level">
+              <span class="lvl">LV <span id="hub-level">1</span></span>
+              <div class="xpbar"><div id="hub-xpfill" class="xpfill"></div></div>
+              <span id="hub-xptext" class="xptext"></span>
+            </div>
           </div>
         </div>
       </div>

@@ -1323,9 +1323,27 @@ function setStats(chips: number, rating: number): void {
   lastRating = rating;
   lastChips = chips;
   document.getElementById("player-stats")?.classList.remove("hidden");
+  setRatingRail(rating);
   updateBalanceBars();
   syncChrome();
   refreshHub(); // equipped character may have synced from the profile
+}
+/** Update the PRIMARY rating rail in the HUD (rank + progress toward next league). */
+function setRatingRail(rating: number): void {
+  const lg = leagueFor(rating);
+  const rk = document.getElementById("hub-rank");
+  if (rk) {
+    rk.textContent = `${lg.emoji} ${lg.name} · ${rating.toLocaleString()}`;
+    rk.style.setProperty("--c", LEAGUE_COLORS[lg.name] ?? "#9aa3b2");
+  }
+  const pr = leagueProgress(rating);
+  const fill = document.getElementById("hub-ratefill") as HTMLElement | null;
+  if (fill) {
+    fill.style.width = `${pr.pct}%`;
+    fill.style.setProperty("--c", LEAGUE_COLORS[lg.name] ?? "#9aa3b2");
+  }
+  const txt = document.getElementById("hub-ratetext");
+  if (txt) txt.textContent = pr.label;
 }
 /** Chips-only update when we don't have a fresh rating (keeps the last one). */
 function setBalance(chips: number): void {
