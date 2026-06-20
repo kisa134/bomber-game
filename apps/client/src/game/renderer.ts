@@ -564,17 +564,23 @@ export class Renderer {
       const idx = c.y * GRID_W + c.x;
       this.burn.set(idx, Math.min(10, (this.burn.get(idx) ?? 0) + 1)); // +1 per blast -> gradual darkening (epicenter darkest)
       this.scorchDirty = true;
-      // A blast BAKES blood (fresh -> crust -> charcoal). The visible spread bleeds a
-      // tile past the source cells, so bake the blast cell AND any blood neighbours.
+      // A blast BAKES blood into charcoal. If the blast lands on/near blood (the
+      // continuous spread bleeds a tile past the source cells), char the BLAST CELL
+      // itself: drop a charred-blood patch there and darken it toward black.
       {
-        let baked = false;
-        for (const [bx, by] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
-          const nx = c.x + bx, ny = c.y + by;
-          if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
-          const ni = ny * GRID_W + nx;
-          if (this.bloodGround.has(ni)) { this.bakedBlood.set(ni, Math.min(3, (this.bakedBlood.get(ni) ?? 0) + 2)); baked = true; }
+        let nearBlood = this.bloodGround.has(idx);
+        if (!nearBlood) {
+          for (const [dx, dy] of NB) {
+            const nx = c.x + dx, ny = c.y + dy;
+            if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
+            if (this.bloodGround.has(ny * GRID_W + nx)) { nearBlood = true; break; }
+          }
         }
-        if (baked) this.bloodDirty = true;
+        if (nearBlood) {
+          this.bloodGround.set(idx, Math.max(this.bloodGround.get(idx) ?? 0, 5)); // ensure a visible patch
+          this.bakedBlood.set(idx, Math.min(3, (this.bakedBlood.get(idx) ?? 0) + 2)); // char it
+          this.bloodDirty = true;
+        }
       }
       if (this.prevGrid) {
         for (const [dx, dy] of NB) {
@@ -810,14 +816,16 @@ export class Renderer {
           // global continuous noise (absolute coords) -> organic breakup, no tile repeat
           let cn = (((gx / (pu * 3)) | 0) * 374761393 ^ ((gy / (pu * 3)) | 0) * 668265263) >>> 0; cn = ((cn ^ (cn >>> 13)) * 1274126177) >>> 0; const coarse = (cn & 1023) / 1023;
           let fn = (gx * 73856093 ^ gy * 19349663) >>> 0; fn = ((fn ^ (fn >>> 13)) * 1274126177) >>> 0; const fine = (fn & 1023) / 1023;
-          // coverage falls with intensity (center dense, edge sparse/broken)
-          if (fine > Math.min(1, norm * (0.32 + 0.95 * coarse))) continue;
           const bk = Math.max(bakeI(cx0, cy0), bakeI(cx0 + 1, cy0), bakeI(cx0, cy0 + 1), bakeI(cx0 + 1, cy0 + 1));
-          if (bk > 0) { // baked: dried crust -> charcoal with the odd ember
-            const darken = 1 - (bk - 1) * 0.42;
-            g.globalAlpha = Math.min(0.92, 0.4 + norm * 0.45);
-            if (bk >= 3 && (fn & 15) === 0) g.fillStyle = `rgb(${90 + (fn % 60)},${18 + (fn % 18)},6)`;
-            else { const br = ((22 + (fn % 44)) * darken) | 0; g.fillStyle = `rgb(${br},${(br * (0.4 - (bk - 1) * 0.12)) | 0},${(br * 0.22) | 0})`; }
+          // coverage: fresh blood falls off with intensity; CHARRED blood is dense
+          // (the burn fills the cell), so it reads as a solid scorched-black patch.
+          const cov = bk > 0 ? Math.min(1, 0.5 + 0.45 * coarse) : norm * (0.32 + 0.95 * coarse);
+          if (fine > cov) continue;
+          if (bk > 0) { // baked: dark crust -> charcoal/black with the odd ember
+            const darken = 1 - (bk - 1) * 0.46; // 1.0 / 0.54 / 0.08
+            g.globalAlpha = Math.min(0.96, 0.55 + norm * 0.4);
+            if (bk >= 3 && (fn & 13) === 0) g.fillStyle = `rgb(${80 + (fn % 70)},${16 + (fn % 18)},5)`; // ember
+            else { const br = Math.max(3, ((14 + (fn % 32)) * darken) | 0); g.fillStyle = `rgb(${br},${(br * (0.38 - (bk - 1) * 0.13)) | 0},${(br * 0.2) | 0})`; }
           } else { // fresh: a deep MEATY dark-red pool at the epicentre, varied tones,
             // thinning to lighter transparent traces outward.
             g.globalAlpha = Math.min(0.94, 0.3 + norm * 0.66);
@@ -1490,11 +1498,14 @@ export class Renderer {
             // First ~2 cells smear strongly, then fade over the trail.
             const a = feet >= 10 ? 0.85 : feet >= 7 ? 0.55 : feet >= 4 ? 0.34 : 0.2;
             let ux = mdx, uy = mdy; const mm = Math.hypot(ux, uy) || 1; ux /= mm; uy /= mm;
-            // Anchor at the TILE CENTRE (players run through cell centres), with a
-            // tiny left/right alternation only when running sideways.
+            // Anchor to the CENTRE of the cell just entered (path centerline), not the
+            // player's continuous position (which sits on tile seams mid-step). Only a
+            // small jitter inside the central zone + a tiny left/right foot alternation.
+            const ccx = (ci % GRID_W) + 0.5, ccy = ((ci / GRID_W) | 0) + 0.5;
             const horiz = Math.abs(mdx) > Math.abs(mdy);
             const off = horiz ? ((feet & 1) === 0 ? -1 : 1) * 0.08 : 0;
-            this.footprints.push({ x: rp.x + 0.5 - uy * off, y: rp.y + 0.5 + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
+            const jx = (Math.random() - 0.5) * 0.16, jy = (Math.random() - 0.5) * 0.16;
+            this.footprints.push({ x: ccx + jx - uy * off, y: ccy + jy + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
             if (this.footprints.length > 160) this.footprints.shift();
             if (feet >= 10) this.markGround(ci, 1); // smeared blotch under the freshest steps
             this.bloodDirty = true;
