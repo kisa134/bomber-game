@@ -563,9 +563,18 @@ export class Renderer {
       const idx = c.y * GRID_W + c.x;
       this.burn.set(idx, Math.min(10, (this.burn.get(idx) ?? 0) + 1)); // +1 per blast -> gradual darkening (epicenter darkest)
       this.scorchDirty = true;
-      // A blast doesn't wipe blood — it BAKES it. Each blast on a blood cell chars
-      // it further: fresh -> dried crust -> darker -> charcoal. Field only gets grimier.
-      if (this.bloodGround.has(idx)) { this.bakedBlood.set(idx, Math.min(3, (this.bakedBlood.get(idx) ?? 0) + 1)); this.bloodDirty = true; }
+      // A blast BAKES blood (fresh -> crust -> charcoal). The visible spread bleeds a
+      // tile past the source cells, so bake the blast cell AND any blood neighbours.
+      {
+        let baked = false;
+        for (const [bx, by] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+          const nx = c.x + bx, ny = c.y + by;
+          if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
+          const ni = ny * GRID_W + nx;
+          if (this.bloodGround.has(ni)) { this.bakedBlood.set(ni, Math.min(3, (this.bakedBlood.get(ni) ?? 0) + 2)); baked = true; }
+        }
+        if (baked) this.bloodDirty = true;
+      }
       if (this.prevGrid) {
         for (const [dx, dy] of NB) {
           const nx = c.x + dx, ny = c.y + dy;
@@ -1204,17 +1213,12 @@ export class Renderer {
     if (view.grid) {
       // Detect soft-block breaks (SOFT -> not SOFT) to spray debris.
       if (this.prevGrid && this.prevGrid.length === view.grid.length) {
-        let crateSounds = 0; // cap juicy crate-smash sfx per frame (chain reactions)
         for (let i = 0; i < view.grid.length; i++) {
           if (this.prevGrid[i] === TileType.SOFT && view.grid[i] !== TileType.SOFT) {
             const bx = i % GRID_W, by = (i / GRID_W) | 0;
             this.emitDebris(bx, by);
             this.shatters.push({ x: bx, y: by, born: now });
-            if (this.assets && crateSounds < 3) { // juicy crate smash, positioned
-              crateSounds++;
-              const sd = this.soundAt(bx + 0.5, by + 0.5);
-              this.assets.crateBreak(sd.vol, sd.pan);
-            }
+            // (crate-smash sfx disabled for now — felt out of place)
             // Persistent wood splinters scattered around the broken crate.
             const nChips = 2 + ((Math.random() * 3) | 0);
             for (let d = 0; d < nChips; d++) {
@@ -1473,11 +1477,11 @@ export class Renderer {
             // First ~2 cells smear strongly, then fade over the trail.
             const a = feet >= 10 ? 0.85 : feet >= 7 ? 0.55 : feet >= 4 ? 0.34 : 0.2;
             let ux = mdx, uy = mdy; const mm = Math.hypot(ux, uy) || 1; ux /= mm; uy /= mm;
-            // Anchor near the FEET (bottom of the tile). Alternate left/right only when
-            // running sideways; running up/down stays centered horizontally.
+            // Anchor at the TILE CENTRE (players run through cell centres), with a
+            // tiny left/right alternation only when running sideways.
             const horiz = Math.abs(mdx) > Math.abs(mdy);
-            const off = horiz ? ((feet & 1) === 0 ? -1 : 1) * 0.16 : 0;
-            this.footprints.push({ x: rp.x + 0.5 - uy * off, y: rp.y + 0.66 + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
+            const off = horiz ? ((feet & 1) === 0 ? -1 : 1) * 0.08 : 0;
+            this.footprints.push({ x: rp.x + 0.5 - uy * off, y: rp.y + 0.5 + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
             if (this.footprints.length > 160) this.footprints.shift();
             if (feet >= 10) this.markGround(ci, 1); // smeared blotch under the freshest steps
             this.bloodDirty = true;
@@ -1863,7 +1867,7 @@ export class Renderer {
     const H = this.tile * GRID_H;
     const cx = W / 2;
     const cy = H * 0.15; // up near the top, out of the play area
-    const pop = Math.min(1, (now - this.firstBloodAt) / 140);
+    const pop = Math.min(1, (now - this.firstBloodAt) / 60); // snappy pop-in (was feeling late)
     const fade = k > 0.72 ? (1 - k) / 0.28 : 1;
     const dw = W * 0.52 * (0.82 + 0.18 * pop); // smaller, so it doesn't block play
     const dh = (dw * this.fbCanvas.height) / this.fbCanvas.width;
@@ -2097,10 +2101,10 @@ export class Renderer {
       // Bright pulsing colored glow (two additive rings for a brighter halo).
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      const rad = t * (0.62 + 0.12 * pulse);
+      const rad = t * (0.66 + 0.13 * pulse);
       const g = ctx.createRadialGradient(cx, cy + bob, 0, cx, cy + bob, rad);
-      g.addColorStop(0, `rgba(${gr},${gg},${gb},${0.7 * pulse})`);
-      g.addColorStop(0.5, `rgba(${gr},${gg},${gb},${0.28 * pulse})`);
+      g.addColorStop(0, `rgba(${gr},${gg},${gb},${0.95 * pulse})`); // brighter, more saturated
+      g.addColorStop(0.45, `rgba(${gr},${gg},${gb},${0.45 * pulse})`);
       g.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
       ctx.fillStyle = g;
       ctx.beginPath();
@@ -2120,7 +2124,7 @@ export class Renderer {
         ctx.fillText(icon, cx, cy + bob + 1);
       }
 
-      // Glossy specular highlight + a small sweeping sparkle.
+      // Glossy specular highlight.
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
       const hx = cx - t * 0.15;
@@ -2133,6 +2137,23 @@ export class Renderer {
       ctx.beginPath();
       ctx.arc(hx, hy, hr, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+
+      // Diagonal metallic sheen sweeping across the relic (clipped to the tile).
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(px, py + bob, t, t);
+      ctx.clip();
+      ctx.globalCompositeOperation = "lighter";
+      const sweep = (now / 1500 + (x * 0.27 + y * 0.19)) % 1; // staggered glint per tile
+      const sxc = px - t * 0.6 + sweep * (t * 2.2); // band travels across, top-left -> bottom-right
+      const bandW = t * 0.22;
+      const sg = ctx.createLinearGradient(sxc - bandW, py + bob, sxc + bandW, py + bob + t);
+      sg.addColorStop(0, "rgba(255,255,255,0)");
+      sg.addColorStop(0.5, "rgba(255,255,255,0.55)");
+      sg.addColorStop(1, "rgba(255,255,255,0)");
+      ctx.fillStyle = sg;
+      ctx.fillRect(px, py + bob, t, t);
       ctx.restore();
     }
   }
