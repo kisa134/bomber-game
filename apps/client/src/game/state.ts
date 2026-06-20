@@ -53,6 +53,7 @@ export class GameState {
   isHost = false;
   roomStake = 0; // amount wagered per player in this room (0 = casual)
   roomCurrency = 0; // 0 = chips, 1 = token
+  roomIsPublic = true; // listed/quick-matchable vs private (code-only)
   roomPlayers: RoomPlayerInfo[] = [];
   private lobbyCountdownMs = 0;
   private lobbySetAt = 0;
@@ -75,6 +76,7 @@ export class GameState {
     this.isHost = msg.isHost;
     this.roomStake = msg.stake;
     this.roomCurrency = msg.currency;
+    this.roomIsPublic = msg.isPublic;
     this.roomPlayers = msg.players;
     this.lobbyCountdownMs = msg.lobbyCountdownMs;
     this.lobbySetAt = performance.now();

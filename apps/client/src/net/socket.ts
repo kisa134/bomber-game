@@ -12,6 +12,7 @@ import {
   encodeSetSkin,
   encodeChat,
   encodeSetStake,
+  encodeSetVisibility,
   encodeProposeStake,
   encodeVoteStake,
   type ServerMessage,
@@ -202,8 +203,9 @@ export async function createRoom(
   skin: number,
   stake = 0,
   currency = 0,
+  isPublic = true,
 ): Promise<JoinResponse> {
-  const res = await post("/create", { name, skin, stake, currency });
+  const res = await post("/create", { name, skin, stake, currency, public: isPublic });
   if (!res.ok) throw await joinError(res);
   return res.json();
 }
@@ -395,6 +397,10 @@ export class Net {
 
   sendSetStake(stake: number): void {
     this.send(encodeSetStake(stake));
+  }
+
+  sendSetVisibility(isPublic: boolean): void {
+    this.send(encodeSetVisibility(isPublic));
   }
 
   sendProposeStake(stake: number): void {

@@ -86,7 +86,9 @@ const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
 const RECONNECT_GRACE_MS = 60_000; // hold a dropped player's slot this long
 const REGION = process.env.REGION_ID ?? ""; // scopes crash-refund reconciliation
-const EMOTE_COOLDOWN_MS = 1500; // per-player anti-spam for reactions
+// Spam is welcome (reactions scatter), but keep a tiny floor so one client
+// can't flood the broadcast with thousands of emote packets a second.
+const EMOTE_COOLDOWN_MS = 120;
 const CHAT_COOLDOWN_MS = 800; // per-player anti-spam for chat
 // Once enough players are ready but someone is still stalling, give the
 // straggler(s) this long, then drop them and start so nobody is held hostage.
@@ -96,7 +98,7 @@ const READY_COUNTDOWN_MS = 10_000;
 
 export class Room {
   readonly id: string; // also used as the shareable room code
-  readonly isPublic: boolean;
+  isPublic: boolean; // listed/quick-matchable; host can toggle private (code-only)
   readonly practice: boolean; // fill with bots and auto-start
   readonly competitive: boolean = false; // bot match that grants tiny rewards (vs sandbox)
   readonly botDifficulty: BotDifficulty; // difficulty of bots in a practice room
@@ -398,12 +400,16 @@ export class Room {
   /** Host pressed "Start now" (or "Play again" in practice). */
   requestStart(id: number): void {
     if (id !== this.hostId) return;
-    if (this.phase !== MatchPhase.LOBBY) return;
-    // Practice: the player drives every (re)start; refill bots and go.
+    // Practice: the player drives every (re)start; refill bots and go. Allow an
+    // INSTANT rematch during the end-screen linger (END) — don't make them wait
+    // for the room to drift back to LOBBY before "Play again" takes effect.
     if (this.practice) {
+      if (this.phase === MatchPhase.END) this.resetToLobby();
+      if (this.phase !== MatchPhase.LOBBY) return;
       this.startPractice();
       return;
     }
+    if (this.phase !== MatchPhase.LOBBY) return;
     if (!this.allReady()) return; // every player must be ready first
     void this.start();
   }
@@ -1148,6 +1154,16 @@ export class Room {
     this.broadcastRoomInfo();
   }
 
+  /** Host toggles the room between public (listed + quick-matchable) and private
+   *  (joinable by code/invite only). Lobby only. */
+  setVisibility(id: number, isPublic: boolean): void {
+    if (id !== this.hostId) return;
+    if (this.phase !== MatchPhase.LOBBY) return;
+    if (this.isPublic === isPublic) return;
+    this.isPublic = isPublic;
+    this.broadcastRoomInfo();
+  }
+
   // -- stake-raise proposals (any player; everyone votes within the window) ---
 
   private humanPlayers(): Player[] {
@@ -1441,7 +1457,7 @@ export class Room {
     }));
     const countdown = this.lobbyCounting ? Math.max(0, this.lobbyCountdownEndMs - Date.now()) : 0;
     for (const p of this.players.values()) {
-      p.send(encodeRoomInfo(this.id, this.hostId, p.id === this.hostId, countdown, this.stake, this.currency, list));
+      p.send(encodeRoomInfo(this.id, this.hostId, p.id === this.hostId, countdown, this.stake, this.currency, this.isPublic, list));
     }
   }
 

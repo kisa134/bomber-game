@@ -1053,6 +1053,7 @@ function refreshWalletBtn(): void {
         setTokenBadge(p.gameTokens);
         setProgress(p.level ?? 1, p.xp ?? 0);
         setLobbySkins(p.skins ?? DEFAULT_SKINS, p.level ?? 1); // owned skins for the lobby strip
+        loadHubTop(); // re-render now that we know who "you" are (show your own row right away)
         // Show the wallet's claimed (unique) nickname in the field.
         const nick = document.getElementById("nickname") as HTMLInputElement | null;
         if (nick && p.name) {
@@ -2390,8 +2391,8 @@ setupMenu({
     if (!walletGate(c.stake, c.currency)) return;
     closeModals();
     practiceMode = false;
-    track("play_start", { mode: "create", stake: c.stake, currency: c.currency });
-    connect(() => createRoom(c.name, c.skin, c.stake, c.currency));
+    track("play_start", { mode: "create", stake: c.stake, currency: c.currency, public: c.isPublic });
+    connect(() => createRoom(c.name, c.skin, c.stake, c.currency, c.isPublic));
   },
   practice: (c, difficulty, bots, competitive, sandbox) => {
     practiceMode = true;
@@ -2433,23 +2434,24 @@ const randSkin = (): number => {
   return Number.isInteger(s) && s >= 0 && s < SKIN_COUNT ? s : Math.floor(Math.random() * SKIN_COUNT);
 };
 
-// Casual: "Quick Match" reveals chip-stake chips; pick one to matchmake (chips).
+// Casual: pick a chip stake to instantly matchmake (join any open table at that
+// stake, else open one). The chips are always visible — no extra click.
 const casualStakes = document.getElementById("casual-stakes")!;
-for (const s of [{ v: 0, label: "🆓 Free" }, ...BET_SIZES.map((v) => ({ v, label: `🪙${v}` }))]) {
+const casualJoin = (stake: number): void => {
+  if (!walletGate(stake)) return;
+  practiceMode = false;
+  track("play_start", { mode: "quickplay", stake });
+  void connect(() => quickplay(lobbyName(), randSkin(), stake));
+};
+for (const s of BET_SIZES.map((v) => ({ v, label: `🪙${v}` }))) {
   const b = document.createElement("button");
   b.className = "bento-chip";
   b.textContent = s.label;
-  b.addEventListener("click", () => {
-    if (!walletGate(s.v)) return;
-    practiceMode = false;
-    track("play_start", { mode: "quickplay", stake: s.v });
-    void connect(() => quickplay(lobbyName(), randSkin(), s.v));
-  });
+  b.addEventListener("click", () => casualJoin(s.v));
   casualStakes.appendChild(b);
 }
-document.getElementById("casual-quick")!.addEventListener("click", () => {
-  casualStakes.classList.toggle("hidden");
-});
+// "Quick Match" instantly drops you into ANY open free match (or opens one).
+document.getElementById("casual-quick")!.addEventListener("click", () => casualJoin(0));
 
 // The Arena: real-token stakes only — pick a tier to host a token table.
 const arenaStakes = document.getElementById("arena-stakes")!;
@@ -2582,8 +2584,8 @@ document.getElementById("propose-stake")?.addEventListener("click", () => {
   picker.classList.remove("hidden");
 });
 
-// Build both emote bars (lobby + in-game) from the shared EMOTES list.
-let emoteReadyAt = 0; // client-side cooldown (matches the server's 1.5s anti-spam)
+// Build both emote bars (lobby + in-game) from the shared EMOTES list. No
+// client cooldown — spam away; reactions scatter so it looks fun.
 function buildEmoteBar(id: string): void {
   const bar = document.getElementById(id);
   if (!bar) return;
@@ -2593,17 +2595,10 @@ function buildEmoteBar(id: string): void {
     b.className = "emote-btn";
     b.textContent = e;
     b.addEventListener("click", () => {
-      if (performance.now() < emoteReadyAt) return; // on cooldown
-      emoteReadyAt = performance.now() + 1500;
       net.sendEmote(i);
-      // Brief disabled state on all emote buttons for feedback.
-      document.querySelectorAll<HTMLButtonElement>(".emote-btn").forEach((btn) => {
-        btn.classList.add("cooling");
-      });
-      setTimeout(
-        () => document.querySelectorAll(".emote-btn").forEach((btn) => btn.classList.remove("cooling")),
-        1500,
-      );
+      b.classList.remove("pop");
+      void b.offsetWidth; // restart the press animation
+      b.classList.add("pop");
     });
     bar.appendChild(b);
   });
@@ -2673,6 +2668,12 @@ document.getElementById("result-lobby")!.addEventListener("click", () => {
 function inviteUrl(code: string): string {
   return `${location.origin}${location.pathname}?room=${code}`;
 }
+
+// Host toggles the lobby between public (listed/quick-matchable) and private.
+document.getElementById("room-visibility")?.addEventListener("click", () => {
+  if (!state.isHost) return;
+  net.sendSetVisibility(!state.roomIsPublic);
+});
 
 document.getElementById("copy-invite")?.addEventListener("click", () => {
   const btn = document.getElementById("copy-invite") as HTMLButtonElement;

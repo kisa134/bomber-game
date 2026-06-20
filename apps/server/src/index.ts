@@ -962,6 +962,7 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
   let bots = 3;
   let competitive = false;
   let sandbox: SandboxOpts | null = null;
+  let isPublic = true; // created lobbies are public unless explicitly private
   try {
     const parsed = JSON.parse(body || "{}");
     if (typeof parsed.name === "string" && parsed.name.trim()) name = parsed.name.trim().slice(0, 16);
@@ -980,10 +981,11 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
     if (parsed.competitive === true) competitive = true;
     // Sandbox tuning (only honoured by a non-competitive practice room).
     if (parsed.sandbox && typeof parsed.sandbox === "object") sandbox = clampSandbox(parsed.sandbox);
+    if (parsed.public === false) isPublic = false; // private = code-only, unlisted
   } catch {
     // ignore malformed body
   }
-  return { name, code, skin, wallet, stake, currency, difficulty, bots, competitive, sandbox };
+  return { name, code, skin, wallet, stake, currency, difficulty, bots, competitive, sandbox, isPublic };
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
@@ -1104,6 +1106,7 @@ type Body = {
   bots: number;
   competitive: boolean;
   sandbox: SandboxOpts | null;
+  isPublic: boolean;
 };
 
 function withMatchmaking(
@@ -1183,7 +1186,7 @@ app.post("/quickplay", (res, req) =>
   ),
 );
 app.post("/create", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.createTable(b.name, b.skin, b.wallet, b.stake, b.currency)),
+  withMatchmaking(res, req, (b) => mm.createTable(b.name, b.skin, b.wallet, b.stake, b.currency, b.isPublic)),
 );
 app.post("/practice", (res, req) =>
   withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty, b.bots, b.competitive, b.competitive ? null : b.sandbox), () => ({ stake: 0, currency: Currency.CHIPS })),
@@ -1291,6 +1294,8 @@ app.ws<SocketData>("/ws", {
       room.setSkin(ud.playerId, msg.skin);
     } else if (msg.type === ClientMsg.CHAT) {
       room.chat(ud.playerId, msg.text);
+    } else if (msg.type === ClientMsg.SET_VISIBILITY) {
+      room.setVisibility(ud.playerId, msg.isPublic);
     }
   },
   close: (ws) => {

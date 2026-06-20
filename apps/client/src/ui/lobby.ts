@@ -184,6 +184,7 @@ export interface Choice {
   skin: number;
   stake: number;
   currency: number; // 0 = chips, 1 = token
+  isPublic: boolean; // listed in the browser + quick-matchable (false = code-only)
 }
 
 export interface MenuHandlers {
@@ -202,7 +203,7 @@ export interface MenuHandlers {
 
 /** Build a Choice from the current nickname + the equipped character (Loadout).
  *  Falls back to a random skin if none is chosen yet; the server still dedupes. */
-function makeChoice(stake: number, currency = 0): Choice {
+function makeChoice(stake: number, currency = 0, isPublic = true): Choice {
   const nick = document.getElementById("nickname") as HTMLInputElement | null;
   const name = (nick?.value.trim() || "pumper").slice(0, 16);
   localStorage.setItem("bp_nick", name);
@@ -211,16 +212,17 @@ function makeChoice(stake: number, currency = 0): Choice {
     Number.isInteger(stored) && stored >= 0 && stored < SKIN_COUNT
       ? stored
       : Math.floor(Math.random() * SKIN_COUNT);
-  return { name, skin, stake, currency };
+  return { name, skin, stake, currency, isPublic };
 }
 
 export function setupMenu(h: MenuHandlers): void {
   const nick = document.getElementById("nickname") as HTMLInputElement;
   nick.value = localStorage.getItem("bp_nick") ?? `pumper${(Math.random() * 1000) | 0}`;
 
-  // --- Create-lobby modal: currency segment + stake picker -------------------
+  // --- Create-lobby modal: currency + visibility + stake picker --------------
   const stakeEl = document.getElementById("stake-picker")!;
   let createCurrency = 0;
+  let createPublic = true; // 🌐 public (listed/quick-matchable) vs 🔒 private (code-only)
   const renderStakes = (): void => {
     const tiers =
       createCurrency === 1
@@ -231,7 +233,7 @@ export function setupMenu(h: MenuHandlers): void {
       const b = document.createElement("button");
       b.className = "stake-btn";
       b.textContent = s.label;
-      b.addEventListener("click", () => h.create(makeChoice(s.v, createCurrency)));
+      b.addEventListener("click", () => h.create(makeChoice(s.v, createCurrency, createPublic)));
       stakeEl.appendChild(b);
     }
   };
@@ -247,6 +249,16 @@ export function setupMenu(h: MenuHandlers): void {
   };
   curChips.addEventListener("click", () => setCurrency(0));
   curToken.addEventListener("click", () => setCurrency(1));
+
+  const visPublic = document.getElementById("vis-public");
+  const visPrivate = document.getElementById("vis-private");
+  const setVisibility = (pub: boolean): void => {
+    createPublic = pub;
+    visPublic?.classList.toggle("active", pub);
+    visPrivate?.classList.toggle("active", !pub);
+  };
+  visPublic?.addEventListener("click", () => setVisibility(true));
+  visPrivate?.addEventListener("click", () => setVisibility(false));
 
   // --- Training Setup: mode + difficulty + bot-count + sandbox tuning --------
   let diff = 1;
@@ -525,6 +537,19 @@ export function renderRoom(state: GameState): void {
           ? "💎 Token Arena"
           : "🪙 Chips Table"
         : "🆓 Casual Match";
+  }
+  // Visibility chip: host can tap to toggle public/private; others just see it.
+  const visEl = document.getElementById("room-visibility") as HTMLButtonElement | null;
+  if (visEl) {
+    visEl.textContent = state.roomIsPublic ? "🌐 Public" : "🔒 Private";
+    visEl.classList.remove("hidden");
+    visEl.classList.toggle("vis-private", !state.roomIsPublic);
+    visEl.disabled = !state.isHost;
+    visEl.title = state.isHost
+      ? "Tap to switch between public (listed) and private (code only)"
+      : state.roomIsPublic
+        ? "Public — anyone can join"
+        : "Private — joinable by code/invite only";
   }
 
   // --- Center: player seats (2×2 grid, empty slots shown) -------------------

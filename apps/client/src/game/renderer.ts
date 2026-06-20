@@ -118,7 +118,8 @@ export class Renderer {
   private lastPos = new Map<number, { x: number; y: number }>();
   private facing = new Map<number, "down" | "up" | "left" | "right">();
   private deadAt = new Map<number, number>();
-  private emotes = new Map<number, { e: string; until: number }>();
+  // Reaction emojis burst out of the player's cell and scatter (spammable).
+  private emotePops: Array<{ x0: number; y0: number; vx: number; vy: number; e: string; born: number }> = [];
   private placeBombUntil = new Map<number, number>(); // transient place-bomb pose
   private hurtUntil = new Map<number, number>(); // transient hurt pose
   private victorId = -1; // winner shows the victory pose after a match ends
@@ -354,7 +355,7 @@ export class Renderer {
     this.lastPos.clear();
     this.facing.clear();
     this.deadAt.clear();
-    this.emotes.clear();
+    this.emotePops.length = 0;
     this.particles.length = 0;
     this.decals.length = 0;
     this.lights.length = 0;
@@ -372,9 +373,44 @@ export class Renderer {
     this.victorId = playerId;
   }
 
-  /** Show a reaction bubble above a player for a short time. */
+  /** Burst a reaction emoji out of the player's cell. Each call spawns a fresh
+   *  particle that flies outward (biased upward) and fades — spam = confetti. */
   showEmote(playerId: number, e: string): void {
-    this.emotes.set(playerId, { e, until: performance.now() + 1800 });
+    const p = this.lastPos.get(playerId);
+    const x0 = (p ? p.x : (GRID_W - 1) / 2) + 0.5;
+    const y0 = (p ? p.y : (GRID_H - 1) / 2) + 0.2;
+    const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI; // upper half, spread
+    const spd = 1.5 + Math.random() * 1.7; // cells/sec
+    this.emotePops.push({ x0, y0, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, e, born: performance.now() });
+    if (this.emotePops.length > 80) this.emotePops.shift(); // bound for a spammer
+  }
+
+  /** Update + draw the scattering reaction emojis (world space, on top). */
+  private drawEmotePops(ctx: CanvasRenderingContext2D, t: number, now: number): void {
+    const LIFE = 1500;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    for (let i = this.emotePops.length - 1; i >= 0; i--) {
+      const p = this.emotePops[i];
+      const age = (now - p.born) / 1000;
+      const k = (age * 1000) / LIFE;
+      if (k >= 1) {
+        this.emotePops.splice(i, 1);
+        continue;
+      }
+      const px = (p.x0 + p.vx * age) * t;
+      const py = (p.y0 + p.vy * age) * t;
+      const grow = Math.min(1, age * 7);
+      const sz = t * 0.46 * (0.55 + 0.45 * grow); // quick pop-in then steady
+      ctx.globalAlpha = k < 0.65 ? 1 : 1 - (k - 0.65) / 0.35; // fade out at the end
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.beginPath();
+      ctx.arc(px, py, sz * 0.62, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = `${Math.floor(sz)}px system-ui`;
+      ctx.fillText(p.e, px, py + 1);
+    }
+    ctx.globalAlpha = 1;
   }
 
   shake(mag: number, ms = 250): void {
@@ -1479,25 +1515,11 @@ export class Renderer {
         ctx.strokeRect(bx, byy, bw, sh);
       }
 
-      // Reaction bubble above the player.
-      const em = this.emotes.get(p.id);
-      if (em && now < em.until) {
-        ctx.globalAlpha = 1;
-        const by = cy - r - t * 0.55;
-        const bs = t * 0.42;
-        ctx.fillStyle = "rgba(0,0,0,0.55)";
-        ctx.beginPath();
-        ctx.arc(cx, by, bs, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.font = `${Math.floor(t * 0.5)}px system-ui`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(em.e, cx, by + 1);
-      } else if (em) {
-        this.emotes.delete(p.id);
-      }
       ctx.globalAlpha = 1;
     }
+
+    // Reaction emojis: a scattering burst over the board (drawn above players).
+    this.drawEmotePops(ctx, t, now);
 
     for (const id of [...this.lastPos.keys()]) {
       if (!seen.has(id)) {

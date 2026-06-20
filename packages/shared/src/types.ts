@@ -49,6 +49,7 @@ export enum ClientMsg {
   KICK = 10, // host removes a player from the lobby
   SET_SKIN = 11, // pick your character in the lobby
   CHAT = 12, // lobby chat message
+  SET_VISIBILITY = 13, // host toggles public (listed) vs private (code-only)
 }
 
 /** Server -> Client message ids. */
@@ -216,6 +217,7 @@ export interface RoomInfoMsg {
   lobbyCountdownMs: number;
   stake: number; // amount wagered per player (0 = casual table)
   currency: Currency; // what the stake is denominated in
+  isPublic: boolean; // listed in the browser + quick-matchable (false = code-only)
   players: RoomPlayerInfo[];
 }
 

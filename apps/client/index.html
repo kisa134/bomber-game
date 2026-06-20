@@ -146,12 +146,17 @@
 
       <!-- Create a lobby: only the settings needed to make a room -->
       <div id="create-modal" class="modal hidden">
-        <div class="modal-card">
+        <div class="modal-card create-card">
           <h3>➕ Create a lobby</h3>
           <div class="stake-label">Currency</div>
           <div class="seg" id="currency-seg">
             <button id="cur-chips" class="seg-btn active">🪙 Chips · free</button>
             <button id="cur-token" class="seg-btn">💎 Token · real</button>
+          </div>
+          <div class="stake-label">Who can join</div>
+          <div class="seg" id="visibility-seg">
+            <button id="vis-public" class="seg-btn active">🌐 Public</button>
+            <button id="vis-private" class="seg-btn">🔒 Private · code only</button>
           </div>
           <div class="stake-label">Stake — winner takes the pot</div>
           <div id="stake-picker" class="stake-picker"></div>
@@ -285,8 +290,8 @@
                 <span class="bento-icon">🎮</span>
                 <div class="bento-text"><h3>Casual</h3><small>Play for chips</small></div>
               </div>
-              <button id="casual-quick" class="bento-cta">⚡ Quick Match</button>
-              <div id="casual-stakes" class="bento-chips hidden"></div>
+              <button id="casual-quick" class="bento-cta">⚡ Quick Match · free</button>
+              <div id="casual-stakes" class="bento-chips"></div>
             </div>
             <div class="bento-card arena featured">
               <div class="bento-head">
@@ -393,9 +398,10 @@
               <div id="room-code-box" class="room-code-inline hidden">
                 <span class="room-code-label">CODE</span>
                 <span id="room-code" class="code"></span>
-                <button id="copy-invite" class="ghost room-copy">⧉ Invite</button>
+                <button id="copy-invite" class="primary room-copy">👥 Invite friends</button>
               </div>
             </div>
+            <button id="room-visibility" class="ghost room-vis hidden" title="Who can join this lobby">🌐 Public</button>
             <span id="room-region" class="room-region"></span>
           </div>
 
