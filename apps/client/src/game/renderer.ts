@@ -778,21 +778,30 @@ export class Renderer {
     const cx = m.x * t, cy = m.y * t;
     let s = m.seed >>> 0;
     const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
-    const rx = t * (0.05 + rnd() * 0.045), ry = t * (0.04 + rnd() * 0.04);
-    g.globalAlpha = 0.22; // soft shadow
+    const rx = t * (0.1 + rnd() * 0.06), ry = t * (0.08 + rnd() * 0.05); // chunky, clearly visible
+    const wob = () => 1 + (rnd() - 0.5) * 0.5; // per-pixel wobble for an irregular lump
+    g.globalAlpha = 0.28; // soft drop shadow
     g.fillStyle = "#000000";
     for (let yy = -ry; yy <= ry; yy += pu) for (let xx = -rx; xx <= rx; xx += pu) {
       if ((xx * xx) / (rx * rx) + (yy * yy) / (ry * ry) > 1) continue;
-      g.fillRect(Math.round((cx + xx + pu) / pu) * pu, Math.round((cy + yy + pu) / pu) * pu, pu, pu);
+      g.fillRect(Math.round((cx + xx + pu) / pu) * pu, Math.round((cy + yy + pu * 1.5) / pu) * pu, pu, pu);
     }
     g.globalAlpha = 1;
-    const base = 90 + (s % 50);
-    for (let yy = -ry; yy <= ry; yy += pu) for (let xx = -rx; xx <= rx; xx += pu) {
-      if ((xx * xx) / (rx * rx) + (yy * yy) / (ry * ry) > 1) continue;
-      const top = yy < -ry * 0.2; // lighter pink on the upper face
-      g.fillStyle = top ? `rgb(${base + 70},${(base * 0.5) | 0},${(base * 0.5) | 0})` : `rgb(${base},${(base * 0.22) | 0},${(base * 0.2) | 0})`;
+    const ox = (rx + pu) * 1.0, oy = (ry + pu) * 1.0;
+    g.fillStyle = "#2a0000"; // dark outline ring
+    for (let yy = -oy; yy <= oy; yy += pu) for (let xx = -ox; xx <= ox; xx += pu) {
+      if ((xx * xx) / (ox * ox) + (yy * yy) / (oy * oy) > 1) continue;
       g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + yy) / pu) * pu, pu, pu);
     }
+    const base = 120 + (s % 45);
+    for (let yy = -ry; yy <= ry; yy += pu) for (let xx = -rx; xx <= rx; xx += pu) {
+      if (((xx * xx) / (rx * rx) + (yy * yy) / (ry * ry)) * wob() > 1) continue;
+      const top = yy < -ry * 0.15; // glossy pink upper face, dark meat below
+      g.fillStyle = top ? `rgb(${Math.min(255, base + 95)},${(base * 0.55) | 0},${(base * 0.52) | 0})` : `rgb(${base},${(base * 0.18) | 0},${(base * 0.16) | 0})`;
+      g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + yy) / pu) * pu, pu, pu);
+    }
+    g.fillStyle = "#ffd0cc"; // tiny specular wet glint
+    g.fillRect(Math.round((cx - rx * 0.3) / pu) * pu, Math.round((cy - ry * 0.5) / pu) * pu, pu, pu);
   }
 
   /** A small scattered bone shard: a bone-white shaft with knobby ends and a soft
@@ -824,43 +833,45 @@ export class Renderer {
     }
   }
 
-  /** Draw one foot-shaped blood print: an oriented sole ellipse + a few toe dots,
-   *  facing the walk direction. Small and thin so trails read as footsteps. */
+  /** Draw a realistic blood SMEAR: a rounded WIDE contact head that tapers to a
+   *  thin tail along the travel direction (wide→narrow), with irregular edges and
+   *  fading alpha — reads as dragged/skidded blood, not a cartoon footprint. */
   private drawFoot(g: CanvasRenderingContext2D, fp: { x: number; y: number; dx: number; dy: number; a: number; seed: number }, pu: number): void {
     const t = this.tile;
     const px = fp.x * t, py = fp.y * t;
     let ux = fp.dx, uy = fp.dy;
     const m = Math.hypot(ux, uy) || 1; ux /= m; uy /= m;
     const vx = -uy, vy = ux;
-    const r = 66 + (fp.seed % 70);
-    g.fillStyle = `rgb(${r},${(r * 0.08) | 0},${(r * 0.06) | 0})`;
-    // Drag streak — the SMEAR VECTOR: a tapering tail trailing BEHIND the foot in
-    // the travel direction (longer/denser for the freshest, strongest smears).
-    const tail = t * (0.16 + fp.a * 0.45);
-    const wid0 = t * 0.07;
-    for (let s = 0; s <= tail; s += pu) {
-      const frac = s / tail; // 0 at foot -> 1 at tail tip
-      g.globalAlpha = fp.a * (1 - frac) * 0.9; // fades out along the streak
-      const hw = wid0 * (1 - frac * 0.8); // narrows toward the tail
-      for (let bb = -hw; bb <= hw; bb += pu) {
-        const wx = px - ux * s + vx * bb, wy = py - uy * s + vy * bb;
-        g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
-      }
-    }
-    // Sole pad at the head of the streak.
+    let s = fp.seed >>> 0;
+    const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
+    const r = 70 + (fp.seed % 56);
+    const L = t * (0.16 + fp.a * 0.36); // total smear length (stronger -> longer)
+    const W0 = t * (0.055 + fp.a * 0.05); // wide-end half width
+    // The wide contact head sits slightly behind the step, tapering forward to a tip.
+    const bx = px - ux * L * 0.32, by = py - uy * L * 0.32;
+    // Rounded wide head (the heavy contact blob).
     g.globalAlpha = fp.a;
-    const len = t * 0.12, wid = t * 0.06;
-    for (let aa = -len; aa <= len; aa += pu) {
-      for (let bb = -wid; bb <= wid; bb += pu) {
-        if ((aa * aa) / (len * len) + (bb * bb) / (wid * wid) > 1) continue;
-        const wx = px + ux * aa + vx * bb, wy = py + uy * aa + vy * bb;
-        g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
+    for (let yy = -W0; yy <= W0; yy += pu) {
+      for (let xx = -W0; xx <= W0; xx += pu) {
+        if (xx * xx + yy * yy > W0 * W0) continue;
+        g.fillStyle = `rgb(${(r * 0.8) | 0},${(r * 0.08) | 0},${(r * 0.06) | 0})`; // darker = more blood
+        g.fillRect(Math.round((bx + xx) / pu) * pu, Math.round((by + yy) / pu) * pu, pu, pu);
       }
     }
-    for (let k = 0; k < 3; k++) { // toe dots ahead -> reads as a foot + shows facing
-      const aa = len * 1.35, bb = (k - 1) * wid * 0.7;
-      const wx = px + ux * aa + vx * bb, wy = py + uy * aa + vy * bb;
-      g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
+    // Tapering tail forward: half-width shrinks wide→narrow, alpha fades out.
+    const steps = Math.max(4, Math.round(L / pu));
+    for (let i = 1; i <= steps; i++) {
+      const f = i / steps; // 0 wide -> 1 narrow tip
+      const hw = W0 * Math.pow(1 - f, 1.5);
+      g.globalAlpha = fp.a * (1 - f * 0.55);
+      const shade = (r * (1 - f * 0.25)) | 0;
+      g.fillStyle = `rgb(${shade},${(shade * 0.1) | 0},${(shade * 0.08) | 0})`;
+      const jit = (rnd() - 0.5) * pu * 1.4; // ragged edge
+      const cxp = bx + ux * (f * L), cyp = by + uy * (f * L);
+      for (let b = -hw; b <= hw; b += pu) {
+        const wx = cxp + vx * (b + jit), wy = cyp + vy * (b + jit);
+        g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
+      }
     }
   }
 
