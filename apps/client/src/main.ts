@@ -987,6 +987,7 @@ function refreshWalletBtn(): void {
     attributeReferralOnce(); // bind a pending inviter once we have a wallet
     void fetchProfile(w.address)
       .then((p) => {
+        myProfile = p; // for the "you" row in the hub leaderboard
         setStats(p.chips, p.rating);
         setTokenBadge(p.gameTokens);
         setProgress(p.level ?? 1, p.xp ?? 0);
@@ -1493,12 +1494,15 @@ async function openPublicProfile(wallet: string): Promise<void> {
     const grid = document.createElement("div");
     grid.className = "prof-grid";
     grid.append(
+      profCell("Level", p.level ?? 1),
       profCell("Rating", p.rating),
       profCell("Matches", p.matches),
       profCell("Wins", p.wins),
       profCell("Win rate", `${wr}%`),
       profCell("Frags", p.frags),
+      profCell("Deaths", p.deaths),
       profCell("Best streak", p.best_streak),
+      profCell("💎 Won", Math.round((p.tokens_won ?? 0) / 10 ** TOKEN_DECIMALS).toLocaleString()),
     );
     body.append(grid);
     body.append(el("div", "status fair", shortAddr(wallet)));
@@ -1799,6 +1803,8 @@ function renderFriendsModal(): void {
 
 /** The hub leaderboard board currently shown (switched in-place via the tabs). */
 let hubBoard: "rating" | "tokens" | "chips" = "rating";
+/** The local player's latest profile (for the "you" row + own stats). */
+let myProfile: ProfileData | null = null;
 /** Populate the hub's inline leaderboard from the live board (no screen change). */
 function loadHubTop(): void {
   const board = hubBoard;
@@ -1817,13 +1823,30 @@ function loadHubTop(): void {
         if (board === "chips") return `🪙 ${(p.chips_won ?? 0).toLocaleString()}`;
         return (p.rating ?? 0).toLocaleString();
       };
-      rows.slice(0, 5).forEach((p, i) => {
+      const myWallet = loadWallet()?.address ?? "";
+      const row = (p: ProfileData, rank: number, isMe: boolean): HTMLLIElement => {
         const li = document.createElement("li");
-        li.innerHTML = `<span class="rk">${i + 1}</span><span class="nm"></span><span class="rt"></span>`;
-        (li.querySelector(".nm") as HTMLElement).textContent = p.name || "anon";
+        if (isMe) li.className = "me";
+        li.innerHTML =
+          `<span class="rk">${rank}</span>` +
+          `<span class="nm"></span><span class="lv">LV ${p.level ?? 1}</span><span class="rt"></span>`;
+        (li.querySelector(".nm") as HTMLElement).textContent = (p.name || "anon") + (isMe ? " (you)" : "");
         (li.querySelector(".rt") as HTMLElement).textContent = val(p);
-        ol.appendChild(li);
-      });
+        if (p.wallet) {
+          li.style.cursor = "pointer";
+          li.title = "View profile";
+          li.addEventListener("click", () => void openPublicProfile(p.wallet));
+        }
+        return li;
+      };
+      const top = rows.slice(0, 5);
+      top.forEach((p, i) => ol.appendChild(row(p, i + 1, p.wallet === myWallet)));
+      // If you're signed in but not in the top, append your own row so you always
+      // see yourself + your standing.
+      if (myWallet && myProfile && !top.some((p) => p.wallet === myWallet)) {
+        const idx = rows.findIndex((p) => p.wallet === myWallet);
+        ol.appendChild(row(myProfile, idx >= 0 ? idx + 1 : rows.length + 1, true));
+      }
     })
     .catch(() => {});
 }

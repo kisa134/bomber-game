@@ -987,9 +987,29 @@ button.ghost {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.hub-top-list li .lv {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
 .hub-top-list li .rt {
   color: var(--muted);
   font-weight: 700;
+}
+.hub-top-list li {
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+.hub-top-list li:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.hub-top-list li.me {
+  background: rgba(255, 204, 51, 0.12);
+}
+.hub-top-list li.me .rk,
+.hub-top-list li.me .nm {
+  color: var(--accent);
 }
 /* Bottom utility bar */
 .hub-utility {
