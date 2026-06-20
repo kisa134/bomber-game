@@ -2016,39 +2016,38 @@ function setupBackground(): void {
 // would break it.
 if (!isTelegram) void selectRegion();
 initTelegram();
-// Register the service worker (PWA). On a new deploy a fresh SW installs and
-// waits; we surface an in-app "Update" banner instead of auto-reloading (a
-// forced reload was interrupting taps on mobile). Tapping Update activates the
-// new SW and reloads with the fresh build + assets — the clean way to clear the
-// stale cache on phones where you can't hard-refresh.
+// Register the service worker (PWA) with SMART auto-update: a fresh deploy is
+// picked up automatically (polled + on focus) and applied SILENTLY — but only
+// while on a menu/lobby, NEVER mid-match (a forced reload interrupts taps in a
+// fight). So you always get the latest build without ever clearing cache, and
+// without a reload yanking you out of a game.
+let swUpdateReady = false;
 const updateSW = registerSW({
   immediate: true,
+  onRegisteredSW(_swUrl, reg) {
+    if (!reg) return;
+    // Proactively check for a new deploy so updates land without an app restart.
+    setInterval(() => void reg.update().catch(() => {}), 60_000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        void reg.update().catch(() => {});
+        maybeApplySWUpdate();
+      }
+    });
+  },
   onNeedRefresh() {
-    showUpdateBanner();
+    swUpdateReady = true;
+    maybeApplySWUpdate();
   },
 });
 
-function showUpdateBanner(): void {
-  if (document.getElementById("update-banner")) return;
-  const b = document.createElement("div");
-  b.id = "update-banner";
-  b.style.cssText =
-    "position:fixed;left:0;right:0;top:0;z-index:10000;background:#ffcc33;color:#1a1300;" +
-    "padding:10px 14px;font:700 14px system-ui;text-align:center;display:flex;gap:12px;" +
-    "align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.4)";
-  const span = document.createElement("span");
-  span.textContent = "🔄 New version available";
-  const btn = document.createElement("button");
-  btn.textContent = "Update";
-  btn.style.cssText =
-    "background:#1a1300;color:#ffcc33;border:0;border-radius:8px;padding:6px 14px;font-weight:800;cursor:pointer";
-  btn.onclick = () => {
-    btn.textContent = "Updating…";
-    void updateSW(true); // skipWaiting + reload with the fresh build
-  };
-  b.append(span, btn);
-  document.body.appendChild(b);
+// Apply a pending update at a safe moment (not in a match / result screen).
+function maybeApplySWUpdate(): void {
+  if (!swUpdateReady) return;
+  if (inGame(state.phase) || onResultScreen()) return; // wait until back on a menu
+  void updateSW(true); // skipWaiting + reload with the fresh build
 }
+setInterval(maybeApplySWUpdate, 15_000); // catch the case where the update arrived mid-match
 
 // Surface otherwise-invisible failures (esp. on mobile, where there's no
 // console) as a dismissable banner, so "nothing happens" becomes a real message.
