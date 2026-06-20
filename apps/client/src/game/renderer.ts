@@ -2189,14 +2189,17 @@ export class Renderer {
       seed = ((seed ^ (seed >>> 13)) * 1274126177) >>> 0;
       return (seed & 1023) / 1023;
     };
-    // Natural palette: several greens, picked PER BLADE so a patch has subtle
-    // colour variety. Brightest shades toned down so they don't pop unnaturally.
-    const greens = ["#4b8a30", "#5aa53c", "#43802c", "#5fa53e", "#6cab44", "#3a6f24", "#74b34a", "#5f9e38"];
+    // Natural palette, picked PER BLADE for subtle variety. Dropped the bright
+    // shades, added a couple of DARKER greens so it reads calm/earthy.
+    const greens = ["#4b8a30", "#427a2b", "#43802c", "#356626", "#5a9c3a", "#3a6f24", "#2e5a1d", "#4d8731"];
     const wind = Math.sin(now / 620 + x * 0.55 + y * 0.3);
-    // Per-tile random density: some patches lush, some sparse (natural + lighter on
-    // average than a fixed count). ~14..30 blades.
-    const dens = 0.35 + rnd() * 0.65;
-    const body = Math.round(14 + dens * 16);
+    // Density in PATCHES: a coarse field (shared across ~2x2 tile blocks) makes lush
+    // and sparse CLUSTERS rather than per-tile salt-and-pepper. + a little jitter.
+    let pn = (((x >> 1) * 73856093) ^ ((y >> 1) * 19349663)) >>> 0;
+    pn = ((pn ^ (pn >>> 13)) * 1274126177) >>> 0;
+    const patch = (pn & 1023) / 1023;
+    const dens = Math.max(0.12, Math.min(1, patch * 0.85 + rnd() * 0.3 - 0.08));
+    const body = Math.round(10 + dens * 22); // ~10 (sparse) .. 32 (lush)
     for (let i = 0; i < body; i++) {
       const bx = px + Math.floor(rnd() * (t - pu));
       const by = py + Math.floor(rnd() * (t - pu * 3));
@@ -2215,6 +2218,18 @@ export class Renderer {
       const sway = Math.round(wind * pu * 1.3);
       ctx.fillStyle = greens[(rnd() * greens.length) | 0];
       ctx.fillRect(bx + sway, top, pu, pu * 3);
+    }
+    // Rare wildflower — a tiny 4-petal splash of colour on the odd tile.
+    if (rnd() < 0.06) {
+      const fcols = ["#f2f2f2", "#ffe14a", "#ff7ab0", "#b58cff", "#ff6a6a"];
+      const fc = fcols[(rnd() * fcols.length) | 0];
+      const fx = px + pu + Math.floor(rnd() * (t - pu * 3));
+      const fy = py + pu + Math.floor(rnd() * (t - pu * 3));
+      ctx.fillStyle = fc;
+      ctx.fillRect(fx - pu, fy, pu, pu); ctx.fillRect(fx + pu, fy, pu, pu);
+      ctx.fillRect(fx, fy - pu, pu, pu); ctx.fillRect(fx, fy + pu, pu, pu);
+      ctx.fillStyle = "#ffd24a"; // sunny centre
+      ctx.fillRect(fx, fy, pu, pu);
     }
   }
 
