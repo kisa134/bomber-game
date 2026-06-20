@@ -2140,16 +2140,16 @@ export class Renderer {
           bg.globalCompositeOperation = "lighter"; // additive shine over the icon
           // glossy specular
           const hg = bg.createRadialGradient(t * 0.35, t * 0.3, 0, t * 0.35, t * 0.3, t * 0.2);
-          hg.addColorStop(0, `rgba(255,255,255,${0.6 * pulse})`);
+          hg.addColorStop(0, `rgba(255,255,255,${0.38 * pulse})`);
           hg.addColorStop(1, "rgba(255,255,255,0)");
           bg.fillStyle = hg; bg.fillRect(0, 0, t, t);
-          // diagonal metallic sheen band sweeping across
-          const sweep = (now / 1500 + (x * 0.27 + y * 0.19)) % 1;
+          // diagonal metallic sheen — sweeps BACK AND FORTH (ping-pong), dimmer.
+          const sweep = 0.5 + 0.5 * Math.sin(now / 1100 + (x * 0.27 + y * 0.19) * 6);
           const sxc = -t * 0.6 + sweep * (t * 2.2);
           const bw = t * 0.2;
           const sg = bg.createLinearGradient(sxc - bw, 0, sxc + bw, t);
           sg.addColorStop(0, "rgba(255,255,255,0)");
-          sg.addColorStop(0.5, "rgba(255,255,255,0.6)");
+          sg.addColorStop(0.5, "rgba(255,255,255,0.32)");
           sg.addColorStop(1, "rgba(255,255,255,0)");
           bg.fillStyle = sg; bg.fillRect(0, 0, t, t);
           bg.globalCompositeOperation = "destination-in"; // clip the shine to the icon shape
