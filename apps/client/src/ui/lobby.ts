@@ -1,8 +1,8 @@
 import { PLAYER_COLORS, skinAvatar } from "../game/renderer.js";
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, MATCH_LENGTH_MS } from "../net/protocol.js";
 
-/** Display names for the meme characters (by skin index). */
-const SKIN_NAMES = ["Doge", "Pepe", "Trump", "Musk"];
+/** Display names for the meme characters (by skin index — matches SKIN_COUNT=11). */
+const SKIN_NAMES = ["Shiba", "Pepe", "Fox", "Wojak", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bog", "Giga"];
 const skinName = (skin: number): string => SKIN_NAMES[skin] ?? `Fighter ${skin + 1}`;
 
 /** Live token→USD price, set from main; 0 = unknown. */
