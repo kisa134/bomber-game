@@ -424,14 +424,14 @@ export class Renderer {
     this.danger = Math.max(0, Math.min(1, level));
   }
 
-  /** Pulsing red peripheral vignette at 4–7 Hz when the local player is in danger
+  /** Slow pulsing red peripheral vignette when the local player is in danger
    *  (low HP / sudden death) — tunnel-vision threat cue (dopamine doc 1.2). */
   private drawDangerVignette(W: number, H: number, now: number): void {
     if (this.danger <= 0.01) return;
     const ctx = this.ctx;
-    const freq = 4 + this.danger * 3; // 4 Hz (mild) .. 7 Hz (critical)
+    const freq = 1.1 + this.danger * 0.7; // slow ~1.1–1.8 Hz breathing pulse (smooth, not strobey)
     const pulse = 0.5 + 0.5 * Math.sin((now / 1000) * freq * Math.PI * 2);
-    const alpha = this.danger * (0.12 + 0.26 * pulse);
+    const alpha = this.danger * (0.14 + 0.2 * pulse);
     const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.34, W / 2, H / 2, Math.max(W, H) * 0.72);
     g.addColorStop(0, "rgba(120,0,0,0)");
     g.addColorStop(0.7, `rgba(110,0,0,${(alpha * 0.4).toFixed(3)})`);

@@ -414,6 +414,7 @@ net.onMessage = (msg) => {
       break;
     case ServerMsg.EVENT_EXPLOSION:
       assets.play("explode");
+      assets.duck(0.45, 200); // sidechain: music ducks under the blast (~-5dB / 200ms)
       renderer?.onExplosion(msg.cells);
       break;
     case ServerMsg.EVENT_PICKUP: {
@@ -444,6 +445,7 @@ net.onMessage = (msg) => {
     case ServerMsg.EVENT_PLAYER_DEATH: {
       assets.play("die");
       assets.playGore(); // wet splat layered over the death cue
+      assets.duck(0.6, 260); // sidechain: deeper duck on a kill (-~8dB)
       hitStopUntil = performance.now() + 85; // hit-stop: weighty kill freeze
       const snap = state.latest();
       const dp = snap?.players.find((p) => p.id === msg.playerId);

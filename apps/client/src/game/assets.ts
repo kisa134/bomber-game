@@ -326,6 +326,17 @@ export class Assets {
     for (const a of this.music.values()) a.pause();
   }
 
+  /** Sidechain duck: drop the music under a critical SFX (explosion/kill) and ramp
+   *  it back up. `amount` 0.5 ≈ −6 dB; recovery ~200 ms (dopamine doc 2.3). */
+  duck(amount = 0.5, recoverMs = 200): void {
+    if (!this.musicEnabled || !this.desiredMusic) return;
+    const a = this.music.get(this.desiredMusic);
+    if (!a || a.paused) return;
+    const floor = MUSIC_GAIN * (1 - amount);
+    a.volume = Math.min(a.volume, floor); // snap down (or stay low if already ducked)
+    this.fadeVolume(a, MUSIC_GAIN, recoverMs); // ramp back to full
+  }
+
   private startDesired(volume = MUSIC_GAIN): void {
     if (!this.desiredMusic) return;
     const a = this.music.get(this.desiredMusic);
