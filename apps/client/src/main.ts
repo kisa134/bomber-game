@@ -62,7 +62,7 @@ import {
 } from "./net/wallet.js";
 import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setWalletState } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
-import { initAnalytics, track, identifyWallet, initErrorTracking } from "./analytics.js";
+import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram, getStartParam } from "./platform/telegram.js";
 import { selectRegion } from "./net/region.js";
@@ -1848,10 +1848,11 @@ function shareText(): string {
   return `💣 Play BomberMeme.fun — blow up your friends & win $${TOKEN_TICKER}! Join me:`;
 }
 
-initAnalytics({ platform: isTelegram ? "telegram" : "web" });
+const attribution = captureAttribution(); // first-touch utm/referrer/landing
+initAnalytics({ platform: isTelegram ? "telegram" : "web", ...attribution });
 startPresence();
 initErrorTracking();
-track("app_loaded", { platform: isTelegram ? "telegram" : "web" });
+track("app_loaded", { platform: isTelegram ? "telegram" : "web", ...attribution });
 input.attach();
 void assets.preload();
 applySettings();

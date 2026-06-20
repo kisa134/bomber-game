@@ -40,6 +40,34 @@ land together.
 - **Server** (`apps/server/src/analytics.ts`): `match_completed`
   (winner/players/stake/ranked), `deposit_credited`, `withdrawal`.
 
+## Acquisition / UTM attribution
+
+`captureAttribution()` (`apps/client/src/analytics.ts`) reads the **first-touch**
+`utm_source/medium/campaign/term/content` + `referrer` + `landing` on the first
+visit that has them, persists them (`localStorage bp_attr`), and reuses them
+forever after. They are then:
+
+- **registered as PostHog super-properties** → ride on *every* client event,
+  including `play_start` and (via the same person) revenue — so you can break
+  down matches/deposits/retention **by `utm_source`/`utm_campaign`**, not just
+  the entry pageview;
+- **stamped once onto the PostHog person** as `initial_utm_*` (first-touch);
+- **set as GA4 user properties** (`gtag('set','user_properties',…)`).
+
+So a campaign link like
+`https://bombermeme.fun/?utm_source=twitter&utm_medium=social&utm_campaign=launch`
+is attributed end-to-end: acquisition → activation (`play_start`) → revenue
+(`deposit`). `?ref=` (the referral pyramid) is separate and unaffected.
+
+Use a consistent UTM scheme for every shared link, e.g.:
+`utm_source` = `twitter|telegram|youtube|influencer_<name>`,
+`utm_medium` = `social|paid|dm|bio`, `utm_campaign` = `<launch|airdrop|…>`.
+
+> GA4 note: a freshly-installed tag shows "data not received yet" on the GA
+> **Home** card for up to ~24–48h even while it's firing. Verify immediately
+> under **Reports → Realtime** (play the game, watch the active user appear).
+> The tag itself is baked at build time from `VITE_GA_ID`.
+
 ## Live admin dashboard
 
 Open `https://<your-domain>/admin`, enter `ADMIN_TOKEN`. It polls `/admin/stats`

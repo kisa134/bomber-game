@@ -20,7 +20,9 @@ declare global {
   }
 }
 
-/** Initialize all enabled analytics. Call once at startup. */
+/** Initialize all enabled analytics. Call once at startup. `extra` becomes
+ *  super-properties (PostHog) + user properties (GA) so they ride on EVERY
+ *  event — pass acquisition (utm) here to attribute behaviour AND revenue. */
 export function initAnalytics(extra: Record<string, unknown> = {}): void {
   if (PH_ENABLED) {
     posthog.init(POSTHOG_KEY, {
@@ -33,14 +35,21 @@ export function initAnalytics(extra: Record<string, unknown> = {}): void {
       // Persist the same anon id we used before so history lines up.
       bootstrap: { distinctID: localStorage.getItem("bp_aid") ?? undefined },
     });
-    if (Object.keys(extra).length) posthog.register(extra);
+    if (Object.keys(extra).length) {
+      posthog.register(extra); // every event
+      // Also stamp first-touch acquisition onto the PERSON, once, so you can
+      // segment users (and their lifetime revenue) by where they came from.
+      posthog.register_once(
+        Object.fromEntries(Object.entries(extra).map(([k, v]) => [`initial_${k}`, v])),
+      );
+    }
     phReady = true;
   }
-  initGa();
+  initGa(extra);
   initClarity();
 }
 
-function initGa(): void {
+function initGa(userProps: Record<string, unknown> = {}): void {
   if (!GA_ID) return;
   const s = document.createElement("script");
   s.async = true;
@@ -51,7 +60,39 @@ function initGa(): void {
     window.dataLayer!.push(args);
   };
   window.gtag("js", new Date());
+  // Attach acquisition as GA user properties so they show in GA reports too.
+  if (Object.keys(userProps).length) window.gtag("set", "user_properties", userProps);
   window.gtag("config", GA_ID);
+}
+
+/** First-touch acquisition: read utm_* + referrer + landing on the first visit
+ *  that has them, persist, and reuse forever after. Returns non-empty values to
+ *  register as super-properties. Keys are prefixed so they don't collide with
+ *  PostHog's own per-event $utm_* / GA's built-in traffic source. */
+export function captureAttribution(): Record<string, string> {
+  const KEY = "bp_attr";
+  try {
+    const stored = localStorage.getItem(KEY);
+    if (stored) return JSON.parse(stored) as Record<string, string>;
+  } catch {
+    /* ignore */
+  }
+  const p = new URLSearchParams(location.search);
+  const attr: Record<string, string> = {};
+  for (const k of ["source", "medium", "campaign", "term", "content"]) {
+    const v = p.get(`utm_${k}`);
+    if (v) attr[`utm_${k}`] = v.slice(0, 100);
+  }
+  if (document.referrer) attr.referrer = document.referrer.slice(0, 200);
+  attr.landing = location.pathname.slice(0, 100);
+  // Only lock in a first-touch when there's a real source/referrer — a plain
+  // direct visit must not block a later campaign visit from being recorded.
+  try {
+    if (attr.utm_source || attr.referrer) localStorage.setItem(KEY, JSON.stringify(attr));
+  } catch {
+    /* ignore */
+  }
+  return attr;
 }
 
 function initClarity(): void {
