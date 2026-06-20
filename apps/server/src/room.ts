@@ -835,10 +835,16 @@ export class Room {
       for (const t of p.inputs.keys()) if (t <= this.simTick) p.inputs.delete(t);
     }
 
-    // Bots decide their inputs first.
+    // Bots decide their inputs first (unless frozen as static sandbox targets).
+    const frozen = this.sandbox?.freezeBots === true;
     for (const [id, ctrl] of this.bots) {
       const bot = this.players.get(id);
-      if (bot && bot.alive) ctrl.update(this, bot, dt);
+      if (!bot || !bot.alive) continue;
+      if (frozen) {
+        bot.intent = Direction.NONE; // stand perfectly still
+      } else {
+        ctrl.update(this, bot, dt);
+      }
     }
 
     for (const p of this.players.values()) {
@@ -1086,6 +1092,7 @@ export class Room {
       this.broadcast(encodeMatchSeed(this.seedCommit, this.seed)); // reveal
       void this.settlePot(winner ?? null);
       this.recordStats();
+      this.recordPlaytime();
       this.awardPlayRewards();
       analytics.matchCompleted({
         winner: winner && !winner.isBot ? winner.wallet : null,
@@ -1377,6 +1384,17 @@ export class Room {
       });
     }
     if (results.length) void store.recordMatch(results);
+  }
+
+  /** Credit lifetime time-in-match for every seated human. Counts all real
+   *  matches (free PvP, staked, competitive bots) — the endless sandbox returns
+   *  before this is ever reached. */
+  private recordPlaytime(): void {
+    const sec = Math.round(this.matchElapsedMs / 1000);
+    if (sec <= 0) return;
+    for (const p of this.players.values()) {
+      if (!p.isBot && p.wallet) void store.addPlaytime(p.wallet, sec);
+    }
   }
 
   /** Flat chip rewards for a non-staked match. Staked matches pay the pot instead.

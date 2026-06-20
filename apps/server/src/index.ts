@@ -518,7 +518,7 @@ app.get("/profile", (res, req) => {
   // Balances (real-money custodial + on-chain) are private: only returned when a
   // valid session proves the requester owns this wallet. Public stats otherwise.
   const isOwner = !!session && verifySession(session) === wallet && !!wallet;
-  const blank = { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, skins: DEFAULT_SKINS, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0, token_balance: 0 };
+  const blank = { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, skins: DEFAULT_SKINS, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0, token_balance: 0, playtime_sec: 0 };
   Promise.all([store.getProfile(wallet), isOwner ? tokenBalance(wallet) : Promise.resolve(0)])
     .then(([p, tok]) => {
       const prof = p ?? blank;

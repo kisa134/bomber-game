@@ -112,6 +112,7 @@ export interface SandboxOpts {
   botRespawn: boolean; // downed bots come back so you always have targets
   crateRespawn: boolean; // destructible crates slowly repopulate
   godMode: boolean; // you can't be hurt (endless practice)
+  freezeBots: boolean; // bots stand still — static targets for aim/combo practice
   startBombs: number; // starting bomb capacity (1..MAX_BOMBS)
   startPower: number; // starting fire range (1..MAX_POWER)
   startSpeed: number; // starting EXTRA speed levels (0..MAX_SPEED_LEVELS)
@@ -122,6 +123,7 @@ export const DEFAULT_SANDBOX: SandboxOpts = {
   botRespawn: true,
   crateRespawn: true,
   godMode: false,
+  freezeBots: false,
   startBombs: START_BOMBS,
   startPower: START_POWER,
   startSpeed: 0,
@@ -139,6 +141,7 @@ export function clampSandbox(o: Partial<SandboxOpts> | null | undefined): Sandbo
     botRespawn: bool(o.botRespawn, d.botRespawn),
     crateRespawn: bool(o.crateRespawn, d.crateRespawn),
     godMode: bool(o.godMode, d.godMode),
+    freezeBots: bool(o.freezeBots, d.freezeBots),
     startBombs: num(o.startBombs, 1, MAX_BOMBS, d.startBombs),
     startPower: num(o.startPower, 1, MAX_POWER, d.startPower),
     startSpeed: num(o.startSpeed, 0, MAX_SPEED_LEVELS, d.startSpeed),

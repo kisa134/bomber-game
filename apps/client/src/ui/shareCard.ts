@@ -16,6 +16,7 @@ export interface CardData {
   // result-only:
   placeText?: string; // "🏆 1st place" / "💀 Knocked out" / "🤝 Draw"
   won?: boolean;
+  draw?: boolean;
   frags?: number;
   earnText?: string; // "+🪙120" / "Won the pot 💎2.0" etc.
   ratingDelta?: number;
@@ -74,6 +75,15 @@ function loadImg(url: string): Promise<HTMLImageElement | null> {
     im.onerror = () => res(null);
     im.src = url;
   });
+}
+
+/** Load the first URL that resolves (each candidate falls back to the next). */
+async function loadFirst(urls: string[]): Promise<HTMLImageElement | null> {
+  for (const u of urls) {
+    const im = await loadImg(u);
+    if (im) return im;
+  }
+  return null;
 }
 
 function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
@@ -159,17 +169,51 @@ export async function renderShareCard(data: CardData, variant: number): Promise<
   ctx.font = "600 30px Arial, sans-serif";
   ctx.fillText("blow up your friends · pump.fun arena", SIZE / 2, 162);
 
-  // 3. Hero sprite (victory pose, fall back to front stand).
-  const hero =
-    (await loadImg(`/sprites/skin_${data.skin}_victory.webp?v=${ASSET_VER}`)) ??
-    (await loadImg(`/sprites/skin_${data.skin}_down_0.webp?v=${ASSET_VER}`)) ??
-    (await loadImg(`/sprites/skin_${data.skin}.webp?v=${ASSET_VER}`));
-  const hy = 196;
-  const hs = 396;
+  // 3. Headline banner (won/lost/draw, or the league on a profile card). Sits
+  //    BETWEEN the tagline and the hero so it never covers the character's face.
+  const headline =
+    data.placeText ?? `${data.league.emoji} ${data.league.name} League`;
+  const headlineColor =
+    data.kind === "result"
+      ? data.won
+        ? "#ffd95a"
+        : data.draw
+          ? "#cfd6e6"
+          : "#ff8a8a"
+      : v.accent;
+  ctx.font = "900 60px 'Arial Black', Arial, sans-serif";
+  const bw = Math.min(SIZE - 120, ctx.measureText(headline).width + 76);
+  const by = 188, bh = 88;
+  ctx.fillStyle = "rgba(8,10,16,0.66)";
+  rr(ctx, SIZE / 2 - bw / 2, by, bw, bh, 44);
+  ctx.fill();
+  ctx.strokeStyle = headlineColor + "88";
+  ctx.lineWidth = 3;
+  rr(ctx, SIZE / 2 - bw / 2, by, bw, bh, 44);
+  ctx.stroke();
+  ctx.fillStyle = headlineColor;
+  ctx.fillText(headline, SIZE / 2, by + 60);
+
+  // 4. Hero sprite — pose matches the outcome: winner does the victory pose, a
+  //    knocked-out player slumps (hurt), a draw/profile just stands proud.
+  const base = `/sprites/skin_${data.skin}`;
+  let pose = "victory";
+  if (data.kind === "result") pose = data.won ? "victory" : data.draw ? "down_0" : "hurt";
+  const hero = await loadFirst(
+    [
+      `${base}_${pose}.webp`,
+      `${base}_victory.webp`,
+      `${base}_down_0.webp`,
+      `${base}.webp`,
+    ].map((u) => `${u}?v=${ASSET_VER}`),
+  );
+  const hy = 304;
+  const hs = 322;
   if (hero) {
+    const glow = data.kind === "result" && !data.won && !data.draw ? "#ff5a5a" : v.accent;
     const gr = ctx.createRadialGradient(SIZE / 2, hy + hs * 0.62, 20, SIZE / 2, hy + hs * 0.62, hs * 0.6);
-    gr.addColorStop(0, v.accent + "66");
-    gr.addColorStop(1, v.accent + "00");
+    gr.addColorStop(0, glow + "66");
+    gr.addColorStop(1, glow + "00");
     ctx.fillStyle = gr;
     ctx.fillRect(SIZE / 2 - hs, hy, hs * 2, hs);
     ctx.imageSmoothingEnabled = false;
@@ -177,26 +221,26 @@ export async function renderShareCard(data: CardData, variant: number): Promise<
     ctx.imageSmoothingEnabled = true;
   }
 
-  // 4. Placement / result badge over the hero.
-  if (data.placeText) {
-    ctx.font = "900 58px 'Arial Black', Arial, sans-serif";
-    const pw = ctx.measureText(data.placeText).width + 60;
-    ctx.fillStyle = "rgba(8,10,16,0.66)";
-    rr(ctx, SIZE / 2 - pw / 2, 184, pw, 76, 38);
-    ctx.fill();
-    ctx.fillStyle = data.won ? "#ffd95a" : "#ff8a8a";
-    ctx.fillText(data.placeText, SIZE / 2, 238);
-  }
+  // First blood: a diagonal ribbon across the top-left corner (never over the
+  //  center column, so nothing overlaps).
   if (data.firstBlood) {
-    ctx.fillStyle = "#e60000";
-    ctx.font = "900 34px 'Arial Black', Arial, sans-serif";
-    ctx.fillText("🩸 FIRST BLOOD", SIZE / 2, 288);
+    ctx.save();
+    ctx.translate(116, 116);
+    ctx.rotate(-Math.PI / 4);
+    ctx.fillStyle = "#c41010";
+    ctx.fillRect(-170, -27, 340, 54);
+    ctx.fillStyle = "#fff";
+    ctx.font = "900 30px 'Arial Black', Arial, sans-serif";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🩸 FIRST BLOOD", 0, 2);
+    ctx.restore();
+    ctx.textBaseline = "alphabetic";
   }
 
-  // 5. Nickname.
+  // 5. Nickname (below the hero).
   ctx.fillStyle = "#fff";
-  ctx.font = "800 52px Arial, sans-serif";
-  ctx.fillText(data.nickname, SIZE / 2, 648);
+  ctx.font = "800 50px Arial, sans-serif";
+  ctx.fillText(data.nickname, SIZE / 2, 672);
 
   // 6. Stat chips row.
   const chips: Array<[string, string]> =
@@ -211,10 +255,10 @@ export async function renderShareCard(data: CardData, variant: number): Promise<
           ["🪙 Chips", data.chips.toLocaleString()],
           ["📈 Rating", String(data.rating)],
         ];
-  const cw = 320, ch = 90, gap = 18;
+  const cw = 320, ch = 88, gap = 18;
   const total = cw * 3 + gap * 2;
   let cx = (SIZE - total) / 2;
-  const cy = 680;
+  const cy = 694;
   for (const [label, val] of chips) {
     ctx.fillStyle = "rgba(20,24,34,0.8)";
     rr(ctx, cx, cy, cw, ch, 18);

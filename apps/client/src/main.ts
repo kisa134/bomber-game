@@ -1169,6 +1169,18 @@ function profCell(label: string, value: string | number): HTMLElement {
   return c;
 }
 
+/** Human-readable lifetime playtime: "5m", "2h 14m", "3d 4h". */
+function formatPlaytime(sec: number | undefined): string {
+  const s = Math.max(0, Math.floor(sec ?? 0));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ${m % 60}m`;
+  const d = Math.floor(h / 24);
+  return `${d}d ${h % 24}h`;
+}
+
 /** Last rating we've seen for the local wallet (to show the post-match swing). */
 let lastRating = STARTING_RATING;
 
@@ -1440,6 +1452,7 @@ async function openProfile(): Promise<void> {
       profCell("Wins", p.wins),
       profCell("Win rate", `${wr}%`),
       profCell("Frags", p.frags),
+      profCell("⏱ Time", formatPlaytime(p.playtime_sec)),
       profCell(`Won 💎`, tokWon.toLocaleString(undefined, { maximumFractionDigits: 2 })),
       profCell("Won 🪙", (p.chips_won ?? 0).toLocaleString()),
     );
@@ -1548,6 +1561,7 @@ async function openPublicProfile(wallet: string): Promise<void> {
       profCell("Frags", p.frags),
       profCell("Deaths", p.deaths),
       profCell("Best streak", p.best_streak),
+      profCell("⏱ Time", formatPlaytime(p.playtime_sec)),
       profCell("💎 Won", Math.round((p.tokens_won ?? 0) / 10 ** TOKEN_DECIMALS).toLocaleString()),
     );
     body.append(grid);
@@ -2690,6 +2704,7 @@ function buildCardData(kind: "result" | "profile"): CardData {
   if (kind === "result" && lastMatch) {
     data.placeText = lastMatch.draw ? "🤝 Draw" : lastMatch.won ? "🏆 1st place" : "💀 Knocked out";
     data.won = lastMatch.won;
+    data.draw = lastMatch.draw;
     data.frags = lastMatch.frags;
     data.earnText = lastMatch.earnText;
     data.ratingDelta = lastMatch.ratingDelta;

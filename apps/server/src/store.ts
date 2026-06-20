@@ -29,6 +29,7 @@ export interface Profile {
   chips_won: number; // lifetime chips winnings — free leaderboard
   referred_by: string; // wallet of the referrer who invited this player ("" if none)
   referral_earned: number; // lifetime referral rewards, in token base units
+  playtime_sec: number; // lifetime time spent in real matches, seconds
 }
 
 /** ISO-8601 week key like "2026-W25" (UTC). Weekly tops reset on the boundary. */
@@ -110,6 +111,8 @@ export interface ProfileStore {
   /** Add XP (and recompute level) WITHOUT touching rating — used for the tiny
    *  Competitive Bots Match reward. 200 XP per level. */
   addXp(wallet: string, amount: number): Promise<void>;
+  /** Add to lifetime time-in-match (seconds). Best-effort, never throws. */
+  addPlaytime(wallet: string, seconds: number): Promise<void>;
   /** Persist the stakes escrowed for a live staked match, so a hard crash
    *  (SIGKILL/host failure) can refund them on the next boot. Returns false if
    *  the escrow could NOT be durably recorded — the caller must abort the match
@@ -176,6 +179,7 @@ function blankProfile(wallet: string, name: string, skin: number): Profile {
     chips_won: 0,
     referred_by: "",
     referral_earned: 0,
+    playtime_sec: 0,
   };
 }
 
@@ -374,6 +378,13 @@ class InMemoryStore implements ProfileStore {
     this.map.set(wallet, p);
     p.xp += amount;
     p.level = 1 + Math.floor(p.xp / 200);
+  }
+
+  async addPlaytime(wallet: string, seconds: number): Promise<void> {
+    if (seconds <= 0) return;
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    p.playtime_sec += Math.round(seconds);
   }
 
   private openStakes = new Map<string, Array<{ wallet: string; amount: number; currency: number }>>();
@@ -782,6 +793,21 @@ class SupabaseStore implements ProfileStore {
     }
   }
 
+  async addPlaytime(wallet: string, seconds: number): Promise<void> {
+    if (seconds <= 0) return;
+    const p = await this.getProfile(wallet);
+    const playtime_sec = (p?.playtime_sec ?? 0) + Math.round(seconds);
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ playtime_sec }),
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
+
   // Open-stakes persistence is a Postgres-only feature; production requires
   // Postgres (preflight), so these are no-ops here.
   async recordOpenStakes(): Promise<boolean> {
@@ -965,6 +991,8 @@ class PostgresStore implements ProfileStore {
     // Lifetime winnings for the earnings leaderboards.
     await this.pool.query(`alter table profiles add column if not exists tokens_won bigint not null default 0`);
     await this.pool.query(`alter table profiles add column if not exists chips_won bigint not null default 0`);
+    // Lifetime time-in-match (seconds), shown on the player card.
+    await this.pool.query(`alter table profiles add column if not exists playtime_sec bigint not null default 0`);
     await this.pool.query(`create index if not exists profiles_referred_by on profiles (referred_by)`);
     await this.pool.query(`
       create table if not exists processed_deposits (
@@ -1072,6 +1100,7 @@ class PostgresStore implements ProfileStore {
       referral_earned: Number(row.referral_earned ?? 0),
       tokens_won: Number(row.tokens_won ?? 0),
       chips_won: Number(row.chips_won ?? 0),
+      playtime_sec: Number(row.playtime_sec ?? 0),
     };
   }
 
@@ -1383,6 +1412,23 @@ class PostgresStore implements ProfileStore {
       );
     } catch (e) {
       console.error("[store] pg addXp failed", e);
+    }
+  }
+
+  async addPlaytime(wallet: string, seconds: number): Promise<void> {
+    if (seconds <= 0) return;
+    try {
+      await this.ready;
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
+      await this.pool.query(
+        `update profiles set playtime_sec = playtime_sec + $2, updated_at=now() where wallet=$1`,
+        [wallet, Math.round(seconds)],
+      );
+    } catch (e) {
+      console.error("[store] pg addPlaytime failed", e);
     }
   }
 

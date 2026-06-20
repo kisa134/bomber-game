@@ -60,6 +60,7 @@ export interface ProfileData {
   week_points: number;
   tokens_won?: number; // lifetime real-token winnings (base units)
   chips_won?: number; // lifetime chips winnings
+  playtime_sec?: number; // lifetime time spent in real matches (seconds)
   gameTokens?: number; // custodial in-game token balance (whole tokens)
   walletTokens?: number; // live on-chain balance in the player's wallet
 }
