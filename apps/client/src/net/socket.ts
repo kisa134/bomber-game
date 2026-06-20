@@ -232,8 +232,9 @@ export async function practiceRoom(
   bots = 3,
   competitive = false,
   sandbox: SandboxOpts | null = null,
+  coop = false,
 ): Promise<JoinResponse> {
-  const res = await post("/practice", { name, skin, difficulty, bots, competitive, sandbox });
+  const res = await post("/practice", { name, skin, difficulty, bots, competitive, sandbox, coop });
   if (!res.ok) throw await joinError(res);
   return res.json();
 }

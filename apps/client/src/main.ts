@@ -2914,12 +2914,13 @@ setupMenu({
     track("play_start", { mode: "create", stake: c.stake, currency: c.currency, public: c.isPublic });
     connect(() => createRoom(c.name, c.skin, c.stake, c.currency, c.isPublic));
   },
-  practice: (c, difficulty, bots, competitive, sandbox) => {
+  practice: (c, difficulty, bots, competitive, sandbox, coop) => {
     practiceMode = true;
     practiceCompetitive = competitive;
-    track("play_start", { mode: competitive ? "competitive_bots" : "sandbox", difficulty, bots });
-    // The match auto-starts; the COUNTDOWN phase switches to the game screen.
-    connect(() => practiceRoom(c.name, c.skin, difficulty, bots, competitive, competitive ? null : sandbox));
+    track("play_start", { mode: competitive ? "competitive_bots" : coop ? "sandbox_coop" : "sandbox", difficulty, bots });
+    // Solo auto-starts (COUNTDOWN → game screen). Co-op waits in the room lobby
+    // so you can invite a friend, then the host presses Start.
+    connect(() => practiceRoom(c.name, c.skin, difficulty, bots, competitive, competitive ? null : sandbox, competitive ? false : coop));
   },
 });
 

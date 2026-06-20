@@ -101,6 +101,7 @@ export class Room {
   isPublic: boolean; // listed/quick-matchable; host can toggle private (code-only)
   readonly practice: boolean; // fill with bots and auto-start
   readonly competitive: boolean = false; // bot match that grants tiny rewards (vs sandbox)
+  readonly coop: boolean = false; // sandbox co-op: humans team up vs bots, host starts (no auto-start)
   readonly botDifficulty: BotDifficulty; // difficulty of bots in a practice room
   readonly botCount: number; // how many bots a practice match fills with
   // Practice Sandbox tuning (god mode, starting loadout, respawns). Null unless
@@ -159,11 +160,14 @@ export class Room {
     botCount = MAX_PLAYERS_PER_ROOM - 1,
     competitive = false,
     sandbox: SandboxOpts | null = null,
+    coop = false,
   ) {
     this.id = id;
     this.isPublic = isPublic;
     this.practice = practice;
     this.competitive = competitive;
+    // Co-op only makes sense in a non-competitive practice (sandbox) room.
+    this.coop = practice && !competitive && coop;
     // Sandbox tuning only applies to a non-competitive practice room.
     this.sandbox = practice && !competitive ? sandbox : null;
     this.stake = stake;
@@ -652,7 +656,8 @@ export class Room {
     // Practice room: fill with bots and auto-start the FIRST match as soon as a
     // human is present. After that the player starts each rematch with a button
     // (requestStart) — no more starting itself.
-    if (this.practice && this.humanCount >= 1 && !this.practiceStarted) {
+    // Co-op waits in the lobby so the host can invite a friend and press Start.
+    if (this.practice && !this.coop && this.humanCount >= 1 && !this.practiceStarted) {
       this.startPractice();
       return;
     }
@@ -1040,6 +1045,12 @@ export class Room {
     if (!p.alive) return;
     // Sandbox god mode: the human simply can't be hurt (endless practice).
     if (this.sandbox?.godMode && !p.isBot) return;
+    // Sandbox co-op: humans are a team — a teammate's bomb never hurts you
+    // (your own bomb still can, to keep self-blast skill honest).
+    if (this.sandbox && !p.isBot && killerId >= 0 && killerId !== p.id) {
+      const killer = this.players.get(killerId);
+      if (killer && !killer.isBot) return;
+    }
     const now = Date.now();
     if (!eliminate && now < p.invulnUntilMs) return; // i-frames after a hit
 

@@ -1110,6 +1110,7 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
   let difficulty = BotDifficulty.NORMAL;
   let bots = 3;
   let competitive = false;
+  let coop = false;
   let sandbox: SandboxOpts | null = null;
   let isPublic = true; // created lobbies are public unless explicitly private
   try {
@@ -1129,13 +1130,14 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
     }
     if (Number.isFinite(parsed.bots)) bots = Math.max(1, Math.min(PRACTICE_MAX_BOTS, Math.floor(parsed.bots)));
     if (parsed.competitive === true) competitive = true;
+    if (parsed.coop === true) coop = true;
     // Sandbox tuning (only honoured by a non-competitive practice room).
     if (parsed.sandbox && typeof parsed.sandbox === "object") sandbox = clampSandbox(parsed.sandbox);
     if (parsed.public === false) isPublic = false; // private = code-only, unlisted
   } catch {
     // ignore malformed body
   }
-  return { name, code, skin, wallet, stake, currency, difficulty, bots, competitive, sandbox, isPublic };
+  return { name, code, skin, wallet, stake, currency, difficulty, bots, competitive, sandbox, isPublic, coop };
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
@@ -1259,6 +1261,7 @@ type Body = {
   competitive: boolean;
   sandbox: SandboxOpts | null;
   isPublic: boolean;
+  coop: boolean;
 };
 
 function withMatchmaking(
@@ -1341,7 +1344,7 @@ app.post("/create", (res, req) =>
   withMatchmaking(res, req, (b) => mm.createTable(b.name, b.skin, b.wallet, b.stake, b.currency, b.isPublic)),
 );
 app.post("/practice", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty, b.bots, b.competitive, b.competitive ? null : b.sandbox), () => ({ stake: 0, currency: Currency.CHIPS })),
+  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty, b.bots, b.competitive, b.competitive ? null : b.sandbox, b.competitive ? false : b.coop), () => ({ stake: 0, currency: Currency.CHIPS })),
 );
 app.post("/join", (res, req) =>
   withMatchmaking(

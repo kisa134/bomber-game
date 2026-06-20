@@ -81,8 +81,10 @@ export class Matchmaker {
     botCount = 3,
     competitive = false,
     sandbox: SandboxOpts | null = null,
+    coop = false,
   ): { code: string; token: string } {
-    const room = this.newRoom(false, true, 0, difficulty, Currency.CHIPS, botCount, competitive, sandbox);
+    // Co-op rooms are private (code/invite only) so a friend joins via the link.
+    const room = this.newRoom(false, true, 0, difficulty, Currency.CHIPS, botCount, competitive, sandbox, coop);
     return this.reserve(room, name, skin, wallet);
   }
 
@@ -137,13 +139,14 @@ export class Matchmaker {
     botCount = 3,
     competitive = false,
     sandbox: SandboxOpts | null = null,
+    coop = false,
   ): Room {
     // Refuse new rooms when at the hard cap OR when the sim thread is saturated
     // (load shedding) — existing matches keep running smoothly.
     if (this.rooms.size >= MAX_ROOMS || this.load.busy) throw new ServerFullError();
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
-    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency, botCount, competitive, sandbox);
+    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency, botCount, competitive, sandbox, coop);
     this.rooms.set(code, room);
     return room;
   }

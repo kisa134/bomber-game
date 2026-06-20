@@ -212,6 +212,7 @@ export interface MenuHandlers {
     bots: number,
     competitive: boolean,
     sandbox: SandboxOpts,
+    coop: boolean,
   ) => void;
 }
 
@@ -278,7 +279,13 @@ export function setupMenu(h: MenuHandlers): void {
   let diff = 1;
   let bots = 3;
   let competitive = false; // false = Practice Sandbox, true = Competitive Bots
+  let coop = false; // sandbox co-op: team up with a friend vs the bots
   const sandbox: SandboxOpts = { ...DEFAULT_SANDBOX };
+  const coopBtn = document.getElementById("coop-toggle");
+  coopBtn?.addEventListener("click", () => {
+    coop = !coop;
+    coopBtn.classList.toggle("on", coop);
+  });
   const segPick = (group: HTMLElement, btn: HTMLElement): void => {
     for (const el of group.querySelectorAll(".seg-btn")) el.classList.remove("active");
     btn.classList.add("active");
@@ -382,7 +389,7 @@ export function setupMenu(h: MenuHandlers): void {
 
   refreshTrainMode();
   document.getElementById("practice-play")!.addEventListener("click", () => {
-    h.practice(makeChoice(0), diff, bots, competitive, sandbox);
+    h.practice(makeChoice(0), diff, bots, competitive, sandbox, coop);
   });
 
   // Lobby character arrows + "unlock in SHOP" (wired once).
