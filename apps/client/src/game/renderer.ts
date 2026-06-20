@@ -134,6 +134,8 @@ export class Renderer {
   private bloodDirty = false;
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
   private lastCell = new Map<number, number>(); // player id -> last grid cell (footprint stepping)
+  // Foot-shaped blood prints left while walking with bloody feet (x,y in cells; dx,dy = facing).
+  private footprints: Array<{ x: number; y: number; dx: number; dy: number; a: number; seed: number }> = [];
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
   private scorch: HTMLCanvasElement | null = null; // cached burnt-ground overlay
   private scorchDirty = false;
@@ -318,6 +320,7 @@ export class Renderer {
     this.bloodDirty = false;
     this.bloodyFeet.clear();
     this.lastCell.clear();
+    this.footprints = [];
     this.shatters.length = 0;
     this.scorch = null;
     this.scorchDirty = false;
@@ -401,6 +404,7 @@ export class Renderer {
       const idx = c.y * GRID_W + c.x;
       this.burn.set(idx, Math.min(6, (this.burn.get(idx) ?? 0) + 1));
       this.scorchDirty = true;
+      if (this.bloodGround.delete(idx)) this.bloodDirty = true; // blast scorches blood off too
       if (this.prevGrid) {
         for (const [dx, dy] of NB) {
           const nx = c.x + dx, ny = c.y + dy;
@@ -411,6 +415,13 @@ export class Renderer {
           }
         }
       }
+    }
+    // Burn away any footprints sitting on the blast cells.
+    if (this.footprints.length) {
+      const blast = new Set(cells.map((c) => c.y * GRID_W + c.x));
+      const before = this.footprints.length;
+      this.footprints = this.footprints.filter((f) => !blast.has((f.y | 0) * GRID_W + (f.x | 0)));
+      if (this.footprints.length !== before) this.bloodDirty = true;
     }
     if (this.lowFx) return; // phones: explosion tiles still render; skip the heavy VFX
     for (const c of cells) {
@@ -561,29 +572,59 @@ export class Renderer {
     const pu = Math.max(1, Math.round(t / 24)); // grass-fine pixels (or finer)
     for (const [idx, lvl] of this.bloodGround) {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
-      const reach = Math.min(1.05, 0.42 + lvl * 0.12); // how far from center it spreads (full cell at high lvl)
-      const dens = Math.min(0.99, 0.5 + lvl * 0.11); // center fill density
-      const a = Math.min(0.93, 0.42 + lvl * 0.09);
-      let h = (idx * 2654435761) >>> 0;
-      g.globalAlpha = a;
-      const half = t * 0.5;
+      // Per-cell random target coverage. The death cell fills the SQUARE tile
+      // 60–100% (random); lighter splats cover less. Shape is irregular blotches
+      // driven by value-noise (NOT a clean circle), and varies cell to cell.
+      let s = (idx * 2654435761) >>> 0;
+      s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0;
+      const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.62, 0.12 + lvl * 0.13);
+      g.globalAlpha = Math.min(0.94, 0.5 + lvl * 0.08);
+      const NB = pu * 4; // coarse noise block -> irregular outline/holes
       for (let gy = 0; gy < t; gy += pu) {
-        const ndy = (gy + pu / 2 - half) / half;
         for (let gx = 0; gx < t; gx += pu) {
-          const ndx = (gx + pu / 2 - half) / half;
-          const d = Math.sqrt(ndx * ndx + ndy * ndy);
-          if (d > reach) continue;
-          h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
-          const prob = dens * (1 - (d / reach) * 0.5); // denser toward the middle
-          if ((h & 1023) / 1023 > prob) continue;
-          const r = 60 + (h % 100); // dark crimson with brighter gore flecks
+          const qx = (gx / NB) | 0, qy = (gy / NB) | 0;
+          let n = (idx * 374761 + qx * 2654435761 + qy * 40503) >>> 0;
+          n = (n ^ (n << 13)) >>> 0; n = (n ^ (n >>> 17)) >>> 0; n = (n ^ (n << 5)) >>> 0;
+          const cn = (n & 1023) / 1023; // coarse clump field
+          let f = (idx * 97 + gx * 131 + gy * 923) >>> 0;
+          f = (f ^ (f << 13)) >>> 0; f = (f ^ (f >>> 17)) >>> 0; f = (f ^ (f << 5)) >>> 0;
+          const localCover = cover * (0.45 + cn * 1.15); // clumps -> blotchy edges
+          if ((f & 1023) / 1023 > Math.min(1, localCover)) continue;
+          const r = 58 + (f % 96); // dark crimson with brighter gore flecks
           g.fillStyle = `rgb(${r},${(r * 0.09) | 0},${(r * 0.07) | 0})`;
           g.fillRect(ox + gx, oy + gy, pu, pu);
         }
       }
     }
+    for (const fp of this.footprints) this.drawFoot(g, fp, pu); // foot-shaped smears on top
     g.globalAlpha = 1;
     this.bloodCanvas = cv;
+  }
+
+  /** Draw one foot-shaped blood print: an oriented sole ellipse + a few toe dots,
+   *  facing the walk direction. Small and thin so trails read as footsteps. */
+  private drawFoot(g: CanvasRenderingContext2D, fp: { x: number; y: number; dx: number; dy: number; a: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const px = fp.x * t, py = fp.y * t;
+    let ux = fp.dx, uy = fp.dy;
+    const m = Math.hypot(ux, uy) || 1; ux /= m; uy /= m;
+    const vx = -uy, vy = ux;
+    const len = t * 0.13, wid = t * 0.065; // half-extents of the small sole
+    const r = 66 + (fp.seed % 70);
+    g.globalAlpha = fp.a;
+    g.fillStyle = `rgb(${r},${(r * 0.08) | 0},${(r * 0.06) | 0})`;
+    for (let aa = -len; aa <= len; aa += pu) {
+      for (let bb = -wid; bb <= wid; bb += pu) {
+        if ((aa * aa) / (len * len) + (bb * bb) / (wid * wid) > 1) continue;
+        const wx = px + ux * aa + vx * bb, wy = py + uy * aa + vy * bb;
+        g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
+      }
+    }
+    for (let k = 0; k < 3; k++) { // toe dots ahead of the sole
+      const aa = len * 1.3, bb = (k - 1) * wid * 0.7;
+      const wx = px + ux * aa + vx * bb, wy = py + uy * aa + vy * bb;
+      g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
+    }
   }
 
   /** Draw blood on a block: a squashed splatter on the TOP face + drips running
@@ -956,13 +997,22 @@ export class Renderer {
       // footprint onto the next several cells you walk (tracks gore around).
       if (p.alive) {
         const ci = Math.floor(rp.y) * GRID_W + Math.floor(rp.x);
-        if (ci !== this.lastCell.get(p.id)) {
+        const prevCi = this.lastCell.get(p.id);
+        if (ci !== prevCi) {
           this.lastCell.set(p.id, ci);
-          if ((this.bloodGround.get(ci) ?? 0) >= 2) {
-            this.bloodyFeet.set(p.id, 9);
-          } else if ((this.bloodyFeet.get(p.id) ?? 0) > 0) {
-            this.markGround(ci, 1);
-            this.bloodyFeet.set(p.id, (this.bloodyFeet.get(p.id) ?? 0) - 1);
+          let mdx = 0, mdy = 0; // travel direction (from the previous cell)
+          if (prevCi !== undefined) { mdx = (ci % GRID_W) - (prevCi % GRID_W); mdy = ((ci / GRID_W) | 0) - ((prevCi / GRID_W) | 0); }
+          if ((this.bloodGround.get(ci) ?? 0) >= 3) this.bloodyFeet.set(p.id, 8); // stepped in a pool
+          const feet = this.bloodyFeet.get(p.id) ?? 0;
+          if (feet > 0 && (mdx || mdy)) {
+            this.bloodyFeet.set(p.id, feet - 1);
+            // First ~2 cells smear strongly, then fade.
+            const a = feet >= 7 ? 0.8 : feet >= 5 ? 0.5 : feet >= 3 ? 0.3 : 0.18;
+            let ux = mdx, uy = mdy; const mm = Math.hypot(ux, uy) || 1; ux /= mm; uy /= mm;
+            const off = ((feet & 1) === 0 ? -1 : 1) * 0.14; // alternate left/right foot
+            this.footprints.push({ x: rp.x + 0.5 - uy * off, y: rp.y + 0.5 + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
+            if (this.footprints.length > 140) this.footprints.shift();
+            this.bloodDirty = true;
           }
         }
       }
