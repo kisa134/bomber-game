@@ -482,7 +482,7 @@ export class Renderer {
     const freq = 1.1 + this.danger * 0.7; // slow ~1.1–1.8 Hz breathing pulse
     const pulse = 0.5 + 0.5 * Math.sin((now / 1000) * freq * Math.PI * 2);
     const a = this.danger * (0.2 + 0.5 * pulse); // peak alpha (brighter, mostly on the pulse)
-    const band = Math.min(W, H) * 0.028; // very thin band hugging the extreme edge
+    const band = Math.min(W, H) * 0.018; // ultra-thin glow right at the extreme edge
     const col = (alpha: number): string => `rgba(255,30,24,${Math.max(0, alpha).toFixed(3)})`;
     ctx.save();
     ctx.globalCompositeOperation = "lighter"; // additive -> vivid edge glow, center untouched
@@ -570,6 +570,7 @@ export class Renderer {
         }
       }
     }
+    this.blastGibs(cells); // fling any bones/meat/chips on the blast cells outward
     if (this.lowFx) return; // phones: explosion tiles still render; skip the heavy VFX
     for (const c of cells) {
       const cx = c.x + 0.5;
@@ -883,6 +884,43 @@ export class Renderer {
     boot(this.meat, "#9c1414");
     boot(this.chips, "#a06b48");
     if (kicked) this.bloodDirty = true;
+  }
+
+  /** Blow bones/meat/chips lying on the blast cells outward from the epicentre,
+   *  flinging a flying piece (our z-physics) and relocating the persistent decal. */
+  private blastGibs(cells: Array<{ x: number; y: number }>): void {
+    if ((!this.bones.length && !this.meat.length && !this.chips.length) || !cells.length) return;
+    const set = new Set(cells.map((c) => c.y * GRID_W + c.x));
+    let cxs = 0, cys = 0;
+    for (const c of cells) { cxs += c.x + 0.5; cys += c.y + 0.5; }
+    cxs /= cells.length; cys /= cells.length;
+    let moved = false;
+    const blast = (arr: Array<{ x: number; y: number; seed: number }>, color: string, rest: number): void => {
+      for (const o of arr) {
+        if (!set.has((o.y | 0) * GRID_W + (o.x | 0))) continue;
+        let dx = o.x - cxs, dy = o.y - cys;
+        let d = Math.hypot(dx, dy);
+        if (d < 0.05) { const aa = Math.random() * Math.PI * 2; dx = Math.cos(aa); dy = Math.sin(aa); d = 1; }
+        dx /= d; dy /= d;
+        const startX = o.x, startY = o.y;
+        const dist = 0.9 + Math.random() * 1.8; // thrown far by the blast
+        o.x = Math.max(0.2, Math.min(GRID_W - 0.2, o.x + dx * dist + (Math.random() - 0.5) * 0.5));
+        o.y = Math.max(0.2, Math.min(GRID_H - 0.2, o.y + dy * dist + (Math.random() - 0.5) * 0.5));
+        moved = true;
+        if (!this.lowFx) {
+          this.push({
+            x: startX, y: startY, vx: dx * (5 + Math.random() * 5), vy: dy * (5 + Math.random() * 5),
+            vz: 6 + Math.random() * 6, gz: 32, rest, fric: 0.86,
+            life: 0.5 + Math.random() * 0.45, max: 0.95, size: this.tile * (0.05 + Math.random() * 0.06),
+            color, shape: "rect", rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 18,
+          });
+        }
+      }
+    };
+    blast(this.bones, "#ece4cf", 0.4);
+    blast(this.meat, "#9c1414", 0.18);
+    blast(this.chips, "#a06b48", 0.6);
+    if (moved) this.bloodDirty = true;
   }
 
   /** A small scattered flesh chunk: a dark-red irregular blob with a pink highlight
