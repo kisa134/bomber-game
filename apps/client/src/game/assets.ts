@@ -122,7 +122,7 @@ const SFX_GAIN: Record<string, number> = {
   block_break: 0.45,
   place: 0.45,
   kick: 0.45,
-  pickup: 0.38,
+  pickup: 0.7, // boosted so the reward chime cuts through the mix
   countdown: 0.38,
   join: 0.38,
   ui: 0.28,
@@ -143,6 +143,15 @@ export class Assets {
   private sfxEnabled = true;
   private musicEnabled = true;
   private desiredMusic: string | null = null;
+
+  // Music mixer: sustained scale (e.g. faded under the Shepard tone) * transient
+  // sidechain duck (snaps down on a blast, recovers). Effective vol = base*scale*duck.
+  private musicScale = 1; // sustained 0..1 (1 = normal)
+  private duckGain = 1; // transient 0..1 (recovers to 1)
+  private duckFrom = 1;
+  private duckT0 = 0;
+  private duckRecoverMs = 200;
+  private mixing = false;
 
   // Shepard tone (ever-rising illusion) for round-end tension.
   private shepOsc: OscillatorNode[] = [];
@@ -345,14 +354,78 @@ export class Assets {
   }
 
   /** Sidechain duck: drop the music under a critical SFX (explosion/kill) and ramp
-   *  it back up. `amount` 0.5 ≈ −6 dB; recovery ~200 ms (dopamine doc 2.3). */
+   *  it back up. `amount` 0.5 ≈ −6 dB, 0.72 ≈ −12 dB; recovery ~150–200 ms (2.3). */
   duck(amount = 0.5, recoverMs = 200): void {
-    if (!this.musicEnabled || !this.desiredMusic) return;
-    const a = this.music.get(this.desiredMusic);
-    if (!a || a.paused) return;
-    const floor = MUSIC_GAIN * (1 - amount);
-    a.volume = Math.min(a.volume, floor); // snap down (or stay low if already ducked)
-    this.fadeVolume(a, MUSIC_GAIN, recoverMs); // ramp back to full
+    this.duckFrom = Math.min(this.duckGain, 1 - amount); // snap down (or stay low)
+    this.duckGain = this.duckFrom;
+    this.duckT0 = performance.now();
+    this.duckRecoverMs = recoverMs;
+    this.ensureMixer();
+  }
+
+  /** Sustained music level 0..1 — used to fade the track UNDER the Shepard tone in
+   *  the final seconds so they don't clash (1 = normal). */
+  setMusicScale(scale: number): void {
+    this.musicScale = Math.max(0, Math.min(1, scale));
+    this.ensureMixer();
+  }
+
+  private ensureMixer(): void {
+    if (this.mixing) return;
+    this.mixing = true;
+    this.mixTick();
+  }
+
+  private currentMusic(): HTMLAudioElement | null {
+    return this.desiredMusic ? this.music.get(this.desiredMusic) ?? null : null;
+  }
+
+  private mixTick(): void {
+    const a = this.currentMusic();
+    // Recover the transient duck toward 1.
+    const k = (performance.now() - this.duckT0) / this.duckRecoverMs;
+    this.duckGain = k >= 1 ? 1 : this.duckFrom + (1 - this.duckFrom) * k;
+    if (a && !a.paused && this.musicEnabled) a.volume = MUSIC_GAIN * this.musicScale * this.duckGain;
+    // Keep mixing while the music is held down by either control.
+    if (this.duckGain < 0.999 || this.musicScale < 0.999) {
+      requestAnimationFrame(() => this.mixTick());
+    } else {
+      if (a && !a.paused && this.musicEnabled) a.volume = MUSIC_GAIN;
+      this.mixing = false;
+    }
+  }
+
+  /** A bright casino-style reward chime (2–4 kHz transients) for YOUR kill — instant
+   *  dopamine cue (dopamine doc 2.1). Synthesized, no asset. */
+  rewardDing(): void {
+    if (!this.sfxEnabled) return;
+    if (!this.audioCtx) {
+      try {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        this.audioCtx = new AC();
+      } catch {
+        return;
+      }
+    }
+    const ctx = this.audioCtx;
+    if (ctx.state === "suspended") void ctx.resume();
+    const t0 = ctx.currentTime;
+    // Two quick rising bright notes (~2.6kHz -> ~3.9kHz), short bell-like decays.
+    const notes = [2637, 3520, 3951];
+    notes.forEach((f, i) => {
+      const start = t0 + i * 0.05;
+      const o = ctx.createOscillator();
+      o.type = "triangle";
+      o.frequency.setValueAtTime(f, start);
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(0.16, start + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + 0.18);
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start(start);
+      o.stop(start + 0.2);
+    });
   }
 
   /** Shepard tone: drive an ever-rising-pitch illusion at intensity 0..1 (round-end

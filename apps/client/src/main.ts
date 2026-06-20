@@ -438,6 +438,7 @@ net.onMessage = (msg) => {
       if (killLines.length > 5) killLines.shift();
       if (msg.killerId === state.myId && msg.victimId !== state.myId) {
         registerMyKill();
+        assets.rewardDing(); // bright casino-style reward chime on your kill
         const v = state.latest()?.players.find((p) => p.id === msg.victimId);
         if (v) renderer?.popText(v.x, v.y, "FRAG!", "#ff5a4a", true); // elastic kill reward popup
       }
@@ -757,6 +758,7 @@ function updateHud(): void {
     if (left <= 18000) shep = Math.min(1, (18000 - left) / 18000);
   }
   assets.shepard(shep);
+  assets.setMusicScale(1 - shep * 0.8); // fade music under the Shepard tone so they don't clash
 
   const snap = state.latest();
   if (!snap) return;
