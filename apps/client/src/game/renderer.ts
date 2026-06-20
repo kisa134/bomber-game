@@ -151,6 +151,7 @@ export class Renderer {
   private shakeMag = 0;
   private shakePh = 0;
   private danger = 0; // 0..1 threat level -> pulsing red edge vignette (low HP / sudden death)
+  private selfX = 0; private selfY = 0; private selfKnown = false; // local player pos (for distance shake)
   private lastTime = performance.now();
 
   private lastW = -1;
@@ -330,6 +331,7 @@ export class Renderer {
     this.bones = [];
     this.floaters = [];
     this.danger = 0;
+    this.selfKnown = false;
     this.shatters.length = 0;
     this.scorch = null;
     this.scorchDirty = false;
@@ -555,7 +557,21 @@ export class Renderer {
       this.lights.push({ x: cx, y: cy, born: now });
       if (this.lights.length > 80) this.lights.shift();
     }
-    this.shake(Math.min(13, 5 + cells.length * 0.7), 240);
+    // Shake amplitude falls off with distance² from the blast to YOU (doc 1.3) —
+    // a blast at your feet rocks the screen; one across the map barely registers.
+    const blast = Math.min(18, 4 + cells.length * 0.5);
+    let amp = blast * 0.5; // fallback (spectating / self unknown): muted global shake
+    if (this.selfKnown) {
+      let d2 = Infinity;
+      for (const c of cells) {
+        const dx = c.x + 0.5 - this.selfX, dy = c.y + 0.5 - this.selfY;
+        const dd = dx * dx + dy * dy;
+        if (dd < d2) d2 = dd;
+      }
+      const prox = 1 / (1 + d2 / 9); // inverse-square-ish falloff (~3-cell scale)
+      amp = blast * (0.16 + 0.84 * prox);
+    }
+    this.shake(amp, 240);
   }
 
   onDeath(cx: number, cy: number, color: string): void {
@@ -1064,6 +1080,7 @@ export class Renderer {
       // Positions are already smoothly interpolated upstream (state.view), so
       // we render them directly — same path for self and remote players.
       const rp = { x: p.x, y: p.y };
+      if (p.id === myId) { this.selfX = rp.x; this.selfY = rp.y; this.selfKnown = p.alive; }
 
       // Facing inferred from movement; remembered while standing still.
       const last = this.lastPos.get(p.id);

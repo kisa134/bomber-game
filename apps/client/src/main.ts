@@ -500,6 +500,7 @@ function enterGame(): void {
   renderer.onMatchStart();
   assets.stop("sudden_death");
   assets.shepard(0); // clear any lingering round-end Shepard tone
+  assets.subBass(0); // clear any lingering bomb sub-bass
   myPickupStep = 0;
   prevSoftCount = -1;
   killLines.length = 0;
@@ -762,6 +763,16 @@ function updateHud(): void {
 
   const snap = state.latest();
   if (!snap) return;
+
+  // Sub-bass threat hum: rises as a live bomb gets close to you (felt fear).
+  let sub = 0;
+  const meHud = snap.players.find((p) => p.id === state.myId);
+  if (meHud?.alive && snap.bombs.length) {
+    let dmin = Infinity;
+    for (const b of snap.bombs) { const dd = Math.hypot(b.x - meHud.x, b.y - meHud.y); if (dd < dmin) dmin = dd; }
+    sub = Math.max(0, Math.min(1, 1 - dmin / 5)); // within ~5 cells it ramps up
+  }
+  assets.subBass(sub);
 
   // Sort by frags (scoreboard order); rebuild only when something changed.
   const ordered = [...snap.players].sort((a, b) => b.frags - a.frags || a.id - b.id);

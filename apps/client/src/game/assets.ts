@@ -163,6 +163,15 @@ export class Assets {
   private shepRaf = 0;
   private shepOn = false;
 
+  // Sub-bass threat hum (≈20 Hz) under nearby ticking bombs.
+  private subOsc: OscillatorNode[] = [];
+  private subMaster: GainNode | null = null;
+  private subTarget = 0;
+  private subLevel = 0;
+  private subStart = 0;
+  private subRaf = 0;
+  private subOn = false;
+
   async preload(): Promise<void> {
     await Promise.all([
       ...Object.entries(SPRITE_FILES).map(([k, url]) => this.tryImage(k, url)),
@@ -503,6 +512,70 @@ export class Assets {
     this.shepOsc = [];
     this.shepGain = [];
     this.shepMaster = null;
+  }
+
+  /** Sub-bass threat hum at intensity 0..1 (≈20 Hz fundamental + octaves), with a
+   *  slow "tick" throb — felt fear under a nearby bomb (dopamine doc 2.1). */
+  subBass(intensity: number): void {
+    const lv = Math.max(0, Math.min(1, intensity));
+    this.subTarget = lv;
+    if (lv > 0 && !this.subOn && this.sfxEnabled) this.startSub();
+  }
+
+  private startSub(): void {
+    if (!this.audioCtx) {
+      try {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        this.audioCtx = new AC();
+      } catch {
+        return;
+      }
+    }
+    const ctx = this.audioCtx;
+    if (ctx.state === "suspended") void ctx.resume();
+    this.subOn = true;
+    this.subStart = performance.now();
+    this.subLevel = 0;
+    this.subMaster = ctx.createGain();
+    this.subMaster.gain.value = 0;
+    this.subMaster.connect(ctx.destination);
+    this.subOsc = [];
+    // 20 Hz fundamental + 40/60 Hz harmonics so it's FELT on subs and faintly heard on laptops.
+    [[20, 1], [40, 0.45], [60, 0.22]].forEach(([f, gain]) => {
+      const o = ctx.createOscillator();
+      o.type = "sine";
+      o.frequency.value = f;
+      const g = ctx.createGain();
+      g.gain.value = gain;
+      o.connect(g);
+      g.connect(this.subMaster as GainNode);
+      o.start();
+      this.subOsc.push(o);
+    });
+    this.tickSub();
+  }
+
+  private tickSub(): void {
+    if (!this.subOn || !this.audioCtx || !this.subMaster) return;
+    const ctx = this.audioCtx;
+    const throb = 0.72 + 0.28 * Math.sin(((performance.now() - this.subStart) / 1000) * 3.2 * Math.PI * 2); // ~3.2 Hz tick
+    this.subLevel += (this.subTarget - this.subLevel) * 0.05;
+    this.subMaster.gain.setValueAtTime(this.subLevel * 0.4 * throb, ctx.currentTime);
+    if (this.subTarget <= 0 && this.subLevel < 0.01) {
+      this.stopSub();
+      return;
+    }
+    this.subRaf = requestAnimationFrame(() => this.tickSub());
+  }
+
+  private stopSub(): void {
+    this.subOn = false;
+    if (this.subRaf) cancelAnimationFrame(this.subRaf);
+    this.subRaf = 0;
+    for (const o of this.subOsc) { try { o.stop(); o.disconnect(); } catch { /* already gone */ } }
+    if (this.subMaster) { try { this.subMaster.disconnect(); } catch { /* already gone */ } }
+    this.subOsc = [];
+    this.subMaster = null;
   }
 
   private startDesired(volume = MUSIC_GAIN): void {
