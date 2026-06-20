@@ -421,7 +421,8 @@ export class Room {
   /** Top up bots and start a practice match. */
   private startPractice(): void {
     const cap = this.sandbox ? PRACTICE_SPAWNS.length : MAX_PLAYERS_PER_ROOM;
-    const target = Math.min(cap, 1 + this.botCount); // 1 human + N bots
+    // N bots on top of however many humans are seated (co-op can have 2+).
+    const target = Math.min(cap, this.humanCount + this.botCount);
     while (this.players.size < target) this.addBot();
     this.practiceStarted = true;
     void this.start();
@@ -661,10 +662,12 @@ export class Room {
       this.startPractice();
       return;
     }
-    // All present players ready → start immediately.
+    // All present players ready → start immediately. Practice (incl. co-op) goes
+    // through startPractice so the arena gets topped up with bots.
     if (this.allReady()) {
       this.lobbyCounting = false;
-      void this.start();
+      if (this.practice) this.startPractice();
+      else void this.start();
       return;
     }
     // Otherwise, once enough players are ready but someone is stalling, run a
@@ -689,8 +692,10 @@ export class Room {
           if (!p.isBot && !p.ready && p.id !== this.hostId) this.removeWithNotice(p.id, 1);
         }
         this.lobbyCounting = false;
-        if (this.allReady()) void this.start();
-        else this.broadcastRoomInfo();
+        if (this.allReady()) {
+          if (this.practice) this.startPractice();
+          else void this.start();
+        } else this.broadcastRoomInfo();
       }
     } else if (this.lobbyCounting) {
       // Conditions broke (someone left or un-readied) → cancel the countdown.
