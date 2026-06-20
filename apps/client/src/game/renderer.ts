@@ -148,6 +148,7 @@ export class Renderer {
   private shakeDur = 0;
   private shakeMag = 0;
   private shakePh = 0;
+  private danger = 0; // 0..1 threat level -> pulsing red edge vignette (low HP / sudden death)
   private lastTime = performance.now();
 
   private lastW = -1;
@@ -325,6 +326,7 @@ export class Renderer {
     this.lastCell.clear();
     this.footprints = [];
     this.bones = [];
+    this.danger = 0;
     this.shatters.length = 0;
     this.scorch = null;
     this.scorchDirty = false;
@@ -370,6 +372,30 @@ export class Renderer {
       this.shakeMag = mag;
       this.shakePh = Math.random() * Math.PI * 2;
     }
+  }
+
+  /** Threat level 0..1 (set from the local player's HP / sudden death) that drives
+   *  the pulsing red edge vignette. */
+  setDanger(level: number): void {
+    this.danger = Math.max(0, Math.min(1, level));
+  }
+
+  /** Pulsing red peripheral vignette at 4–7 Hz when the local player is in danger
+   *  (low HP / sudden death) — tunnel-vision threat cue (dopamine doc 1.2). */
+  private drawDangerVignette(W: number, H: number, now: number): void {
+    if (this.danger <= 0.01) return;
+    const ctx = this.ctx;
+    const freq = 4 + this.danger * 3; // 4 Hz (mild) .. 7 Hz (critical)
+    const pulse = 0.5 + 0.5 * Math.sin((now / 1000) * freq * Math.PI * 2);
+    const alpha = this.danger * (0.12 + 0.26 * pulse);
+    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.34, W / 2, H / 2, Math.max(W, H) * 0.72);
+    g.addColorStop(0, "rgba(120,0,0,0)");
+    g.addColorStop(0.7, `rgba(110,0,0,${(alpha * 0.4).toFixed(3)})`);
+    g.addColorStop(1, `rgba(80,0,0,${alpha.toFixed(3)})`);
+    ctx.save();
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
   }
 
   private push(p: Particle): void {
@@ -950,6 +976,7 @@ export class Renderer {
     ctx.restore();
 
     if (!this.lowFx) this.drawAmbient(W, H); // warm key light + vignette for depth
+    this.drawDangerVignette(W, H, now); // pulsing red threat vignette at low HP / sudden death
     this.drawFirstBlood(now); // screen-space announcement, above the world
   }
 

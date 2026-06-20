@@ -330,6 +330,11 @@ net.onMessage = (msg) => {
         // Took damage but survived -> hurt flash (elimination handled by death event).
         if (me.alive && prevMyLives >= 0 && me.lives < prevMyLives) flashHit();
         prevMyLives = me.lives;
+        // Threat vignette: strongest on the last life, milder in sudden death.
+        const sd = state.phase === MatchPhase.SUDDEN_DEATH;
+        renderer?.setDanger(!me.alive ? 0 : me.lives <= 1 ? 1 : sd ? 0.5 : 0);
+      } else {
+        renderer?.setDanger(0);
       }
       // Wound cue + hurt pose for ANY player that lost a life but survived
       // (death is its own event). Two interchangeable hurt sounds for variety.
