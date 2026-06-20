@@ -724,10 +724,19 @@ export class Renderer {
             const br = 30 + (f % 50); // dark brown/maroon dried crust (varied)
             g.fillStyle = `rgb(${br},${(br * (0.34 + ((f >> 6) & 7) * 0.03)) | 0},${(br * 0.2) | 0})`;
           } else {
-            // Varied fresh tones: dark clots, mid crimson, and a few bright flecks.
+            // Distance from cell centre (0 centre .. 1 edge): blood pools DEEP and
+            // dark in the middle, thinner/lighter at the edges.
+            const ndx = (gx + pu / 2 - t / 2) / (t / 2), ndy = (gy + pu / 2 - t / 2) / (t / 2);
+            const dc = Math.min(1, Math.sqrt(ndx * ndx + ndy * ndy));
             const tone = (f >> 7) & 7;
-            const r = tone === 0 ? 26 + (f % 26) : tone >= 6 ? 150 + (f % 75) : 58 + (f % 80);
-            g.fillStyle = `rgb(${r},${(r * 0.1) | 0},${(r * 0.08) | 0})`;
+            if (tone >= 6 && (f & 7) < 2 && dc < 0.6 && lvl >= 4) {
+              // Wet specular glint — bright, near the pooled centre (looks fresh/wet).
+              g.fillStyle = `rgb(${190 + (f % 60)},${70 + (f % 40)},${68 + (f % 40)})`;
+            } else {
+              let r = tone === 0 ? 26 + (f % 26) : tone >= 6 ? 130 + (f % 70) : 60 + (f % 70);
+              r = (r * (0.5 + 0.5 * dc)) | 0; // darker toward the centre (deep blood)
+              g.fillStyle = `rgb(${r},${(r * 0.1) | 0},${(r * 0.08) | 0})`;
+            }
           }
           g.fillRect(ox + gx, oy + gy, pu, pu);
         }
