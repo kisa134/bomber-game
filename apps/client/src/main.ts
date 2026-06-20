@@ -424,10 +424,10 @@ net.onMessage = (msg) => {
           const dx = c.x - meX.x, dy = c.y - meX.y, dd = dx * dx + dy * dy;
           if (dd < dmin) { dmin = dd; nx = c.x; }
         }
-        vol = (0.3 + 0.7 * power) * Math.max(0.22, 1 / (1 + dmin / 16)); // distance falloff
+        vol = (0.65 + 0.35 * power) * Math.max(0.3, 1 / (1 + dmin / 26)); // loud up close, gentler falloff
         pan = Math.max(-1, Math.min(1, (nx - meX.x) / 8.5));
       } else {
-        vol = 0.3 + 0.4 * power;
+        vol = 0.55 + 0.4 * power;
       }
       assets.explosion(power, vol, pan);
       assets.duck(0.72, 150); // sidechain "vacuum": music drops ~-12dB / 150ms then snaps back

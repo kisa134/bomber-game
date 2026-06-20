@@ -1702,10 +1702,10 @@ export class Renderer {
     const W = this.tile * GRID_W;
     const H = this.tile * GRID_H;
     const cx = W / 2;
-    const cy = H * 0.26; // higher up
+    const cy = H * 0.15; // up near the top, out of the play area
     const pop = Math.min(1, (now - this.firstBloodAt) / 140);
     const fade = k > 0.72 ? (1 - k) / 0.28 : 1;
-    const dw = W * 0.82 * (0.82 + 0.18 * pop);
+    const dw = W * 0.52 * (0.82 + 0.18 * pop); // smaller, so it doesn't block play
     const dh = (dw * this.fbCanvas.height) / this.fbCanvas.width;
     ctx.save();
     ctx.globalAlpha = fade;

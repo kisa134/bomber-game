@@ -494,7 +494,7 @@ export class Assets {
       const s = ctx.createBufferSource();
       s.buffer = buf;
       const g = ctx.createGain();
-      g.gain.value = (0.55 + 0.45 * p) * v * 0.85;
+      g.gain.value = (0.72 + 0.28 * p) * v; // louder body, less gutted by power
       s.connect(g); g.connect(out); s.start(t0);
     } else {
       this.ensureBuffer("explode"); // decode for next time
@@ -507,7 +507,7 @@ export class Assets {
     o1.frequency.exponentialRampToValueAtTime(40, t0 + 0.2);
     const g1 = ctx.createGain();
     g1.gain.setValueAtTime(0.0001, t0);
-    g1.gain.exponentialRampToValueAtTime((0.5 + 0.5 * p) * v * 0.9, t0 + 0.012);
+    g1.gain.exponentialRampToValueAtTime((0.62 + 0.5 * p) * v, t0 + 0.012); // punchier low-end weight
     g1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
     o1.connect(g1); g1.connect(out); o1.start(t0); o1.stop(t0 + 0.38);
     // Layer 3 — bright crack transient (highpassed noise burst), the snap/impact.
