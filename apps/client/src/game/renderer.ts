@@ -771,76 +771,50 @@ export class Renderer {
     if (!g) return;
     g.clearRect(0, 0, W, H);
     const t = this.tile;
-    const pu = Math.max(1, Math.round(t / 24)); // grass-fine pixels (or finer)
-    for (const [idx, lvl] of this.bloodGround) {
-      const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
-      // Per-cell random target coverage. The death cell fills the SQUARE tile
-      // 60–100% (random); lighter splats cover less. Shape is irregular blotches
-      // driven by value-noise (NOT a clean circle), and varies cell to cell.
-      let s = (idx * 2654435761) >>> 0;
-      s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0;
-      const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh, 1 crust, 2 darker, 3 charcoal
-      const baked = bakeLvl > 0;
-      const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14);
-      g.globalAlpha = Math.min(0.95, (baked ? 0.6 : 0.5) + lvl * 0.08);
-      const NB = pu * 4; // coarse noise block -> irregular outline/holes
-      for (let gy = 0; gy < t; gy += pu) {
-        for (let gx = 0; gx < t; gx += pu) {
-          const qx = (gx / NB) | 0, qy = (gy / NB) | 0;
-          let n = (idx * 374761 + qx * 2654435761 + qy * 40503) >>> 0;
-          n = (n ^ (n << 13)) >>> 0; n = (n ^ (n >>> 17)) >>> 0; n = (n ^ (n << 5)) >>> 0;
-          const cn = (n & 1023) / 1023; // coarse clump field
-          let f = (idx * 97 + gx * 131 + gy * 923) >>> 0;
-          f = (f ^ (f << 13)) >>> 0; f = (f ^ (f >>> 17)) >>> 0; f = (f ^ (f << 5)) >>> 0;
-          const localCover = cover * ((baked ? 0.6 : 0.45) + cn * 1.15); // crust spreads more
-          if ((f & 1023) / 1023 > Math.min(1, localCover)) continue;
-          if (baked) {
-            // Bake stages: 1 = dried brown crust, 2 = darker, 3 = charcoal (near black)
-            // with the odd glowing ember fleck.
-            const darken = 1 - (bakeLvl - 1) * 0.42; // 1.0 / 0.58 / 0.16
-            if (bakeLvl >= 3 && (f & 15) === 0) {
-              g.fillStyle = `rgb(${90 + (f % 60)},${18 + (f % 18)},6)`; // ember in the char
-            } else {
-              const br = ((22 + (f % 44)) * darken) | 0;
-              g.fillStyle = `rgb(${br},${(br * (0.4 - (bakeLvl - 1) * 0.12)) | 0},${(br * 0.22) | 0})`;
-            }
-          } else {
-            // Distance from cell centre (0 centre .. 1 edge): blood pools DEEP and
-            // dark in the middle, thinner/lighter at the edges.
-            const ndx = (gx + pu / 2 - t / 2) / (t / 2), ndy = (gy + pu / 2 - t / 2) / (t / 2);
-            const dc = Math.min(1, Math.sqrt(ndx * ndx + ndy * ndy));
-            const tone = (f >> 7) & 7;
-            if (tone >= 6 && (f & 7) < 2 && dc < 0.6 && lvl >= 4) {
-              // Wet specular glint — bright, near the pooled centre (looks fresh/wet).
-              g.fillStyle = `rgb(${190 + (f % 60)},${70 + (f % 40)},${68 + (f % 40)})`;
-            } else {
-              let r = tone === 0 ? 26 + (f % 26) : tone >= 6 ? 130 + (f % 70) : 60 + (f % 70);
-              r = (r * (0.5 + 0.5 * dc)) | 0; // darker toward the centre (deep blood)
-              g.fillStyle = `rgb(${r},${(r * 0.1) | 0},${(r * 0.08) | 0})`;
-            }
+    const pu = Math.max(1, Math.round(t / 22));
+
+    // Per-cell intensities form a continuous field — we bilinearly interpolate them
+    // so blood reads as ONE organic spread that falls off from the epicentre (where
+    // intensity is highest) to thin ragged traces, crossing tile borders smoothly.
+    let minX = GRID_W, minY = GRID_H, maxX = -1, maxY = -1;
+    for (const idx of this.bloodGround.keys()) {
+      const cx = idx % GRID_W, cy = (idx / GRID_W) | 0;
+      if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
+      if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
+    }
+    if (maxX >= 0) {
+      minX = Math.max(0, minX - 1); minY = Math.max(0, minY - 1);
+      maxX = Math.min(GRID_W - 1, maxX + 1); maxY = Math.min(GRID_H - 1, maxY + 1);
+      const cellI = (cx: number, cy: number): number => (cx < 0 || cy < 0 || cx >= GRID_W || cy >= GRID_H) ? 0 : (this.bloodGround.get(cy * GRID_W + cx) ?? 0);
+      const bakeI = (cx: number, cy: number): number => (cx < 0 || cy < 0 || cx >= GRID_W || cy >= GRID_H) ? 0 : (this.bakedBlood.get(cy * GRID_W + cx) ?? 0);
+      const x1 = (maxX + 1) * t, y1 = (maxY + 1) * t;
+      for (let gy = minY * t; gy < y1; gy += pu) {
+        const fy = gy / t - 0.5, cy0 = Math.floor(fy), ty = fy - cy0;
+        for (let gx = minX * t; gx < x1; gx += pu) {
+          const fx = gx / t - 0.5, cx0 = Math.floor(fx), tx = fx - cx0;
+          // bilinear intensity (smooth radial falloff from the epicentre)
+          const i00 = cellI(cx0, cy0), i10 = cellI(cx0 + 1, cy0), i01 = cellI(cx0, cy0 + 1), i11 = cellI(cx0 + 1, cy0 + 1);
+          const inten = (i00 * (1 - tx) + i10 * tx) * (1 - ty) + (i01 * (1 - tx) + i11 * tx) * ty;
+          if (inten < 0.18) continue;
+          const norm = Math.min(1, inten / 6); // 0..1 (1 = epicentre)
+          // global continuous noise (absolute coords) -> organic breakup, no tile repeat
+          let cn = (((gx / (pu * 3)) | 0) * 374761393 ^ ((gy / (pu * 3)) | 0) * 668265263) >>> 0; cn = ((cn ^ (cn >>> 13)) * 1274126177) >>> 0; const coarse = (cn & 1023) / 1023;
+          let fn = (gx * 73856093 ^ gy * 19349663) >>> 0; fn = ((fn ^ (fn >>> 13)) * 1274126177) >>> 0; const fine = (fn & 1023) / 1023;
+          // coverage falls with intensity (center dense, edge sparse/broken)
+          if (fine > Math.min(1, norm * (0.32 + 0.95 * coarse))) continue;
+          const bk = Math.max(bakeI(cx0, cy0), bakeI(cx0 + 1, cy0), bakeI(cx0, cy0 + 1), bakeI(cx0 + 1, cy0 + 1));
+          if (bk > 0) { // baked: dried crust -> charcoal with the odd ember
+            const darken = 1 - (bk - 1) * 0.42;
+            g.globalAlpha = Math.min(0.92, 0.4 + norm * 0.45);
+            if (bk >= 3 && (fn & 15) === 0) g.fillStyle = `rgb(${90 + (fn % 60)},${18 + (fn % 18)},6)`;
+            else { const br = ((22 + (fn % 44)) * darken) | 0; g.fillStyle = `rgb(${br},${(br * (0.4 - (bk - 1) * 0.12)) | 0},${(br * 0.22) | 0})`; }
+          } else { // fresh: dark deep centre -> thin light transparent edge
+            g.globalAlpha = Math.min(0.9, 0.28 + norm * 0.62);
+            const tone = (fn >> 7) & 7;
+            if (tone >= 7 && norm > 0.62 && (fn & 7) < 2) g.fillStyle = `rgb(${190 + (fn % 60)},${70 + (fn % 40)},68)`; // wet glint near centre
+            else { const base = (tone === 0 ? 40 : 120) + (fn % 70); const rr = (base * (0.42 + 0.58 * (1 - norm))) | 0; g.fillStyle = `rgb(${rr},${(rr * 0.1) | 0},${(rr * 0.08) | 0})`; }
           }
-          g.fillRect(ox + gx, oy + gy, pu, pu);
-        }
-      }
-      // Satellite spatter halo: small thrown droplets around a heavy FRESH pool.
-      if (!baked && lvl >= 4) {
-        let hh = (idx * 2246822519) >>> 0;
-        const sr = (): number => { hh = (hh ^ (hh << 13)) >>> 0; hh = (hh ^ (hh >>> 17)) >>> 0; hh = (hh ^ (hh << 5)) >>> 0; return (hh & 1023) / 1023; };
-        const cxc = ox + t / 2, cyc = oy + t / 2;
-        const nd = 5 + lvl;
-        for (let d = 0; d < nd; d++) {
-          const ang = sr() * Math.PI * 2;
-          const dist = t * (0.34 + sr() * 0.16);
-          const dx = cxc + Math.cos(ang) * dist, dy = cyc + Math.sin(ang) * dist * 0.9;
-          if (dx < ox || dy < oy || dx >= ox + t || dy >= oy + t) continue; // keep inside the tile
-          const sz = pu * (1 + (sr() < 0.35 ? 1 : 0));
-          const rr = 120 + ((hh >> 3) % 70);
-          g.globalAlpha = 0.85;
-          g.fillStyle = `rgb(${rr},${(rr * 0.1) | 0},${(rr * 0.08) | 0})`;
-          g.fillRect(Math.round((dx - sz / 2) / pu) * pu, Math.round((dy - sz / 2) / pu) * pu, sz, sz);
-          if (sz > pu) { // a thin spatter tail pointing outward (directional droplet)
-            g.fillRect(Math.round((dx + Math.cos(ang) * pu - pu / 2) / pu) * pu, Math.round((dy + Math.sin(ang) * pu - pu / 2) / pu) * pu, pu, pu);
-          }
+          g.fillRect(gx, gy, pu, pu);
         }
       }
     }
