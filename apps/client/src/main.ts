@@ -149,6 +149,7 @@ let prevMyLives = -1; // track HP to flash on damage
 const prevLives = new Map<number, number>(); // per-player HP, to sfx wounds
 let prevBombIds = new Set<number>(); // bomb ids last seen, to detect placements
 let iGotFirstBlood = false; // did the local player take first blood this match
+let hitStopUntil = 0; // brief full-view freeze for kill impact (game feel)
 let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean } | null = null;
 // Handle for the 3s "result screen" timer, so a new match starting within that
 // window can cancel the previous match's deferred result (no overlay/stale data).
@@ -416,6 +417,7 @@ net.onMessage = (msg) => {
     case ServerMsg.EVENT_PLAYER_DEATH: {
       assets.play("die");
       assets.playGore(); // wet splat layered over the death cue
+      hitStopUntil = performance.now() + 65; // hit-stop: weighty kill freeze
       const snap = state.latest();
       const dp = snap?.players.find((p) => p.id === msg.playerId);
       if (dp) renderer?.onDeath(Math.floor(dp.x), Math.floor(dp.y), PLAYER_COLORS[dp.id % PLAYER_COLORS.length]);
@@ -856,6 +858,12 @@ function updateCountdown(): void {
 
 function frame(): void {
   const now = performance.now();
+  // Hit-stop: freeze the whole view briefly on an elimination so the kill lands
+  // with weight (the canvas holds its last frame, then snaps back).
+  if (now < hitStopUntil) {
+    requestAnimationFrame(frame);
+    return;
+  }
   updateDebug();
 
   if (renderer && (inGame(state.phase) || state.phase === MatchPhase.END)) {

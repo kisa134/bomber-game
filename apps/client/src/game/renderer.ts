@@ -133,8 +133,11 @@ export class Renderer {
   private scorchDirty = false;
   private lastDust = new Map<number, number>();
   private lastTrample = new Map<number, number>();
-  private shakeUntil = 0;
+  // Screen shake as a damped sine (physical recoil), not linear jitter.
+  private shakeStart = -1e9;
+  private shakeDur = 0;
   private shakeMag = 0;
+  private shakePh = 0;
   private lastTime = performance.now();
 
   private lastW = -1;
@@ -338,10 +341,17 @@ export class Renderer {
     this.emotes.set(playerId, { e, until: performance.now() + 1800 });
   }
 
-  shake(mag: number, ms = 220): void {
+  shake(mag: number, ms = 250): void {
     if (this.lowFx) return;
-    this.shakeUntil = Math.max(this.shakeUntil, performance.now() + ms);
-    this.shakeMag = Math.max(this.shakeMag, mag);
+    const now = performance.now();
+    // Restart the impulse when the current one has expired or the new hit is
+    // stronger; otherwise let the existing recoil ring out.
+    if (now >= this.shakeStart + this.shakeDur || mag >= this.shakeMag) {
+      this.shakeStart = now;
+      this.shakeDur = ms;
+      this.shakeMag = mag;
+      this.shakePh = Math.random() * Math.PI * 2;
+    }
   }
 
   private push(p: Particle): void {
@@ -430,7 +440,7 @@ export class Renderer {
       this.lights.push({ x: cx, y: cy, born: now });
       if (this.lights.length > 80) this.lights.shift();
     }
-    this.shake(Math.min(8, 3 + cells.length * 0.5), 120);
+    this.shake(Math.min(13, 5 + cells.length * 0.7), 240);
   }
 
   onDeath(cx: number, cy: number, color: string): void {
@@ -472,7 +482,7 @@ export class Renderer {
     this.burst(cx, cy, "#7a0000", 10, 3.5); // darker gore spray
     this.burst(cx, cy, color, 7, 3); // a hint of the player's color
     this.burst(cx, cy, "#efe6cf", 5, 3); // bone / teeth bits
-    this.shake(10, 320);
+    this.shake(16, 280);
   }
 
   /** Record blood on a block's face(s). (ddx,ddy) points from the block toward
@@ -622,14 +632,17 @@ export class Renderer {
 
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Screen shake.
+    // Screen shake — damped sine A·e^(−λt)·osc with independent X/Y axes, so it
+    // reads as physical recoil/impact rather than machine jitter.
     ctx.save();
-    if (now < this.shakeUntil) {
-      const k = (this.shakeUntil - now) / 220;
-      const m = this.shakeMag * Math.min(1, k);
-      ctx.translate((Math.random() - 0.5) * m, (Math.random() - 0.5) * m);
-    } else {
-      this.shakeMag = 0;
+    const st = now - this.shakeStart;
+    if (st >= 0 && st < this.shakeDur && this.shakeMag > 0) {
+      const ts = st / 1000;
+      const env = Math.exp(-9 * ts) * (1 - st / this.shakeDur); // decay + clean cut to 0
+      const A = this.shakeMag;
+      const ox = A * env * Math.sin(ts * 283 + this.shakePh); // ~45Hz
+      const oy = A * env * Math.cos(ts * 311 + this.shakePh * 1.4); // slightly detuned
+      ctx.translate(ox, oy);
     }
 
     // Blit the cached floor under everything. On phones, rebuild the cache once
