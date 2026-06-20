@@ -535,7 +535,7 @@ export class Renderer {
     const NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     for (const c of cells) {
       const idx = c.y * GRID_W + c.x;
-      this.burn.set(idx, Math.min(6, (this.burn.get(idx) ?? 0) + 2)); // burn harder per blast
+      this.burn.set(idx, Math.min(8, (this.burn.get(idx) ?? 0) + 3)); // burn much harder per blast
       this.scorchDirty = true;
       // A blast doesn't wipe blood — it BAKES it. Each blast on a blood cell chars
       // it further: fresh -> dried crust -> darker -> charcoal. Field only gets grimier.
@@ -1011,6 +1011,20 @@ export class Renderer {
     const bias = ((m.dirs & BF_E ? 0.22 : 0) + (m.dirs & BF_W ? -0.22 : 0)); // gentle lean only
     const cxp = px + t * 0.5 + bias * t * 0.18; // splatter emanates roughly from the block CENTER
 
+    if (this.lowFx) {
+      // Phones: cheap static splat only (this method runs every frame, uncached) —
+      // no spines / animated drips, so it never costs more than a handful of rects.
+      const R = t * (0.17 + n * 0.05);
+      for (let i = 0; i < 8 + n * 3; i++) {
+        const ang = rnd() * Math.PI * 2;
+        const dist = Math.sqrt(rnd()) * R;
+        const sz = pu * (1 + ((rnd() * 2) | 0));
+        ctx.fillStyle = reds[1 + ((rnd() * 4) | 0)];
+        ctx.fillRect(Math.round((cxp + Math.cos(ang) * dist - sz / 2) / pu) * pu, Math.round((py + t * 0.25 + Math.sin(ang) * dist * 0.5 - sz / 2) / pu) * pu, sz, sz);
+      }
+      return;
+    }
+
     // A dark central pool on the top face for a grislier base.
     ctx.fillStyle = "#2a0000";
     const poolR = t * (0.17 + n * 0.045);
@@ -1234,7 +1248,6 @@ export class Renderer {
 
     this.drawShatters(now); // crate pieces flying apart from just-broken soft blocks
     this.drawDecals(now);
-    if (!this.lowFx) this.drawWind(now, W, H);
     this.drawPowerups(view, now); // after blocks so their shadows never cover relics
 
     for (const b of view.bombs) {
@@ -1566,14 +1579,14 @@ export class Renderer {
     const pu = Math.max(1, Math.round(t / 16));
     for (const [idx, lvl] of this.burn) {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
-      const cover = Math.min(0.99, 0.66 + lvl * 0.09); // more blasts -> fuller burn
-      const a = Math.min(0.78, 0.24 + lvl * 0.1); // darker, heavier scorch
+      const cover = Math.min(1, 0.72 + lvl * 0.08); // more blasts -> fuller burn
+      const a = Math.min(0.9, 0.34 + lvl * 0.1); // strong, dark, obvious scorch
       let h = (idx * 2654435761) >>> 0;
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
           h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
           if ((h & 1023) / 1023 > cover) continue;
-          const d = 6 + (h & 7); // 6..13 — darker charred ground
+          const d = 4 + (h & 7); // 4..11 — near-black charred ground
           g.globalAlpha = a;
           g.fillStyle = `rgb(${d},${Math.max(0, d - 2)},${Math.max(0, d - 4)})`;
           g.fillRect(ox + gx, oy + gy, pu, pu);
@@ -1873,18 +1886,6 @@ export class Renderer {
   }
 
   /** Subtle wind: a soft light band drifting diagonally across the field. */
-  private drawWind(now: number, W: number, H: number): void {
-    const ctx = this.ctx;
-    const span = W + H;
-    const pos = ((now / 5200) % 1) * span * 1.4 - H * 0.2;
-    const band = W * 0.5;
-    const g = ctx.createLinearGradient(pos - band, 0, pos + band, H);
-    g.addColorStop(0, "rgba(255,255,255,0)");
-    g.addColorStop(0.5, "rgba(230,255,210,0.05)");
-    g.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
-  }
 
   private updateParticles(dt: number): void {
     const ctx = this.ctx;
@@ -2145,12 +2146,15 @@ export class Renderer {
       seed = ((seed ^ (seed >>> 13)) * 1274126177) >>> 0;
       return (seed & 1023) / 1023;
     };
-    // Natural palette: several greens incl. lighter/yellower shades, picked PER
-    // BLADE (not per tile) so a patch has subtle colour variety.
-    const greens = ["#4b8a30", "#5aa53c", "#43802c", "#67bb46", "#7cc24e", "#3a6f24", "#8bcf57", "#5f9e38"];
+    // Natural palette: several greens, picked PER BLADE so a patch has subtle
+    // colour variety. Brightest shades toned down so they don't pop unnaturally.
+    const greens = ["#4b8a30", "#5aa53c", "#43802c", "#5fa53e", "#6cab44", "#3a6f24", "#74b34a", "#5f9e38"];
     const wind = Math.sin(now / 620 + x * 0.55 + y * 0.3);
-    // Body blades across the tile — denser, with varied lengths.
-    for (let i = 0; i < 27; i++) {
+    // Per-tile random density: some patches lush, some sparse (natural + lighter on
+    // average than a fixed count). ~14..30 blades.
+    const dens = 0.35 + rnd() * 0.65;
+    const body = Math.round(14 + dens * 16);
+    for (let i = 0; i < body; i++) {
       const bx = px + Math.floor(rnd() * (t - pu));
       const by = py + Math.floor(rnd() * (t - pu * 3));
       const hgt = pu * (2 + Math.floor(rnd() * 4)); // varied height 2..5
@@ -2161,7 +2165,8 @@ export class Renderer {
     }
     // A few tall front blades whose tips poke ABOVE the tile (drawn after blocks,
     // so they overlap onto the block above → depth/3D).
-    for (let i = 0; i < 7; i++) {
+    const front = Math.round(2 + dens * 5);
+    for (let i = 0; i < front; i++) {
       const bx = px + Math.floor(rnd() * (t - pu));
       const top = py - pu * (1 + Math.floor(rnd() * 3));
       const sway = Math.round(wind * pu * 1.3);
