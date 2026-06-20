@@ -424,21 +424,31 @@ export class Renderer {
     this.danger = Math.max(0, Math.min(1, level));
   }
 
-  /** Slow pulsing red peripheral vignette when the local player is in danger
-   *  (low HP / sudden death) — tunnel-vision threat cue (dopamine doc 1.2). */
+  /** Danger cue (dopamine doc 1.2 — foveal flow vs peripheral panic): a thin, bright
+   *  red glow hugging only the OUTER edges of the arena, slowly pulsing. The centre
+   *  stays clean (foveal focus) while the periphery flashes (bottom-up alarm). */
   private drawDangerVignette(W: number, H: number, now: number): void {
     if (this.danger <= 0.01) return;
     const ctx = this.ctx;
-    const freq = 1.1 + this.danger * 0.7; // slow ~1.1–1.8 Hz breathing pulse (smooth, not strobey)
+    const freq = 1.1 + this.danger * 0.7; // slow ~1.1–1.8 Hz breathing pulse
     const pulse = 0.5 + 0.5 * Math.sin((now / 1000) * freq * Math.PI * 2);
-    const alpha = this.danger * (0.14 + 0.2 * pulse);
-    const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.34, W / 2, H / 2, Math.max(W, H) * 0.72);
-    g.addColorStop(0, "rgba(120,0,0,0)");
-    g.addColorStop(0.7, `rgba(110,0,0,${(alpha * 0.4).toFixed(3)})`);
-    g.addColorStop(1, `rgba(80,0,0,${alpha.toFixed(3)})`);
+    const a = this.danger * (0.16 + 0.4 * pulse); // peak alpha (brighter, mostly on the pulse)
+    const band = Math.min(W, H) * 0.06; // thin edge band only
+    const col = (alpha: number): string => `rgba(255,30,24,${Math.max(0, alpha).toFixed(3)})`;
     ctx.save();
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = "lighter"; // additive -> vivid edge glow, center untouched
+    let g = ctx.createLinearGradient(0, 0, 0, band); // top
+    g.addColorStop(0, col(a)); g.addColorStop(1, col(0));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, band);
+    g = ctx.createLinearGradient(0, H, 0, H - band); // bottom
+    g.addColorStop(0, col(a)); g.addColorStop(1, col(0));
+    ctx.fillStyle = g; ctx.fillRect(0, H - band, W, band);
+    g = ctx.createLinearGradient(0, 0, band, 0); // left
+    g.addColorStop(0, col(a)); g.addColorStop(1, col(0));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, band, H);
+    g = ctx.createLinearGradient(W, 0, W - band, 0); // right
+    g.addColorStop(0, col(a)); g.addColorStop(1, col(0));
+    ctx.fillStyle = g; ctx.fillRect(W - band, 0, band, H);
     ctx.restore();
   }
 
