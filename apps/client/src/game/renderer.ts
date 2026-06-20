@@ -481,21 +481,15 @@ export class Renderer {
     if (Math.abs(w) < 0.02) return;
     const ctx = this.ctx;
     ctx.save();
-    ctx.globalCompositeOperation = "soft-light"; // tint highlights/shadows, don't wash
-    if (w > 0) { // cozy golden warmth
-      ctx.globalAlpha = w * 0.5;
-      ctx.fillStyle = "#ffae3d";
-    } else { // cold steel-blue
-      ctx.globalAlpha = -w * 0.6;
-      ctx.fillStyle = "#3f74c0";
+    ctx.globalCompositeOperation = "soft-light"; // gentle tint, not a slapped-on filter
+    if (w > 0) { // a barely-there warmth (mood, not a colour film)
+      ctx.globalAlpha = w * 0.12;
+      ctx.fillStyle = "#ffb657";
+    } else { // cold steel-blue creeps in toward the end
+      ctx.globalAlpha = -w * 0.28;
+      ctx.fillStyle = "#4a78bd";
     }
     ctx.fillRect(0, 0, W, H);
-    if (w < -0.3) { // deep cold also slightly drains/darkens the scene
-      ctx.globalCompositeOperation = "source-over";
-      ctx.globalAlpha = (-w - 0.3) * 0.18;
-      ctx.fillStyle = "#0a1626";
-      ctx.fillRect(0, 0, W, H);
-    }
     ctx.restore();
   }
 
@@ -1117,47 +1111,45 @@ export class Renderer {
       return;
     }
 
-    // A dark central pool on the top face for a grislier base.
-    ctx.fillStyle = "#2a0000";
-    const poolR = t * (0.17 + n * 0.045);
-    for (let i = 0; i < 9 + n * 3; i++) {
-      const ang = rnd() * Math.PI * 2;
-      const dist = Math.pow(rnd(), 0.5) * poolR;
-      const sz = pu * (1 + Math.floor(rnd() * 2));
-      ctx.fillRect(Math.round((cxp + Math.cos(ang) * dist - sz / 2) / pu) * pu, Math.round((py + t * 0.22 + Math.sin(ang) * dist * 0.5 - sz / 2) / pu) * pu, sz, sz);
-    }
-    // TOP-face splatter (stronger when the kill was above the block), squashed in Y.
-    const topStrong = m.dirs & BF_N ? 1 : 0.62;
-    const topBlobs = Math.round((20 + n * 9) * topStrong);
-    const topR = t * (0.32 + n * 0.07);
+    // Per-block variation so each bloodied block looks DIFFERENT (no uniform pool).
+    const sv = ((m.seed >>> 8) & 1023) / 1023;
+
+    // TOP-face spatter — irregular scattered specks, varied amount & spread per
+    // block, emanating from the centre. No solid central pool.
+    const topStrong = m.dirs & BF_N ? 1 : 0.6;
+    const topBlobs = Math.round((7 + n * 5) * topStrong * (0.5 + sv * 1.1));
+    const topR = t * (0.24 + n * 0.07 + sv * 0.12);
     for (let i = 0; i < topBlobs; i++) {
       const ang = rnd() * Math.PI * 2;
-      const dist = Math.sqrt(rnd()) * topR; // even spread from CENTER out to the edges (random)
+      const dist = Math.sqrt(rnd()) * topR;
       const bx = cxp + Math.cos(ang) * dist;
       const by = py + t * 0.2 + Math.sin(ang) * dist * 0.55;
-      const sz = pu * (1 + Math.floor(rnd() * 2.4));
+      const sz = pu * (1 + Math.floor(rnd() * 2.6));
       ctx.fillStyle = reds[(rnd() * reds.length) | 0];
       ctx.fillRect(Math.round((bx - sz / 2) / pu) * pu, Math.round((by - sz / 2) / pu) * pu, sz, sz);
     }
-    // Cast-off spatter spines — thin streaks shooting out from the impact, each
-    // ending in a little terminal droplet (the signature of real blood spatter).
-    const spines = 5 + n * 2;
-    for (let i = 0; i < spines; i++) {
-      const ang = rnd() * Math.PI * 2;
-      const reach = topR * (0.7 + rnd() * 0.7);
-      const wob = (rnd() - 0.5) * 0.25;
-      ctx.fillStyle = reds[2 + ((rnd() * 3) | 0)];
-      for (let sdist = poolR * 0.5; sdist < reach; sdist += pu) {
-        const aa = ang + wob * (sdist / reach);
-        const sx = cxp + Math.cos(aa) * sdist, sy = py + t * 0.2 + Math.sin(aa) * sdist * 0.55;
-        ctx.fillRect(Math.round(sx / pu) * pu, Math.round(sy / pu) * pu, pu, pu);
+    // Cast-off spines — only on SOME blocks, varied count (signature of spatter).
+    if (sv > 0.4) {
+      const spines = 2 + Math.round(sv * 5);
+      for (let i = 0; i < spines; i++) {
+        const ang = rnd() * Math.PI * 2;
+        const reach = topR * (0.7 + rnd() * 0.7);
+        const wob = (rnd() - 0.5) * 0.25;
+        ctx.fillStyle = reds[2 + ((rnd() * 3) | 0)];
+        for (let sdist = topR * 0.25; sdist < reach; sdist += pu) {
+          const aa = ang + wob * (sdist / reach);
+          const sx = cxp + Math.cos(aa) * sdist, sy = py + t * 0.2 + Math.sin(aa) * sdist * 0.55;
+          ctx.fillRect(Math.round(sx / pu) * pu, Math.round(sy / pu) * pu, pu, pu);
+        }
+        const ex = cxp + Math.cos(ang + wob) * reach, ey = py + t * 0.2 + Math.sin(ang + wob) * reach * 0.55;
+        ctx.fillRect(Math.round((ex - pu) / pu) * pu, Math.round((ey - pu) / pu) * pu, pu * 2, pu * 2);
       }
-      const ex = cxp + Math.cos(ang + wob) * reach, ey = py + t * 0.2 + Math.sin(ang + wob) * reach * 0.55;
-      ctx.fillRect(Math.round((ex - pu) / pu) * pu, Math.round((ey - pu) / pu) * pu, pu * 2, pu * 2); // terminal droplet
     }
-    // FRONT-face drips that slowly ooze down over time (staggered per drip).
-    const frontStrong = m.dirs & BF_S ? 1 : 0.6;
-    const drips = Math.max(3, Math.round((3 + n * 1.9) * (0.7 + frontStrong)));
+    // FRONT-face drips — only when blood actually hit the front (or the odd heavy
+    // block), and varied in count/length, so most blocks DON'T have runs.
+    const frontStrong = m.dirs & BF_S ? 1 : 0.55;
+    const wantDrips = (m.dirs & BF_S) !== 0 || sv > 0.6;
+    const drips = wantDrips ? Math.max(1, Math.round((1 + n * 1.3) * (0.5 + frontStrong) * (0.6 + sv * 0.8))) : 0;
     for (let d = 0; d < drips; d++) {
       const dx = cxp + (rnd() - 0.5) * t * 0.8;
       const top = py + t * 0.4;
