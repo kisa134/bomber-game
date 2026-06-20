@@ -463,6 +463,10 @@ function enterGame(): void {
   }
   renderer.resize();
   renderer.remeasure(); // re-fit after the game screen has actually laid out
+  // Reset the renderer's board caches NOW (at countdown), before the new map's
+  // first snapshot arrives — otherwise the new grid is diffed against the old
+  // match's grid and sprays debris/scorch all over ("remnants of last round").
+  renderer.onMatchStart();
   assets.stop("sudden_death");
   prevSoftCount = -1;
   killLines.length = 0;
