@@ -58,11 +58,26 @@ export function adminPageHtml(): string {
     <div class="grid" id="growth"></div>
     <h3>Live now</h3>
     <div class="grid" id="live"></div>
+    <h3>💰 Economy <span class="muted" style="font-weight:400;font-size:.8rem">· circulation &amp; treasury</span></h3>
+    <div class="grid" id="economy"></div>
+    <div class="cfg" id="toggles"></div>
+    <h3>🎰 Lucky Spin <span class="muted" style="font-weight:400;font-size:.8rem">· since restart</span></h3>
+    <div class="grid" id="spins"></div>
     <h3>Activity feed <span class="muted" style="font-weight:400;font-size:.8rem">· live</span></h3>
     <div id="feed" class="feed"></div>
     <h3>Wallet lookup</h3>
     <div class="wl"><input id="wl-input" placeholder="paste a wallet address"><button id="wl-go">Look up</button><button id="wl-attach">Attach under you</button></div>
     <div id="wl-out" class="muted" style="margin-top:6px"></div>
+    <div id="wl-actions" class="wl" style="margin-top:8px;flex-wrap:wrap;gap:6px;display:none">
+      <input id="wl-chips" type="number" placeholder="± chips" style="max-width:120px">
+      <button id="wl-chips-go">Grant chips</button>
+      <input id="wl-rating" type="number" placeholder="rating" style="max-width:110px">
+      <button id="wl-rating-go">Set rating</button>
+      <input id="wl-skin" type="number" placeholder="skin #" style="max-width:90px">
+      <button id="wl-skin-go">Grant skin</button>
+      <button id="wl-ban" style="background:#c0392b;color:#fff">Ban</button>
+      <button id="wl-unban" style="background:var(--panel);color:var(--text);border:1px solid var(--border)">Unban</button>
+    </div>
     <h3>Since restart</h3>
     <div class="grid" id="totals"></div>
     <h3>Top players</h3>
@@ -129,6 +144,27 @@ async function poll(){
       tile("In match",fmt(d.live.humans),fmt(d.live.bots)+" bots")+
       tile("Rooms",fmt(d.live.rooms),fmt(d.live.playing)+" playing · "+fmt(d.live.lobby)+" lobby")+
       tile("Server load",(ld.busy?"⚠ ":"")+ld.tickMs+"ms",(ld.busy?"SATURATED — shedding":"of "+ld.budgetMs+"ms budget"));
+    // Economy — chips/tokens in circulation, treasury flow, live toggles
+    var ec=d.economy||{players:0,chips:0,tokens:0};
+    $("#economy").innerHTML=
+      tile("Chips circulating",fmt(ec.chips),fmt(ec.players)+" profiles")+
+      tile("Tokens circulating","${TOKEN_TICKER} "+fmt(ec.tokens),"player balances")+
+      tile("Deposits","${TOKEN_TICKER} "+fmt(d.totals.depositVolume),fmt(d.totals.deposits)+" tx")+
+      tile("Withdrawals","${TOKEN_TICKER} "+fmt(d.totals.withdrawVolume),fmt(d.totals.withdrawals)+" tx")+
+      tile("Bans",fmt(d.bans),"wallets blocked");
+    $("#toggles").innerHTML=
+      '<button id="tg-dep">'+(cf.deposits?'Disable':'Enable')+' deposits</button>'+
+      '<button id="tg-wd" style="margin-left:8px">'+(cf.withdrawals?'Disable':'Enable')+' withdrawals</button>';
+    $("#tg-dep").onclick=function(){adminToggle("deposits",!cf.deposits);};
+    $("#tg-wd").onclick=function(){adminToggle("withdrawals",!cf.withdrawals);};
+    // Lucky Spin tallies
+    var sp=d.spins||{spins:0,cost:0,paid:0,skins:0,net:0};
+    $("#spins").innerHTML=
+      tile("Spins",fmt(sp.spins),"since restart")+
+      tile("Chips charged",fmt(sp.cost),"in")+
+      tile("Chips paid out",fmt(sp.paid),"out")+
+      tile("Net chip sink",fmt(sp.net),"removed from economy")+
+      tile("Skins dropped",fmt(sp.skins),"rare wins");
     $("#totals").innerHTML=
       tile("Matches",fmt(d.totals.matches),fmt(d.totals.practiceMatches)+" practice")+
       tile("Deposits","${TOKEN_TICKER} "+fmt(d.totals.depositVolume),fmt(d.totals.deposits)+" tx")+
@@ -172,6 +208,7 @@ $("#go").onclick=()=>{token=$("#token").value.trim();localStorage.setItem("bp_ad
 $("#token").value=token;
 $("#wl-go").onclick=async()=>{
   const w=$("#wl-input").value.trim();if(!w)return;
+  $("#wl-actions").style.display="flex"; // reveal support actions for this wallet
   $("#wl-out").textContent="Loading…";
   try{
     const r=await fetch("/admin/wallet?token="+encodeURIComponent(token)+"&wallet="+encodeURIComponent(w));
@@ -195,6 +232,26 @@ $("#wl-attach").onclick=async()=>{
     else{$("#wl-out").innerHTML='<span class="err">Failed'+(d.error?(' — '+d.error+(d.error==="bad_ref"?" (set REFERRAL_ROOT first)":"")):'')+'</span>';}
   }catch(e){$("#wl-out").innerHTML='<span class="err">'+e+'</span>';}
 };
+// Live deposit/withdraw gate toggles.
+async function adminToggle(key,on){
+  try{await fetch("/admin/toggle?token="+encodeURIComponent(token)+"&key="+key+"&on="+(on?1:0));poll();}catch(e){}
+}
+// Wallet support actions: append &token&wallet, show the result, re-look up.
+async function walletAction(path,extra){
+  const w=$("#wl-input").value.trim();if(!w){return;}
+  $("#wl-out").textContent="Working…";
+  try{
+    const r=await fetch("/admin/"+path+"?token="+encodeURIComponent(token)+"&wallet="+encodeURIComponent(w)+(extra||""));
+    const d=await r.json();
+    if(d.ok===false||d.error){$("#wl-out").innerHTML='<span class="err">Failed — '+(d.error||(d.already?"already owned":"declined"))+'</span>';}
+    else{$("#wl-out").innerHTML='✅ Done.';$("#wl-go").click();}
+  }catch(e){$("#wl-out").innerHTML='<span class="err">'+e+'</span>';}
+}
+$("#wl-chips-go").onclick=()=>{const a=Math.trunc(Number($("#wl-chips").value));if(a)walletAction("grant-chips","&amount="+a);};
+$("#wl-rating-go").onclick=()=>{const v=Math.trunc(Number($("#wl-rating").value));if(v>=0)walletAction("set-rating","&rating="+v);};
+$("#wl-skin-go").onclick=()=>{const s=Math.trunc(Number($("#wl-skin").value));if(s>=0)walletAction("grant-skin","&skin="+s);};
+$("#wl-ban").onclick=()=>walletAction("ban","&on=1");
+$("#wl-unban").onclick=()=>walletAction("ban","&on=0");
 if(token)poll();
 setInterval(poll,5000);
 </script>

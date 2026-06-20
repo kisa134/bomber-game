@@ -83,6 +83,11 @@ export interface ProfileStore {
   /** Atomically add `delta` token base units. Returns the new balance, or null
    *  if a negative delta would overdraw (balance unchanged). */
   adjustToken(wallet: string, delta: number): Promise<number | null>;
+  /** Admin override: set a wallet's rating outright. Returns the new value, or
+   *  null if the profile doesn't exist. */
+  setRating(wallet: string, rating: number): Promise<number | null>;
+  /** Aggregate economy snapshot for the admin cockpit. */
+  economyStats(): Promise<{ players: number; chips: number; tokenBase: number }>;
   /** Credit a deposit exactly once (deduped by tx signature). Returns true if
    *  this signature was newly applied, false if already processed. */
   creditDeposit(signature: string, wallet: string, amount: number): Promise<boolean>;
@@ -302,6 +307,23 @@ class InMemoryStore implements ProfileStore {
     if (delta < 0 && p.token_balance + delta < 0) return null;
     p.token_balance += delta;
     return p.token_balance;
+  }
+
+  async setRating(wallet: string, rating: number): Promise<number | null> {
+    const p = this.map.get(wallet);
+    if (!p) return null;
+    p.rating = Math.max(0, Math.floor(rating));
+    return p.rating;
+  }
+
+  async economyStats(): Promise<{ players: number; chips: number; tokenBase: number }> {
+    let chips = 0;
+    let tokenBase = 0;
+    for (const p of this.map.values()) {
+      chips += p.chips ?? 0;
+      tokenBase += p.token_balance ?? 0;
+    }
+    return { players: this.map.size, chips, tokenBase };
   }
 
   async buySkin(
@@ -655,6 +677,29 @@ class SupabaseStore implements ProfileStore {
       return null;
     }
     return next;
+  }
+
+  async setRating(wallet: string, rating: number): Promise<number | null> {
+    const p = await this.getProfile(wallet);
+    if (!p) return null;
+    const r = Math.max(0, Math.floor(rating));
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ rating: r }),
+      });
+    } catch (e) {
+      console.error("[store] setRating failed", e);
+      return null;
+    }
+    return r;
+  }
+
+  async economyStats(): Promise<{ players: number; chips: number; tokenBase: number }> {
+    // Best-effort: the Postgres path does a real aggregate. Supabase is a
+    // fallback store, so report zeros rather than scanning every row.
+    return { players: 0, chips: 0, tokenBase: 0 };
   }
 
   async buySkin(
@@ -1266,6 +1311,42 @@ class PostgresStore implements ProfileStore {
     } catch (e) {
       console.error("[store] pg adjustToken failed", e);
       return null;
+    }
+  }
+
+  async setRating(wallet: string, rating: number): Promise<number | null> {
+    try {
+      await this.ready;
+      const r = Math.max(0, Math.floor(rating));
+      const res = await this.pool.query(
+        `update profiles set rating=$2, updated_at=now() where wallet=$1 returning rating`,
+        [wallet, r],
+      );
+      return res.rows[0] ? Number(res.rows[0].rating) : null;
+    } catch (e) {
+      console.error("[store] pg setRating failed", e);
+      return null;
+    }
+  }
+
+  async economyStats(): Promise<{ players: number; chips: number; tokenBase: number }> {
+    try {
+      await this.ready;
+      const res = await this.pool.query(
+        `select count(*)::bigint as players,
+                coalesce(sum(chips),0)::bigint as chips,
+                coalesce(sum(token_balance),0)::bigint as token_base
+         from profiles`,
+      );
+      const row = res.rows[0] ?? {};
+      return {
+        players: Number(row.players ?? 0),
+        chips: Number(row.chips ?? 0),
+        tokenBase: Number(row.token_base ?? 0),
+      };
+    } catch (e) {
+      console.error("[store] pg economyStats failed", e);
+      return { players: 0, chips: 0, tokenBase: 0 };
     }
   }
 

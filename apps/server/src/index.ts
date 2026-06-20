@@ -392,6 +392,21 @@ function adminAuthed(req: uWS.HttpRequest): boolean {
   return ADMIN_TOKENS.has(q.get("token") ?? "");
 }
 
+// Lucky Spin tallies (since restart) for the admin cockpit: how many spins, how
+// many chips were charged vs paid back, and how many skins dropped.
+const spinStats = { spins: 0, cost: 0, paid: 0, skins: 0 };
+
+// Wallet bans (in-memory; cleared on restart). A banned wallet can't get a
+// session, so it's locked out of wallet features and staked play.
+const bannedWallets = new Set<string>();
+
+// Runtime overrides for the deposit/withdraw gates (toggled live from /admin).
+// null = follow the env-configured default.
+let depositsOverride: boolean | null = null;
+let withdrawalsOverride: boolean | null = null;
+const depositsOn = (): boolean => depositsOverride ?? depositsEnabled;
+const withdrawalsOn = (): boolean => withdrawalsOverride ?? withdrawalsEnabled;
+
 // Optional: a PostHog *shared/embedded* dashboard URL. Revealed only to authed
 // admins (via /admin/stats), so the whole PostHog dashboard shows inside /admin
 // — one place for analytics + live ops. Enable sharing on the dashboard in
@@ -452,18 +467,21 @@ app.get("/presence", (res, req) => {
 app.get("/admin/stats", (res, req) => {
   res.onAborted(() => {});
   if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
-  void Promise.all([store.leaderboard(10, "rating"), store.referralOverview(15, REFERRAL_ROOT)])
-    .then(([top, ref]) => {
+  void Promise.all([store.leaderboard(10, "rating"), store.referralOverview(15, REFERRAL_ROOT), store.economyStats()])
+    .then(([top, ref, econ]) => {
       sendJson(res, {
         online: onlineCount(),
+        economy: { players: econ.players, chips: econ.chips, tokens: fromBaseUnits(econ.tokenBase) },
+        spins: { ...spinStats, net: spinStats.cost - spinStats.paid },
+        bans: bannedWallets.size,
         growth: metrics.snapshot(),
         growthTargets: GROWTH_TARGETS,
         events: recentEvents(30),
         config: {
           rakePct: (Number(process.env.HOUSE_RAKE_BP ?? 0) || 0) / 100,
           referralRoot: REFERRAL_ROOT ? shortWallet(REFERRAL_ROOT) : "",
-          deposits: depositsEnabled,
-          withdrawals: withdrawalsEnabled,
+          deposits: depositsOn(),
+          withdrawals: withdrawalsOn(),
         },
         live: mm.adminStats,
         load: mm.load,
@@ -587,8 +605,8 @@ app.get("/bank", (res, req) => {
         treasury: TREASURY_ADDRESS,
         ticker: TOKEN_TICKER,
         mint: TOKEN_MINT,
-        depositsEnabled,
-        withdrawalsEnabled,
+        depositsEnabled: depositsOn(),
+        withdrawalsEnabled: withdrawalsOn(),
         minWithdraw: MIN_WITHDRAW,
         maxWithdraw: MAX_WITHDRAW,
         gameTokens: fromBaseUnits(p?.token_balance ?? 0),
@@ -612,7 +630,7 @@ app.post("/deposit/prepare", (res, req) => {
       // ignore
     }
     if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
-    if (!depositsEnabled) return sendJson(res, { error: "deposits_disabled" }, "503 Service Unavailable");
+    if (!depositsOn()) return sendJson(res, { error: "deposits_disabled" }, "503 Service Unavailable");
     if (amount <= 0) return sendJson(res, { error: "bad_amount" }, "400 Bad Request");
     try {
       const tx = await buildDepositTx(wallet, toBaseUnits(amount));
@@ -662,7 +680,7 @@ app.post("/withdraw", (res, req) => {
       // ignore
     }
     if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
-    if (!withdrawalsEnabled) return sendJson(res, { error: "withdrawals_disabled" }, "503 Service Unavailable");
+    if (!withdrawalsOn()) return sendJson(res, { error: "withdrawals_disabled" }, "503 Service Unavailable");
     if (amount < MIN_WITHDRAW || amount > MAX_WITHDRAW) {
       return sendJson(res, { error: "bad_amount", min: MIN_WITHDRAW, max: MAX_WITHDRAW }, "400 Bad Request");
     }
@@ -762,6 +780,8 @@ app.post("/wheel/spin", (res, req) => {
     let prizeId = rollWheel(Math.random());
     let prize = WHEEL_PRIZES[prizeId];
     let wonSkin = -1;
+    spinStats.spins++;
+    spinStats.cost += SPIN_COST_CHIPS;
     if (prize.kind === "skin") {
       const prof = await store.getProfile(wallet);
       const owned = prof?.skins ?? DEFAULT_SKINS;
@@ -770,14 +790,17 @@ app.post("/wheel/spin", (res, req) => {
       if (unowned.length) {
         wonSkin = unowned[Math.floor(Math.random() * unowned.length)];
         await store.grantSkin(wallet, wonSkin);
+        spinStats.skins++;
       } else {
         // Already owns every skin → pay the fallback chips instead.
         await store.adjustChips(wallet, SKIN_FALLBACK_CHIPS);
+        spinStats.paid += SKIN_FALLBACK_CHIPS;
         prizeId = 5;
         prize = WHEEL_PRIZES[5];
       }
     } else {
       await store.adjustChips(wallet, prize.amount);
+      spinStats.paid += prize.amount;
     }
     const prof = await store.getProfile(wallet);
     sendJson(res, {
@@ -993,6 +1016,89 @@ app.get("/admin/set-referrer", (res, req) => {
     .catch(() => sendJson(res, { error: "failed" }, "500 Internal Server Error"));
 });
 
+// Admin: adjust a wallet's chips by ±amount (negative = take away).
+app.get("/admin/grant-chips", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const q = new URLSearchParams(req.getQuery());
+  const wallet = (q.get("wallet") ?? "").trim();
+  const amount = Math.trunc(Number(q.get("amount")));
+  if (!wallet) return sendJson(res, { error: "no_wallet" }, "400 Bad Request");
+  if (!Number.isFinite(amount) || amount === 0) return sendJson(res, { error: "bad_amount" }, "400 Bad Request");
+  void store
+    .adjustChips(wallet, amount)
+    .then((chips) => {
+      if (chips === null) return sendJson(res, { ok: false, error: "would_overdraw" });
+      logEvent("🛠", `${shortWallet(wallet)} ${amount > 0 ? "+" : ""}${amount} 🪙 (admin)`);
+      sendJson(res, { ok: true, chips });
+    })
+    .catch(() => sendJson(res, { error: "failed" }, "500 Internal Server Error"));
+});
+
+// Admin: grant a skin for free.
+app.get("/admin/grant-skin", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const q = new URLSearchParams(req.getQuery());
+  const wallet = (q.get("wallet") ?? "").trim();
+  const skin = Math.trunc(Number(q.get("skin")));
+  if (!wallet) return sendJson(res, { error: "no_wallet" }, "400 Bad Request");
+  if (!(skin >= 0 && skin < SKIN_COUNT)) return sendJson(res, { error: "bad_skin" }, "400 Bad Request");
+  void store
+    .grantSkin(wallet, skin)
+    .then((r) => {
+      if (r) logEvent("🛠", `${shortWallet(wallet)} granted skin #${skin} (admin)`);
+      sendJson(res, { ok: !!r, skins: r?.skins, already: !r });
+    })
+    .catch(() => sendJson(res, { error: "failed" }, "500 Internal Server Error"));
+});
+
+// Admin: set a wallet's rating outright.
+app.get("/admin/set-rating", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const q = new URLSearchParams(req.getQuery());
+  const wallet = (q.get("wallet") ?? "").trim();
+  const rating = Math.trunc(Number(q.get("rating")));
+  if (!wallet) return sendJson(res, { error: "no_wallet" }, "400 Bad Request");
+  if (!(rating >= 0 && rating <= 100000)) return sendJson(res, { error: "bad_rating" }, "400 Bad Request");
+  void store
+    .setRating(wallet, rating)
+    .then((r) => {
+      if (r !== null) logEvent("🛠", `${shortWallet(wallet)} rating set to ${r} (admin)`);
+      sendJson(res, { ok: r !== null, rating: r });
+    })
+    .catch(() => sendJson(res, { error: "failed" }, "500 Internal Server Error"));
+});
+
+// Admin: ban/unban a wallet (in-memory; cleared on restart).
+app.get("/admin/ban", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const q = new URLSearchParams(req.getQuery());
+  const wallet = (q.get("wallet") ?? "").trim();
+  const on = q.get("on") !== "0";
+  if (!wallet) return sendJson(res, { error: "no_wallet" }, "400 Bad Request");
+  if (on) bannedWallets.add(wallet);
+  else bannedWallets.delete(wallet);
+  logEvent("🛠", `${shortWallet(wallet)} ${on ? "BANNED" : "unbanned"} (admin)`);
+  sendJson(res, { ok: true, banned: on });
+});
+
+// Admin: toggle the deposit/withdraw gates live.
+app.get("/admin/toggle", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const q = new URLSearchParams(req.getQuery());
+  const key = q.get("key") ?? "";
+  const on = q.get("on") !== "0";
+  if (key === "deposits") depositsOverride = on;
+  else if (key === "withdrawals") withdrawalsOverride = on;
+  else return sendJson(res, { error: "bad_key" }, "400 Bad Request");
+  logEvent("🛠", `${key} ${on ? "enabled" : "disabled"} (admin)`);
+  sendJson(res, { ok: true, deposits: depositsOn(), withdrawals: withdrawalsOn() });
+});
+
 async function parseBody(res: uWS.HttpResponse): Promise<Body> {
   const body = await readBody(res);
   let name = "Player";
@@ -1012,6 +1118,7 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
     if (typeof parsed.code === "string") code = parsed.code.trim().toUpperCase().slice(0, 8);
     if (Number.isFinite(parsed.skin)) skin = Math.max(0, Math.min(SKIN_COUNT - 1, Math.floor(parsed.skin)));
     if (typeof parsed.session === "string" && parsed.session) wallet = verifySession(parsed.session);
+    if (wallet && bannedWallets.has(wallet)) wallet = null; // banned → treat as anonymous
     if (parsed.currency === 1) currency = Currency.TOKEN;
     const tiers = currency === Currency.TOKEN ? TOKEN_BET_SIZES : BET_SIZES;
     if (Number.isFinite(parsed.stake) && (tiers as readonly number[]).includes(parsed.stake)) {
@@ -1082,7 +1189,9 @@ app.post("/auth/verify", (res, req) => {
     } catch {
       // ignore
     }
-    if (verifySignature(pubkey, nonce, signature)) {
+    if (bannedWallets.has(pubkey)) {
+      sendJson(res, { error: "banned" }, "403 Forbidden");
+    } else if (verifySignature(pubkey, nonce, signature)) {
       sendJson(res, { session: createSession(pubkey), pubkey });
     } else {
       sendJson(res, { error: "invalid_signature" }, "401 Unauthorized");
