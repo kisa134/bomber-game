@@ -137,12 +137,17 @@ export interface MenuHandlers {
   practice: (c: Choice, difficulty: number, bots: number) => void;
 }
 
-/** Build a Choice from the current nickname (+ a random, server-deduped skin). */
+/** Build a Choice from the current nickname + the equipped character (Loadout).
+ *  Falls back to a random skin if none is chosen yet; the server still dedupes. */
 function makeChoice(stake: number, currency = 0): Choice {
   const nick = document.getElementById("nickname") as HTMLInputElement | null;
   const name = (nick?.value.trim() || "pumper").slice(0, 16);
   localStorage.setItem("bp_nick", name);
-  const skin = Math.floor(Math.random() * SKIN_COUNT);
+  const stored = Number(localStorage.getItem("bp_skin"));
+  const skin =
+    Number.isInteger(stored) && stored >= 0 && stored < SKIN_COUNT
+      ? stored
+      : Math.floor(Math.random() * SKIN_COUNT);
   return { name, skin, stake, currency };
 }
 

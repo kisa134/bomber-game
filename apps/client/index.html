@@ -49,32 +49,64 @@
         <p id="loading-status" class="status">loading…</p>
       </section>
 
-      <!-- Home menu -->
+      <!-- Home — main hub -->
       <section id="menu" class="screen hidden">
-        <button id="open-settings" class="icon-btn" title="Settings">⚙</button>
-        <button id="open-help" class="icon-btn icon-btn-2" title="How to play / Как играть">❓</button>
-        <div class="panel menu-panel">
-          <div class="logo">BomberMeme.fun</div>
-          <p class="tagline">blow up your friends · pump.fun arena</p>
-
-          <button id="wallet-btn">🔗 Connect Wallet</button>
-          <div id="player-stats" class="player-stats hidden">
-            <span id="rating-badge" class="stat-badge" title="Your rating">🌱 1000</span>
-            <span class="stat-badge chips" title="Your chips">🪙 <span id="chip-amount">0</span></span>
+        <div class="hub">
+          <!-- Top status bar -->
+          <div class="hub-top">
+            <div class="hub-brand">BomberMeme.fun</div>
+            <div class="hub-status">
+              <span id="player-stats" class="player-stats hidden">
+                <span id="rating-badge" class="stat-badge" title="Your rating">🌱 1000</span>
+                <span class="stat-badge chips" title="Your chips">🪙 <span id="chip-amount">0</span></span>
+              </span>
+              <a id="token-badge" class="stat-badge token hidden" target="_blank" rel="noopener" title="Your token balance — tap to view on pump.fun">💎 <span id="token-amount">0</span> <span id="token-ticker"></span></a>
+            </div>
+            <div class="hub-top-actions">
+              <button id="wallet-btn">🔗 Connect</button>
+              <button id="open-settings" class="icon-btn" title="Settings">⚙</button>
+              <button id="open-help" class="icon-btn" title="How to play / Как играть">❓</button>
+            </div>
           </div>
-          <a id="token-badge" class="stat-badge token hidden" target="_blank" rel="noopener" title="Your token balance — tap to view on pump.fun">💎 <span id="token-amount">0</span> <span id="token-ticker"></span></a>
 
-          <input id="nickname" maxlength="16" placeholder="your nickname" autocomplete="off" />
+          <!-- Main: hero (left) + module rail (right) -->
+          <div class="hub-main">
+            <div class="hub-hero">
+              <div class="hub-logo logo">BomberMeme.fun</div>
+              <p class="tagline">blow up your friends · pump.fun arena</p>
+              <div class="hub-hero-stage"><img id="hub-hero-img" class="hub-hero-img" alt="" /></div>
+              <input id="nickname" maxlength="16" placeholder="your nickname" autocomplete="off" />
+              <button id="open-play" class="primary big hub-play">🌐 PLAY ONLINE</button>
+              <button id="open-practice" class="big hub-practice">🤖 Practice vs bots</button>
+              <p id="menu-status" class="status"></p>
+            </div>
 
-          <button id="open-play" class="primary big">🌐 PLAY ONLINE</button>
-          <button id="open-practice" class="big">🤖 Practice vs bots</button>
-
-          <div class="menu-links">
-            <button id="open-profile" class="link">👤 Profile</button>
-            <button id="open-leaderboard" class="link">🏆 Leaderboard</button>
-            <button id="open-referral" class="link">👥 Invite & earn</button>
+            <div class="hub-rail">
+              <div class="hub-module featured">
+                <div class="hub-mod-label">★ Season 1 · Toxic Arena</div>
+                <div class="hub-mod-sub">Live events & rewards — coming soon</div>
+              </div>
+              <div class="hub-module friends">
+                <div class="hub-mod-label">👥 Friends</div>
+                <div class="hub-mod-sub">Online presence — coming soon</div>
+              </div>
+              <div class="hub-module topweek">
+                <div class="hub-mod-label">🏆 Top this week</div>
+                <ol id="hub-top" class="hub-top-list"></ol>
+              </div>
+              <button id="hub-loadout" class="hub-module loadout">
+                <div class="hub-mod-label">🎭 Loadout</div>
+                <div id="hub-loadout-name" class="hub-mod-sub">Choose your character</div>
+              </button>
+            </div>
           </div>
-          <p id="menu-status" class="status"></p>
+
+          <!-- Bottom utility bar -->
+          <div class="hub-utility">
+            <button id="open-profile" class="hub-util">👤 Profile</button>
+            <button id="open-leaderboard" class="hub-util">🏆 Leaderboard</button>
+            <button id="open-referral" class="hub-util">👥 Invite &amp; earn</button>
+          </div>
         </div>
       </section>
 

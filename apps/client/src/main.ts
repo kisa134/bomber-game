@@ -1130,6 +1130,7 @@ function setStats(chips: number, rating: number): void {
   lastChips = chips;
   document.getElementById("player-stats")?.classList.remove("hidden");
   updateBalanceBars();
+  refreshHub(); // equipped character may have synced from the profile
 }
 /** Chips-only update when we don't have a fresh rating (keeps the last one). */
 function setBalance(chips: number): void {
@@ -1509,7 +1510,7 @@ function openPlayerCard(p: { wallet?: string | null; name: string; skin: number 
 
 // --- skin shop ------------------------------------------------------------
 
-const SKIN_NAMES = ["Shiba", "Pepe", "Fox", "Wojak", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bog", "Giga"];
+const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad"];
 
 async function refreshSkinShop(): Promise<void> {
   const grid = document.getElementById("skin-grid")!;
@@ -1595,6 +1596,36 @@ function openSkinShop(): void {
   document.getElementById("skin-status")!.textContent = "";
   document.getElementById("skin-modal")!.classList.remove("hidden");
   void refreshSkinShop();
+}
+
+// --- main hub modules -------------------------------------------------------
+/** Refresh the hub's hero art + Loadout label from the equipped character. */
+function refreshHub(): void {
+  const equipped = Number(localStorage.getItem("bp_skin")) || 0;
+  const heroImg = document.getElementById("hub-hero-img") as HTMLImageElement | null;
+  if (heroImg) heroImg.src = `/sprites/skin_${equipped}.webp?v=${ASSET_VER}`;
+  const name = document.getElementById("hub-loadout-name");
+  if (name) name.textContent = SKIN_NAMES[equipped] ?? `Skin ${equipped}`;
+}
+/** Populate the hub's "Top this week" module from the live leaderboard. */
+function loadHubTop(): void {
+  void fetchLeaderboard("rating")
+    .then((rows) => {
+      const ol = document.getElementById("hub-top");
+      if (!ol) return;
+      ol.innerHTML = "";
+      if (!rows.length) {
+        ol.innerHTML = '<li class="hub-mod-sub">No ranked players yet</li>';
+        return;
+      }
+      rows.slice(0, 5).forEach((p, i) => {
+        const li = document.createElement("li");
+        li.innerHTML = `<span class="rk">${i + 1}</span><span class="nm"></span><span class="rt">${(p.rating ?? 0).toLocaleString()}</span>`;
+        (li.querySelector(".nm") as HTMLElement).textContent = p.name || "anon";
+        ol.appendChild(li);
+      });
+    })
+    .catch(() => {});
 }
 
 // --- first-launch onboarding -----------------------------------------------
@@ -1692,10 +1723,13 @@ function wireMenuLinks(): void {
   setupOnboarding();
   document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
   document.getElementById("open-leaderboard")!.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
-  document.getElementById("open-skins")?.addEventListener("click", openSkinShop); // skins shop disabled for now
-  document.getElementById("skin-close")!.addEventListener("click", () =>
-    document.getElementById("skin-modal")!.classList.add("hidden"),
-  );
+  document.getElementById("open-skins")?.addEventListener("click", openSkinShop);
+  // Hub Loadout module opens the character (skin) shop.
+  document.getElementById("hub-loadout")?.addEventListener("click", openSkinShop);
+  document.getElementById("skin-close")!.addEventListener("click", () => {
+    document.getElementById("skin-modal")!.classList.add("hidden");
+    refreshHub(); // reflect a newly equipped character on the hub
+  });
   document.getElementById("profile-back")!.addEventListener("click", () => showScreen("menu"));
   document.getElementById("leaderboard-back")!.addEventListener("click", () => showScreen("menu"));
   document.getElementById("lb-rating")!.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
@@ -1880,6 +1914,9 @@ const attribution = captureAttribution(); // first-touch utm/referrer/landing
 initAnalytics({ platform: isTelegram ? "telegram" : "web", ...attribution });
 startPresence();
 initErrorTracking();
+refreshHub(); // hero art + Loadout label
+loadHubTop(); // "Top this week" module
+setInterval(loadHubTop, 60_000);
 track("app_loaded", { platform: isTelegram ? "telegram" : "web", ...attribution });
 input.attach();
 void assets.preload();
@@ -2042,7 +2079,12 @@ document.getElementById("tables-new")!.addEventListener("click", () => {
 // --- Bento cards: Casual (chip stakes) + The Arena (real-token stakes) -------
 const lobbyName = (): string =>
   (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
-const randSkin = (): number => Math.floor(Math.random() * SKIN_COUNT);
+// Use the player's equipped character (Loadout) for every match; random only if
+// none chosen yet. (The lobby room still lets you override per-match via SET_SKIN.)
+const randSkin = (): number => {
+  const s = Number(localStorage.getItem("bp_skin"));
+  return Number.isInteger(s) && s >= 0 && s < SKIN_COUNT ? s : Math.floor(Math.random() * SKIN_COUNT);
+};
 
 // Casual: "Quick Match" reveals chip-stake chips; pick one to matchmake (chips).
 const casualStakes = document.getElementById("casual-stakes")!;
@@ -2084,7 +2126,7 @@ document.getElementById("lobby-code-join")!.addEventListener("click", () => {
   const name = (document.getElementById("nickname") as HTMLInputElement | null)?.value.trim() || "pumper";
   practiceMode = false; // joining a real room — "Back to lobby", not "Play again"
   track("play_start", { mode: "join" });
-  void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
+  void connect(() => joinRoom(name, code, randSkin()));
 });
 
 // Modal dismissal: Cancel buttons + tap-the-backdrop.
@@ -2107,7 +2149,7 @@ function loadTables(): Promise<void> {
         const name = (localStorage.getItem("bp_nick") || "pumper").trim();
         practiceMode = false; // real room → "Back to lobby", not "Play again"
         track("play_start", { mode: "table_join" });
-        void connect(() => joinRoom(name, code, Math.floor(Math.random() * 4)));
+        void connect(() => joinRoom(name, code, randSkin()));
       },
       (code) => {
         practiceMode = false;
