@@ -18,6 +18,7 @@ import {
 } from "./protocol.js";
 import { SERVER_HTTP, SERVER_WS } from "../config.js";
 import { loadWallet } from "./wallet.js";
+import type { SandboxOpts } from "@bomberpump/shared";
 
 export interface JoinResponse {
   code: string;
@@ -212,8 +213,9 @@ export async function practiceRoom(
   difficulty = 1,
   bots = 3,
   competitive = false,
+  sandbox: SandboxOpts | null = null,
 ): Promise<JoinResponse> {
-  const res = await post("/practice", { name, skin, difficulty, bots, competitive });
+  const res = await post("/practice", { name, skin, difficulty, bots, competitive, sandbox });
   if (!res.ok) throw await joinError(res);
   return res.json();
 }

@@ -99,6 +99,54 @@ export const SKIN_UNLOCK_LEVEL = [0, 0, 0, 0, 3, 5, 8, 12, 16, 20, 25] as const;
 // Whole-token price to buy a skin INSTANTLY (bypasses the level gate). 0 = free.
 export const SKIN_TOKEN_PRICES = [0, 0, 0, 0, 5000, 10000, 20000, 35000, 50000, 80000, 150000] as const;
 
+// --- Practice Sandbox (solo vs bots; pure training, no rewards/stats) -------
+// Sandbox can crowd the arena with more bots than a real 4-player room.
+export const PRACTICE_MAX_BOTS = 7;
+// Speed is granted in discrete levels; this is how many (base -> MAX_SPEED).
+export const MAX_SPEED_LEVELS = Math.round((MAX_SPEED - PLAYER_BASE_SPEED) / SPEED_UP_DELTA);
+export const BOT_RESPAWN_MS = 2500; // a downed bot reappears after this (sandbox)
+export const CRATE_RESPAWN_MS = 3500; // a fresh destructible crate drops this often (sandbox)
+/** Tunable practice loadout. ONLY the Sandbox mode reads these; the Competitive
+ *  Bots Match always uses fair defaults (identical to a real PvP match). */
+export interface SandboxOpts {
+  botRespawn: boolean; // downed bots come back so you always have targets
+  crateRespawn: boolean; // destructible crates slowly repopulate
+  godMode: boolean; // you can't be hurt (endless practice)
+  startBombs: number; // starting bomb capacity (1..MAX_BOMBS)
+  startPower: number; // starting fire range (1..MAX_POWER)
+  startSpeed: number; // starting EXTRA speed levels (0..MAX_SPEED_LEVELS)
+  startKick: boolean; // start with the kick ability
+  startWallPass: boolean; // start able to walk through crates (whole session)
+}
+export const DEFAULT_SANDBOX: SandboxOpts = {
+  botRespawn: true,
+  crateRespawn: true,
+  godMode: false,
+  startBombs: START_BOMBS,
+  startPower: START_POWER,
+  startSpeed: 0,
+  startKick: false,
+  startWallPass: false,
+};
+/** Clamp an untrusted sandbox config from the client into safe bounds. */
+export function clampSandbox(o: Partial<SandboxOpts> | null | undefined): SandboxOpts {
+  const d = DEFAULT_SANDBOX;
+  if (!o || typeof o !== "object") return { ...d };
+  const num = (v: unknown, lo: number, hi: number, def: number): number =>
+    Number.isFinite(v as number) ? Math.max(lo, Math.min(hi, Math.floor(v as number))) : def;
+  const bool = (v: unknown, def: boolean): boolean => (typeof v === "boolean" ? v : def);
+  return {
+    botRespawn: bool(o.botRespawn, d.botRespawn),
+    crateRespawn: bool(o.crateRespawn, d.crateRespawn),
+    godMode: bool(o.godMode, d.godMode),
+    startBombs: num(o.startBombs, 1, MAX_BOMBS, d.startBombs),
+    startPower: num(o.startPower, 1, MAX_POWER, d.startPower),
+    startSpeed: num(o.startSpeed, 0, MAX_SPEED_LEVELS, d.startSpeed),
+    startKick: bool(o.startKick, d.startKick),
+    startWallPass: bool(o.startWallPass, d.startWallPass),
+  };
+}
+
 // --- Token (real pump.fun SPL token; read-only hold-to-play for now) --------
 // Public mint address — safe to ship to the client (used for display + links).
 export const TOKEN_MINT = "2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump";

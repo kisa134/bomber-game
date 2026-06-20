@@ -27,6 +27,17 @@ export const SPAWNS: Spawn[] = [
   { x: GRID_W - 1, y: GRID_H - 1 },
 ];
 
+/** Extended spawn set for Practice Sandbox (more than 4 fighters): the four
+ *  corners plus the four edge midpoints. All land on even cells, so they never
+ *  collide with the odd/odd pillar lattice. */
+export const PRACTICE_SPAWNS: Spawn[] = [
+  ...SPAWNS,
+  { x: Math.floor(GRID_W / 2), y: 0 },
+  { x: Math.floor(GRID_W / 2), y: GRID_H - 1 },
+  { x: 0, y: Math.floor(GRID_H / 2) },
+  { x: GRID_W - 1, y: Math.floor(GRID_H / 2) },
+];
+
 const PU_TILE: Record<PowerUpType, TileType> = {
   [PowerUpType.BOMB_UP]: TileType.PU_BOMB,
   [PowerUpType.FIRE_UP]: TileType.PU_FIRE,
@@ -89,7 +100,7 @@ export class World {
     return this.inBounds(x, y) && this.tile(x, y) === TileType.SOFT;
   }
 
-  generate(rng: () => number = Math.random): void {
+  generate(rng: () => number = Math.random, spawns: Spawn[] = SPAWNS): void {
     this.grid.fill(TileType.EMPTY);
     this.fire.fill(0);
     this.fireOwner.fill(-1);
@@ -120,9 +131,9 @@ export class World {
       }
     }
 
-    // Carve safe zones (L-shape) around each corner spawn so players aren't boxed in.
+    // Carve safe zones (L-shape) around each active spawn so players aren't boxed in.
     const safe = new Set<number>();
-    for (const s of SPAWNS) {
+    for (const s of spawns) {
       const cells = [
         [s.x, s.y],
         [s.x + (s.x === 0 ? 1 : -1), s.y],

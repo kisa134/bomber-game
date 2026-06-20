@@ -38,6 +38,7 @@ export class Player {
 
   lives: number = START_LIVES;
   invulnUntilMs: number = 0;
+  respawnAtMs: number = 0; // sandbox bot respawn: wall-clock time to revive (0 = none)
   frags: number = 0;
   deaths: number = 0;
   alive: boolean = true;
@@ -89,6 +90,7 @@ export class Player {
     this.wallPassUntilMs = 0;
     this.lives = START_LIVES;
     this.invulnUntilMs = 0;
+    this.respawnAtMs = 0;
     this.frags = 0;
     this.deaths = 0;
     this.alive = true;

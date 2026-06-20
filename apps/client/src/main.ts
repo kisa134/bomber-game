@@ -2351,11 +2351,11 @@ setupMenu({
     track("play_start", { mode: "create", stake: c.stake, currency: c.currency });
     connect(() => createRoom(c.name, c.skin, c.stake, c.currency));
   },
-  practice: (c, difficulty, bots, competitive) => {
+  practice: (c, difficulty, bots, competitive, sandbox) => {
     practiceMode = true;
     track("play_start", { mode: competitive ? "competitive_bots" : "sandbox", difficulty, bots });
     // The match auto-starts; the COUNTDOWN phase switches to the game screen.
-    connect(() => practiceRoom(c.name, c.skin, difficulty, bots, competitive));
+    connect(() => practiceRoom(c.name, c.skin, difficulty, bots, competitive, competitive ? null : sandbox));
   },
 });
 

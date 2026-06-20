@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { TICK_MS, BotDifficulty, Currency, MatchPhase } from "@bomberpump/shared";
+import { TICK_MS, BotDifficulty, Currency, MatchPhase, type SandboxOpts } from "@bomberpump/shared";
 import { Room } from "./room.js";
 import { alert } from "./alert.js";
 import type { SendFn } from "./player.js";
@@ -79,8 +79,9 @@ export class Matchmaker {
     difficulty: BotDifficulty = BotDifficulty.NORMAL,
     botCount = 3,
     competitive = false,
+    sandbox: SandboxOpts | null = null,
   ): { code: string; token: string } {
-    const room = this.newRoom(false, true, 0, difficulty, Currency.CHIPS, botCount, competitive);
+    const room = this.newRoom(false, true, 0, difficulty, Currency.CHIPS, botCount, competitive, sandbox);
     return this.reserve(room, name, skin, wallet);
   }
 
@@ -134,13 +135,14 @@ export class Matchmaker {
     currency: Currency = Currency.CHIPS,
     botCount = 3,
     competitive = false,
+    sandbox: SandboxOpts | null = null,
   ): Room {
     // Refuse new rooms when at the hard cap OR when the sim thread is saturated
     // (load shedding) — existing matches keep running smoothly.
     if (this.rooms.size >= MAX_ROOMS || this.load.busy) throw new ServerFullError();
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
-    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency, botCount, competitive);
+    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency, botCount, competitive, sandbox);
     this.rooms.set(code, room);
     return room;
   }

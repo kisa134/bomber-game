@@ -173,30 +173,94 @@
           <div class="train-modes">
             <button id="mode-sandbox" class="train-mode active" data-mode="sandbox">
               <div class="tm-title">🧪 Practice Sandbox</div>
-              <div class="tm-sub">Full practice · <b>no rewards</b></div>
+              <div class="tm-sub">Endless · tune everything · <b>no rewards</b></div>
             </button>
             <button id="mode-competitive" class="train-mode" data-mode="competitive">
               <div class="tm-title">⚔️ Competitive Bots</div>
-              <div class="tm-sub">Fair rules · <b>tiny XP &amp; coins</b></div>
+              <div class="tm-sub">Fair rules like a real match · <b>tiny XP &amp; coins</b></div>
             </button>
           </div>
 
-          <!-- Basic settings -->
-          <div class="stake-label">Difficulty</div>
-          <div class="seg" id="diff-seg">
-            <button class="seg-btn" data-diff="0">😴 Easy</button>
-            <button class="seg-btn active" data-diff="1">🤖 Normal</button>
-            <button class="seg-btn" data-diff="2">💀 Hard</button>
-          </div>
-          <div class="stake-label">Bots</div>
-          <div class="seg" id="bots-seg">
-            <button class="seg-btn" data-bots="1">1</button>
-            <button class="seg-btn" data-bots="2">2</button>
-            <button class="seg-btn active" data-bots="3">3</button>
+          <div class="train-grid">
+            <!-- Match basics (both modes) -->
+            <div class="train-panel">
+              <div class="train-panel-h">⚙️ Match</div>
+              <div class="train-row">
+                <span class="train-lbl">Difficulty</span>
+                <div class="seg train-seg" id="diff-seg">
+                  <button class="seg-btn" data-diff="0">😴 Easy</button>
+                  <button class="seg-btn active" data-diff="1">🤖 Normal</button>
+                  <button class="seg-btn" data-diff="2">💀 Hard</button>
+                </div>
+              </div>
+              <div class="train-row">
+                <span class="train-lbl">Bots <span id="bots-val" class="train-lbl-v">3</span></span>
+                <div class="train-step" id="bots-step" data-min="1" data-max="3">
+                  <button class="step-btn" data-d="-1">−</button>
+                  <div class="step-track"><div id="bots-fill" class="step-fill"></div></div>
+                  <button class="step-btn" data-d="1">+</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sandbox-only: cheats / training rules -->
+            <div class="train-panel train-sandbox-only" id="train-rules">
+              <div class="train-panel-h">🧪 Practice rules</div>
+              <button class="train-toggle" data-opt="godMode">
+                <span class="tt-ico">🛡️</span>
+                <span class="tt-text"><b>God mode</b><small>You can't be hurt — train forever</small></span>
+                <span class="tt-switch"></span>
+              </button>
+              <button class="train-toggle on" data-opt="botRespawn">
+                <span class="tt-ico">♻️</span>
+                <span class="tt-text"><b>Respawn bots</b><small>Downed bots come back</small></span>
+                <span class="tt-switch"></span>
+              </button>
+              <button class="train-toggle on" data-opt="crateRespawn">
+                <span class="tt-ico">📦</span>
+                <span class="tt-text"><b>Respawn crates</b><small>Fresh boxes keep dropping</small></span>
+                <span class="tt-switch"></span>
+              </button>
+            </div>
+
+            <!-- Sandbox-only: starting loadout -->
+            <div class="train-panel train-sandbox-only" id="train-loadout">
+              <div class="train-panel-h">🎒 Starting loadout</div>
+              <div class="train-row">
+                <span class="train-lbl">💣 Bombs <span id="startBombs-val" class="train-lbl-v">1</span></span>
+                <div class="train-step" id="startBombs-step" data-min="1" data-max="10" data-opt="startBombs">
+                  <button class="step-btn" data-d="-1">−</button>
+                  <div class="step-track"><div id="startBombs-fill" class="step-fill"></div></div>
+                  <button class="step-btn" data-d="1">+</button>
+                </div>
+              </div>
+              <div class="train-row">
+                <span class="train-lbl">🔥 Fire <span id="startPower-val" class="train-lbl-v">1</span></span>
+                <div class="train-step" id="startPower-step" data-min="1" data-max="10" data-opt="startPower">
+                  <button class="step-btn" data-d="-1">−</button>
+                  <div class="step-track"><div id="startPower-fill" class="step-fill"></div></div>
+                  <button class="step-btn" data-d="1">+</button>
+                </div>
+              </div>
+              <div class="train-row">
+                <span class="train-lbl">👟 Speed <span id="startSpeed-val" class="train-lbl-v">0</span></span>
+                <div class="train-step" id="startSpeed-step" data-min="0" data-max="9" data-opt="startSpeed">
+                  <button class="step-btn" data-d="-1">−</button>
+                  <div class="step-track"><div id="startSpeed-fill" class="step-fill"></div></div>
+                  <button class="step-btn" data-d="1">+</button>
+                </div>
+              </div>
+              <div class="train-chips">
+                <button class="train-chip" data-opt="startKick">🦵 Kick bombs</button>
+                <button class="train-chip" data-opt="startWallPass">👻 Wall pass</button>
+              </div>
+            </div>
           </div>
 
-          <div id="train-reward" class="train-reward"></div>
-          <button id="practice-play" class="primary big train-start">▶ Start</button>
+          <div class="train-foot">
+            <div id="train-reward" class="train-reward"></div>
+            <button id="practice-play" class="primary big train-start">▶ Start</button>
+          </div>
         </div>
       </section>
 

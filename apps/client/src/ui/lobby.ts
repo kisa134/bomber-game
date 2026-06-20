@@ -1,6 +1,6 @@
 import { PLAYER_COLORS, skinAvatar } from "../game/renderer.js";
 import { ASSET_VER } from "../game/assets.js";
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, DEFAULT_SKINS, MATCH_LENGTH_MS } from "../net/protocol.js";
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, DEFAULT_SKINS, MATCH_LENGTH_MS, PRACTICE_MAX_BOTS, DEFAULT_SANDBOX, type SandboxOpts } from "../net/protocol.js";
 
 /** Which skins the local player owns (bitmask) + their level — for the lobby
  *  character strip (set from main after the profile loads). */
@@ -189,8 +189,15 @@ export interface Choice {
 export interface MenuHandlers {
   /** Create & open a new lobby at the chosen currency + stake. */
   create: (c: Choice) => void;
-  /** Start a solo practice match vs N bots at a difficulty. */
-  practice: (c: Choice, difficulty: number, bots: number, competitive: boolean) => void;
+  /** Start a solo practice match vs N bots at a difficulty. `sandbox` carries the
+   *  tuning for the Sandbox mode (ignored by Competitive). */
+  practice: (
+    c: Choice,
+    difficulty: number,
+    bots: number,
+    competitive: boolean,
+    sandbox: SandboxOpts,
+  ) => void;
 }
 
 /** Build a Choice from the current nickname + the equipped character (Loadout).
@@ -241,24 +248,73 @@ export function setupMenu(h: MenuHandlers): void {
   curChips.addEventListener("click", () => setCurrency(0));
   curToken.addEventListener("click", () => setCurrency(1));
 
-  // --- Training Setup: mode + difficulty + bot-count -------------------------
+  // --- Training Setup: mode + difficulty + bot-count + sandbox tuning --------
   let diff = 1;
   let bots = 3;
   let competitive = false; // false = Practice Sandbox, true = Competitive Bots
+  const sandbox: SandboxOpts = { ...DEFAULT_SANDBOX };
   const segPick = (group: HTMLElement, btn: HTMLElement): void => {
     for (const el of group.querySelectorAll(".seg-btn")) el.classList.remove("active");
     btn.classList.add("active");
   };
   const rewardEl = document.getElementById("train-reward");
   const startBtn = document.getElementById("practice-play");
+
+  // Stepper widget: clamps to [min,max], updates the value label + fill bar, and
+  // writes back into `sandbox` (or the bot count) via an onSet callback.
+  // min/max are read LIVE from the dataset (the bot cap changes with the mode).
+  const paintStep = (id: string): void => {
+    const root = document.getElementById(`${id}-step`);
+    if (!root) return;
+    const min = Number(root.dataset.min ?? 0);
+    const max = Number(root.dataset.max ?? 10);
+    const v = Number(document.getElementById(`${id}-val`)?.textContent ?? min);
+    const fill = document.getElementById(`${id}-fill`);
+    if (fill) fill.style.width = `${max > min ? ((v - min) / (max - min)) * 100 : 0}%`;
+  };
+  const wireStep = (id: string, get: () => number, set: (v: number) => void): void => {
+    const root = document.getElementById(`${id}-step`);
+    if (!root) return;
+    const valEl = document.getElementById(`${id}-val`);
+    const paint = (): void => {
+      if (valEl) valEl.textContent = String(get());
+      paintStep(id);
+    };
+    root.querySelectorAll<HTMLElement>(".step-btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        const min = Number(root.dataset.min ?? 0);
+        const max = Number(root.dataset.max ?? 10);
+        set(Math.max(min, Math.min(max, get() + Number(b.dataset.d))));
+        paint();
+      }),
+    );
+    paint();
+  };
+
   const refreshTrainMode = (): void => {
     if (rewardEl) {
       rewardEl.textContent = competitive
         ? "🟢 Tiny rewards ON · small XP + chips (no rating)"
-        : "⚪ Rewards OFF · pure practice";
+        : "⚪ Rewards OFF · pure practice, nothing saved";
       rewardEl.className = "train-reward " + (competitive ? "on" : "off");
     }
     if (startBtn) startBtn.textContent = competitive ? "▶ Start Competitive Match" : "▶ Start Sandbox";
+    // Sandbox-only panels (cheats + loadout) hide in Competitive.
+    for (const el of document.querySelectorAll<HTMLElement>(".train-sandbox-only")) {
+      el.classList.toggle("hidden", competitive);
+    }
+    // Competitive plays by fair rules: cap bots at 3 like a real 4-player match.
+    const botStep = document.getElementById("bots-step");
+    if (botStep) {
+      const max = competitive ? 3 : PRACTICE_MAX_BOTS;
+      botStep.dataset.max = String(max);
+      if (bots > max) {
+        bots = max;
+        const v = document.getElementById("bots-val");
+        if (v) v.textContent = String(bots);
+      }
+      paintStep("bots");
+    }
   };
   const setMode = (m: string): void => {
     competitive = m === "competitive";
@@ -268,7 +324,7 @@ export function setupMenu(h: MenuHandlers): void {
   };
   document.getElementById("mode-sandbox")?.addEventListener("click", () => setMode("sandbox"));
   document.getElementById("mode-competitive")?.addEventListener("click", () => setMode("competitive"));
-  refreshTrainMode();
+
   const diffSeg = document.getElementById("diff-seg")!;
   diffSeg.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-diff]");
@@ -276,15 +332,31 @@ export function setupMenu(h: MenuHandlers): void {
     diff = Number(btn.dataset.diff);
     segPick(diffSeg, btn);
   });
-  const botsSeg = document.getElementById("bots-seg")!;
-  botsSeg.addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-bots]");
-    if (!btn) return;
-    bots = Number(btn.dataset.bots);
-    segPick(botsSeg, btn);
-  });
+
+  // Steppers: bot count + starting loadout.
+  wireStep("bots", () => bots, (v) => (bots = v));
+  wireStep("startBombs", () => sandbox.startBombs, (v) => (sandbox.startBombs = v));
+  wireStep("startPower", () => sandbox.startPower, (v) => (sandbox.startPower = v));
+  wireStep("startSpeed", () => sandbox.startSpeed, (v) => (sandbox.startSpeed = v));
+
+  // Toggles (rules) + chips (loadout utilities): flip a boolean on `sandbox`.
+  const wireToggle = (sel: string): void => {
+    for (const btn of document.querySelectorAll<HTMLElement>(sel)) {
+      const opt = btn.dataset.opt as keyof SandboxOpts | undefined;
+      if (!opt) continue;
+      btn.classList.toggle("on", Boolean(sandbox[opt]));
+      btn.addEventListener("click", () => {
+        (sandbox[opt] as boolean) = !sandbox[opt];
+        btn.classList.toggle("on", Boolean(sandbox[opt]));
+      });
+    }
+  };
+  wireToggle(".train-toggle");
+  wireToggle(".train-chip");
+
+  refreshTrainMode();
   document.getElementById("practice-play")!.addEventListener("click", () => {
-    h.practice(makeChoice(0), diff, bots, competitive);
+    h.practice(makeChoice(0), diff, bots, competitive, sandbox);
   });
 
   // Lobby character arrows + "unlock in SHOP" (wired once).

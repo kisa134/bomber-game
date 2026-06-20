@@ -36,6 +36,16 @@ import {
   BOT_PLAY_CHIPS,
   BOT_WIN_XP,
   BOT_PLAY_XP,
+  MAX_BOMBS,
+  MAX_POWER,
+  MAX_SPEED,
+  PLAYER_BASE_SPEED,
+  SPEED_UP_DELTA,
+  MAX_SPEED_LEVELS,
+  PRACTICE_MAX_BOTS,
+  BOT_RESPAWN_MS,
+  CRATE_RESPAWN_MS,
+  type SandboxOpts,
   encodeSnapshot,
   encodePhase,
   encodeExplosion,
@@ -59,7 +69,7 @@ import {
 } from "@bomberpump/shared";
 import { createHash, randomBytes } from "node:crypto";
 import { makeRng, encodeMatchSeed, advance } from "@bomberpump/shared";
-import { World, SPAWNS, powerupOfTile } from "./world.js";
+import { World, SPAWNS, PRACTICE_SPAWNS, powerupOfTile, type Spawn } from "./world.js";
 import { analytics } from "./analytics.js";
 import { distributeReferralRewards } from "./referral.js";
 import { getTokenDecimals } from "./token.js";
@@ -91,6 +101,10 @@ export class Room {
   readonly competitive: boolean = false; // bot match that grants tiny rewards (vs sandbox)
   readonly botDifficulty: BotDifficulty; // difficulty of bots in a practice room
   readonly botCount: number; // how many bots a practice match fills with
+  // Practice Sandbox tuning (god mode, starting loadout, respawns). Null unless
+  // this is a non-competitive practice room.
+  private readonly sandbox: SandboxOpts | null = null;
+  private crateTimerMs = 0; // sandbox crate-respawn accumulator
   stake: number; // amount wagered per player (0 = casual); host can change in lobby
   readonly currency: Currency; // what the stake is denominated in
   private pot = 0; // escrowed amount for the current match (base units for tokens)
@@ -142,16 +156,29 @@ export class Room {
     currency: Currency = Currency.CHIPS,
     botCount = MAX_PLAYERS_PER_ROOM - 1,
     competitive = false,
+    sandbox: SandboxOpts | null = null,
   ) {
     this.id = id;
     this.isPublic = isPublic;
     this.practice = practice;
     this.competitive = competitive;
+    // Sandbox tuning only applies to a non-competitive practice room.
+    this.sandbox = practice && !competitive ? sandbox : null;
     this.stake = stake;
     this.currency = currency;
     this.botDifficulty = botDifficulty;
-    this.botCount = Math.max(1, Math.min(MAX_PLAYERS_PER_ROOM - 1, botCount));
+    // Sandbox can crowd the arena (PRACTICE_SPAWNS); every other room caps at 4.
+    const botCap = this.sandbox ? PRACTICE_MAX_BOTS : MAX_PLAYERS_PER_ROOM - 1;
+    this.botCount = Math.max(1, Math.min(botCap, botCount));
     this.spiral = buildSpiral();
+  }
+
+  /** Active spawn set for the current match (extended for a crowded sandbox). */
+  private matchSpawns(): Spawn[] {
+    if (this.sandbox && this.players.size > SPAWNS.length) {
+      return PRACTICE_SPAWNS.slice(0, Math.min(this.players.size, PRACTICE_SPAWNS.length));
+    }
+    return SPAWNS.slice();
   }
 
   get maxPlayers(): number {
@@ -185,7 +212,8 @@ export class Room {
 
   private addBot(): void {
     const id = this.nextPlayerId++;
-    const spawn = SPAWNS[this.players.size % SPAWNS.length];
+    const pool = this.sandbox ? PRACTICE_SPAWNS : SPAWNS;
+    const spawn = pool[this.players.size % pool.length];
     const name = BOT_NAMES[id % BOT_NAMES.length];
     const p = new Player(id, name, id % SKIN_COUNT, spawn.x, spawn.y, () => {}, true);
     p.ready = true; // bots are always ready
@@ -382,10 +410,96 @@ export class Room {
 
   /** Top up bots and start a practice match. */
   private startPractice(): void {
-    const target = Math.min(MAX_PLAYERS_PER_ROOM, 1 + this.botCount); // 1 human + N bots
+    const cap = this.sandbox ? PRACTICE_SPAWNS.length : MAX_PLAYERS_PER_ROOM;
+    const target = Math.min(cap, 1 + this.botCount); // 1 human + N bots
     while (this.players.size < target) this.addBot();
     this.practiceStarted = true;
     void this.start();
+  }
+
+  /** Apply the player's chosen Sandbox starting loadout (after resetForMatch). */
+  private applySandboxLoadout(p: Player): void {
+    const o = this.sandbox;
+    if (!o) return;
+    p.bombsMax = Math.max(1, Math.min(MAX_BOMBS, o.startBombs));
+    p.power = Math.max(1, Math.min(MAX_POWER, o.startPower));
+    const lvl = Math.max(0, Math.min(MAX_SPEED_LEVELS, o.startSpeed));
+    p.speed = Math.min(MAX_SPEED, PLAYER_BASE_SPEED + lvl * SPEED_UP_DELTA);
+    p.kick = o.startKick;
+    // Wall-pass is normally temporary; in the sandbox keep it for the whole match.
+    if (o.startWallPass) p.wallPassUntilMs = Date.now() + 365 * 24 * 3600 * 1000;
+  }
+
+  /** Per-tick sandbox upkeep: respawn downed bots and repopulate crates. */
+  private sandboxTick(dt: number): void {
+    const o = this.sandbox;
+    if (!o) return;
+    const now = Date.now();
+    if (o.botRespawn) {
+      for (const p of this.players.values()) {
+        if (p.isBot && !p.alive && p.respawnAtMs > 0 && now >= p.respawnAtMs) this.respawnBot(p);
+      }
+    }
+    if (o.crateRespawn) {
+      this.crateTimerMs += dt;
+      if (this.crateTimerMs >= CRATE_RESPAWN_MS) {
+        this.crateTimerMs = 0;
+        this.addRandomCrate();
+      }
+    }
+  }
+
+  /** Revive a downed bot at a free spawn so practice never runs dry. */
+  private respawnBot(p: Player): void {
+    const spot = this.freeCell(true);
+    if (!spot) {
+      p.respawnAtMs = Date.now() + 500; // arena momentarily full; retry shortly
+      return;
+    }
+    p.respawnAtMs = 0;
+    p.resetForMatch(spot.x, spot.y);
+    p.invulnUntilMs = Date.now() + HIT_INVULN_MS; // brief mercy on re-entry
+    this.needKeyframe.add(p.id);
+  }
+
+  /** A random empty, fire-free, unoccupied cell. `preferSpawns` tries the spawn
+   *  points first (good re-entry spots), else scans the grid. */
+  private freeCell(preferSpawns = false): { x: number; y: number } | null {
+    const occupied = new Set<number>();
+    for (const q of this.players.values()) if (q.alive) occupied.add(this.world.idx(q.cellX, q.cellY));
+    const ok = (x: number, y: number): boolean => {
+      const i = this.world.idx(x, y);
+      return this.world.tile(x, y) === TileType.EMPTY && this.world.fire[i] <= 0 && !occupied.has(i);
+    };
+    if (preferSpawns) {
+      for (const s of this.matchSpawns()) if (ok(s.x, s.y)) return { x: s.x, y: s.y };
+    }
+    for (let tries = 0; tries < 80; tries++) {
+      const x = Math.floor(this.rng() * GRID_W);
+      const y = Math.floor(this.rng() * GRID_H);
+      if (ok(x, y)) return { x, y };
+    }
+    return null;
+  }
+
+  /** Drop one fresh destructible crate somewhere safe (not next to a fighter). */
+  private addRandomCrate(): void {
+    for (let tries = 0; tries < 40; tries++) {
+      const x = Math.floor(this.rng() * GRID_W);
+      const y = Math.floor(this.rng() * GRID_H);
+      const i = this.world.idx(x, y);
+      if (this.world.tile(x, y) !== TileType.EMPTY || this.world.fire[i] > 0) continue;
+      let nearFighter = false;
+      for (const q of this.players.values()) {
+        if (q.alive && Math.abs(q.cellX - x) + Math.abs(q.cellY - y) <= 1) {
+          nearFighter = true;
+          break;
+        }
+      }
+      if (nearFighter) continue;
+      this.world.set(x, y, TileType.SOFT); // snapshot grid-diff carries it to clients
+      return;
+    }
   }
 
   /** Lobby ready-up toggle. */
@@ -655,12 +769,14 @@ export class Room {
     this.seed = randomBytes(8).toString("hex");
     this.seedCommit = createHash("sha256").update(this.seed).digest("hex");
     this.rng = makeRng(this.seed);
-    this.world.generate(this.rng);
+    const spawnList = this.matchSpawns();
+    this.world.generate(this.rng, spawnList);
     this.firstBloodDone = false;
-    // Randomize which corner each player gets (seeded shuffle -> still provably
+    this.crateTimerMs = 0;
+    // Randomize which spawn each player gets (seeded shuffle -> still provably
     // fair / reproducible from the revealed seed), so positions aren't fixed by
     // join order.
-    const corners = SPAWNS.slice();
+    const corners = spawnList.slice();
     for (let k = corners.length - 1; k > 0; k--) {
       const j = Math.floor(this.rng() * (k + 1));
       [corners[k], corners[j]] = [corners[j], corners[k]];
@@ -669,6 +785,7 @@ export class Room {
     for (const p of this.players.values()) {
       const s = corners[i % corners.length];
       p.resetForMatch(s.x, s.y);
+      if (this.sandbox && !p.isBot) this.applySandboxLoadout(p); // human's custom training loadout
       p.lastMoveAtMs = Date.now();
       if (!p.isBot) p.ready = false; // require re-ready for the next round
       i++;
@@ -772,6 +889,14 @@ export class Room {
     // No idle-kick: standing still must never cost HP or end the round. A truly
     // gone player is handled by the disconnect grace; a stalled round is forced
     // to a finish by sudden death (which fills the map and squeezes everyone).
+
+    // Sandbox is endless: no sudden death, no time limit — respawn bots/crates
+    // and only end when the human falls (and only if god mode is off).
+    if (this.sandbox) {
+      this.sandboxTick(dt);
+      this.checkWin();
+      return;
+    }
 
     if (this.matchElapsedMs >= SUDDEN_DEATH_AT_MS) {
       if (this.phase !== MatchPhase.SUDDEN_DEATH) this.setPhase(MatchPhase.SUDDEN_DEATH);
@@ -901,6 +1026,8 @@ export class Room {
    *  `killerId` is the bomb owner whose fire landed the hit (-1 = environment). */
   private hit(p: Player, eliminate = false, killerId = -1): void {
     if (!p.alive) return;
+    // Sandbox god mode: the human simply can't be hurt (endless practice).
+    if (this.sandbox?.godMode && !p.isBot) return;
     const now = Date.now();
     if (!eliminate && now < p.invulnUntilMs) return; // i-frames after a hit
 
@@ -933,10 +1060,21 @@ export class Room {
     p.dir = Direction.NONE;
     p.intent = Direction.NONE;
     this.broadcast(encodeDeath(p.id));
+    // Sandbox: downed bots come back so there's always something to practice on.
+    if (this.sandbox?.botRespawn && p.isBot) p.respawnAtMs = Date.now() + BOT_RESPAWN_MS;
   }
 
   private checkWin(timeUp = false): void {
     if (this.phase !== MatchPhase.PLAYING && this.phase !== MatchPhase.SUDDEN_DEATH) return;
+    // Sandbox: ignore bot counts (they respawn). Ends only when the human dies.
+    if (this.sandbox) {
+      for (const p of this.players.values()) if (!p.isBot && p.alive) return; // human still in -> keep going
+      this.winnerId = DRAW_WINNER_ID;
+      this.setPhase(MatchPhase.END);
+      this.broadcast(encodeMatchEnd(this.winnerId));
+      this.broadcast(encodeMatchSeed(this.seedCommit, this.seed));
+      return; // no pot, stats, or rewards for the sandbox
+    }
     const aliveIds: number[] = [];
     for (const p of this.players.values()) if (p.alive) aliveIds.push(p.id);
     if (aliveIds.length <= 1 || timeUp) {

@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW, DEFAULT_SKINS, SKIN_PRICES, SKIN_UNLOCK_LEVEL, SKIN_TOKEN_PRICES, SKIN_COUNT } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW, DEFAULT_SKINS, SKIN_PRICES, SKIN_UNLOCK_LEVEL, SKIN_TOKEN_PRICES, SKIN_COUNT, PRACTICE_MAX_BOTS, clampSandbox, type SandboxOpts } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession, AUTH_SECRET_SET } from "./auth.js";
 import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./tgrelay.js";
@@ -961,6 +961,7 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
   let difficulty = BotDifficulty.NORMAL;
   let bots = 3;
   let competitive = false;
+  let sandbox: SandboxOpts | null = null;
   try {
     const parsed = JSON.parse(body || "{}");
     if (typeof parsed.name === "string" && parsed.name.trim()) name = parsed.name.trim().slice(0, 16);
@@ -975,12 +976,14 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
     if (parsed.difficulty === 0 || parsed.difficulty === 1 || parsed.difficulty === 2) {
       difficulty = parsed.difficulty as BotDifficulty;
     }
-    if (Number.isFinite(parsed.bots)) bots = Math.max(1, Math.min(3, Math.floor(parsed.bots)));
+    if (Number.isFinite(parsed.bots)) bots = Math.max(1, Math.min(PRACTICE_MAX_BOTS, Math.floor(parsed.bots)));
     if (parsed.competitive === true) competitive = true;
+    // Sandbox tuning (only honoured by a non-competitive practice room).
+    if (parsed.sandbox && typeof parsed.sandbox === "object") sandbox = clampSandbox(parsed.sandbox);
   } catch {
     // ignore malformed body
   }
-  return { name, code, skin, wallet, stake, currency, difficulty, bots, competitive };
+  return { name, code, skin, wallet, stake, currency, difficulty, bots, competitive, sandbox };
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
@@ -1100,6 +1103,7 @@ type Body = {
   difficulty: BotDifficulty;
   bots: number;
   competitive: boolean;
+  sandbox: SandboxOpts | null;
 };
 
 function withMatchmaking(
@@ -1182,7 +1186,7 @@ app.post("/create", (res, req) =>
   withMatchmaking(res, req, (b) => mm.createTable(b.name, b.skin, b.wallet, b.stake, b.currency)),
 );
 app.post("/practice", (res, req) =>
-  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty, b.bots, b.competitive), () => ({ stake: 0, currency: Currency.CHIPS })),
+  withMatchmaking(res, req, (b) => mm.practice(b.name, b.skin, b.wallet, b.difficulty, b.bots, b.competitive, b.competitive ? null : b.sandbox), () => ({ stake: 0, currency: Currency.CHIPS })),
 );
 app.post("/join", (res, req) =>
   withMatchmaking(

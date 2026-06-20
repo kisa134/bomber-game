@@ -1047,7 +1047,7 @@ button.ghost {
   padding: calc(var(--chrome-h, 120px) + 6px) 16px calc(14px + var(--sai-bottom));
 }
 .train-wrap {
-  width: min(720px, 100%);
+  width: min(900px, 100%);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -1056,7 +1056,7 @@ button.ghost {
   border-radius: 18px;
   backdrop-filter: blur(22px) saturate(1.3);
   -webkit-backdrop-filter: blur(22px) saturate(1.3);
-  padding: 16px;
+  padding: 18px;
 }
 .train-top {
   display: flex;
@@ -1117,8 +1117,181 @@ button.ghost {
 .train-start {
   width: 100%;
 }
-@media (max-width: 520px) {
+
+/* Bento grid of setting panels (Match / Practice rules / Loadout). */
+.train-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.train-panel {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+/* Match panel spans the full width; the two sandbox panels sit side by side. */
+#train-rules,
+#train-loadout {
+  grid-column: auto;
+}
+.train-grid > .train-panel:first-child {
+  grid-column: 1 / -1;
+}
+.train-panel-h {
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.train-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.train-lbl {
+  font-weight: 700;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.train-lbl-v {
+  display: inline-block;
+  min-width: 1.4em;
+  text-align: center;
+  color: var(--accent);
+  font-weight: 800;
+}
+.train-seg {
+  flex: 1 1 auto;
+  max-width: 320px;
+}
+/* Stepper: − [fill bar] + */
+.train-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  max-width: 220px;
+}
+.step-btn {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.step-btn:hover {
+  border-color: var(--accent);
+}
+.step-track {
+  flex: 1 1 auto;
+  height: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.step-fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--accent), #ffe487);
+  transition: width 0.12s ease;
+}
+/* Toggle row (rules) */
+.train-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.train-toggle .tt-ico {
+  font-size: 1.25rem;
+  flex: none;
+}
+.train-toggle .tt-text {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+.train-toggle .tt-text small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.train-toggle .tt-switch {
+  flex: none;
+  width: 42px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  position: relative;
+  transition: background 0.14s ease;
+}
+.train-toggle .tt-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.14s ease;
+}
+.train-toggle.on {
+  border-color: rgba(57, 255, 155, 0.5);
+  background: rgba(57, 255, 155, 0.08);
+}
+.train-toggle.on .tt-switch {
+  background: #39ff9b;
+}
+.train-toggle.on .tt-switch::after {
+  transform: translateX(18px);
+}
+/* Loadout utility chips */
+.train-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.train-chip {
+  width: auto;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.train-chip.on {
+  border-color: var(--accent);
+  background: rgba(255, 204, 51, 0.14);
+  color: var(--accent);
+}
+.train-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
   .train-modes { grid-template-columns: 1fr; }
+  .train-grid { grid-template-columns: 1fr; }
+  .train-seg, .train-step { max-width: none; }
 }
 
 /* Friends */
