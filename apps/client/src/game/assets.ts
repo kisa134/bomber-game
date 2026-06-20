@@ -33,6 +33,11 @@ export const SPRITE_FILES: Record<string, string> = {
   skin3: "/sprites/skin_3",
   skin4: "/sprites/skin_4",
   skin5: "/sprites/skin_5",
+  skin6: "/sprites/skin_6",
+  skin7: "/sprites/skin_7",
+  skin8: "/sprites/skin_8",
+  skin9: "/sprites/skin_9",
+  skin10: "/sprites/skin_10",
 };
 
 // Image formats tried in order (first that loads wins). PNG support means new
@@ -42,7 +47,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "13";
+export const ASSET_VER = "14";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.
@@ -55,7 +60,7 @@ for (let s = 1; s <= 6; s++) {
 // Directional walk frames (optional): skin<id>_<down|up|side>_<0..2>.
 // "side" is used for right; left is the same sprite mirrored. Missing frames
 // fall back to the static skin sprite, so this is purely additive.
-for (let s = 0; s < 6; s++) {
+for (let s = 0; s < 11; s++) {
   for (const dir of ["down", "up", "side"]) {
     for (let f = 0; f < 3; f++) {
       SPRITE_FILES[`skin${s}_${dir}_${f}`] = `/sprites/skin_${s}_${dir}_${f}`;
@@ -65,7 +70,7 @@ for (let s = 0; s < 6; s++) {
 
 // Action-state frames (optional): skin<id>_<place_bomb|hurt|victory>. Missing
 // ones fall back to the walk/static sprite, so this is purely additive.
-for (let s = 0; s < 6; s++) {
+for (let s = 0; s < 11; s++) {
   for (const st of ["place_bomb", "hurt", "victory"]) {
     SPRITE_FILES[`skin${s}_${st}`] = `/sprites/skin_${s}_${st}`;
   }
