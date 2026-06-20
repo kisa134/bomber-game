@@ -46,6 +46,7 @@ export enum ClientMsg {
   SET_STAKE = 7, // host changes the table's stake (lobby only)
   PROPOSE_STAKE = 8, // any player proposes raising the stake (lobby only)
   VOTE_STAKE = 9, // accept/decline an active stake proposal
+  KICK = 10, // host removes a player from the lobby
 }
 
 /** Server -> Client message ids. */
@@ -65,6 +66,7 @@ export enum ServerMsg {
   EVENT_EMOTE = 22, // a player sent a quick reaction
   EVENT_CALLOUT = 23, // big announcement (e.g. first blood) tied to a player
   STAKE_VOTE = 24, // an active stake-raise proposal + its live vote tally
+  KICKED = 25, // you were removed from the lobby (by host, or for being AFK)
 }
 
 /** Big mid-screen announcements broadcast by the server. */
@@ -237,6 +239,11 @@ export interface EmoteEventMsg {
   emote: number; // index into EMOTES
 }
 
+export interface KickedMsg {
+  type: ServerMsg.KICKED;
+  reason: number; // 0 = removed by host, 1 = dropped for not readying in time
+}
+
 export type ServerMessage =
   | WelcomeMsg
   | Snapshot
@@ -252,4 +259,5 @@ export type ServerMessage =
   | MatchSeedMsg
   | EmoteEventMsg
   | CalloutEvent
-  | StakeVoteEvent;
+  | StakeVoteEvent
+  | KickedMsg;

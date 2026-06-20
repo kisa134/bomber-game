@@ -31,6 +31,11 @@ let onOpenProfile: (p: CardPlayer) => void = () => {};
 export function setProfileHandler(fn: (p: CardPlayer) => void): void {
   onOpenProfile = fn;
 }
+/** Host-only "kick this player" action (wired from main → net.sendKick). */
+let onKick: (playerId: number) => void = () => {};
+export function setKickHandler(fn: (playerId: number) => void): void {
+  onKick = fn;
+}
 function usdSuffix(tokens: number): string {
   if (!tokenUsd || tokens <= 0) return "";
   const v = tokens * tokenUsd;
@@ -343,6 +348,18 @@ export function renderRoom(state: GameState): void {
     ready.textContent = p.ready ? "✅ READY" : "…";
     ready.style.marginLeft = state.hostId === p.id ? "8px" : "auto";
     li.appendChild(ready);
+    // Host can remove anyone but themselves.
+    if (state.isHost && p.id !== state.hostId) {
+      const kick = document.createElement("button");
+      kick.className = "kick-btn";
+      kick.textContent = "✕";
+      kick.title = "Kick player";
+      kick.addEventListener("click", (e) => {
+        e.stopPropagation(); // don't also open the player card
+        onKick(p.id);
+      });
+      li.appendChild(kick);
+    }
     list.appendChild(li);
   }
 
@@ -353,7 +370,11 @@ export function renderRoom(state: GameState): void {
   const readyCount = state.roomPlayers.filter((p) => p.ready).length;
   const status = document.getElementById("room-status")!;
   const allReady = count >= MIN_PLAYERS_TO_START && readyCount === count;
-  if (count < MIN_PLAYERS_TO_START) {
+  const cdLeft = Math.ceil(state.lobbyCountdownLeft() / 1000);
+  if (cdLeft > 0 && !allReady) {
+    // Enough players are ready — counting down; stragglers get dropped at zero.
+    status.textContent = `⏱ Starting in ${cdLeft}s — ready up or you'll be dropped!`;
+  } else if (count < MIN_PLAYERS_TO_START) {
     status.textContent = `Waiting for players… ${count}/${MAX_PLAYERS_PER_ROOM}`;
   } else if (allReady) {
     status.textContent = `All ready — starting!`;

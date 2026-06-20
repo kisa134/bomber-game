@@ -60,7 +60,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setWalletState } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setWalletState } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
@@ -379,6 +379,14 @@ net.onMessage = (msg) => {
       } else {
         announceResult(msg.winnerId);
       }
+      break;
+    case ServerMsg.KICKED:
+      leaveToMenu();
+      setMenuStatus(
+        msg.reason === 1
+          ? "⏱ Match started without you — you weren't ready in time"
+          : "👢 The host removed you from the lobby",
+      );
       break;
     case ServerMsg.PONG:
       state.pingMs = Math.round(performance.now() - msg.timestamp);
@@ -1862,6 +1870,14 @@ wireWallet();
 wireMenuLinks();
 wireBank();
 setProfileHandler((p) => openPlayerCard(p));
+setKickHandler((playerId) => net.sendKick(playerId));
+// While the lobby ready-countdown is running, refresh the waiting room once a
+// second so the "Starting in Ns" ticks down (the server broadcasts it once).
+setInterval(() => {
+  if (state.lobbyCountdownLeft() > 0 && !document.getElementById("room")?.classList.contains("hidden")) {
+    renderRoom(state);
+  }
+}, 1000);
 // Finish a Phantom deeplink flow if we just returned from one (Telegram only).
 if (isTelegram) {
   void resumeTelegramWallet({

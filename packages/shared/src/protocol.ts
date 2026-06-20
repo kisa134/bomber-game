@@ -26,6 +26,7 @@ import {
   type KillEvent,
   type PickupEvent,
   type MatchEndMsg,
+  type KickedMsg,
   type PongMsg,
   type EmoteEventMsg,
   type CalloutEvent,
@@ -108,6 +109,10 @@ export function encodeVoteStake(accept: boolean): Uint8Array {
   return new Uint8Array([ClientMsg.VOTE_STAKE, accept ? 1 : 0]);
 }
 
+export function encodeKick(targetId: number): Uint8Array {
+  return new Uint8Array([ClientMsg.KICK, targetId & 0xff]);
+}
+
 export type ClientMessage =
   | { type: ClientMsg.INPUT_MOVE; dir: Direction; tick: number }
   | { type: ClientMsg.INPUT_PLACE_BOMB; seq: number }
@@ -117,7 +122,8 @@ export type ClientMessage =
   | { type: ClientMsg.EMOTE; emote: number }
   | { type: ClientMsg.SET_STAKE; stake: number }
   | { type: ClientMsg.PROPOSE_STAKE; stake: number }
-  | { type: ClientMsg.VOTE_STAKE; accept: boolean };
+  | { type: ClientMsg.VOTE_STAKE; accept: boolean }
+  | { type: ClientMsg.KICK; targetId: number };
 
 export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | null {
   const dv = asView(data);
@@ -150,6 +156,9 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
     case ClientMsg.VOTE_STAKE:
       if (dv.byteLength < 2) return null;
       return { type, accept: dv.getUint8(1) !== 0 };
+    case ClientMsg.KICK:
+      if (dv.byteLength < 2) return null;
+      return { type, targetId: dv.getUint8(1) };
     default:
       return null;
   }
@@ -305,6 +314,10 @@ export function encodeMatchEnd(winnerId: number): Uint8Array {
   dv.setUint8(0, ServerMsg.MATCH_END);
   dv.setUint8(1, winnerId);
   return buf;
+}
+
+export function encodeKicked(reason: number): Uint8Array {
+  return new Uint8Array([ServerMsg.KICKED, reason & 0xff]);
 }
 
 export function encodePong(timestamp: number): Uint8Array {
@@ -514,6 +527,10 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
     }
     case ServerMsg.MATCH_END: {
       const msg: MatchEndMsg = { type, winnerId: dv.getUint8(1) };
+      return msg;
+    }
+    case ServerMsg.KICKED: {
+      const msg: KickedMsg = { type, reason: dv.getUint8(1) };
       return msg;
     }
     case ServerMsg.PONG: {

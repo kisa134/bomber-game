@@ -41,6 +41,7 @@ import {
   encodeCallout,
   encodeStakeVote,
   encodeMatchEnd,
+  encodeKicked,
   encodeWelcome,
   encodeRoomInfo,
   encodeEmoteEvent,
@@ -71,6 +72,9 @@ const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
 const RECONNECT_GRACE_MS = 60_000; // hold a dropped player's slot this long
 const REGION = process.env.REGION_ID ?? ""; // scopes crash-refund reconciliation
 const EMOTE_COOLDOWN_MS = 1500; // per-player anti-spam for reactions
+// Once enough players are ready but someone is still stalling, give the
+// straggler(s) this long, then drop them and start so nobody is held hostage.
+const READY_COUNTDOWN_MS = 10_000;
 // (generous: mobile browsers suspend a locked/backgrounded tab, so give it
 // plenty of time to come back before freeing the slot and ending the round)
 
@@ -109,7 +113,7 @@ export class Room {
   private simTick = 0; // authoritative integer tick, drives input consumption
   hostId = -1;
   private lobbyCounting = false;
-  private lobbyCountdownMs = 0;
+  private lobbyCountdownEndMs = 0; // wall-clock deadline for the ready countdown
   private winnerId = DRAW_WINNER_ID;
   private practiceStarted = false; // practice auto-starts once; then by button
   private firstBloodDone = false; // first-blood bonus awarded this match?
@@ -383,6 +387,35 @@ export class Room {
     this.broadcastRoomInfo();
   }
 
+  /** Host removes a player from the lobby. */
+  kick(hostId: number, targetId: number): void {
+    if (this.phase !== MatchPhase.LOBBY) return;
+    if (hostId !== this.hostId || targetId === this.hostId) return;
+    const p = this.players.get(targetId);
+    if (!p || p.isBot) return;
+    this.removeWithNotice(targetId, 0); // reason 0 = removed by host
+  }
+
+  /** Notify a human they were removed (so their client returns to menu), then
+   *  drop them from the room. reason: 0 = by host, 1 = AFK / not ready in time. */
+  private removeWithNotice(id: number, reason: number): void {
+    const p = this.players.get(id);
+    if (!p || p.isBot) return;
+    try {
+      p.send(encodeKicked(reason));
+    } catch {
+      /* socket already gone */
+    }
+    this.removePlayer(id);
+  }
+
+  /** Human players who have readied up. */
+  private readyHumanCount(): number {
+    let n = 0;
+    for (const p of this.players.values()) if (!p.isBot && p.ready) n++;
+    return n;
+  }
+
   /** Broadcast a quick reaction to everyone in the room (rate-limited). */
   emote(id: number, emote: number): void {
     const p = this.players.get(id);
@@ -470,10 +503,43 @@ export class Room {
       this.startPractice();
       return;
     }
-    // The match starts ONLY when every present player has readied up — no timed
-    // auto-start, no "start because the room is full". This guarantees nobody is
-    // dropped into a match (especially a staked one) without confirming.
-    if (this.allReady()) void this.start();
+    // All present players ready → start immediately.
+    if (this.allReady()) {
+      this.lobbyCounting = false;
+      void this.start();
+      return;
+    }
+    // Otherwise, once enough players are ready but someone is stalling, run a
+    // short countdown; when it expires we drop the not-ready players and start
+    // with the rest — so one AFK player can't hold everyone hostage. Nobody is
+    // ever dropped INTO a match without readying (the opposite: the unready are
+    // removed before start, so staked players are never charged unexpectedly).
+    const ready = this.readyHumanCount();
+    // Only the HOST's stragglers (non-host humans) can be auto-dropped — the host
+    // is in control and is never kicked from their own room.
+    const nonHostStraggler = [...this.players.values()].some(
+      (p) => !p.isBot && !p.ready && p.id !== this.hostId,
+    );
+    const eligible = ready >= MIN_PLAYERS_TO_START && nonHostStraggler;
+    if (eligible) {
+      if (!this.lobbyCounting) {
+        this.lobbyCounting = true;
+        this.lobbyCountdownEndMs = Date.now() + READY_COUNTDOWN_MS;
+        this.broadcastRoomInfo(); // client renders the countdown locally
+      } else if (Date.now() >= this.lobbyCountdownEndMs) {
+        for (const p of [...this.players.values()]) {
+          if (!p.isBot && !p.ready && p.id !== this.hostId) this.removeWithNotice(p.id, 1);
+        }
+        this.lobbyCounting = false;
+        if (this.allReady()) void this.start();
+        else this.broadcastRoomInfo();
+      }
+    } else if (this.lobbyCounting) {
+      // Conditions broke (someone left or un-readied) → cancel the countdown.
+      this.lobbyCounting = false;
+      this.lobbyCountdownEndMs = 0;
+      this.broadcastRoomInfo();
+    }
   }
 
   private setPhase(phase: MatchPhase): void {
@@ -551,7 +617,7 @@ export class Room {
   /** Build and broadcast the live match (stakes already collected by start()). */
   private startNow(): void {
     this.lobbyCounting = false;
-    this.lobbyCountdownMs = 0;
+    this.lobbyCountdownEndMs = 0;
     // Provably-fair: seed the map RNG, commit to its hash now, reveal at the end.
     this.seed = randomBytes(8).toString("hex");
     this.seedCommit = createHash("sha256").update(this.seed).digest("hex");
@@ -596,7 +662,7 @@ export class Room {
     this.world.fire.fill(0);
     this.world.fireOwner.fill(-1);
     this.lobbyCounting = false;
-    this.lobbyCountdownMs = 0;
+    this.lobbyCountdownEndMs = 0;
     this.winnerId = DRAW_WINNER_ID;
     this.broadcast(encodePhase(MatchPhase.LOBBY, 0));
     this.broadcastRoomInfo();
@@ -1172,7 +1238,7 @@ export class Room {
       wins: p.wins,
       wallet: p.wallet ?? "",
     }));
-    const countdown = this.lobbyCounting ? this.lobbyCountdownMs : 0;
+    const countdown = this.lobbyCounting ? Math.max(0, this.lobbyCountdownEndMs - Date.now()) : 0;
     for (const p of this.players.values()) {
       p.send(encodeRoomInfo(this.id, this.hostId, p.id === this.hostId, countdown, this.stake, this.currency, list));
     }

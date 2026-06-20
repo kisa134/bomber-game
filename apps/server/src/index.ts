@@ -1162,6 +1162,8 @@ app.ws<SocketData>("/ws", {
       room.proposeStake(ud.playerId, msg.stake);
     } else if (msg.type === ClientMsg.VOTE_STAKE) {
       room.voteStake(ud.playerId, msg.accept);
+    } else if (msg.type === ClientMsg.KICK) {
+      room.kick(ud.playerId, msg.targetId);
     }
   },
   close: (ws) => {

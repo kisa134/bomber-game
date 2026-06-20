@@ -8,6 +8,7 @@ import {
   encodeRequestStart,
   encodeSetReady,
   encodeEmote,
+  encodeKick,
   encodeSetStake,
   encodeProposeStake,
   encodeVoteStake,
@@ -356,6 +357,10 @@ export class Net {
 
   sendEmote(emote: number): void {
     this.send(encodeEmote(emote));
+  }
+
+  sendKick(targetId: number): void {
+    this.send(encodeKick(targetId));
   }
 
   sendPing(): void {

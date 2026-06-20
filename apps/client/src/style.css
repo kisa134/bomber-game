@@ -971,6 +971,22 @@ button.ghost {
 .players-list .ready-tag.on {
   color: var(--good, #5fd96a);
 }
+.players-list .kick-btn {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  margin-left: 8px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 800;
+  background: rgba(255, 90, 95, 0.12);
+  border: 1px solid rgba(255, 90, 95, 0.45);
+  color: #ff7a7f;
+}
+.players-list .kick-btn:hover {
+  background: rgba(255, 90, 95, 0.25);
+}
 
 /* Emote / reaction bars */
 .emote-bar {
