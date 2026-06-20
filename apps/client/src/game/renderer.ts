@@ -138,6 +138,7 @@ export class Renderer {
   // Foot-shaped blood prints left while walking with bloody feet (x,y in cells; dx,dy = facing).
   private footprints: Array<{ x: number; y: number; dx: number; dy: number; a: number; seed: number }> = [];
   private bones: Array<{ x: number; y: number; seed: number }> = []; // scattered bone-shard decals (x,y in cells)
+  private meat: Array<{ x: number; y: number; seed: number }> = []; // scattered flesh-chunk decals (x,y in cells)
   // Floating reward/event popups that pop in with ease-out-back/elastic, rise, fade.
   private floaters: Array<{ x: number; y: number; text: string; color: string; born: number; big: boolean }> = [];
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
@@ -329,6 +330,7 @@ export class Renderer {
     this.lastCell.clear();
     this.footprints = [];
     this.bones = [];
+    this.meat = [];
     this.floaters = [];
     this.danger = 0;
     this.selfKnown = false;
@@ -488,7 +490,7 @@ export class Renderer {
     const NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
     for (const c of cells) {
       const idx = c.y * GRID_W + c.x;
-      this.burn.set(idx, Math.min(6, (this.burn.get(idx) ?? 0) + 1));
+      this.burn.set(idx, Math.min(6, (this.burn.get(idx) ?? 0) + 2)); // burn harder per blast
       this.scorchDirty = true;
       // A blast doesn't wipe blood — it BAKES it into a dried dark crust, so the
       // field only gets grimier over the match.
@@ -606,16 +608,24 @@ export class Renderer {
         }
       }
     }
-    // Scatter a few persistent bone shards through the gore (random spread/count).
-    const nBones = 2 + ((Math.random() * 4) | 0);
+    // Scatter persistent bone shards + flesh chunks through the gore (random spread).
+    const nBones = 4 + ((Math.random() * 5) | 0); // more bones
     for (let i = 0; i < nBones; i++) {
-      const bx = cx + 0.5 + (Math.random() - 0.5) * 2.6;
-      const by = cy + 0.5 + (Math.random() - 0.5) * 2.6;
+      const bx = cx + 0.5 + (Math.random() - 0.5) * 2.8;
+      const by = cy + 0.5 + (Math.random() - 0.5) * 2.8;
       if (bx < 0.2 || by < 0.2 || bx > GRID_W - 0.2 || by > GRID_H - 0.2) continue;
       this.bones.push({ x: bx, y: by, seed: (Math.random() * 0xffffffff) >>> 0 });
     }
-    if (this.bones.length > 80) this.bones.splice(0, this.bones.length - 80);
-    this.bloodDirty = true; // bones live in the cached blood overlay
+    const nMeat = 3 + ((Math.random() * 4) | 0);
+    for (let i = 0; i < nMeat; i++) {
+      const mx = cx + 0.5 + (Math.random() - 0.5) * 2.4;
+      const my = cy + 0.5 + (Math.random() - 0.5) * 2.4;
+      if (mx < 0.2 || my < 0.2 || mx > GRID_W - 0.2 || my > GRID_H - 0.2) continue;
+      this.meat.push({ x: mx, y: my, seed: (Math.random() * 0xffffffff) >>> 0 });
+    }
+    if (this.bones.length > 130) this.bones.splice(0, this.bones.length - 130);
+    if (this.meat.length > 110) this.meat.splice(0, this.meat.length - 110);
+    this.bloodDirty = true; // bones + meat live in the cached blood overlay
     if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
@@ -724,9 +734,65 @@ export class Renderer {
       }
     }
     for (const fp of this.footprints) this.drawFoot(g, fp, pu); // foot-shaped smears on top
-    for (const b of this.bones) this.drawBone(g, b, pu); // scattered bone shards on top
+    for (const mt of this.meat) this.drawMeat(g, mt, pu); // flesh chunks
+    for (const b of this.bones) this.drawBone(g, b, pu); // bone shards on top
     g.globalAlpha = 1;
     this.bloodCanvas = cv;
+  }
+
+  /** Boot bones/meat lying on `cell` aside when a player runs over them — they
+   *  scatter away from the player (like an accidental kick) + a little chip flies. */
+  private kickGibs(cell: number, fromX: number, fromY: number): void {
+    const t2 = this.tile;
+    const px = fromX + 0.5, py = fromY + 0.5;
+    let kicked = false;
+    const boot = (arr: Array<{ x: number; y: number; seed: number }>, chip: string): void => {
+      for (const o of arr) {
+        if (((o.y | 0) * GRID_W + (o.x | 0)) !== cell) continue;
+        let dx = o.x - px, dy = o.y - py;
+        const d = Math.hypot(dx, dy) || 1;
+        dx /= d; dy /= d;
+        const dist = 0.35 + Math.random() * 0.7;
+        o.x = Math.max(0.2, Math.min(GRID_W - 0.2, o.x + dx * dist + (Math.random() - 0.5) * 0.3));
+        o.y = Math.max(0.2, Math.min(GRID_H - 0.2, o.y + dy * dist + (Math.random() - 0.5) * 0.3));
+        kicked = true;
+        if (!this.lowFx) {
+          this.push({
+            x: o.x, y: o.y, vx: dx * (2 + Math.random() * 2), vy: dy * (1.5 + Math.random() * 1.5) - 1.5,
+            life: 0.35 + Math.random() * 0.25, max: 0.6, gravity: 16, drag: 0.95,
+            size: t2 * (0.04 + Math.random() * 0.04), color: chip, shape: "rect",
+            rot: Math.random() * 3, spin: (Math.random() - 0.5) * 14,
+          });
+        }
+      }
+    };
+    boot(this.bones, "#ece4cf");
+    boot(this.meat, "#9c1414");
+    if (kicked) this.bloodDirty = true;
+  }
+
+  /** A small scattered flesh chunk: a dark-red irregular blob with a pink highlight
+   *  and a soft shadow. Lives in the cached blood overlay. */
+  private drawMeat(g: CanvasRenderingContext2D, m: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const cx = m.x * t, cy = m.y * t;
+    let s = m.seed >>> 0;
+    const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
+    const rx = t * (0.05 + rnd() * 0.045), ry = t * (0.04 + rnd() * 0.04);
+    g.globalAlpha = 0.22; // soft shadow
+    g.fillStyle = "#000000";
+    for (let yy = -ry; yy <= ry; yy += pu) for (let xx = -rx; xx <= rx; xx += pu) {
+      if ((xx * xx) / (rx * rx) + (yy * yy) / (ry * ry) > 1) continue;
+      g.fillRect(Math.round((cx + xx + pu) / pu) * pu, Math.round((cy + yy + pu) / pu) * pu, pu, pu);
+    }
+    g.globalAlpha = 1;
+    const base = 90 + (s % 50);
+    for (let yy = -ry; yy <= ry; yy += pu) for (let xx = -rx; xx <= rx; xx += pu) {
+      if ((xx * xx) / (rx * rx) + (yy * yy) / (ry * ry) > 1) continue;
+      const top = yy < -ry * 0.2; // lighter pink on the upper face
+      g.fillStyle = top ? `rgb(${base + 70},${(base * 0.5) | 0},${(base * 0.5) | 0})` : `rgb(${base},${(base * 0.22) | 0},${(base * 0.2) | 0})`;
+      g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + yy) / pu) * pu, pu, pu);
+    }
   }
 
   /** A small scattered bone shard: a bone-white shaft with knobby ends and a soft
@@ -746,17 +812,15 @@ export class Renderer {
       g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
     }
     g.globalAlpha = 1;
-    for (let aa = -len; aa <= len; aa += pu) { // shaft with a darker lower edge
-      for (let bb = -pu; bb <= pu; bb += pu) {
-        const wx = px + ux * aa + vx * bb, wy = py + uy * aa + vy * bb;
-        g.fillStyle = bb > 0 ? "#b8ad92" : "#ece4cf";
-        g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
-      }
+    for (let aa = -len; aa <= len; aa += pu) { // thin 1px shaft
+      const wx = px + ux * aa, wy = py + uy * aa;
+      g.fillStyle = "#ece4cf";
+      g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
     }
-    g.fillStyle = "#f2ecda"; // knobby bone ends
+    g.fillStyle = "#f2ecda"; // small knobby bone ends
     for (const e of [-1, 1]) {
-      const wx = px + ux * len * e * 1.05, wy = py + uy * len * e * 1.05;
-      g.fillRect(Math.round(wx / pu) * pu - pu, Math.round(wy / pu) * pu - pu, pu * 2, pu * 2);
+      const wx = px + ux * len * e * 1.08, wy = py + uy * len * e * 1.08;
+      g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu - pu, pu, pu * 2);
     }
   }
 
@@ -858,15 +922,24 @@ export class Renderer {
         ctx.fillRect(Math.round((dx - (w + pu) / 2) / pu) * pu, Math.round((top + len) / pu) * pu, w + pu, pu * 2);
       }
     }
-    // Occasionally a droplet pinches off a drip and falls (the slow "drip").
+    // A droplet pinches off a drip and falls — more active now, and it POOLS on the
+    // free ground cell in front of the block (not off the bottom of the screen).
     if (!this.lowFx && now > m.nextDrip) {
-      m.nextDrip = now + 1600 + Math.random() * 3400;
-      const dx = cxp + (Math.random() - 0.5) * t * 0.6;
-      this.push({
-        x: dx / t, y: (py + t * 0.74) / t, vx: 0, vy: 0.35,
-        life: 0.7 + Math.random() * 0.4, max: 1.1, gravity: 9, drag: 0.99,
-        size: pu * 1.5, shape: "rect", color: reds[1],
-      });
+      m.nextDrip = now + 800 + Math.random() * 1600; // drips more often
+      const drops = 1 + (Math.random() < 0.5 ? 1 : 0);
+      for (let d = 0; d < drops; d++) {
+        const dx = cxp + (Math.random() - 0.5) * t * 0.7;
+        this.push({
+          x: dx / t, y: (py + t * 0.74) / t, vx: (Math.random() - 0.5) * 0.4, vy: 0.45,
+          life: 0.6 + Math.random() * 0.4, max: 1.0, gravity: 12, drag: 0.99,
+          size: pu * (1.3 + Math.random() * 1.2), shape: "rect", color: reds[1 + ((Math.random() * 4) | 0)],
+        });
+      }
+      // Pool the blood onto the free GROUND cell directly in front (below) the block.
+      const below = index + GRID_W;
+      if (below < GRID_W * GRID_H && this.prevGrid && this.prevGrid[below] !== TileType.HARD && this.prevGrid[below] !== TileType.SOFT) {
+        this.markGround(below, 1);
+      }
     }
   }
 
@@ -1197,6 +1270,7 @@ export class Renderer {
         const prevCi = this.lastCell.get(p.id);
         if (ci !== prevCi) {
           this.lastCell.set(p.id, ci);
+          this.kickGibs(ci, rp.x, rp.y); // boot any bones/meat on this cell aside
           let mdx = 0, mdy = 0; // travel direction (from the previous cell)
           if (prevCi !== undefined) { mdx = (ci % GRID_W) - (prevCi % GRID_W); mdy = ((ci / GRID_W) | 0) - ((prevCi / GRID_W) | 0); }
           if ((this.bloodGround.get(ci) ?? 0) >= 3) this.bloodyFeet.set(p.id, 12); // stepped in a pool -> long bloody trail
@@ -1899,25 +1973,27 @@ export class Renderer {
       seed = ((seed ^ (seed >>> 13)) * 1274126177) >>> 0;
       return (seed & 1023) / 1023;
     };
-    const greens = ["#4b8a30", "#5aa53c", "#43802c", "#67bb46"];
+    // Natural palette: several greens incl. lighter/yellower shades, picked PER
+    // BLADE (not per tile) so a patch has subtle colour variety.
+    const greens = ["#4b8a30", "#5aa53c", "#43802c", "#67bb46", "#7cc24e", "#3a6f24", "#8bcf57", "#5f9e38"];
     const wind = Math.sin(now / 620 + x * 0.55 + y * 0.3);
-    // Body blades across the tile.
-    for (let i = 0; i < 22; i++) {
+    // Body blades across the tile — denser, with varied lengths.
+    for (let i = 0; i < 27; i++) {
       const bx = px + Math.floor(rnd() * (t - pu));
       const by = py + Math.floor(rnd() * (t - pu * 3));
-      const hgt = pu * (2 + Math.floor(rnd() * 2));
+      const hgt = pu * (2 + Math.floor(rnd() * 4)); // varied height 2..5
       const sway = Math.round(wind * pu * (0.6 + rnd() * 0.8));
-      ctx.fillStyle = greens[(seed >> 3) & 3];
+      ctx.fillStyle = greens[(rnd() * greens.length) | 0];
       ctx.fillRect(bx, by, pu, hgt); // stalk
       ctx.fillRect(bx + sway, by - pu, pu, pu); // swaying tip
     }
     // A few tall front blades whose tips poke ABOVE the tile (drawn after blocks,
     // so they overlap onto the block above → depth/3D).
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 7; i++) {
       const bx = px + Math.floor(rnd() * (t - pu));
-      const top = py - pu * (1 + Math.floor(rnd() * 2));
+      const top = py - pu * (1 + Math.floor(rnd() * 3));
       const sway = Math.round(wind * pu * 1.3);
-      ctx.fillStyle = greens[(seed >> 5) & 3];
+      ctx.fillStyle = greens[(rnd() * greens.length) | 0];
       ctx.fillRect(bx + sway, top, pu, pu * 3);
     }
   }
