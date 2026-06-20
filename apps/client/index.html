@@ -520,20 +520,29 @@
         </div>
       </section>
 
-      <!-- Result -->
+      <!-- Result — full-screen post-match screen (hero · rewards · standings) -->
       <section id="result" class="screen hidden">
-        <div class="panel">
-          <h2 id="result-title"></h2>
-          <p id="result-chips" class="prof-chips"></p>
-          <ol id="result-board" class="result-board"></ol>
-          <p class="status">rematch in the lobby with the same players</p>
-          <p id="result-fair" class="status fair"></p>
-          <button id="result-lobby" class="primary">↩ Back to lobby</button>
-          <div class="result-actions">
-            <button id="result-share" class="ghost">🐦 Share</button>
-            <button id="result-invite" class="ghost">👥 Invite friends</button>
+        <div class="result-wrap">
+          <div id="result-hero" class="result-hero">
+            <h2 id="result-title" class="result-title"></h2>
+            <div id="result-place" class="result-place"></div>
           </div>
-          <button id="result-leave" class="ghost">Leave to menu</button>
+          <div id="result-rewards" class="result-rewards"></div>
+          <div id="result-prog" class="result-prog-wrap hidden"></div>
+          <div class="result-card">
+            <div class="result-card-h">🏆 Standings</div>
+            <ol id="result-board" class="result-board"></ol>
+          </div>
+          <p id="result-fair" class="status fair"></p>
+          <div class="result-actions-bar">
+            <button id="result-lobby" class="primary big">↩ Back to lobby</button>
+            <div class="result-actions">
+              <button id="result-setup" class="ghost hidden">⚙ Change setup</button>
+              <button id="result-share" class="ghost">📸 Share</button>
+              <button id="result-invite" class="ghost">👥 Invite friends</button>
+            </div>
+            <button id="result-leave" class="ghost result-leave-btn">Leave to menu</button>
+          </div>
         </div>
       </section>
       <!-- Public player profile (opened from the leaderboard, scoreboard, …) -->

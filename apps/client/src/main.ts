@@ -98,6 +98,7 @@ let currentTrack: "lobby" | "battle" = "lobby";
 let lastGoodNick = ""; // last accepted unique nickname (to revert on a clash)
 let lastCountSec = -1;
 let practiceMode = false; // current room is practice vs bots (drives "Play again")
+let practiceCompetitive = false; // practice sub-mode: competitive bots (tiny rewards) vs sandbox (none)
 let goUntil = 0;
 let prevPlayerCount = 0;
 
@@ -603,18 +604,111 @@ function announceResult(winnerId: number): void {
   }
   announceTimer = setTimeout(() => {
     announceTimer = null;
-    showResult(title);
-    const lobbyBtn = document.getElementById("result-lobby")!;
-    lobbyBtn.textContent = practiceMode ? "🔁 Play again" : "↩ Back to lobby";
-    // Use the players captured at MATCH_END (not state.latest(), which a new
-    // match may have overwritten) so placement/frags reflect THIS match.
-    renderResultBoard(winnerId, finalPlayers);
-    const fair = document.getElementById("result-fair")!;
-    fair.textContent =
-      state.seed && state.seedCommit
-        ? `🔒 provably fair · seed ${state.seed.slice(0, 10)}… · commit ${state.seedCommit.slice(0, 8)}…`
-        : "";
+    renderResultScreen(winnerId, finalPlayers, title);
   }, 3000); // linger on the battlefield (corpses + blood) before the scoreboard
+}
+
+/** Count a number up to its final value (a little dopamine on the reward). */
+function animateCount(elx: HTMLElement, to: number, from = 0, ms = 700): void {
+  const t0 = performance.now();
+  const step = (now: number): void => {
+    const k = Math.min(1, (now - t0) / ms);
+    const eased = 1 - Math.pow(1 - k, 3);
+    elx.textContent = Math.round(from + (to - from) * eased).toLocaleString();
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/** Compose the full post-match screen: hero · rewards · progression · standings,
+ *  with mode-specific actions (bots vs PvP). */
+function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive: boolean; frags: number }[], title: string): void {
+  showResult(title);
+  const won = !!lastMatch?.won;
+  const draw = !!lastMatch?.draw;
+  const frags = lastMatch?.frags ?? 0;
+
+  // Hero mood (drives the celebratory glow).
+  const hero = document.getElementById("result-hero");
+  hero?.classList.toggle("win", won);
+  hero?.classList.toggle("lose", !won && !draw);
+  hero?.classList.toggle("draw", draw);
+
+  // Placement (1st / Nth / Draw) from the final ranking.
+  const ranked = [...finalPlayers].sort((a, b) => {
+    if (a.id === winnerId) return -1;
+    if (b.id === winnerId) return 1;
+    return Number(b.alive) - Number(a.alive) || b.frags - a.frags;
+  });
+  const myPlace = ranked.findIndex((p) => p.id === state.myId) + 1;
+  const placeEl = document.getElementById("result-place");
+  if (placeEl) {
+    placeEl.textContent = draw
+      ? "Match drawn"
+      : won
+        ? "🥇 1st place"
+        : myPlace > 0
+          ? `#${myPlace} of ${ranked.length}`
+          : "";
+  }
+
+  // Reward strip. Bots: honest "practice" / "tiny" note; PvP: winnings + rating.
+  const rew = document.getElementById("result-rewards");
+  if (rew) {
+    rew.innerHTML = "";
+    const chip = (label: string, val: string, cls = ""): HTMLElement => {
+      const c = el("div", `result-rew ${cls}`, "");
+      c.append(el("span", "result-rew-v", val), el("span", "result-rew-l", label));
+      return c;
+    };
+    rew.append(chip("Frags", `⚔️ ${frags}`));
+    if (practiceMode) {
+      rew.append(
+        practiceCompetitive
+          ? chip("Reward", "🟢 tiny XP + 🪙", "tiny")
+          : chip("Reward", "⚪ practice", "none"),
+      );
+    } else {
+      rew.append(chip("Match", lastMatch?.earnText || "—", "earn"));
+      const delta = lastMatch?.ratingDelta ?? 0;
+      const ratingChip = chip("Rating", "", delta > 0 ? "up" : delta < 0 ? "down" : "");
+      const v = ratingChip.querySelector(".result-rew-v") as HTMLElement;
+      const deltaTag = delta ? ` (${delta > 0 ? "+" : ""}${delta})` : "";
+      v.innerHTML = `📈 <span class="rt-num"></span><span class="rt-delta">${deltaTag}</span>`;
+      rew.append(ratingChip);
+      animateCount(v.querySelector(".rt-num") as HTMLElement, lastRating, lastRating - delta, 800);
+    }
+  }
+
+  // Progression toward the next league (PvP only — bots don't move rating).
+  const progWrap = document.getElementById("result-prog");
+  if (progWrap) {
+    if (!practiceMode) {
+      const pr = leagueProgress(lastRating);
+      progWrap.classList.remove("hidden");
+      progWrap.innerHTML =
+        `<div class="result-prog"><div class="result-progfill" style="width:${pr.pct}%"></div></div>` +
+        `<div class="prof-sub">${pr.label}</div>`;
+    } else {
+      progWrap.classList.add("hidden");
+    }
+  }
+
+  renderResultBoard(winnerId, finalPlayers);
+
+  // Mode-specific actions: bots = replay/setup; PvP = lobby/invite/share.
+  const lobbyBtn = document.getElementById("result-lobby")!;
+  lobbyBtn.textContent = practiceMode ? "🔁 Play again" : "↩ Back to lobby";
+  document.getElementById("result-setup")?.classList.toggle("hidden", !practiceMode);
+  document.getElementById("result-invite")?.classList.toggle("hidden", practiceMode);
+  const leave = document.getElementById("result-leave");
+  if (leave) leave.textContent = practiceMode ? "Leave to menu" : "Leave to menu";
+
+  const fair = document.getElementById("result-fair")!;
+  fair.textContent =
+    state.seed && state.seedCommit
+      ? `🔒 provably fair · seed ${state.seed.slice(0, 10)}… · commit ${state.seedCommit.slice(0, 8)}…`
+      : "";
 }
 
 /** Final scoreboard on the result screen: placement, frags, your row marked.
@@ -2636,6 +2730,7 @@ setupMenu({
   },
   practice: (c, difficulty, bots, competitive, sandbox) => {
     practiceMode = true;
+    practiceCompetitive = competitive;
     track("play_start", { mode: competitive ? "competitive_bots" : "sandbox", difficulty, bots });
     // The match auto-starts; the COUNTDOWN phase switches to the game screen.
     connect(() => practiceRoom(c.name, c.skin, difficulty, bots, competitive, competitive ? null : sandbox));
@@ -2885,6 +2980,11 @@ function leaveToMenu(): void {
 }
 document.getElementById("leave-room")!.addEventListener("click", leaveToMenu);
 document.getElementById("result-leave")!.addEventListener("click", leaveToMenu);
+// "Change setup" (bots only): leave the practice room and reopen Training Setup.
+document.getElementById("result-setup")?.addEventListener("click", () => {
+  leaveToMenu();
+  showScreen("training");
+});
 // In-game leave: forfeits the round. Confirm only when chips are on the line.
 document.getElementById("game-leave")!.addEventListener("click", () => {
   if (state.roomStake > 0 && !confirm("Leave the match? You forfeit your stake.")) return;
