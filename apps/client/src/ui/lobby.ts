@@ -3,7 +3,7 @@ import { ASSET_VER } from "../game/assets.js";
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, MATCH_LENGTH_MS } from "../net/protocol.js";
 
 /** Character names by skin index — verified against the actual sprites. */
-const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Wojak", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad"];
+const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad"];
 const skinName = (skin: number): string => SKIN_NAMES[skin] ?? `Fighter ${skin + 1}`;
 
 // Character stage: cycle the walk frames so the picked skin "runs on the spot"
