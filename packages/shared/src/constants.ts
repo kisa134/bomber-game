@@ -82,9 +82,9 @@ export const CHIPS_WIN_REWARD = 100; // winner of a free match
 export const CHIPS_PLAY_REWARD = 20; // everyone else who finished
 
 // --- Skins (cosmetic; unlocked with chips) ---------------------------------
-export const SKIN_COUNT = 4; // pepe, doge, elon, trump
+export const SKIN_COUNT = 6; // shiba, pepe, fox/trump, wojak/elon, doge, pump mascot
 // Price per skin index in chips. 0 = free/owned by default.
-export const SKIN_PRICES = [0, 500, 1500, 3000] as const;
+export const SKIN_PRICES = [0, 500, 1500, 3000, 2500, 4000] as const;
 // Bitmask of skins every wallet owns from the start (skin 0).
 export const DEFAULT_SKINS = 0b0001;
 

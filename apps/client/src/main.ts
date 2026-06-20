@@ -1481,7 +1481,7 @@ function openPlayerCard(p: { wallet?: string | null; name: string; skin: number 
 
 // --- skin shop ------------------------------------------------------------
 
-const SKIN_NAMES = ["Doge", "Pepe", "Fox", "Wojak"];
+const SKIN_NAMES = ["Shiba", "Pepe", "Fox", "Wojak", "Doge", "Pump"];
 
 async function refreshSkinShop(): Promise<void> {
   const grid = document.getElementById("skin-grid")!;
