@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { TICK_MS, BotDifficulty, Currency, MatchPhase } from "@bomberpump/shared";
 import { Room } from "./room.js";
+import { alert } from "./alert.js";
 import type { SendFn } from "./player.js";
 
 interface Pending {
@@ -39,6 +40,7 @@ export class Matchmaker {
   private acc = 0;
   private tickEmaMs = 0; // EMA of one full-tick (all rooms) duration
   private tickPeakMs = 0; // slowly-decaying peak tick duration
+  private reconnectSweep = 0; // ticks since the last stale-reconnect-token prune
 
   /** Join (or open) a public room at the given stake (0 = casual). */
   quickplay(name: string, skin: number, wallet: string | null, stake = 0): { code: string; token: string } {
@@ -263,10 +265,35 @@ export class Matchmaker {
       if (now - p.createdAt > TOKEN_TTL_MS) this.pending.delete(token);
     }
     for (const [id, room] of this.rooms) {
-      room.tick();
+      try {
+        room.tick();
+      } catch (e) {
+        // One room throwing must NEVER stall the shared 60Hz loop for everyone.
+        // Quarantine it: best-effort refund of any escrowed pot, then drop it.
+        console.error("[loop] room.tick threw — quarantining room", id, e);
+        alert(`room ${id} crashed in tick() — quarantined (${(e as Error)?.message ?? e})`);
+        try {
+          void room.refundActivePot();
+        } catch {
+          /* best-effort */
+        }
+        room.cleanupReconnect(this.reconnects);
+        this.rooms.delete(id);
+        continue;
+      }
       if (room.dead) {
         room.cleanupReconnect(this.reconnects);
         this.rooms.delete(id);
+      }
+    }
+    // Periodically prune reconnect tokens whose room is gone or whose player has
+    // left a still-living room — otherwise long-lived public rooms leak a token
+    // for every player who ever passed through. (~every 10s at 60Hz.)
+    if (++this.reconnectSweep >= 600) {
+      this.reconnectSweep = 0;
+      for (const [rt, e] of this.reconnects) {
+        const room = this.rooms.get(e.roomId);
+        if (!room || !room.hasPlayer(e.playerId)) this.reconnects.delete(rt);
       }
     }
     const dur = performance.now() - t0;

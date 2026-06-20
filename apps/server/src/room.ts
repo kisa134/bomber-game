@@ -303,6 +303,11 @@ export class Room {
     for (const [rt, e] of map) if (e.roomId === this.id) map.delete(rt);
   }
 
+  /** Whether a player id is still seated (used to prune stale reconnect tokens). */
+  hasPlayer(id: number): boolean {
+    return this.players.has(id);
+  }
+
   // -- input ----------------------------------------------------------------
 
   setMove(id: number, dir: Direction, tick: number): void {
@@ -518,15 +523,24 @@ export class Room {
         return;
       }
       // Persist the escrow so a hard crash (SIGKILL/host) can refund it on boot.
+      // If it can't be durably recorded, abort & refund — never run a staked
+      // match whose escrow isn't recoverable.
       if (this.pot > 0) {
         this.matchId = `${this.id}:${Date.now()}`;
         const amount = this.stakeBase();
-        await store.recordOpenStakes(
+        const persisted = await store.recordOpenStakes(
           this.matchId,
           REGION,
           this.currency,
           this.contributors.map((wallet) => ({ wallet, amount })),
         );
+        if (!persisted) {
+          alert(`ESCROW PERSIST FAILED (room ${this.id}) — refunding & aborting match start`);
+          await this.refundContributors();
+          for (const p of this.players.values()) if (!p.isBot) p.ready = false;
+          this.broadcastRoomInfo();
+          return;
+        }
       }
       this.startNow();
     } finally {
@@ -833,7 +847,7 @@ export class Room {
       this.setPhase(MatchPhase.END);
       this.broadcast(encodeMatchEnd(this.winnerId));
       this.broadcast(encodeMatchSeed(this.seedCommit, this.seed)); // reveal
-      this.settlePot(winner ?? null);
+      void this.settlePot(winner ?? null);
       this.recordStats();
       this.awardPlayRewards();
       analytics.matchCompleted({
@@ -1023,43 +1037,67 @@ export class Room {
   }
 
   /** Pay the pot to the winner (minus the house rake); refund contributors on a
-   *  draw / no eligible winner. */
-  private settlePot(winner: Player | null): void {
-    this.lastContributors = [...this.contributors]; // snapshot for metrics (counted on a real win below)
+   *  draw / no eligible winner. Async + awaited internally so the durable
+   *  open-stakes safety net is only cleared AFTER the money is confirmed moved —
+   *  a failed payout/refund keeps the net so a reboot can recover the funds. */
+  private async settlePot(winner: Player | null): Promise<void> {
     if (this.pot <= 0) {
       this.lastContributors = [];
       this.pot = 0;
       this.contributors = [];
       return;
     }
-    if (winner && !winner.isBot && winner.wallet) {
-      const rakeBp = Number(process.env.HOUSE_RAKE_BP ?? HOUSE_RAKE_BP) || 0;
-      const rake = Math.floor((this.pot * rakeBp) / 10000);
-      const payout = this.pot - rake;
-      const w = winner.wallet;
-      void this.adjustBalance(w, payout).then((r) => {
-        // Winner payout must not silently fail — that's owed money.
-        if (r === null) alert(`PAYOUT FAILED: ${payout} to ${shortWallet(w)} (room ${this.id}) — owed, settle manually`);
-      });
-      // Lifetime winnings for the earnings leaderboards (token or chips pot).
-      void store.recordWinnings(w, this.currency, payout);
-      // Multi-level referral rewards come OUT of the house rake — token matches
-      // only (rewards are paid in tokens). Each staker's chain gets a slice of
-      // the rake their stake produced. Fully guarded inside the helper.
-      if (this.currency === Currency.TOKEN && rakeBp > 0) {
-        const perStakeRake = Math.floor((this.stakeBase() * rakeBp) / 10000);
-        for (const wallet of this.contributors) void distributeReferralRewards(wallet, perStakeRake);
-      }
-    } else {
-      const refund = this.stakeBase();
-      for (const wallet of this.contributors) void this.adjustBalance(wallet, refund);
-    }
+    // Snapshot, then reset the in-memory pot up-front (before any await) so a
+    // subsequent lobby tick / new match can never double-settle this pot.
+    const contributors = [...this.contributors];
+    const matchId = this.matchId;
     this.pot = 0;
     this.contributors = [];
-    if (this.matchId) {
-      void store.clearOpenStakes(this.matchId); // settled — no longer at risk
-      this.matchId = "";
+
+    if (winner && !winner.isBot && winner.wallet) {
+      this.lastContributors = contributors; // paid volume counted only on a real win
+      const rakeBp = Number(process.env.HOUSE_RAKE_BP ?? HOUSE_RAKE_BP) || 0;
+      const rake = Math.floor((this.potSnapshot(contributors) * rakeBp) / 10000);
+      const payout = this.potSnapshot(contributors) - rake;
+      const w = winner.wallet;
+      const credited = await this.adjustBalance(w, payout);
+      if (credited === null) {
+        // Owed money — DON'T clear the safety net; a reboot will refund stakers.
+        alert(`PAYOUT FAILED: ${payout} to ${shortWallet(w)} (room ${this.id}) — open-stakes kept for recovery`);
+        return;
+      }
+      // Lifetime winnings for the earnings leaderboards (token or chips pot).
+      await store.recordWinnings(w, this.currency, payout);
+      // Multi-level referral rewards come OUT of the house rake — token matches
+      // only. Each staker's chain gets a slice of the rake their stake produced.
+      if (this.currency === Currency.TOKEN && rakeBp > 0) {
+        const perStakeRake = Math.floor((this.stakeBase() * rakeBp) / 10000);
+        for (const wallet of contributors) void distributeReferralRewards(wallet, perStakeRake);
+      }
+    } else {
+      this.lastContributors = [];
+      const refund = this.stakeBase();
+      let allRefunded = true;
+      for (const wallet of contributors) {
+        const r = await this.adjustBalance(wallet, refund);
+        if (r === null) {
+          allRefunded = false;
+          alert(`REFUND FAILED: ${refund} to ${shortWallet(wallet)} (room ${this.id}) — settle manually`);
+        }
+      }
+      if (!allRefunded) return; // keep the net; failed refunds get manual/reboot recovery
     }
+    // Money settled — now it's safe to drop the durable open-stakes record.
+    if (matchId) {
+      await store.clearOpenStakes(matchId);
+      if (this.matchId === matchId) this.matchId = "";
+    }
+  }
+
+  /** Pot value reconstructed from the snapshotted contributors (pot is already
+   *  zeroed in settlePot before the first await). */
+  private potSnapshot(contributors: string[]): number {
+    return this.stakeBase() * contributors.length;
   }
 
   /** First blood (first player-on-player wound of the match): big callout + an

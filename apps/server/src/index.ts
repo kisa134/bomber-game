@@ -176,14 +176,45 @@ function writeCors(res: uWS.HttpResponse): void {
   for (const [k, v] of Object.entries(CORS)) res.writeHeader(k, v);
 }
 
+// Tracks whether the client aborted/closed the request, so we never write to a
+// dead uWS response after an `await` (that's a hard native crash, not catchable).
+type ResWithAbort = uWS.HttpResponse & { aborted?: boolean };
+
+// Hard cap on request body size. Our largest JSON payload is a few hundred
+// bytes; 16 KB is generous. Without this, a single large/slow POST buffers
+// unbounded into heap and can OOM the whole process (one instance = all matches).
+const MAX_BODY_BYTES = 16 * 1024;
+
 function readBody(res: uWS.HttpResponse): Promise<string> {
   return new Promise((resolve) => {
-    let buf = "";
+    const chunks: Buffer[] = [];
+    let size = 0;
+    let done = false;
+    const finish = (v: string): void => {
+      if (!done) {
+        done = true;
+        resolve(v);
+      }
+    };
     res.onData((chunk, isLast) => {
-      buf += Buffer.from(chunk).toString();
-      if (isLast) resolve(buf);
+      size += chunk.byteLength;
+      if (size > MAX_BODY_BYTES) {
+        (res as ResWithAbort).aborted = true; // make any later sendJson() a no-op
+        try {
+          res.close();
+        } catch {
+          /* already gone */
+        }
+        finish("");
+        return;
+      }
+      chunks.push(Buffer.from(chunk));
+      if (isLast) finish(Buffer.concat(chunks).toString());
     });
-    res.onAborted(() => resolve(""));
+    res.onAborted(() => {
+      (res as ResWithAbort).aborted = true;
+      finish("");
+    });
   });
 }
 
@@ -541,7 +572,7 @@ app.post("/deposit/claim", (res, req) => {
     }
     const r = await claimBySignature(sig, wallet);
     sendJson(res, r);
-  });
+  }).catch(() => sendJson(res, { ok: false, reason: "server_error" }, "500 Internal Server Error"));
 });
 
 // Cash out: sign tokens out of the treasury to the player's wallet.
@@ -607,7 +638,7 @@ app.post("/shop/buy-skin", (res, req) => {
     // Buying also equips it.
     await store.selectSkin(wallet, skin);
     sendJson(res, { chips: result.chips, skins: result.skins, skin });
-  });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 
 app.post("/shop/select-skin", (res, req) => {
@@ -619,7 +650,7 @@ app.post("/shop/select-skin", (res, req) => {
     const sel = await store.selectSkin(wallet, skin);
     if (sel === null) return sendJson(res, { error: "not_owned" }, "403 Forbidden");
     sendJson(res, { skin: sel });
-  });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 
 // Claim a globally-unique nickname for the signed-in wallet.
@@ -640,7 +671,7 @@ app.post("/profile/name", (res, req) => {
     const ok = await store.setName(wallet, name);
     if (!ok) return sendJson(res, { error: "name_taken" }, "409 Conflict");
     sendJson(res, { ok: true, name });
-  });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 
 // --- referral ---
@@ -762,21 +793,29 @@ async function parseBody(res: uWS.HttpResponse): Promise<Body> {
 }
 
 function sendJson(res: uWS.HttpResponse, obj: unknown, status?: string): void {
+  if ((res as ResWithAbort).aborted) return; // client already gone — don't touch the socket
   const body = JSON.stringify(obj);
-  // uWS wants all response writes inside a corked callback (one syscall).
-  res.cork(() => {
-    // writeStatus() must come before any writeHeader().
-    if (status) res.writeStatus(status);
-    writeCors(res);
-    res.writeHeader("Content-Type", "application/json");
-    res.end(body);
-  });
+  try {
+    // uWS wants all response writes inside a corked callback (one syscall).
+    res.cork(() => {
+      if ((res as ResWithAbort).aborted) return;
+      // writeStatus() must come before any writeHeader().
+      if (status) res.writeStatus(status);
+      writeCors(res);
+      res.writeHeader("Content-Type", "application/json");
+      res.end(body);
+    });
+  } catch {
+    /* socket was torn down between the check and the write — nothing to do */
+  }
 }
 
 /** Sets up a rate-limited handler. Returns false if the request was rejected. */
 function guard(res: uWS.HttpResponse, req: uWS.HttpRequest): boolean {
   const ip = clientIp(res, req);
-  res.onAborted(() => {});
+  res.onAborted(() => {
+    (res as ResWithAbort).aborted = true;
+  });
   if (!httpAllow(ip)) {
     sendJson(res, { error: "rate_limited" }, "429 Too Many Requests");
     return false;

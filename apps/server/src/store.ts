@@ -5,6 +5,7 @@
 
 import pg from "pg";
 import { STARTING_CHIPS, STARTING_RATING, DEFAULT_SKINS, eloDeltas } from "@bomberpump/shared";
+import { alert } from "./alert.js";
 
 export interface Profile {
   wallet: string;
@@ -103,13 +104,15 @@ export interface ProfileStore {
    *  balance and the lifetime `referral_earned` counter. */
   creditReferral(wallet: string, amount: number): Promise<void>;
   /** Persist the stakes escrowed for a live staked match, so a hard crash
-   *  (SIGKILL/host failure) can refund them on the next boot. */
+   *  (SIGKILL/host failure) can refund them on the next boot. Returns false if
+   *  the escrow could NOT be durably recorded — the caller must abort the match
+   *  and refund, never run a staked match whose escrow isn't persisted. */
   recordOpenStakes(
     matchId: string,
     region: string,
     currency: number,
     entries: Array<{ wallet: string; amount: number }>,
-  ): Promise<void>;
+  ): Promise<boolean>;
   /** Clear a match's open stakes once it has settled or been refunded. */
   clearOpenStakes(matchId: string): Promise<void>;
   /** Boot reconciliation: atomically take (delete + return) all open stakes for
@@ -335,8 +338,9 @@ class InMemoryStore implements ProfileStore {
     _region: string,
     currency: number,
     entries: Array<{ wallet: string; amount: number }>,
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (entries.length) this.openStakes.set(matchId, entries.map((e) => ({ ...e, currency })));
+    return true;
   }
   async clearOpenStakes(matchId: string): Promise<void> {
     this.openStakes.delete(matchId);
@@ -657,7 +661,9 @@ class SupabaseStore implements ProfileStore {
 
   // Open-stakes persistence is a Postgres-only feature; production requires
   // Postgres (preflight), so these are no-ops here.
-  async recordOpenStakes(): Promise<void> {}
+  async recordOpenStakes(): Promise<boolean> {
+    return true;
+  }
   async clearOpenStakes(): Promise<void> {}
   async takeOpenStakes(): Promise<Array<{ wallet: string; amount: number; currency: number }>> {
     return [];
@@ -842,25 +848,43 @@ class PostgresStore implements ProfileStore {
       )`);
     await this.pool.query(`create index if not exists open_stakes_region on open_stakes (region)`);
     await this.pool.query(`create index if not exists open_stakes_match on open_stakes (match_id)`);
+    // Hot leaderboard reads — avoid full-scan+sort as the table grows at launch.
+    await this.pool.query(`create index if not exists profiles_rating on profiles (rating desc)`);
+    await this.pool.query(
+      `create index if not exists profiles_tokens_won on profiles (tokens_won desc) where tokens_won > 0`,
+    );
+    await this.pool.query(
+      `create index if not exists profiles_chips_won on profiles (chips_won desc) where chips_won > 0`,
+    );
+    // Speeds the case-insensitive nickname lookup used by the uniqueness check.
+    // NOTE: not UNIQUE yet — enforcing it needs a one-time de-dup of any existing
+    // collisions first, or the index build would fail and break boot. Tracked as
+    // a follow-up; setName/ensureProfile already guard with a NOT EXISTS check.
+    await this.pool.query(`create index if not exists profiles_name_lower on profiles (lower(name)) where name <> ''`);
   }
 
   async recordMatch(results: MatchResult[]): Promise<void> {
+    if (!results.length) return;
+    const client = await this.pool.connect();
     try {
       await this.ready;
       // Read current ratings so the Elo swing uses pre-match values for everyone.
       const wallets = results.map((r) => r.wallet);
-      const cur = await this.pool.query(
+      const cur = await client.query(
         `select wallet, rating from profiles where wallet = any($1)`,
         [wallets],
       );
       const ratingMap = new Map<string, number>(cur.rows.map((row) => [row.wallet, row.rating]));
       const deltas = ratingDeltas(results, (w) => ratingMap.get(w) ?? STARTING_RATING);
       const week = isoWeekKey();
+      // Elo is zero-sum across the match — apply every player's row atomically so
+      // a mid-loop failure can never leave ratings half-applied/corrupted.
+      await client.query("begin");
       for (const r of results) {
         const xp = xpForMatch(r);
         const dRating = deltas.get(r.wallet) ?? 0;
         const wkPts = weekPointsFor(r);
-        await this.pool.query(
+        await client.query(
           `insert into profiles (wallet,name,skin,xp,matches,wins,frags,deaths,current_streak,best_streak,level,rating,week_key,week_points,updated_at)
            values ($1,$2,$3,$4,1, case when $5 then 1 else 0 end, $6,$7, case when $5 then 1 else 0 end, case when $5 then 1 else 0 end, 1 + ($4/200), greatest(0, ${STARTING_RATING} + $8), $9, $10, now())
            on conflict (wallet) do update set
@@ -880,8 +904,13 @@ class PostgresStore implements ProfileStore {
           [r.wallet, r.name, r.skin, xp, r.won, r.frags, r.deaths, dRating, week, wkPts],
         );
       }
+      await client.query("commit");
     } catch (e) {
+      await client.query("rollback").catch(() => {});
       console.error("[store] pg recordMatch failed", e);
+      alert(`recordMatch failed — match stats/rating not saved (${(e as Error)?.message ?? e})`);
+    } finally {
+      client.release();
     }
   }
 
@@ -993,7 +1022,12 @@ class PostgresStore implements ProfileStore {
   async adjustChips(wallet: string, delta: number): Promise<number | null> {
     try {
       await this.ready;
-      // Atomic + overdraw-safe: the row only updates if the result stays >= 0.
+      // Ensure the row exists first (a credit/refund to a never-seen wallet must
+      // not silently no-op), then atomically move the balance (overdraw-safe).
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
       const res = await this.pool.query(
         `update profiles set chips = chips + $2, updated_at=now()
          where wallet=$1 and chips + $2 >= 0 returning chips`,
@@ -1164,8 +1198,8 @@ class PostgresStore implements ProfileStore {
     region: string,
     currency: number,
     entries: Array<{ wallet: string; amount: number }>,
-  ): Promise<void> {
-    if (!entries.length) return;
+  ): Promise<boolean> {
+    if (!entries.length) return true;
     try {
       await this.ready;
       // One multi-row insert.
@@ -1180,8 +1214,10 @@ class PostgresStore implements ProfileStore {
         `insert into open_stakes (match_id, wallet, amount, currency, region) values ${vals.join(",")}`,
         args,
       );
+      return true;
     } catch (e) {
       console.error("[store] pg recordOpenStakes failed", e);
+      return false; // caller must abort the match — escrow not durably recorded
     }
   }
 
