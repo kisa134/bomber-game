@@ -2542,42 +2542,12 @@ function wireMenuLinks(): void {
 
 // --- background video -----------------------------------------------------
 
-/** Boomerang (ping-pong) loop: play forward to the end, then reverse back to the
- *  start, forever. Native `loop` only jump-cuts to 0; gamebg.mp4 isn't a baked
- *  boomerang, so we drive the reverse leg manually. */
-function makeBoomerang(v: HTMLVideoElement): void {
-  v.loop = false; // we wrap it ourselves
-  let reversing = false;
-  let prev = 0;
-  const reverseStep = (t: number) => {
-    if (!reversing) return; // aborted (e.g. showScreen resumed forward)
-    const dt = prev ? (t - prev) / 1000 : 0;
-    prev = t;
-    v.currentTime = Math.max(0, v.currentTime - dt);
-    if (v.currentTime <= 0.03) {
-      reversing = false;
-      void v.play(); // resume forward from the start
-      return;
-    }
-    requestAnimationFrame(reverseStep);
-  };
-  v.addEventListener("timeupdate", () => {
-    if (!reversing && v.duration && v.currentTime >= v.duration - 0.08) {
-      reversing = true;
-      prev = 0;
-      v.pause();
-      requestAnimationFrame(reverseStep);
-    }
-  });
-  v.addEventListener("play", () => { reversing = false; }); // a forward resume cancels reverse
-}
-
 function setupBackground(): void {
   const v = document.getElementById("bg-video") as HTMLVideoElement;
-  // Global app background = gamebg.mp4, looped as a boomerang (forward ⇄ reverse).
-  // ?v= busts the cache when the file is replaced under the same name. A gradient
-  // shows underneath until the first frame is ready (no poster — gamebg differs
-  // from the old menu first-frame).
+  // Global app background = gamebg.mp4. The file is baked as a boomerang
+  // (forward + reversed), so the element's native `loop` gives a smooth ping-pong
+  // (no laggy JS reverse-seek). ?v= busts the cache when the file is replaced
+  // under the same name; a gradient shows until the first frame is ready.
   const sources = [`/bg/gamebg.mp4?v=${ASSET_VER}`];
   let i = 0;
   const tryNext = () => {
@@ -2586,7 +2556,6 @@ function setupBackground(): void {
   };
   v.addEventListener("canplay", () => v.classList.add("ready"));
   v.addEventListener("error", tryNext);
-  makeBoomerang(v);
   tryNext();
 
   // The OLD menu video is the backdrop for the splash entry screen only.
