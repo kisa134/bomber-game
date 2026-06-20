@@ -1150,8 +1150,34 @@ export class Renderer {
         ctx.fillRect(Math.round((ex - pu) / pu) * pu, Math.round((ey - pu) / pu) * pu, pu * 2, pu * 2);
       }
     }
-    // (No procedural front-face "drip" lines any more — blocks get baked blood
-    // sprites on desktop; this fallback is just top spatter + spines.)
+    // FRONT-face drips: blood oozes DOWN the front face over time, bead-headed runs,
+    // varied per block, staying within the block. NO pool forms on the ground below.
+    const frontStrong = m.dirs & BF_S ? 1 : 0.55;
+    const wantDrips = (m.dirs & BF_S) !== 0 || sv > 0.5;
+    const drips = wantDrips ? Math.max(1, Math.round((1 + n * 1.1) * (0.5 + frontStrong) * (0.6 + sv * 0.6))) : 0;
+    const now = performance.now();
+    for (let d = 0; d < drips; d++) {
+      const dx = cxp + (rnd() - 0.5) * t * 0.66;
+      const top = py + t * 0.36; // start at the top/front-face boundary
+      const maxLen = t * (0.16 + rnd() * 0.4 * frontStrong); // stays within the front face
+      const delay = rnd() * 700, grow = 1400 + rnd() * 1500;
+      const prog = Math.max(0, Math.min(1, (now - m.born - delay) / grow));
+      const len = maxLen * (1 - (1 - prog) * (1 - prog)); // ease-out grow
+      const w = pu * (1 + Math.floor(rnd() * 1.3));
+      ctx.fillStyle = reds[1 + ((rnd() * 3) | 0)];
+      for (let y = 0; y < len; y += pu) { // thin at top, a touch wider toward the bottom
+        const ww = Math.max(pu, Math.round((w * (0.5 + 0.5 * (y / Math.max(pu, len)))) / pu) * pu);
+        ctx.fillRect(Math.round((dx - ww / 2) / pu) * pu, Math.round((top + y) / pu) * pu, ww, pu);
+      }
+      if (len > pu * 2) { // heavy rounded bead at the bottom of the run
+        ctx.fillStyle = reds[0];
+        const bw = w + pu, bh = pu * 1.4;
+        for (let yy = -pu; yy <= bh; yy += pu) for (let xx = -bw; xx <= bw; xx += pu) {
+          if ((xx * xx) / (bw * bw) + (yy * yy) / (bh * bh) > 1) continue;
+          ctx.fillRect(Math.round((dx + xx) / pu) * pu, Math.round((top + len + yy) / pu) * pu, pu, pu);
+        }
+      }
+    }
   }
 
   /** FIRST BLOOD announcement (first kill of the match). Builds the chunky pixel
@@ -2047,8 +2073,8 @@ export class Renderer {
             this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
             if (dmg > 0) this.drawCracks(px, py, index);
           }
-          if (bm) this.drawBlockBlood(px, py, index); // phones / sprite-missing fallback
         }
+        if (bm) this.drawBlockBlood(px, py, index); // dynamic splatter + drips ON TOP of the block
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       }
@@ -2062,8 +2088,8 @@ export class Renderer {
           ((this.lowFx && this.drawTileSprite("soft_mobile", px, py)) ||
             this.drawTileSprite("soft", px, py) ||
             this.drawSoft(px, py));
-          if (sm) this.drawBlockBlood(px, py, index); // phones / sprite-missing fallback
         }
+        if (sm) this.drawBlockBlood(px, py, index); // dynamic splatter + drips ON TOP of the block
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       }
