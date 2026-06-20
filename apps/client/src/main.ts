@@ -1044,6 +1044,13 @@ function frame(): void {
   }
   updateDebug();
 
+  // Outside a live match (menu/lobby), kill the bomb sub-bass + round-end Shepard
+  // so they never hum into the menu (updateHud, which drives them, isn't called there).
+  if (!(inGame(state.phase) || state.phase === MatchPhase.END)) {
+    assets.subBass(0);
+    assets.shepard(0);
+  }
+
   if (renderer && (inGame(state.phase) || state.phase === MatchPhase.END)) {
     // Rollback prediction for the local player: advance + send tick-stamped
     // inputs, then render the predicted head over the interpolated view.

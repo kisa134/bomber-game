@@ -706,8 +706,8 @@ export class Assets {
     this.subMaster.gain.value = 0;
     this.subMaster.connect(ctx.destination);
     this.subOsc = [];
-    // 20 Hz fundamental + 40/60 Hz harmonics so it's FELT on subs and faintly heard on laptops.
-    [[20, 1], [40, 0.45], [60, 0.22]].forEach(([f, gain]) => {
+    // 20 Hz fundamental + quiet harmonics — felt more than heard (was too loud).
+    [[20, 1], [40, 0.28], [60, 0.1]].forEach(([f, gain]) => {
       const o = ctx.createOscillator();
       o.type = "sine";
       o.frequency.value = f;
@@ -726,7 +726,7 @@ export class Assets {
     const ctx = this.audioCtx;
     const throb = 0.72 + 0.28 * Math.sin(((performance.now() - this.subStart) / 1000) * 3.2 * Math.PI * 2); // ~3.2 Hz tick
     this.subLevel += (this.subTarget - this.subLevel) * 0.05;
-    this.subMaster.gain.setValueAtTime(this.subLevel * 0.4 * throb, ctx.currentTime);
+    this.subMaster.gain.setValueAtTime(this.subLevel * 0.2 * throb, ctx.currentTime);
     if (this.subTarget <= 0 && this.subLevel < 0.01) {
       this.stopSub();
       return;
