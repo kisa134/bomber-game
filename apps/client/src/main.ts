@@ -1933,7 +1933,12 @@ setKickHandler((playerId) => net.sendKick(playerId));
 function cycleSkin(delta: number): void {
   const me = state.roomPlayers.find((p) => p.id === state.myId);
   if (!me) return;
-  net.sendSkin((me.skin + delta + SKIN_COUNT) % SKIN_COUNT);
+  const next = (me.skin + delta + SKIN_COUNT) % SKIN_COUNT;
+  net.sendSkin(next); // change it for this match (server dedupes)
+  // Also remember it as your default character, so the hub Loadout + future
+  // matches use the same pick (the two selection points stay in sync).
+  localStorage.setItem("bp_skin", String(next));
+  refreshHub();
 }
 document.getElementById("skin-prev")?.addEventListener("click", () => cycleSkin(-1));
 document.getElementById("skin-next")?.addEventListener("click", () => cycleSkin(1));
