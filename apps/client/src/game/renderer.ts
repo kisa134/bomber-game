@@ -787,64 +787,45 @@ export class Renderer {
     if (!g) return;
     g.clearRect(0, 0, W, H);
     const t = this.tile;
-    const pu = Math.max(1, Math.round(t / 22));
-
-    // Per-cell intensities form a continuous field — we bilinearly interpolate them
-    // so blood reads as ONE organic spread that falls off from the epicentre (where
-    // intensity is highest) to thin ragged traces, crossing tile borders smoothly.
-    let minX = GRID_W, minY = GRID_H, maxX = -1, maxY = -1;
-    for (const idx of this.bloodGround.keys()) {
-      const cx = idx % GRID_W, cy = (idx / GRID_W) | 0;
-      if (cx < minX) minX = cx; if (cx > maxX) maxX = cx;
-      if (cy < minY) minY = cy; if (cy > maxY) maxY = cy;
-    }
-    if (maxX >= 0) {
-      minX = Math.max(0, minX - 1); minY = Math.max(0, minY - 1);
-      maxX = Math.min(GRID_W - 1, maxX + 1); maxY = Math.min(GRID_H - 1, maxY + 1);
-      const cellI = (cx: number, cy: number): number => (cx < 0 || cy < 0 || cx >= GRID_W || cy >= GRID_H) ? 0 : (this.bloodGround.get(cy * GRID_W + cx) ?? 0);
-      const bakeI = (cx: number, cy: number): number => (cx < 0 || cy < 0 || cx >= GRID_W || cy >= GRID_H) ? 0 : (this.bakedBlood.get(cy * GRID_W + cx) ?? 0);
-      const x1 = (maxX + 1) * t, y1 = (maxY + 1) * t;
-      for (let gy = minY * t; gy < y1; gy += pu) {
-        const fy = gy / t - 0.5, cy0 = Math.floor(fy), ty = fy - cy0;
-        for (let gx = minX * t; gx < x1; gx += pu) {
-          const fx = gx / t - 0.5, cx0 = Math.floor(fx), tx = fx - cx0;
-          // bilinear intensity (smooth radial falloff from the epicentre)
-          const i00 = cellI(cx0, cy0), i10 = cellI(cx0 + 1, cy0), i01 = cellI(cx0, cy0 + 1), i11 = cellI(cx0 + 1, cy0 + 1);
-          const inten = (i00 * (1 - tx) + i10 * tx) * (1 - ty) + (i01 * (1 - tx) + i11 * tx) * ty;
-          if (inten < 1.1) continue; // higher threshold -> clean grass BETWEEN pools (no red carpet)
-          const norm = Math.min(1, inten / 6); // 0..1 (1 = epicentre)
-          // global continuous noise (absolute coords) -> organic breakup, no tile repeat
-          let cn = (((gx / (pu * 3)) | 0) * 374761393 ^ ((gy / (pu * 3)) | 0) * 668265263) >>> 0; cn = ((cn ^ (cn >>> 13)) * 1274126177) >>> 0; const coarse = (cn & 1023) / 1023;
-          let fn = (gx * 73856093 ^ gy * 19349663) >>> 0; fn = ((fn ^ (fn >>> 13)) * 1274126177) >>> 0; const fine = (fn & 1023) / 1023;
-          const bk = Math.max(bakeI(cx0, cy0), bakeI(cx0 + 1, cy0), bakeI(cx0, cy0 + 1), bakeI(cx0 + 1, cy0 + 1));
-          // coverage: fresh blood falls off with intensity; CHARRED blood is dense
-          // (the burn fills the cell), so it reads as a solid scorched-black patch.
-          const cov = bk > 0 ? Math.min(1, 0.5 + 0.45 * coarse) : norm * norm * (0.5 + 0.9 * coarse); // norm² -> concentrated near the epicentre, sparse at edges
-          if (fine > cov) continue;
-          if (bk > 0) { // baked: dark crust -> charcoal/black with the odd ember
-            const darken = 1 - (bk - 1) * 0.46; // 1.0 / 0.54 / 0.08
-            g.globalAlpha = Math.min(0.96, 0.55 + norm * 0.4);
-            if (bk >= 3 && (fn & 13) === 0) g.fillStyle = `rgb(${80 + (fn % 70)},${16 + (fn % 18)},5)`; // ember
-            else { const br = Math.max(3, ((14 + (fn % 32)) * darken) | 0); g.fillStyle = `rgb(${br},${(br * (0.38 - (bk - 1) * 0.13)) | 0},${(br * 0.2) | 0})`; }
-          } else { // fresh: a deep MEATY dark-red pool at the epicentre, varied tones,
-            // thinning to lighter transparent traces outward.
-            g.globalAlpha = Math.min(0.95, 0.35 + norm * 0.6);
-            const tone = (fn >> 7) & 7;
-            if (tone === 7 && norm > 0.65 && (fn & 15) < 2) {
-              g.fillStyle = `rgb(${150 + (fn % 45)},${52 + (fn % 30)},50)`; // rare wet glint at the pool core
+    const pu = Math.max(1, Math.round(t / 24)); // grass-fine pixels
+    // PER-CELL render (reverted from the continuous field): each blood cell is drawn
+    // on its own, so empty cells stay clean — distinct pools, no map-wide red carpet.
+    for (const [idx, lvl] of this.bloodGround) {
+      const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
+      let s = (idx * 2654435761) >>> 0;
+      s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0;
+      const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh, 1 crust, 2 darker, 3 charcoal
+      const baked = bakeLvl > 0;
+      const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14);
+      g.globalAlpha = Math.min(0.95, (baked ? 0.6 : 0.5) + lvl * 0.08);
+      const NB = pu * 4; // coarse noise block -> irregular outline/holes
+      for (let gy = 0; gy < t; gy += pu) {
+        for (let gx = 0; gx < t; gx += pu) {
+          const qx = (gx / NB) | 0, qy = (gy / NB) | 0;
+          let n = (idx * 374761 + qx * 2654435761 + qy * 40503) >>> 0;
+          n = (n ^ (n << 13)) >>> 0; n = (n ^ (n >>> 17)) >>> 0; n = (n ^ (n << 5)) >>> 0;
+          const cn = (n & 1023) / 1023;
+          let f = (idx * 97 + gx * 131 + gy * 923) >>> 0;
+          f = (f ^ (f << 13)) >>> 0; f = (f ^ (f >>> 17)) >>> 0; f = (f ^ (f << 5)) >>> 0;
+          const localCover = cover * ((baked ? 0.6 : 0.45) + cn * 1.15);
+          if ((f & 1023) / 1023 > Math.min(1, localCover)) continue;
+          if (baked) {
+            const darken = 1 - (bakeLvl - 1) * 0.42;
+            if (bakeLvl >= 3 && (f & 15) === 0) g.fillStyle = `rgb(${90 + (f % 60)},${18 + (f % 18)},6)`;
+            else { const br = ((22 + (f % 44)) * darken) | 0; g.fillStyle = `rgb(${br},${(br * (0.4 - (bakeLvl - 1) * 0.12)) | 0},${(br * 0.22) | 0})`; }
+          } else {
+            const ndx = (gx + pu / 2 - t / 2) / (t / 2), ndy = (gy + pu / 2 - t / 2) / (t / 2);
+            const dc = Math.min(1, Math.sqrt(ndx * ndx + ndy * ndy));
+            const tone = (f >> 7) & 7;
+            if (tone >= 6 && (f & 7) < 2 && dc < 0.6 && lvl >= 4) {
+              g.fillStyle = `rgb(${190 + (f % 60)},${70 + (f % 40)},${68 + (f % 40)})`;
             } else {
-              // darker palette: mostly near-black clots / dark maroon, a few mid reds.
-              let base: number;
-              if (tone <= 1) base = 14 + (fn % 16);        // near-black clot
-              else if (tone <= 4) base = 26 + (fn % 24);   // very dark maroon (most of it)
-              else if (tone === 7) base = 74 + (fn % 40);  // occasional brighter fleck
-              else base = 40 + (fn % 38);                  // mid dark red
-              const rr = Math.max(7, (base * (0.42 + 0.58 * (1 - norm * 0.8))) | 0); // darkest/meatiest at the centre
-              const gtone = 0.07 + ((fn >> 4) & 3) * 0.025; // subtle green variation for richness
-              g.fillStyle = `rgb(${rr},${(rr * gtone) | 0},${(rr * 0.06) | 0})`;
+              let r = tone === 0 ? 26 + (f % 26) : tone >= 6 ? 130 + (f % 70) : 60 + (f % 70);
+              r = (r * (0.5 + 0.5 * dc)) | 0;
+              g.fillStyle = `rgb(${r},${(r * 0.1) | 0},${(r * 0.08) | 0})`;
             }
           }
-          g.fillRect(gx, gy, pu, pu);
+          g.fillRect(ox + gx, oy + gy, pu, pu);
         }
       }
     }
@@ -2177,16 +2158,16 @@ export class Renderer {
           bg.globalCompositeOperation = "lighter"; // additive shine over the icon
           // glossy specular
           const hg = bg.createRadialGradient(t * 0.35, t * 0.3, 0, t * 0.35, t * 0.3, t * 0.2);
-          hg.addColorStop(0, `rgba(255,255,255,${0.38 * pulse})`);
+          hg.addColorStop(0, `rgba(255,255,255,${0.16 * pulse})`); // gentle wet glint, not a blowout
           hg.addColorStop(1, "rgba(255,255,255,0)");
           bg.fillStyle = hg; bg.fillRect(0, 0, t, t);
-          // diagonal metallic sheen — fast back-and-forth (ping-pong), bright, NARROW.
+          // diagonal metallic sheen — fast back-and-forth (ping-pong), a soft glint, NARROW.
           const sweep = 0.5 + 0.5 * Math.sin(now / 600 + (x * 0.27 + y * 0.19) * 6);
           const sxc = -t * 0.4 + sweep * (t * 1.8); // tighter travel range
           const bw = t * 0.11; // narrow band
           const sg = bg.createLinearGradient(sxc - bw, 0, sxc + bw, t);
           sg.addColorStop(0, "rgba(255,255,255,0)");
-          sg.addColorStop(0.5, "rgba(255,255,255,0.65)");
+          sg.addColorStop(0.5, "rgba(255,255,255,0.3)"); // dimmer -> shine, doesn't wash the icon white
           sg.addColorStop(1, "rgba(255,255,255,0)");
           bg.fillStyle = sg; bg.fillRect(0, 0, t, t);
           bg.globalCompositeOperation = "destination-in"; // clip the shine to the icon shape
