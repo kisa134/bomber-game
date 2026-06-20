@@ -3676,15 +3676,19 @@ button.big {
   font-size: 0.74rem;
   color: var(--muted);
 }
-/* Zone grid */
-.prof-zones {
+/* Two packed columns under the full-width rank card (each column stacks its
+   own cards, so there are no ragged gaps between mismatched heights). */
+.prof-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
   align-items: start;
 }
-.prof-zones .prof-card:first-child {
-  grid-column: 1 / -1; /* progression spans full width on top */
+.prof-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
 }
 .prof-card {
   background: rgba(255, 255, 255, 0.035);
@@ -3828,7 +3832,7 @@ button.big {
   gap: 8px;
 }
 @media (max-width: 760px) {
-  .prof-zones {
+  .prof-cols {
     grid-template-columns: 1fr;
   }
   .prof-hero {

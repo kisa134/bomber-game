@@ -1645,8 +1645,6 @@ async function openProfile(): Promise<void> {
       r.append(el("span", "prof-row-l", label), el("b", "prof-row-v", val));
       return r;
     };
-    const zones = el("div", "prof-zones", "");
-
     // Rank ladder (competitive progression) — full width, primary.
     const rankCard = card("🏆 Rank");
     const pr = leagueProgress(p.rating);
@@ -1658,7 +1656,7 @@ async function openProfile(): Promise<void> {
     rankCard.appendChild(head);
     rankCard.appendChild(buildRankLadder(p.rating));
     rankCard.appendChild(el("div", "prof-sub", pr.label));
-    zones.appendChild(rankCard);
+    body.append(rankCard); // full width on its own row
 
     // Account level / XP (separate, calmer progression).
     const lvlCard = card("📊 Account level");
@@ -1668,7 +1666,6 @@ async function openProfile(): Promise<void> {
     xpfill.style.width = `${Math.max(3, Math.min(100, (((p.xp ?? 0) % 200) / 200) * 100))}%`;
     xpbar.appendChild(xpfill);
     lvlCard.appendChild(xpbar);
-    zones.appendChild(lvlCard);
 
     // Career stats
     const stats = card("⚔️ Career stats");
@@ -1683,7 +1680,6 @@ async function openProfile(): Promise<void> {
       profCell("⏱ Time", formatPlaytime(p.playtime_sec)),
     );
     stats.appendChild(sgrid);
-    zones.appendChild(stats);
 
     // Account / economy
     const acct = card("💰 Account");
@@ -1693,9 +1689,15 @@ async function openProfile(): Promise<void> {
       row("🏆 Won 💎", tokWon.toLocaleString(undefined, { maximumFractionDigits: 2 })),
       row("🏆 Won 🪙", (p.chips_won ?? 0).toLocaleString()),
     );
-    zones.appendChild(acct);
 
-    body.append(zones);
+    // Two packed columns (no ragged gaps): left = stats, right = level + account.
+    const cols = el("div", "prof-cols", "");
+    const leftCol = el("div", "prof-col", "");
+    const rightCol = el("div", "prof-col", "");
+    leftCol.append(stats);
+    rightCol.append(lvlCard, acct);
+    cols.append(leftCol, rightCol);
+    body.append(cols);
   } catch {
     body.innerHTML = '<p class="status">Failed to load.</p>';
   }
