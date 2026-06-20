@@ -130,6 +130,8 @@ export class Renderer {
   private bloodBlocks = new Map<number, { dirs: number; seed: number; n: number; born: number; nextDrip: number }>();
   // Persistent blood on the ground (death-cell mush + smeared footprints). cell -> intensity.
   private bloodGround = new Map<number, number>();
+  private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
+  private bloodDirty = false;
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
   private lastCell = new Map<number, number>(); // player id -> last grid cell (footprint stepping)
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
@@ -312,6 +314,8 @@ export class Renderer {
     this.hardDmg.clear();
     this.bloodBlocks.clear();
     this.bloodGround.clear();
+    this.bloodCanvas = null;
+    this.bloodDirty = false;
     this.bloodyFeet.clear();
     this.lastCell.clear();
     this.shatters.length = 0;
@@ -454,25 +458,39 @@ export class Renderer {
     // Persistent blood marks first (cheap, runs on phones too): a thick gory mush
     // that STAYS on the death cell, blood on the floor neighbours, and face-aware
     // blood on adjacent blocks (top splatter + front drips toward the kill).
-    this.markGround(cy * GRID_W + cx, 5); // death cell -> bloody mush
+    this.markGround(cy * GRID_W + cx, 9); // death cell -> the whole tile in thick mush
     const grid = this.prevGrid;
-    const around = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
-    for (const [dx, dy] of around) {
-      const nx = cx + dx, ny = cy + dy;
-      if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
-      const ni = ny * GRID_W + nx;
-      const isBlock = grid && (grid[ni] === TileType.HARD || grid[ni] === TileType.SOFT);
-      if (isBlock) {
-        this.markBlockBlood(ni, -dx, -dy); // the face of the block pointing at the death
-      } else if (Math.random() < 0.6) {
-        this.markGround(ni, dx === 0 || dy === 0 ? 2 : 1); // pooled splatter around
+    // Spread gore over a 5x5 area: 8 direct neighbours fully bloodied (cells AND
+    // blocks), then an outer ring of spray. The kill site is drenched.
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
+        const ni = ny * GRID_W + nx;
+        const ring = Math.max(Math.abs(dx), Math.abs(dy)); // 1 = adjacent, 2 = outer
+        const isBlock = grid && (grid[ni] === TileType.HARD || grid[ni] === TileType.SOFT);
+        if (ring === 1) {
+          if (isBlock) {
+            this.markBlockBlood(ni, -dx, -dy);
+            this.markBlockBlood(ni, -dx, -dy); // doubled -> heavy splatter on the face
+          } else {
+            this.markGround(ni, dx === 0 || dy === 0 ? 4 : 3); // drenched neighbours
+          }
+        } else { // outer ring: scattered spray
+          if (isBlock) {
+            if (Math.random() < 0.5) this.markBlockBlood(ni, -dx, -dy);
+          } else if (Math.random() < 0.7) {
+            this.markGround(ni, 1 + (Math.random() < 0.4 ? 1 : 0));
+          }
+        }
       }
     }
     if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
     const reds = ["#8a0000", "#a30000", "#c81e1e", "#6a0000"];
-    for (let i = 0; i < Math.round(34 * this.fxScale); i++) {
+    for (let i = 0; i < Math.round(50 * this.fxScale); i++) {
       const a = Math.random() * Math.PI * 2;
       const s = 3 + Math.random() * 5.5;
       this.push({
@@ -485,10 +503,10 @@ export class Renderer {
         rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 16,
       });
     }
-    this.burst(cx, cy, "#d61e1e", 18, 4.5); // fine blood spray
-    this.burst(cx, cy, "#7a0000", 10, 3.5); // darker gore spray
-    this.burst(cx, cy, color, 7, 3); // a hint of the player's color
-    this.burst(cx, cy, "#efe6cf", 5, 3); // bone / teeth bits
+    this.burst(cx, cy, "#d61e1e", 26, 5.5); // fine blood spray
+    this.burst(cx, cy, "#7a0000", 16, 4.2); // darker gore spray
+    this.burst(cx, cy, color, 8, 3); // a hint of the player's color
+    this.burst(cx, cy, "#efe6cf", 6, 3.2); // bone / teeth bits
     this.shake(20, 300);
   }
 
@@ -514,39 +532,58 @@ export class Renderer {
   /** Add blood to a floor cell (death-cell mush = big amount; footprints = 1).
    *  Persists for the match and accumulates. */
   private markGround(index: number, amount: number): void {
-    this.bloodGround.set(index, Math.min(7, (this.bloodGround.get(index) ?? 0) + amount));
+    if (index < 0 || index >= GRID_W * GRID_H) return;
+    if (!this.bloodGround.has(index) && this.bloodGround.size > 170) return; // soft cap
+    this.bloodGround.set(index, Math.min(9, (this.bloodGround.get(index) ?? 0) + amount));
+    this.bloodDirty = true;
   }
 
-  /** Draw the persistent ground blood: a thick gory mush where players died and
-   *  faint smeared footprints where bloody feet tracked it around. Fine pixels. */
-  private drawBloodGround(): void {
+  /** Persistent ground blood: thick gory mush where players died (fills the whole
+   *  cell), pooled splatter around, faint smears where bloody feet tracked it.
+   *  Dense grid-fill at grass-fine pixels, cached to a canvas and blitted. */
+  private drawBloodGround(W: number, H: number): void {
     if (!this.bloodGround.size) return;
-    const ctx = this.ctx, t = this.tile;
-    const pu = Math.max(1, Math.round(t / 20));
+    if (this.bloodDirty || !this.bloodCanvas || this.bloodCanvas.width !== W || this.bloodCanvas.height !== H) {
+      this.buildBloodGround(W, H);
+    }
+    if (this.bloodCanvas) this.ctx.drawImage(this.bloodCanvas, 0, 0, W, H);
+  }
+
+  private buildBloodGround(W: number, H: number): void {
+    this.bloodDirty = false;
+    const cv = this.bloodCanvas && this.bloodCanvas.width === W && this.bloodCanvas.height === H
+      ? this.bloodCanvas : document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d");
+    if (!g) return;
+    g.clearRect(0, 0, W, H);
+    const t = this.tile;
+    const pu = Math.max(1, Math.round(t / 24)); // grass-fine pixels (or finer)
     for (const [idx, lvl] of this.bloodGround) {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
-      const R = t * (0.18 + Math.min(0.32, lvl * 0.07)); // bigger pool with more blood
-      const cover = Math.min(0.95, 0.3 + lvl * 0.13);
-      const a = Math.min(0.85, 0.3 + lvl * 0.12);
-      const blobs = 8 + lvl * 9;
+      const reach = Math.min(1.05, 0.42 + lvl * 0.12); // how far from center it spreads (full cell at high lvl)
+      const dens = Math.min(0.99, 0.5 + lvl * 0.11); // center fill density
+      const a = Math.min(0.93, 0.42 + lvl * 0.09);
       let h = (idx * 2654435761) >>> 0;
-      const rnd = (): number => {
-        h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
-        return (h & 0xffff) / 0xffff;
-      };
-      ctx.globalAlpha = a;
-      const cx = ox + t / 2, cy = oy + t / 2;
-      for (let b = 0; b < blobs; b++) {
-        if (rnd() > cover) continue;
-        const ang = rnd() * Math.PI * 2;
-        const dist = Math.pow(rnd(), 0.55) * R;
-        const sz = pu * (1 + Math.floor(rnd() * 2.2));
-        const r = 70 + Math.floor(rnd() * 90); // dark crimson -> brighter flecks
-        ctx.fillStyle = `rgb(${r},${Math.floor(r * 0.1)},${Math.floor(r * 0.08)})`;
-        ctx.fillRect(Math.round((cx + Math.cos(ang) * dist - sz / 2) / pu) * pu, Math.round((cy + Math.sin(ang) * dist - sz / 2) / pu) * pu, sz, sz);
+      g.globalAlpha = a;
+      const half = t * 0.5;
+      for (let gy = 0; gy < t; gy += pu) {
+        const ndy = (gy + pu / 2 - half) / half;
+        for (let gx = 0; gx < t; gx += pu) {
+          const ndx = (gx + pu / 2 - half) / half;
+          const d = Math.sqrt(ndx * ndx + ndy * ndy);
+          if (d > reach) continue;
+          h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
+          const prob = dens * (1 - (d / reach) * 0.5); // denser toward the middle
+          if ((h & 1023) / 1023 > prob) continue;
+          const r = 60 + (h % 100); // dark crimson with brighter gore flecks
+          g.fillStyle = `rgb(${r},${(r * 0.09) | 0},${(r * 0.07) | 0})`;
+          g.fillRect(ox + gx, oy + gy, pu, pu);
+        }
       }
     }
-    ctx.globalAlpha = 1;
+    g.globalAlpha = 1;
+    this.bloodCanvas = cv;
   }
 
   /** Draw blood on a block: a squashed splatter on the TOP face + drips running
@@ -555,7 +592,7 @@ export class Renderer {
     const m = this.bloodBlocks.get(index);
     if (!m) return;
     const ctx = this.ctx, t = this.tile;
-    const pu = Math.max(1, Math.round(t / 20)); // finer blood pixels
+    const pu = Math.max(1, Math.round(t / 24)); // finer blood pixels (grass-fine)
     let h = m.seed;
     const rnd = (): number => {
       h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
@@ -691,7 +728,7 @@ export class Renderer {
     // Scorched ground: burnt patches that build up where blasts happened.
     if (this.scorchDirty || (this.burn.size && !this.scorch)) this.buildScorch(W, H);
     if (this.scorch) ctx.drawImage(this.scorch, 0, 0, W, H);
-    this.drawBloodGround(); // persistent blood mush + smeared footprints (over the floor)
+    this.drawBloodGround(W, H); // persistent blood mush + smeared footprints (over the floor)
 
     if (view.grid) {
       // Detect soft-block breaks (SOFT -> not SOFT) to spray debris.
