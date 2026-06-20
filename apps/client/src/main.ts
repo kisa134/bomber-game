@@ -414,7 +414,7 @@ net.onMessage = (msg) => {
       break;
     case ServerMsg.EVENT_EXPLOSION:
       assets.play("explode");
-      assets.duck(0.45, 200); // sidechain: music ducks under the blast (~-5dB / 200ms)
+      assets.duck(0.72, 150); // sidechain "vacuum": music drops ~-12dB / 150ms then snaps back
       renderer?.onExplosion(msg.cells);
       break;
     case ServerMsg.EVENT_PICKUP: {
@@ -498,6 +498,7 @@ function enterGame(): void {
   // match's grid and sprays debris/scorch all over ("remnants of last round").
   renderer.onMatchStart();
   assets.stop("sudden_death");
+  assets.shepard(0); // clear any lingering round-end Shepard tone
   myPickupStep = 0;
   prevSoftCount = -1;
   killLines.length = 0;
@@ -748,6 +749,14 @@ function updateHud(): void {
   }
   timerEl.style.color = state.phase === MatchPhase.SUDDEN_DEATH ? "#ff6b6b" : "";
   pingEl.textContent = `${state.pingMs} ms`;
+
+  // Shepard tone: ever-rising tension over the final ~18s of the round (sudden death).
+  let shep = 0;
+  if (state.phase === MatchPhase.SUDDEN_DEATH) {
+    const left = state.phaseTimeLeft();
+    if (left <= 18000) shep = Math.min(1, (18000 - left) / 18000);
+  }
+  assets.shepard(shep);
 
   const snap = state.latest();
   if (!snap) return;

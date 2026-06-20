@@ -144,6 +144,16 @@ export class Assets {
   private musicEnabled = true;
   private desiredMusic: string | null = null;
 
+  // Shepard tone (ever-rising illusion) for round-end tension.
+  private shepOsc: OscillatorNode[] = [];
+  private shepGain: GainNode[] = [];
+  private shepMaster: GainNode | null = null;
+  private shepStart = 0;
+  private shepTarget = 0; // desired intensity 0..1
+  private shepLevel = 0; // smoothed current intensity
+  private shepRaf = 0;
+  private shepOn = false;
+
   async preload(): Promise<void> {
     await Promise.all([
       ...Object.entries(SPRITE_FILES).map(([k, url]) => this.tryImage(k, url)),
@@ -343,6 +353,83 @@ export class Assets {
     const floor = MUSIC_GAIN * (1 - amount);
     a.volume = Math.min(a.volume, floor); // snap down (or stay low if already ducked)
     this.fadeVolume(a, MUSIC_GAIN, recoverMs); // ramp back to full
+  }
+
+  /** Shepard tone: drive an ever-rising-pitch illusion at intensity 0..1 (round-end
+   *  tension, dopamine doc 2.2). Call with 0 to fade out and tear down. */
+  shepard(level: number): void {
+    const lv = Math.max(0, Math.min(1, level));
+    this.shepTarget = lv;
+    if (lv > 0 && !this.shepOn && this.sfxEnabled) this.startShepard();
+  }
+
+  private startShepard(): void {
+    if (!this.audioCtx) {
+      try {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        this.audioCtx = new AC();
+      } catch {
+        return;
+      }
+    }
+    const ctx = this.audioCtx;
+    if (ctx.state === "suspended") void ctx.resume();
+    this.shepOn = true;
+    this.shepStart = performance.now();
+    this.shepLevel = 0;
+    const N = 6;
+    this.shepMaster = ctx.createGain();
+    this.shepMaster.gain.value = 0;
+    this.shepMaster.connect(ctx.destination);
+    this.shepOsc = [];
+    this.shepGain = [];
+    for (let k = 0; k < N; k++) {
+      const o = ctx.createOscillator();
+      o.type = "sine";
+      const g = ctx.createGain();
+      g.gain.value = 0;
+      o.connect(g);
+      g.connect(this.shepMaster);
+      o.start();
+      this.shepOsc.push(o);
+      this.shepGain.push(g);
+    }
+    this.tickShepard();
+  }
+
+  private tickShepard(): void {
+    if (!this.shepOn || !this.audioCtx || !this.shepMaster) return;
+    const ctx = this.audioCtx;
+    const N = this.shepOsc.length;
+    const fmin = 70;
+    const period = 7; // seconds for one octave cycle (rate of the rise)
+    const tt = (((performance.now() - this.shepStart) / 1000) / period) % 1;
+    for (let k = 0; k < N; k++) {
+      const p = (tt + k / N) % 1; // 0..1 position in the octave span
+      const freq = fmin * Math.pow(2, p * N);
+      const bell = Math.exp(-Math.pow((p - 0.5) / 0.24, 2)); // loud in the middle, silent at the wrap
+      this.shepOsc[k].frequency.setValueAtTime(freq, ctx.currentTime);
+      this.shepGain[k].gain.setTargetAtTime(bell, ctx.currentTime, 0.02);
+    }
+    this.shepLevel += (this.shepTarget - this.shepLevel) * 0.06; // smooth intensity
+    this.shepMaster.gain.setValueAtTime(this.shepLevel * 0.13, ctx.currentTime);
+    if (this.shepTarget <= 0 && this.shepLevel < 0.01) {
+      this.stopShepard();
+      return;
+    }
+    this.shepRaf = requestAnimationFrame(() => this.tickShepard());
+  }
+
+  private stopShepard(): void {
+    this.shepOn = false;
+    if (this.shepRaf) cancelAnimationFrame(this.shepRaf);
+    this.shepRaf = 0;
+    for (const o of this.shepOsc) { try { o.stop(); o.disconnect(); } catch { /* already gone */ } }
+    for (const g of this.shepGain) { try { g.disconnect(); } catch { /* already gone */ } }
+    if (this.shepMaster) { try { this.shepMaster.disconnect(); } catch { /* already gone */ } }
+    this.shepOsc = [];
+    this.shepGain = [];
+    this.shepMaster = null;
   }
 
   private startDesired(volume = MUSIC_GAIN): void {
