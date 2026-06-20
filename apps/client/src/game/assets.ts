@@ -552,34 +552,36 @@ export class Assets {
     return out;
   }
 
-  /** Juicy crate smash for a destroyed soft block: a sharp wood CRACK + a low thud +
-   *  a scattering debris rattle, on top of the block_break sample. Panned & scaled. */
+  /** Satisfying woody crate smash for a destroyed soft block, sounded AFTER the
+   *  blast peak so it doesn't fight the explosion: a warm woody "tok" + a crisp
+   *  splinter crack + a wood-crumble rattle. Fully synth, panned & scaled. */
   crateBreak(vol: number, pan: number): void {
     if (!this.sfxEnabled) return;
     const v = Math.max(0, Math.min(1, vol));
     const ctx = this.ctxOrNull();
-    if (!ctx) { this.play("block_break", 0.35 * v); return; }
+    if (!ctx) return;
     const out = this.pannedOut(ctx, pan);
-    const t0 = ctx.currentTime;
-    // A touch after the blast transient so it doesn't fight the explosion.
-    const t0d = t0 + 0.02;
-    // block_break sample for the body (panned if decoded, else plain) — quieter.
-    const buf = this.fxBuffers.get("block_break");
-    if (buf) { const s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = 0.28 * v; s.connect(g); g.connect(out); s.start(t0d); }
-    else { this.ensureBuffer("block_break"); this.play("block_break", 0.22 * v); }
-    // Sharp wood crack (bandpassed noise burst) — the only prominent layer.
+    const t0 = ctx.currentTime + 0.085; // clearly AFTER the explosion transient
+    // 1) Warm woody "tok" — a short pitch-dropping tone for a pleasant body.
+    const o = ctx.createOscillator(); o.type = "triangle";
+    o.frequency.setValueAtTime(360, t0); o.frequency.exponentialRampToValueAtTime(180, t0 + 0.1);
+    const og = ctx.createGain();
+    og.gain.setValueAtTime(0.0001, t0); og.gain.exponentialRampToValueAtTime(0.34 * v, t0 + 0.006); og.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14);
+    const olp = ctx.createBiquadFilter(); olp.type = "lowpass"; olp.frequency.value = 1500;
+    o.connect(og); og.connect(olp); olp.connect(out); o.start(t0); o.stop(t0 + 0.16);
+    // 2) Crisp splinter crack (short bandpassed noise).
     const nb = ctx.createBufferSource(); nb.buffer = this.getNoise(ctx);
-    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1600; bp.Q.value = 1.6;
-    const g1 = ctx.createGain(); g1.gain.setValueAtTime(0.32 * v, t0d); g1.gain.exponentialRampToValueAtTime(0.0001, t0d + 0.06);
-    nb.connect(bp); bp.connect(g1); g1.connect(out); nb.start(t0d); nb.stop(t0d + 0.08);
-    // Light debris rattle tail (no low thud — it muddied the explosion's sub-bass).
-    const rb = ctx.createBufferSource(); rb.buffer = this.getNoise(ctx); rb.playbackRate.value = 0.7;
-    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2800;
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1900; bp.Q.value = 2;
+    const g1 = ctx.createGain(); g1.gain.setValueAtTime(0.26 * v, t0); g1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.05);
+    nb.connect(bp); bp.connect(g1); g1.connect(out); nb.start(t0); nb.stop(t0 + 0.07);
+    // 3) Wood-crumble rattle — a satisfying little crunch tail.
+    const rb = ctx.createBufferSource(); rb.buffer = this.getNoise(ctx); rb.playbackRate.value = 0.6;
+    const hp = ctx.createBiquadFilter(); hp.type = "bandpass"; hp.frequency.value = 2200; hp.Q.value = 0.8;
     const g3 = ctx.createGain();
-    g3.gain.setValueAtTime(0.0001, t0d + 0.04);
-    for (let k = 0; k < 4; k++) { const tk = t0d + 0.05 + k * 0.04; g3.gain.exponentialRampToValueAtTime(0.1 * v, tk); g3.gain.exponentialRampToValueAtTime(0.015 * v, tk + 0.025); }
-    g3.gain.exponentialRampToValueAtTime(0.0001, t0d + 0.26);
-    rb.connect(hp); hp.connect(g3); g3.connect(out); rb.start(t0d + 0.04); rb.stop(t0d + 0.28);
+    g3.gain.setValueAtTime(0.0001, t0 + 0.05);
+    for (let k = 0; k < 5; k++) { const tk = t0 + 0.06 + k * 0.045; g3.gain.exponentialRampToValueAtTime(0.12 * v, tk); g3.gain.exponentialRampToValueAtTime(0.02 * v, tk + 0.028); }
+    g3.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.34);
+    rb.connect(hp); hp.connect(g3); g3.connect(out); rb.start(t0 + 0.05); rb.stop(t0 + 0.36);
   }
 
   /** Dry little clatter for bones/wood being knocked or blown about — a few short

@@ -596,7 +596,7 @@ export class Renderer {
         }
       }
     }
-    this.blastGibs(cells); // fling any bones/meat/chips on the blast cells outward
+    this.blastGibs(cells, Math.min(1, cells.length / 13)); // fling gibs outward, farther for a bigger blast
     if (this.lowFx) return; // phones: explosion tiles still render; skip the heavy VFX
     for (const c of cells) {
       const cx = c.x + 0.5;
@@ -930,12 +930,13 @@ export class Renderer {
 
   /** Blow bones/meat/chips lying on the blast cells outward from the epicentre,
    *  flinging a flying piece (our z-physics) and relocating the persistent decal. */
-  private blastGibs(cells: Array<{ x: number; y: number }>): void {
+  private blastGibs(cells: Array<{ x: number; y: number }>, power = 0.5): void {
     if ((!this.bones.length && !this.meat.length && !this.chips.length) || !cells.length) return;
     const set = new Set(cells.map((c) => c.y * GRID_W + c.x));
     let cxs = 0, cys = 0;
     for (const c of cells) { cxs += c.x + 0.5; cys += c.y + 0.5; }
     cxs /= cells.length; cys /= cells.length;
+    const force = 0.6 + power * 1.1; // stronger blast -> flung farther/faster
     let moved = false;
     const blast = (arr: Array<{ x: number; y: number; seed: number }>, color: string, rest: number): void => {
       for (const o of arr) {
@@ -945,14 +946,14 @@ export class Renderer {
         if (d < 0.05) { const aa = Math.random() * Math.PI * 2; dx = Math.cos(aa); dy = Math.sin(aa); d = 1; }
         dx /= d; dy /= d;
         const startX = o.x, startY = o.y;
-        const dist = 0.9 + Math.random() * 1.8; // thrown far by the blast
+        const dist = (0.8 + Math.random() * 1.6) * force; // distance scales with blast power
         o.x = Math.max(0.2, Math.min(GRID_W - 0.2, o.x + dx * dist + (Math.random() - 0.5) * 0.5));
         o.y = Math.max(0.2, Math.min(GRID_H - 0.2, o.y + dy * dist + (Math.random() - 0.5) * 0.5));
         moved = true;
         if (!this.lowFx) {
           this.push({
-            x: startX, y: startY, vx: dx * (5 + Math.random() * 5), vy: dy * (5 + Math.random() * 5),
-            vz: 6 + Math.random() * 6, gz: 32, rest, fric: 0.86,
+            x: startX, y: startY, vx: dx * (4 + Math.random() * 4) * force, vy: dy * (4 + Math.random() * 4) * force,
+            vz: (5 + Math.random() * 5) * (0.7 + power * 0.6), gz: 32, rest, fric: 0.86,
             life: 0.5 + Math.random() * 0.45, max: 0.95, size: this.tile * (0.05 + Math.random() * 0.06),
             color, shape: "rect", rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 18,
           });
