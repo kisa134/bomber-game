@@ -436,8 +436,8 @@ export class Renderer {
     const ctx = this.ctx;
     const freq = 1.1 + this.danger * 0.7; // slow ~1.1–1.8 Hz breathing pulse
     const pulse = 0.5 + 0.5 * Math.sin((now / 1000) * freq * Math.PI * 2);
-    const a = this.danger * (0.16 + 0.4 * pulse); // peak alpha (brighter, mostly on the pulse)
-    const band = Math.min(W, H) * 0.06; // thin edge band only
+    const a = this.danger * (0.2 + 0.5 * pulse); // peak alpha (brighter, mostly on the pulse)
+    const band = Math.min(W, H) * 0.028; // very thin band hugging the extreme edge
     const col = (alpha: number): string => `rgba(255,30,24,${Math.max(0, alpha).toFixed(3)})`;
     ctx.save();
     ctx.globalCompositeOperation = "lighter"; // additive -> vivid edge glow, center untouched
@@ -878,8 +878,8 @@ export class Renderer {
     };
     const reds = ["#3a0000", "#5a0000", "#7a0000", "#9c0000", "#c81e1e"];
     const n = Math.min(4, m.n);
-    const bias = ((m.dirs & BF_E ? 0.62 : 0) + (m.dirs & BF_W ? -0.62 : 0)); // horizontal lean
-    const cxp = px + t * 0.5 + bias * t * 0.3;
+    const bias = ((m.dirs & BF_E ? 0.22 : 0) + (m.dirs & BF_W ? -0.22 : 0)); // gentle lean only
+    const cxp = px + t * 0.5 + bias * t * 0.18; // splatter emanates roughly from the block CENTER
 
     // A dark central pool on the top face for a grislier base.
     ctx.fillStyle = "#2a0000";
@@ -896,7 +896,7 @@ export class Renderer {
     const topR = t * (0.32 + n * 0.07);
     for (let i = 0; i < topBlobs; i++) {
       const ang = rnd() * Math.PI * 2;
-      const dist = Math.pow(rnd(), 0.6) * topR;
+      const dist = Math.sqrt(rnd()) * topR; // even spread from CENTER out to the edges (random)
       const bx = cxp + Math.cos(ang) * dist;
       const by = py + t * 0.2 + Math.sin(ang) * dist * 0.55;
       const sz = pu * (1 + Math.floor(rnd() * 2.4));
@@ -1247,7 +1247,7 @@ export class Renderer {
         ctx.globalAlpha = alpha;
       }
 
-      // Kick up dust / trample grass while moving.
+      // Kick up a little dust while moving (no more trampled-grass oval decals).
       if (!this.lowFx && moving && p.alive) {
         if (now - (this.lastDust.get(p.id) ?? 0) > 90) {
           this.lastDust.set(p.id, now);
@@ -1256,10 +1256,6 @@ export class Renderer {
             life: 0.3 + Math.random() * 0.2, max: 0.5, drag: 0.9, size: t * (0.04 + Math.random() * 0.04),
             color: Math.random() < 0.5 ? "rgba(150,170,90,0.7)" : "rgba(120,100,70,0.7)",
           });
-        }
-        if (now - (this.lastTrample.get(p.id) ?? 0) > 160) {
-          this.lastTrample.set(p.id, now);
-          this.addDecal(Math.floor(rp.x), Math.floor(rp.y), "trample");
         }
       }
 
@@ -1280,8 +1276,11 @@ export class Renderer {
             // First ~2 cells smear strongly, then fade over the trail.
             const a = feet >= 10 ? 0.85 : feet >= 7 ? 0.55 : feet >= 4 ? 0.34 : 0.2;
             let ux = mdx, uy = mdy; const mm = Math.hypot(ux, uy) || 1; ux /= mm; uy /= mm;
-            const off = ((feet & 1) === 0 ? -1 : 1) * 0.14; // alternate left/right foot
-            this.footprints.push({ x: rp.x + 0.5 - uy * off, y: rp.y + 0.5 + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
+            // Anchor near the FEET (bottom of the tile). Alternate left/right only when
+            // running sideways; running up/down stays centered horizontally.
+            const horiz = Math.abs(mdx) > Math.abs(mdy);
+            const off = horiz ? ((feet & 1) === 0 ? -1 : 1) * 0.16 : 0;
+            this.footprints.push({ x: rp.x + 0.5 - uy * off, y: rp.y + 0.66 + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
             if (this.footprints.length > 160) this.footprints.shift();
             if (feet >= 10) this.markGround(ci, 1); // smeared blotch under the freshest steps
             this.bloodDirty = true;
