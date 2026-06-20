@@ -168,7 +168,15 @@ export class Assets {
     if (!url) return;
     const a = new Audio(url);
     a.volume = volume ?? SFX_GAIN[key] ?? DEFAULT_SFX_GAIN;
-    if (rate && rate > 0) a.playbackRate = rate; // higher rate -> higher pitch (rising reward)
+    if (rate && rate > 0) {
+      a.playbackRate = rate;
+      // Browsers default to preservesPitch=true (time-stretch, pitch unchanged);
+      // disable it so the playbackRate actually raises the PITCH (rising reward).
+      const ap = a as unknown as { preservesPitch?: boolean; mozPreservesPitch?: boolean; webkitPreservesPitch?: boolean };
+      ap.preservesPitch = false;
+      ap.mozPreservesPitch = false;
+      ap.webkitPreservesPitch = false;
+    }
     this.active.set(key, a);
     void a.play().catch(() => {});
   }
