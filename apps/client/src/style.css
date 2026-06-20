@@ -74,6 +74,12 @@ body {
     rgba(8, 10, 16, 0.55) 100%
   );
 }
+#bg.plain {
+  background: #000;
+}
+#bg.plain::after {
+  display: none; /* no vignette over plain black */
+}
 #bg-video {
   width: 100%;
   height: 100%;

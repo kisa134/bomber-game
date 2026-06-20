@@ -2542,21 +2542,34 @@ function wireMenuLinks(): void {
 
 // --- background video -----------------------------------------------------
 
+// TEMP: plain black background across the in-app screens (no video). Flip back
+// to true to restore the gamebg boomerang loop everywhere.
+const BG_VIDEO_ENABLED = false;
+
 function setupBackground(): void {
   const v = document.getElementById("bg-video") as HTMLVideoElement;
-  // Global app background = gamebg.mp4. The file is baked as a boomerang
-  // (forward + reversed), so the element's native `loop` gives a smooth ping-pong
-  // (no laggy JS reverse-seek). ?v= busts the cache when the file is replaced
-  // under the same name; a gradient shows until the first frame is ready.
-  const sources = [`/bg/gamebg.mp4?v=${ASSET_VER}`];
-  let i = 0;
-  const tryNext = () => {
-    if (i >= sources.length) return; // no bg; gradient stays
-    v.src = sources[i++];
-  };
-  v.addEventListener("canplay", () => v.classList.add("ready"));
-  v.addEventListener("error", tryNext);
-  tryNext();
+  const bg = document.getElementById("bg");
+  if (!BG_VIDEO_ENABLED) {
+    // Solid black: drop the video + the vignette gradient overlay.
+    v.removeAttribute("src");
+    v.style.display = "none";
+    if (bg) bg.style.background = "#000";
+    bg?.classList.add("plain"); // CSS kills the ::after vignette
+  } else {
+    // Global app background = gamebg.mp4. The file is baked as a boomerang
+    // (forward + reversed), so the element's native `loop` gives a smooth
+    // ping-pong (no laggy JS reverse-seek). ?v= busts the cache when the file is
+    // replaced under the same name; a gradient shows until the first frame is ready.
+    const sources = [`/bg/gamebg.mp4?v=${ASSET_VER}`];
+    let i = 0;
+    const tryNext = () => {
+      if (i >= sources.length) return; // no bg; gradient stays
+      v.src = sources[i++];
+    };
+    v.addEventListener("canplay", () => v.classList.add("ready"));
+    v.addEventListener("error", tryNext);
+    tryNext();
+  }
 
   // The OLD menu video is the backdrop for the splash entry screen only.
   const sv = document.getElementById("splash-video") as HTMLVideoElement | null;
