@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW, DEFAULT_SKINS, SKIN_PRICES, SKIN_COUNT } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW, DEFAULT_SKINS, SKIN_PRICES, SKIN_UNLOCK_LEVEL, SKIN_TOKEN_PRICES, SKIN_COUNT } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession, AUTH_SECRET_SET } from "./auth.js";
 import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./tgrelay.js";
@@ -705,12 +705,35 @@ app.post("/shop/buy-skin", (res, req) => {
     const { wallet, skin } = parseSkinReq(body);
     if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
     if (skin < 0 || skin >= SKIN_COUNT) return sendJson(res, { error: "bad_skin" }, "400 Bad Request");
+    // Chip purchase requires reaching the skin's unlock level.
+    const needLevel = SKIN_UNLOCK_LEVEL[skin] ?? 0;
+    if (needLevel > 0) {
+      const prof = await store.getProfile(wallet);
+      if ((prof?.level ?? 1) < needLevel) {
+        return sendJson(res, { error: "level_locked", needLevel }, "403 Forbidden");
+      }
+    }
     const price = SKIN_PRICES[skin] ?? 0;
     const result = await store.buySkin(wallet, skin, price);
     if (!result) return sendJson(res, { error: "cant_buy" }, "402 Payment Required");
-    // Buying also equips it.
-    await store.selectSkin(wallet, skin);
+    await store.selectSkin(wallet, skin); // buying also equips it
     sendJson(res, { chips: result.chips, skins: result.skins, skin });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
+// Buy a skin INSTANTLY with the real token (no level gate). Price in whole tokens.
+app.post("/shop/buy-skin-token", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    const { wallet, skin } = parseSkinReq(body);
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    if (skin < 0 || skin >= SKIN_COUNT) return sendJson(res, { error: "bad_skin" }, "400 Bad Request");
+    const whole = SKIN_TOKEN_PRICES[skin] ?? 0;
+    if (whole <= 0) return sendJson(res, { error: "free_skin" }, "400 Bad Request");
+    const result = await store.buySkinToken(wallet, skin, toBaseUnits(whole));
+    if (!result) return sendJson(res, { error: "cant_buy" }, "402 Payment Required");
+    await store.selectSkin(wallet, skin); // buying also equips it
+    sendJson(res, { gameTokens: fromBaseUnits(result.token_balance), skins: result.skins, skin });
   }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 

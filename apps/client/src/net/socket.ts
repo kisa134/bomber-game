@@ -116,8 +116,15 @@ export async function fetchProfile(wallet: string): Promise<ProfileData> {
 
 export async function buySkin(
   skin: number,
-): Promise<{ chips?: number; skins?: number; skin?: number; error?: string }> {
+): Promise<{ chips?: number; skins?: number; skin?: number; error?: string; needLevel?: number }> {
   const res = await post("/shop/buy-skin", { skin });
+  return res.json();
+}
+
+export async function buySkinToken(
+  skin: number,
+): Promise<{ gameTokens?: number; skins?: number; skin?: number; error?: string }> {
+  const res = await post("/shop/buy-skin-token", { skin });
   return res.json();
 }
 

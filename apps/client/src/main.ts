@@ -23,6 +23,8 @@ import {
   DEFAULT_SKINS,
   BET_SIZES,
   TOKEN_BET_SIZES,
+  SKIN_UNLOCK_LEVEL,
+  SKIN_TOKEN_PRICES,
 } from "./net/protocol.js";
 import {
   Net,
@@ -41,6 +43,7 @@ import {
   prepareDeposit,
   watchMatch,
   buySkin,
+  buySkinToken,
   selectSkin,
   attributeReferral,
   fetchReferralStats,
@@ -1530,13 +1533,15 @@ async function refreshSkinShop(): Promise<void> {
   const w = loadWallet();
   let owned = DEFAULT_SKINS;
   let equipped = Number(localStorage.getItem("bp_skin")) || 0;
+  let level = 1;
   if (w) {
     try {
       const p = await fetchProfile(w.address);
       owned = p.skins ?? DEFAULT_SKINS;
       equipped = p.skin ?? 0;
+      level = p.level ?? 1;
       localStorage.setItem("bp_skin", String(equipped));
-      bal.textContent = `🪙 ${(p.chips ?? 0).toLocaleString()} chips`;
+      bal.textContent = `🪙 ${(p.chips ?? 0).toLocaleString()}  ·  💎 ${(p.gameTokens ?? 0).toLocaleString()}  ·  LV ${level}`;
     } catch {
       bal.textContent = "";
     }
@@ -1545,26 +1550,43 @@ async function refreshSkinShop(): Promise<void> {
   }
   grid.innerHTML = "";
   for (let i = 0; i < SKIN_COUNT; i++) {
+    const owns = (owned & (1 << i)) !== 0;
     const card = document.createElement("div");
-    card.className = "skin-card" + (i === equipped ? " equipped" : "");
+    card.className = "skin-card" + (i === equipped ? " equipped" : "") + (owns ? "" : " locked");
     card.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
     card.appendChild(el("div", "skin-name", SKIN_NAMES[i] ?? `Skin ${i}`));
-    const owns = (owned & (1 << i)) !== 0;
-    const btn = document.createElement("button");
     if (i === equipped) {
-      btn.textContent = "✔ Equipped";
-      btn.disabled = true;
-      btn.className = "ghost";
+      const b = document.createElement("button");
+      b.textContent = "✔ Equipped";
+      b.disabled = true;
+      b.className = "ghost";
+      card.appendChild(b);
     } else if (owns) {
-      btn.textContent = "Equip";
-      btn.className = "primary";
-      btn.addEventListener("click", () => void doSelectSkin(i));
+      const b = document.createElement("button");
+      b.textContent = "Equip";
+      b.className = "primary";
+      b.addEventListener("click", () => void doSelectSkin(i));
+      card.appendChild(b);
     } else {
-      btn.textContent = `Buy 🪙${SKIN_PRICES[i]}`;
-      btn.className = "primary";
-      btn.addEventListener("click", () => void doBuySkin(i));
+      // Locked: unlock with chips (if level allows) OR buy instantly with token.
+      const needLevel = SKIN_UNLOCK_LEVEL[i] ?? 0;
+      const chipBtn = document.createElement("button");
+      if (level < needLevel) {
+        chipBtn.textContent = `🔒 LV ${needLevel}`;
+        chipBtn.disabled = true;
+        chipBtn.className = "ghost";
+      } else {
+        chipBtn.textContent = `🪙 ${SKIN_PRICES[i].toLocaleString()}`;
+        chipBtn.className = "primary";
+        chipBtn.addEventListener("click", () => void doBuySkin(i));
+      }
+      card.appendChild(chipBtn);
+      const tokBtn = document.createElement("button");
+      tokBtn.textContent = `💎 ${SKIN_TOKEN_PRICES[i].toLocaleString()}`;
+      tokBtn.className = "ghost token-buy";
+      tokBtn.addEventListener("click", () => void doBuySkinToken(i));
+      card.appendChild(tokBtn);
     }
-    card.appendChild(btn);
     grid.appendChild(card);
   }
 }
@@ -1595,12 +1617,36 @@ async function doBuySkin(skin: number): Promise<void> {
   status.textContent = "Buying…";
   const r = await buySkin(skin);
   if (r.error) {
-    status.textContent = r.error === "cant_buy" ? "Not enough chips." : `Failed: ${r.error}`;
+    status.textContent =
+      r.error === "cant_buy"
+        ? "Not enough chips."
+        : r.error === "level_locked"
+          ? `Reach level ${r.needLevel} to unlock with chips (or buy with 💎).`
+          : `Failed: ${r.error}`;
     return;
   }
   localStorage.setItem("bp_skin", String(r.skin ?? skin));
   status.textContent = "Unlocked! 🎉";
-  track("skin_bought", { skin });
+  track("skin_bought", { skin, with: "chips" });
+  void refreshSkinShop();
+}
+
+async function doBuySkinToken(skin: number): Promise<void> {
+  const status = document.getElementById("skin-status")!;
+  if (!loadWallet()) {
+    status.textContent = "Connect a wallet first.";
+    return;
+  }
+  status.textContent = "Buying with token…";
+  const r = await buySkinToken(skin);
+  if (r.error) {
+    status.textContent = r.error === "cant_buy" ? "Not enough tokens — deposit in the Bank." : `Failed: ${r.error}`;
+    return;
+  }
+  localStorage.setItem("bp_skin", String(r.skin ?? skin));
+  if (r.gameTokens !== undefined) setTokenBadge(r.gameTokens);
+  status.textContent = "Unlocked with 💎! 🎉";
+  track("skin_bought", { skin, with: "token" });
   void refreshSkinShop();
 }
 

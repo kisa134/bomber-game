@@ -2808,6 +2808,20 @@ button.big {
   padding: 6px 8px;
   font-size: 0.9rem;
 }
+/* Locked skins: dim the character so it reads as "not yours yet". */
+.skin-card.locked .avatar {
+  opacity: 0.4;
+  filter: grayscale(0.6);
+}
+.skin-card .token-buy {
+  margin-top: 4px;
+  border-color: rgba(57, 255, 155, 0.4);
+  color: #b6ffd9;
+  font-size: 0.82rem;
+}
+.skin-card .token-buy:hover {
+  background: rgba(57, 255, 155, 0.14);
+}
 .prof-cell {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
