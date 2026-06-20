@@ -81,12 +81,18 @@ export const HOUSE_RAKE_BP = 0; // house rake in basis points (server env can ov
 export const CHIPS_WIN_REWARD = 100; // winner of a free match
 export const CHIPS_PLAY_REWARD = 20; // everyone else who finished
 
-// --- Skins (cosmetic; unlocked with chips) ---------------------------------
-export const SKIN_COUNT = 11; // shiba,pepe,fox,wojak,doge,pump,durov,vitalik,troll,bog,giga
-// Price per skin index in chips. 0 = free/owned by default.
-export const SKIN_PRICES = [0, 500, 1500, 3000, 2500, 4000, 3500, 3500, 3000, 3500, 5000] as const;
-// Bitmask of skins every wallet owns from the start (skin 0).
-export const DEFAULT_SKINS = 0b0001;
+// --- Skins (cosmetic; unlock by leveling up + chips, OR buy with token) -----
+// Index: 0 Shiba, 1 Pepe, 2 Trump, 3 Musk, 4 Doge, 5 Pump, 6 Durov, 7 Vitalik,
+//        8 Troll, 9 Bogdanoff, 10 Gigachad. The cooler/rarer it is, the dearer.
+export const SKIN_COUNT = 11;
+// The first 4 are free & owned from the start.
+export const DEFAULT_SKINS = 0b0000_1111;
+// Chip price to UNLOCK a skin (also requires reaching SKIN_UNLOCK_LEVEL). 0 = free.
+export const SKIN_PRICES = [0, 0, 0, 0, 2000, 3500, 5000, 7000, 9000, 12000, 20000] as const;
+// Player level required before a skin can be bought with chips. 0 = no gate.
+export const SKIN_UNLOCK_LEVEL = [0, 0, 0, 0, 3, 5, 8, 12, 16, 20, 25] as const;
+// Whole-token price to buy a skin INSTANTLY (bypasses the level gate). 0 = free.
+export const SKIN_TOKEN_PRICES = [0, 0, 0, 0, 5000, 10000, 20000, 35000, 50000, 80000, 150000] as const;
 
 // --- Token (real pump.fun SPL token; read-only hold-to-play for now) --------
 // Public mint address — safe to ship to the client (used for display + links).

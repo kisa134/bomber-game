@@ -2225,9 +2225,10 @@ setupBackground();
 function refreshPrice(): void {
   void fetchPrice().then((usd) => {
     tokenUsd = usd;
-    setTokenUsd(usd); // re-renders the lobby browser; also refresh the room below
-    // The room may have been rendered before the price loaded (so its $ value was
-    // blank) — re-render it now that we have a rate.
+    setTokenUsd(usd); // re-renders the lobby browser
+    // These were likely rendered BEFORE the price loaded, leaving $ blank — redraw
+    // them now that we have a rate: the token-balance badge ≈$ and the room prize.
+    setTokenBadge(lastTokens);
     if (!document.getElementById("room")?.classList.contains("hidden")) renderRoom(state);
   });
 }

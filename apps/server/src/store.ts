@@ -88,6 +88,10 @@ export interface ProfileStore {
   /** Buy a skin: atomically deduct `price` chips and set its ownership bit.
    *  Returns the new {chips, skins} or null if already owned / can't afford. */
   buySkin(wallet: string, skin: number, price: number): Promise<{ chips: number; skins: number } | null>;
+  /** Buy a skin INSTANTLY with the custodial token balance (atomic): deduct
+   *  `amountBase` token base units and set ownership. Returns new
+   *  {token_balance, skins} or null if already owned / can't afford. */
+  buySkinToken(wallet: string, skin: number, amountBase: number): Promise<{ token_balance: number; skins: number } | null>;
   /** Select an owned skin as the active one. Returns the new skin, or null if
    *  the wallet doesn't own it. */
   selectSkin(wallet: string, skin: number): Promise<number | null>;
@@ -303,6 +307,21 @@ class InMemoryStore implements ProfileStore {
     p.chips -= price;
     p.skins |= bit;
     return { chips: p.chips, skins: p.skins };
+  }
+
+  async buySkinToken(
+    wallet: string,
+    skin: number,
+    amountBase: number,
+  ): Promise<{ token_balance: number; skins: number } | null> {
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    const bit = 1 << skin;
+    if (p.skins & bit) return null; // already owned
+    if (p.token_balance < amountBase) return null; // can't afford
+    p.token_balance -= amountBase;
+    p.skins |= bit;
+    return { token_balance: p.token_balance, skins: p.skins };
   }
 
   async selectSkin(wallet: string, skin: number): Promise<number | null> {
@@ -628,6 +647,32 @@ class SupabaseStore implements ProfileStore {
       return null;
     }
     return { chips, skins };
+  }
+
+  async buySkinToken(
+    wallet: string,
+    skin: number,
+    amountBase: number,
+  ): Promise<{ token_balance: number; skins: number } | null> {
+    // Best-effort read-modify-write (Postgres is the atomic, production path).
+    const p = await this.getProfile(wallet);
+    if (!p) return null;
+    const bit = 1 << skin;
+    if ((p.skins ?? DEFAULT_SKINS) & bit) return null;
+    if ((p.token_balance ?? 0) < amountBase) return null;
+    const token_balance = p.token_balance - amountBase;
+    const skins = (p.skins ?? DEFAULT_SKINS) | bit;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ token_balance, skins }),
+      });
+    } catch (e) {
+      console.error("[store] buySkinToken failed", e);
+      return null;
+    }
+    return { token_balance, skins };
   }
 
   async selectSkin(wallet: string, skin: number): Promise<number | null> {
@@ -1161,6 +1206,33 @@ class PostgresStore implements ProfileStore {
         : null;
     } catch (e) {
       console.error("[store] pg buySkin failed", e);
+      return null;
+    }
+  }
+
+  async buySkinToken(
+    wallet: string,
+    skin: number,
+    amountBase: number,
+  ): Promise<{ token_balance: number; skins: number } | null> {
+    try {
+      await this.ready;
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
+      // Atomic: only buy if the token balance covers it and not already owned.
+      const res = await this.pool.query(
+        `update profiles set token_balance = token_balance - $3, skins = skins | (1 << $2), updated_at=now()
+         where wallet=$1 and token_balance >= $3 and (skins & (1 << $2)) = 0
+         returning token_balance, skins`,
+        [wallet, skin, amountBase],
+      );
+      return res.rows[0]
+        ? { token_balance: Number(res.rows[0].token_balance), skins: res.rows[0].skins as number }
+        : null;
+    } catch (e) {
+      console.error("[store] pg buySkinToken failed", e);
       return null;
     }
   }
