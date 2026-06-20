@@ -137,6 +137,7 @@ export class Renderer {
   private lastCell = new Map<number, number>(); // player id -> last grid cell (footprint stepping)
   // Foot-shaped blood prints left while walking with bloody feet (x,y in cells; dx,dy = facing).
   private footprints: Array<{ x: number; y: number; dx: number; dy: number; a: number; seed: number }> = [];
+  private bones: Array<{ x: number; y: number; seed: number }> = []; // scattered bone-shard decals (x,y in cells)
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
   private scorch: HTMLCanvasElement | null = null; // cached burnt-ground overlay
   private scorchDirty = false;
@@ -147,7 +148,6 @@ export class Renderer {
   private shakeDur = 0;
   private shakeMag = 0;
   private shakePh = 0;
-  private impactFlash = 0; // screen-space white impact flash (decays over 1-3 frames)
   private lastTime = performance.now();
 
   private lastW = -1;
@@ -324,6 +324,7 @@ export class Renderer {
     this.bloodyFeet.clear();
     this.lastCell.clear();
     this.footprints = [];
+    this.bones = [];
     this.shatters.length = 0;
     this.scorch = null;
     this.scorchDirty = false;
@@ -356,25 +357,6 @@ export class Renderer {
   /** Show a reaction bubble above a player for a short time. */
   showEmote(playerId: number, e: string): void {
     this.emotes.set(playerId, { e, until: performance.now() + 1800 });
-  }
-
-  /** Cross-modal impact flash: a brief screen-space white pop synced to a hit/kill/
-   *  blast (per the dopamine doc: white-flash on impact, ~1-3 frames). */
-  flash(strength: number): void {
-    if (this.lowFx && strength < 0.45) return; // keep only the big ones on phones
-    this.impactFlash = Math.max(this.impactFlash, Math.min(1, strength));
-  }
-
-  private drawImpactFlash(W: number, H: number): void {
-    if (this.impactFlash <= 0.01) return;
-    const ctx = this.ctx;
-    ctx.save();
-    ctx.globalAlpha = Math.min(0.7, this.impactFlash * 0.7);
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, W, H);
-    ctx.restore();
-    this.impactFlash *= 0.4; // fade out fast -> a 1-3 frame flash, not a strobe
-    if (this.impactFlash < 0.02) this.impactFlash = 0;
   }
 
   shake(mag: number, ms = 250): void {
@@ -463,12 +445,6 @@ export class Renderer {
     for (const c of cells) {
       const cx = c.x + 0.5;
       const cy = c.y + 0.5;
-      // Impact pop: a brief, bright additive bloom at the blast core (1-2 frames).
-      // Localized per-cell (not a full-screen white flash) for cross-modal punch.
-      this.push({
-        x: cx, y: cy, vx: 0, vy: 0, life: 0.1, max: 0.1, drag: 1,
-        size: this.tile * (0.7 + Math.random() * 0.15), color: "rgba(255,242,205,0.85)", shape: "flash",
-      });
       // Flames.
       for (let i = 0; i < Math.round(7 * this.fxScale); i++) {
         const a = Math.random() * Math.PI * 2;
@@ -505,7 +481,6 @@ export class Renderer {
       if (this.lights.length > 80) this.lights.shift();
     }
     this.shake(Math.min(13, 5 + cells.length * 0.7), 240);
-    this.flash(Math.min(0.4, 0.16 + cells.length * 0.03)); // bright blast impact flash
   }
 
   onDeath(cx: number, cy: number, color: string): void {
@@ -540,6 +515,16 @@ export class Renderer {
         }
       }
     }
+    // Scatter a few persistent bone shards through the gore (random spread/count).
+    const nBones = 2 + ((Math.random() * 4) | 0);
+    for (let i = 0; i < nBones; i++) {
+      const bx = cx + 0.5 + (Math.random() - 0.5) * 2.6;
+      const by = cy + 0.5 + (Math.random() - 0.5) * 2.6;
+      if (bx < 0.2 || by < 0.2 || bx > GRID_W - 0.2 || by > GRID_H - 0.2) continue;
+      this.bones.push({ x: bx, y: by, seed: (Math.random() * 0xffffffff) >>> 0 });
+    }
+    if (this.bones.length > 80) this.bones.splice(0, this.bones.length - 80);
+    this.bloodDirty = true; // bones live in the cached blood overlay
     if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
@@ -635,19 +620,53 @@ export class Renderer {
           const localCover = cover * ((baked ? 0.6 : 0.45) + cn * 1.15); // crust spreads more
           if ((f & 1023) / 1023 > Math.min(1, localCover)) continue;
           if (baked) {
-            const br = 36 + (f % 46); // dark brown/maroon dried crust
-            g.fillStyle = `rgb(${br},${(br * 0.42) | 0},${(br * 0.2) | 0})`;
+            const br = 30 + (f % 50); // dark brown/maroon dried crust (varied)
+            g.fillStyle = `rgb(${br},${(br * (0.34 + ((f >> 6) & 7) * 0.03)) | 0},${(br * 0.2) | 0})`;
           } else {
-            const r = 58 + (f % 96); // fresh dark crimson with brighter gore flecks
-            g.fillStyle = `rgb(${r},${(r * 0.09) | 0},${(r * 0.07) | 0})`;
+            // Varied fresh tones: dark clots, mid crimson, and a few bright flecks.
+            const tone = (f >> 7) & 7;
+            const r = tone === 0 ? 26 + (f % 26) : tone >= 6 ? 150 + (f % 75) : 58 + (f % 80);
+            g.fillStyle = `rgb(${r},${(r * 0.1) | 0},${(r * 0.08) | 0})`;
           }
           g.fillRect(ox + gx, oy + gy, pu, pu);
         }
       }
     }
     for (const fp of this.footprints) this.drawFoot(g, fp, pu); // foot-shaped smears on top
+    for (const b of this.bones) this.drawBone(g, b, pu); // scattered bone shards on top
     g.globalAlpha = 1;
     this.bloodCanvas = cv;
+  }
+
+  /** A small scattered bone shard: a bone-white shaft with knobby ends and a soft
+   *  shadow, randomly oriented. Lives in the cached blood overlay. */
+  private drawBone(g: CanvasRenderingContext2D, b: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const px = b.x * t, py = b.y * t;
+    let s = b.seed >>> 0;
+    const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
+    const ang = rnd() * Math.PI;
+    const ux = Math.cos(ang), uy = Math.sin(ang), vx = -uy, vy = ux;
+    const len = t * (0.05 + rnd() * 0.06);
+    g.globalAlpha = 0.25; // soft drop shadow
+    g.fillStyle = "#000000";
+    for (let aa = -len; aa <= len; aa += pu) {
+      const wx = px + ux * aa + vx * pu, wy = py + uy * aa + vy * pu + pu;
+      g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
+    }
+    g.globalAlpha = 1;
+    for (let aa = -len; aa <= len; aa += pu) { // shaft with a darker lower edge
+      for (let bb = -pu; bb <= pu; bb += pu) {
+        const wx = px + ux * aa + vx * bb, wy = py + uy * aa + vy * bb;
+        g.fillStyle = bb > 0 ? "#b8ad92" : "#ece4cf";
+        g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
+      }
+    }
+    g.fillStyle = "#f2ecda"; // knobby bone ends
+    for (const e of [-1, 1]) {
+      const wx = px + ux * len * e * 1.05, wy = py + uy * len * e * 1.05;
+      g.fillRect(Math.round(wx / pu) * pu - pu, Math.round(wy / pu) * pu - pu, pu * 2, pu * 2);
+    }
   }
 
   /** Draw one foot-shaped blood print: an oriented sole ellipse + a few toe dots,
@@ -658,10 +677,24 @@ export class Renderer {
     let ux = fp.dx, uy = fp.dy;
     const m = Math.hypot(ux, uy) || 1; ux /= m; uy /= m;
     const vx = -uy, vy = ux;
-    const len = t * 0.13, wid = t * 0.065; // half-extents of the small sole
     const r = 66 + (fp.seed % 70);
-    g.globalAlpha = fp.a;
     g.fillStyle = `rgb(${r},${(r * 0.08) | 0},${(r * 0.06) | 0})`;
+    // Drag streak — the SMEAR VECTOR: a tapering tail trailing BEHIND the foot in
+    // the travel direction (longer/denser for the freshest, strongest smears).
+    const tail = t * (0.16 + fp.a * 0.45);
+    const wid0 = t * 0.07;
+    for (let s = 0; s <= tail; s += pu) {
+      const frac = s / tail; // 0 at foot -> 1 at tail tip
+      g.globalAlpha = fp.a * (1 - frac) * 0.9; // fades out along the streak
+      const hw = wid0 * (1 - frac * 0.8); // narrows toward the tail
+      for (let bb = -hw; bb <= hw; bb += pu) {
+        const wx = px - ux * s + vx * bb, wy = py - uy * s + vy * bb;
+        g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
+      }
+    }
+    // Sole pad at the head of the streak.
+    g.globalAlpha = fp.a;
+    const len = t * 0.12, wid = t * 0.06;
     for (let aa = -len; aa <= len; aa += pu) {
       for (let bb = -wid; bb <= wid; bb += pu) {
         if ((aa * aa) / (len * len) + (bb * bb) / (wid * wid) > 1) continue;
@@ -669,8 +702,8 @@ export class Renderer {
         g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
       }
     }
-    for (let k = 0; k < 3; k++) { // toe dots ahead of the sole
-      const aa = len * 1.3, bb = (k - 1) * wid * 0.7;
+    for (let k = 0; k < 3; k++) { // toe dots ahead -> reads as a foot + shows facing
+      const aa = len * 1.35, bb = (k - 1) * wid * 0.7;
       const wx = px + ux * aa + vx * bb, wy = py + uy * aa + vy * bb;
       g.fillRect(Math.round(wx / pu) * pu, Math.round(wy / pu) * pu, pu, pu);
     }
@@ -682,7 +715,7 @@ export class Renderer {
     const m = this.bloodBlocks.get(index);
     if (!m) return;
     const ctx = this.ctx, t = this.tile;
-    const pu = Math.max(1, Math.round(t / 24)); // finer blood pixels (grass-fine)
+    const pu = Math.max(1, Math.round(t / 28)); // very fine blood pixels
     let h = m.seed;
     const rnd = (): number => {
       h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
@@ -695,8 +728,8 @@ export class Renderer {
 
     // A dark central pool on the top face for a grislier base.
     ctx.fillStyle = "#2a0000";
-    const poolR = t * (0.16 + n * 0.04);
-    for (let i = 0; i < 6 + n * 2; i++) {
+    const poolR = t * (0.17 + n * 0.045);
+    for (let i = 0; i < 9 + n * 3; i++) {
       const ang = rnd() * Math.PI * 2;
       const dist = Math.pow(rnd(), 0.5) * poolR;
       const sz = pu * (1 + Math.floor(rnd() * 2));
@@ -704,8 +737,8 @@ export class Renderer {
     }
     // TOP-face splatter (stronger when the kill was above the block), squashed in Y.
     const topStrong = m.dirs & BF_N ? 1 : 0.62;
-    const topBlobs = Math.round((14 + n * 7) * topStrong);
-    const topR = t * (0.3 + n * 0.06);
+    const topBlobs = Math.round((20 + n * 9) * topStrong);
+    const topR = t * (0.32 + n * 0.07);
     for (let i = 0; i < topBlobs; i++) {
       const ang = rnd() * Math.PI * 2;
       const dist = Math.pow(rnd(), 0.6) * topR;
@@ -717,7 +750,7 @@ export class Renderer {
     }
     // FRONT-face drips that slowly ooze down over time (staggered per drip).
     const frontStrong = m.dirs & BF_S ? 1 : 0.6;
-    const drips = Math.max(2, Math.round((2 + n * 1.4) * (0.7 + frontStrong)));
+    const drips = Math.max(3, Math.round((3 + n * 1.9) * (0.7 + frontStrong)));
     for (let d = 0; d < drips; d++) {
       const dx = cxp + (rnd() - 0.5) * t * 0.8;
       const top = py + t * 0.4;
@@ -909,7 +942,6 @@ export class Renderer {
 
     if (!this.lowFx) this.drawAmbient(W, H); // warm key light + vignette for depth
     this.drawFirstBlood(now); // screen-space announcement, above the world
-    this.drawImpactFlash(W, H); // white impact flash, on top of everything
   }
 
   private drawPlayers(view: RenderView, myId: number, now: number): void {
