@@ -522,6 +522,78 @@ export class Assets {
     nb.connect(hp); hp.connect(g2); g2.connect(out); nb.start(t0); nb.stop(t0 + 0.12);
   }
 
+  /** Lazily get the Web-Audio context, or null if unavailable. */
+  private ctxOrNull(): AudioContext | null {
+    if (!this.audioCtx) {
+      try {
+        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        this.audioCtx = new AC();
+      } catch {
+        return null;
+      }
+    }
+    if (this.audioCtx.state === "suspended") void this.audioCtx.resume();
+    return this.audioCtx;
+  }
+
+  private pannedOut(ctx: AudioContext, pan: number): AudioNode {
+    const out = ctx.createGain();
+    const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    if (panner) { panner.pan.value = Math.max(-1, Math.min(1, pan)); out.connect(panner); panner.connect(ctx.destination); } else { out.connect(ctx.destination); }
+    return out;
+  }
+
+  /** Juicy crate smash for a destroyed soft block: a sharp wood CRACK + a low thud +
+   *  a scattering debris rattle, on top of the block_break sample. Panned & scaled. */
+  crateBreak(vol: number, pan: number): void {
+    if (!this.sfxEnabled) return;
+    const v = Math.max(0, Math.min(1, vol));
+    const ctx = this.ctxOrNull();
+    if (!ctx) { this.play("block_break", 0.35 * v); return; }
+    const out = this.pannedOut(ctx, pan);
+    const t0 = ctx.currentTime;
+    // block_break sample for the body (panned if decoded, else plain).
+    const buf = this.fxBuffers.get("block_break");
+    if (buf) { const s = ctx.createBufferSource(); s.buffer = buf; const g = ctx.createGain(); g.gain.value = 0.5 * v; s.connect(g); g.connect(out); s.start(t0); }
+    else { this.ensureBuffer("block_break"); this.play("block_break", 0.35 * v); }
+    // Sharp wood crack (bandpassed noise burst).
+    const nb = ctx.createBufferSource(); nb.buffer = this.getNoise(ctx);
+    const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1500; bp.Q.value = 1.4;
+    const g1 = ctx.createGain(); g1.gain.setValueAtTime(0.5 * v, t0); g1.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07);
+    nb.connect(bp); bp.connect(g1); g1.connect(out); nb.start(t0); nb.stop(t0 + 0.09);
+    // Low thud body.
+    const o = ctx.createOscillator(); o.type = "triangle"; o.frequency.setValueAtTime(95, t0); o.frequency.exponentialRampToValueAtTime(48, t0 + 0.16);
+    const g2 = ctx.createGain(); g2.gain.setValueAtTime(0.0001, t0); g2.gain.exponentialRampToValueAtTime(0.4 * v, t0 + 0.008); g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+    o.connect(g2); g2.connect(out); o.start(t0); o.stop(t0 + 0.22);
+    // Debris rattle tail (highpassed noise, choppy).
+    const rb = ctx.createBufferSource(); rb.buffer = this.getNoise(ctx); rb.playbackRate.value = 0.7;
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 2600;
+    const g3 = ctx.createGain();
+    g3.gain.setValueAtTime(0.0001, t0 + 0.04);
+    for (let k = 0; k < 4; k++) { const tk = t0 + 0.05 + k * 0.04; g3.gain.exponentialRampToValueAtTime(0.18 * v, tk); g3.gain.exponentialRampToValueAtTime(0.02 * v, tk + 0.025); }
+    g3.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.26);
+    rb.connect(hp); hp.connect(g3); g3.connect(out); rb.start(t0 + 0.04); rb.stop(t0 + 0.28);
+  }
+
+  /** Dry little clatter for bones/wood being knocked or blown about — a few short
+   *  filtered clicks. `bony` = higher/drier (bone) vs lower (wood). Panned. */
+  clatter(vol: number, pan: number, bony: boolean): void {
+    if (!this.sfxEnabled) return;
+    const v = Math.max(0, Math.min(1, vol));
+    const ctx = this.ctxOrNull();
+    if (!ctx) return;
+    const out = this.pannedOut(ctx, pan);
+    const t0 = ctx.currentTime;
+    const clicks = 3 + (bony ? 1 : 0);
+    for (let k = 0; k < clicks; k++) {
+      const start = t0 + k * 0.028 + k * 0.006;
+      const nb = ctx.createBufferSource(); nb.buffer = this.getNoise(ctx); nb.playbackRate.value = 1.4;
+      const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = bony ? 2700 : 1500; bp.Q.value = bony ? 4 : 2.2;
+      const g = ctx.createGain(); g.gain.setValueAtTime((bony ? 0.22 : 0.18) * v, start); g.gain.exponentialRampToValueAtTime(0.0001, start + 0.03);
+      nb.connect(bp); bp.connect(g); g.connect(out); nb.start(start); nb.stop(start + 0.05);
+    }
+  }
+
   /** Shepard tone: drive an ever-rising-pitch illusion at intensity 0..1 (round-end
    *  tension, dopamine doc 2.2). Call with 0 to fade out and tear down. */
   shepard(level: number): void {

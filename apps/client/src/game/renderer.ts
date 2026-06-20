@@ -162,6 +162,7 @@ export class Renderer {
   private shakePh = 0;
   private danger = 0; // 0..1 threat level -> pulsing red edge vignette (low HP / sudden death)
   private selfX = 0; private selfY = 0; private selfKnown = false; // local player pos (for distance shake)
+  private lastClatter = 0; // throttle for bone/chip clatter sfx
   private lastTime = performance.now();
 
   private lastW = -1;
@@ -883,7 +884,23 @@ export class Renderer {
     boot(this.bones, "#ece4cf");
     boot(this.meat, "#9c1414");
     boot(this.chips, "#a06b48");
-    if (kicked) this.bloodDirty = true;
+    if (kicked) {
+      this.bloodDirty = true;
+      const now = performance.now();
+      if (this.assets && now - this.lastClatter > 110) { // throttle so it doesn't buzz
+        this.lastClatter = now;
+        const sd = this.soundAt(fromX + 0.5, fromY + 0.5);
+        this.assets.clatter(sd.vol * 0.7, sd.pan, Math.random() < 0.5);
+      }
+    }
+  }
+
+  /** Distance-based volume + stereo pan for a sound at a world cell-centre (cx,cy). */
+  private soundAt(cx: number, cy: number): { vol: number; pan: number } {
+    if (!this.selfKnown) return { vol: 0.6, pan: 0 };
+    const dx = cx - (this.selfX + 0.5), dy = cy - (this.selfY + 0.5);
+    const d2 = dx * dx + dy * dy;
+    return { vol: Math.max(0.25, 1 / (1 + d2 / 22)), pan: Math.max(-1, Math.min(1, dx / 8.5)) };
   }
 
   /** Blow bones/meat/chips lying on the blast cells outward from the epicentre,
@@ -920,7 +937,13 @@ export class Renderer {
     blast(this.bones, "#ece4cf", 0.4);
     blast(this.meat, "#9c1414", 0.18);
     blast(this.chips, "#a06b48", 0.6);
-    if (moved) this.bloodDirty = true;
+    if (moved) {
+      this.bloodDirty = true;
+      if (this.assets) {
+        const sd = this.soundAt(cxs, cys);
+        this.assets.clatter(sd.vol, sd.pan, true); // gibs scattered by the blast
+      }
+    }
   }
 
   /** A small scattered flesh chunk: a dark-red irregular blob with a pink highlight
@@ -1232,11 +1255,17 @@ export class Renderer {
     if (view.grid) {
       // Detect soft-block breaks (SOFT -> not SOFT) to spray debris.
       if (this.prevGrid && this.prevGrid.length === view.grid.length) {
+        let crateSounds = 0; // cap juicy crate-smash sfx per frame (chain reactions)
         for (let i = 0; i < view.grid.length; i++) {
           if (this.prevGrid[i] === TileType.SOFT && view.grid[i] !== TileType.SOFT) {
             const bx = i % GRID_W, by = (i / GRID_W) | 0;
             this.emitDebris(bx, by);
             this.shatters.push({ x: bx, y: by, born: now });
+            if (this.assets && crateSounds < 3) { // juicy crate smash, positioned
+              crateSounds++;
+              const sd = this.soundAt(bx + 0.5, by + 0.5);
+              this.assets.crateBreak(sd.vol, sd.pan);
+            }
             // Persistent wood splinters scattered around the broken crate.
             const nChips = 2 + ((Math.random() * 3) | 0);
             for (let d = 0; d < nChips; d++) {

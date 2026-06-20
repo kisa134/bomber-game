@@ -2,7 +2,6 @@ import {
   ServerMsg,
   MatchPhase,
   Direction,
-  TileType,
   PowerUpType,
   DRAW_WINNER_ID,
   PLAYER_BASE_SPEED,
@@ -99,7 +98,6 @@ let lastGoodNick = ""; // last accepted unique nickname (to revert on a clash)
 let lastCountSec = -1;
 let practiceMode = false; // current room is practice vs bots (drives "Play again")
 let goUntil = 0;
-let prevSoftCount = -1;
 let prevPlayerCount = 0;
 
 const timerEl = document.getElementById("timer")!;
@@ -352,11 +350,8 @@ net.onMessage = (msg) => {
         if (!prevBombIds.has(b.id)) renderer?.setPlaceBomb(b.ownerId);
       }
       prevBombIds = new Set(msg.bombs.map((b) => b.id));
-      // Soft-block break sound (derived from the reconstructed grid).
-      let soft = 0;
-      for (let i = 0; i < state.grid.length; i++) if (state.grid[i] === TileType.SOFT) soft++;
-      if (prevSoftCount >= 0 && soft < prevSoftCount) assets.play("block_break", 0.35);
-      prevSoftCount = soft;
+      // (Soft-block break sound is now the positioned, juicy crate-smash triggered
+      // in the renderer's break detection — see renderer.crateBreak.)
       break;
     }
     case ServerMsg.MATCH_PHASE:
@@ -375,7 +370,6 @@ net.onMessage = (msg) => {
         assets.stopMusic(); // stop the battle loop so it doesn't overlap the last-minute track
         assets.play("sudden_death");
       } else if (msg.phase === MatchPhase.LOBBY) {
-        prevSoftCount = -1;
         renderer?.setCountdown(false);
         if (!onResultScreen() && !spectating) {
           showScreen("room");
@@ -519,7 +513,6 @@ function enterGame(): void {
   assets.shepard(0); // clear any lingering round-end Shepard tone
   assets.subBass(0); // clear any lingering bomb sub-bass
   myPickupStep = 0;
-  prevSoftCount = -1;
   killLines.length = 0;
   killfeedEl.innerHTML = "";
   hudSig = "";
