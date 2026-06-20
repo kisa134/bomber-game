@@ -99,6 +99,40 @@ export const SKIN_UNLOCK_LEVEL = [0, 0, 0, 0, 3, 5, 8, 12, 16, 20, 25] as const;
 // Whole-token price to buy a skin INSTANTLY (bypasses the level gate). 0 = free.
 export const SKIN_TOKEN_PRICES = [0, 0, 0, 0, 5000, 10000, 20000, 35000, 50000, 80000, 150000] as const;
 
+// --- Lucky Spin (free chips wheel; "always something", pure fun) ------------
+export const SPIN_COST_CHIPS = 200; // cost per spin
+export const SKIN_FALLBACK_CHIPS = 3000; // if you already own every skin, the skin prize pays this instead
+export interface WheelPrize {
+  id: number;
+  label: string;
+  kind: "chips" | "skin";
+  amount: number; // chips amount (0 for skin)
+  weight: number; // relative odds
+  color: string; // segment colour (rarity)
+}
+/** Every spin wins something. Expected chip value is below the spin cost, so it
+ *  is a gentle chips sink, with a rare big win and a 1.5% rare-skin drop.
+ *  Shared so the client renders the reel and the server rolls from the SAME odds. */
+export const WHEEL_PRIZES: WheelPrize[] = [
+  { id: 0, label: "50 🪙", kind: "chips", amount: 50, weight: 42, color: "#9aa3b2" },
+  { id: 1, label: "100 🪙", kind: "chips", amount: 100, weight: 30, color: "#9aa3b2" },
+  { id: 2, label: "150 🪙", kind: "chips", amount: 150, weight: 14, color: "#4aa3ff" },
+  { id: 3, label: "300 🪙", kind: "chips", amount: 300, weight: 8, color: "#4aa3ff" },
+  { id: 4, label: "800 🪙", kind: "chips", amount: 800, weight: 3.5, color: "#c879ff" },
+  { id: 5, label: "3000 🪙", kind: "chips", amount: 3000, weight: 1, color: "#ffcc33" },
+  { id: 6, label: "Rare skin", kind: "skin", amount: 0, weight: 1.5, color: "#ff5a5a" },
+];
+/** Pick a prize index by weight using a [0,1) roll (server passes Math.random()). */
+export function rollWheel(r: number): number {
+  const total = WHEEL_PRIZES.reduce((a, p) => a + p.weight, 0);
+  let x = r * total;
+  for (let i = 0; i < WHEEL_PRIZES.length; i++) {
+    x -= WHEEL_PRIZES[i].weight;
+    if (x < 0) return i;
+  }
+  return WHEEL_PRIZES.length - 1;
+}
+
 // --- Practice Sandbox (solo vs bots; pure training, no rewards/stats) -------
 // Sandbox can crowd the arena with more bots than a real 4-player room.
 export const PRACTICE_MAX_BOTS = 7;

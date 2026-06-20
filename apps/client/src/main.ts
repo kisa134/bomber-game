@@ -25,6 +25,7 @@ import {
   TOKEN_BET_SIZES,
   SKIN_UNLOCK_LEVEL,
   SKIN_TOKEN_PRICES,
+  WHEEL_PRIZES,
 } from "./net/protocol.js";
 import {
   Net,
@@ -43,6 +44,7 @@ import {
   prepareDeposit,
   watchMatch,
   buySkin,
+  spinWheel,
   buySkinToken,
   selectSkin,
   attributeReferral,
@@ -1613,7 +1615,7 @@ async function openProfile(): Promise<void> {
     bar.appendChild(fill);
     prog.appendChild(bar);
     prog.appendChild(el("div", "prof-sub", pr.label));
-    prog.appendChild(row("Level", `${p.level ?? 1} · ${(p.xp ?? 0) % 200}/200 XP`));
+    prog.appendChild(row(`Level ${p.level ?? 1}`, `${(p.xp ?? 0) % 200}/200 XP`));
     zones.appendChild(prog);
 
     // Career stats
@@ -2015,6 +2017,83 @@ function openSkinShop(from: ScreenName = "menu"): void {
   showScreen("shop");
   void refreshSkinShop();
 }
+
+// --- Lucky Spin (free chips wheel) ----------------------------------------
+const WHEEL_CELL_W = 96; // px per reel cell (must match .wheel-cell in CSS)
+let wheelSpinning = false;
+function wheelCell(prizeId: number, skinName?: string): HTMLElement {
+  const p = WHEEL_PRIZES[prizeId];
+  const c = el("div", "wheel-cell", "");
+  c.style.setProperty("--c", p.color);
+  c.textContent = p.kind === "skin" ? (skinName ? `🎁 ${skinName}` : "🎁") : p.label;
+  return c;
+}
+function buildIdleStrip(): void {
+  const strip = document.getElementById("wheel-strip");
+  if (!strip) return;
+  strip.style.transition = "none";
+  strip.style.transform = "translateX(0)";
+  strip.innerHTML = "";
+  for (let i = 0; i < 24; i++) strip.appendChild(wheelCell(Math.floor(Math.random() * WHEEL_PRIZES.length)));
+}
+function openWheel(): void {
+  if (!loadWallet()) {
+    setMenuStatus("Connect a wallet to spin");
+    return;
+  }
+  const r = document.getElementById("wheel-result");
+  if (r) { r.textContent = ""; r.className = "wheel-result"; }
+  document.getElementById("wheel-modal")!.classList.remove("hidden");
+  buildIdleStrip();
+}
+async function doSpin(): Promise<void> {
+  if (wheelSpinning || !loadWallet()) return;
+  const strip = document.getElementById("wheel-strip")!;
+  const result = document.getElementById("wheel-result")!;
+  const btn = document.getElementById("wheel-spin") as HTMLButtonElement;
+  result.textContent = "";
+  result.className = "wheel-result";
+  let res;
+  try {
+    res = await spinWheel();
+  } catch {
+    result.textContent = "Spin failed — try again.";
+    return;
+  }
+  if (res.error) {
+    result.textContent = res.error === "cant_afford" ? "Not enough chips (need 200 🪙)." : `Failed: ${res.error}`;
+    return;
+  }
+  wheelSpinning = true;
+  btn.disabled = true;
+  const TARGET = 40;
+  const wonName = res.kind === "skin" && res.skin >= 0 ? (SKIN_NAMES[res.skin] ?? "skin") : undefined;
+  strip.style.transition = "none";
+  strip.style.transform = "translateX(0)";
+  strip.innerHTML = "";
+  for (let i = 0; i < TARGET + 10; i++) {
+    strip.appendChild(i === TARGET ? wheelCell(res.prizeId, wonName) : wheelCell(Math.floor(Math.random() * WHEEL_PRIZES.length)));
+  }
+  const vp = document.querySelector(".wheel-viewport") as HTMLElement;
+  const center = vp.clientWidth / 2 - WHEEL_CELL_W / 2;
+  const dest = -(TARGET * WHEEL_CELL_W - center);
+  void strip.offsetWidth; // reflow so the transition applies
+  strip.style.transition = "transform 4s cubic-bezier(0.12, 0.84, 0.2, 1)";
+  strip.style.transform = `translateX(${dest}px)`;
+  window.setTimeout(() => {
+    wheelSpinning = false;
+    btn.disabled = false;
+    result.className = "wheel-result win";
+    result.textContent = res!.kind === "skin" ? `🎉 Rare skin won: ${wonName}!` : `🎉 +${res!.amount.toLocaleString()} 🪙!`;
+    assets.play("victory");
+    setStats(res!.chips, lastRating); // refresh chip badge
+    if (res!.kind === "skin") setLobbySkins(res!.skins, myProfile?.level ?? 1); // new owned skin
+  }, 4150);
+}
+document.getElementById("open-wheel")?.addEventListener("click", openWheel);
+document.getElementById("wheel-spin")?.addEventListener("click", () => void doSpin());
+document.getElementById("wheel-close")?.addEventListener("click", () =>
+  document.getElementById("wheel-modal")!.classList.add("hidden"));
 
 // --- main hub modules -------------------------------------------------------
 // Hub hero walks FORWARD toward the viewer (down-facing walk cycle), unlike the

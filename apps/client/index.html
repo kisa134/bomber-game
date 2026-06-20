@@ -121,6 +121,7 @@
               <div class="hub-nav">
                 <button id="open-profile" class="hub-util">👤 Profile</button>
                 <button id="open-shop" class="hub-util">🛒 SHOP</button>
+                <button id="open-wheel" class="hub-util">🎰 Lucky Spin</button>
                 <button id="open-referral" class="hub-util">👥 Invite &amp; earn</button>
               </div>
             </div>
@@ -634,6 +635,21 @@
           <p id="shop-status" class="status"></p>
         </div>
       </section>
+
+      <!-- Lucky Spin: free chips wheel — every spin wins something -->
+      <div id="wheel-modal" class="modal hidden">
+        <div class="modal-card wheel-card">
+          <h3>🎰 Lucky Spin</h3>
+          <p class="status fair">Spin for chips &amp; a rare skin drop — every spin wins something.</p>
+          <div class="wheel-viewport">
+            <div id="wheel-strip" class="wheel-strip"></div>
+            <div class="wheel-marker"></div>
+          </div>
+          <p id="wheel-result" class="wheel-result"></p>
+          <button id="wheel-spin" class="primary big">🎰 Spin · 200 🪙</button>
+          <button id="wheel-close" class="ghost">Close</button>
+        </div>
+      </div>
 
       <!-- Bank modal: deposit / withdraw the real token -->
       <div id="bank-modal" class="modal hidden">

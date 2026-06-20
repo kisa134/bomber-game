@@ -4313,3 +4313,72 @@ button.big {
     font-size: 1.05rem;
   }
 }
+
+/* --- Lucky Spin (free chips wheel) --- */
+.wheel-card {
+  width: min(440px, calc(100% - 28px));
+}
+.wheel-viewport {
+  position: relative;
+  width: 100%;
+  height: 92px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.35);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+.wheel-strip {
+  display: flex;
+  height: 100%;
+  will-change: transform;
+}
+.wheel-cell {
+  flex: 0 0 96px;
+  width: 96px;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  color: #fff;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 4px solid var(--c, #9aa3b2);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(0, 0, 0, 0.25));
+}
+.wheel-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  transform: translateX(-50%);
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent);
+  z-index: 2;
+}
+.wheel-marker::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 9px solid var(--accent);
+}
+.wheel-result {
+  min-height: 1.4em;
+  text-align: center;
+  font-weight: 800;
+}
+.wheel-result.win {
+  color: #5fd96a;
+  font-size: 1.2rem;
+  animation: winpop 0.4s ease-out both;
+}

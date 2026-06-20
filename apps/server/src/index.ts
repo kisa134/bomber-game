@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW, DEFAULT_SKINS, SKIN_PRICES, SKIN_UNLOCK_LEVEL, SKIN_TOKEN_PRICES, SKIN_COUNT, PRACTICE_MAX_BOTS, clampSandbox, type SandboxOpts } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW, DEFAULT_SKINS, SKIN_PRICES, SKIN_UNLOCK_LEVEL, SKIN_TOKEN_PRICES, SKIN_COUNT, PRACTICE_MAX_BOTS, clampSandbox, SPIN_COST_CHIPS, SKIN_FALLBACK_CHIPS, WHEEL_PRIZES, rollWheel, type SandboxOpts } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession, AUTH_SECRET_SET } from "./auth.js";
 import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./tgrelay.js";
@@ -746,6 +746,49 @@ app.post("/shop/select-skin", (res, req) => {
     const sel = await store.selectSkin(wallet, skin);
     if (sel === null) return sendJson(res, { error: "not_owned" }, "403 Forbidden");
     sendJson(res, { skin: sel });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
+// Lucky Spin: spend chips, win something every time (server-authoritative roll).
+app.post("/wheel/spin", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    const { wallet } = parseSkinReq(body);
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    // Charge the spin atomically; bail if they can't afford it.
+    const afterCost = await store.adjustChips(wallet, -SPIN_COST_CHIPS);
+    if (afterCost === null) return sendJson(res, { error: "cant_afford" }, "402 Payment Required");
+    // Roll on the server (the client can't influence the outcome).
+    let prizeId = rollWheel(Math.random());
+    let prize = WHEEL_PRIZES[prizeId];
+    let wonSkin = -1;
+    if (prize.kind === "skin") {
+      const prof = await store.getProfile(wallet);
+      const owned = prof?.skins ?? DEFAULT_SKINS;
+      const unowned: number[] = [];
+      for (let i = 0; i < SKIN_COUNT; i++) if (!((owned >> i) & 1)) unowned.push(i);
+      if (unowned.length) {
+        wonSkin = unowned[Math.floor(Math.random() * unowned.length)];
+        await store.grantSkin(wallet, wonSkin);
+      } else {
+        // Already owns every skin → pay the fallback chips instead.
+        await store.adjustChips(wallet, SKIN_FALLBACK_CHIPS);
+        prizeId = 5;
+        prize = WHEEL_PRIZES[5];
+      }
+    } else {
+      await store.adjustChips(wallet, prize.amount);
+    }
+    const prof = await store.getProfile(wallet);
+    sendJson(res, {
+      ok: true,
+      prizeId,
+      kind: wonSkin >= 0 ? "skin" : "chips",
+      amount: prize.amount,
+      skin: wonSkin,
+      chips: prof?.chips ?? afterCost,
+      skins: prof?.skins ?? DEFAULT_SKINS,
+    });
   }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 

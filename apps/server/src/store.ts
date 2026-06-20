@@ -93,6 +93,9 @@ export interface ProfileStore {
    *  `amountBase` token base units and set ownership. Returns new
    *  {token_balance, skins} or null if already owned / can't afford. */
   buySkinToken(wallet: string, skin: number, amountBase: number): Promise<{ token_balance: number; skins: number } | null>;
+  /** Grant a skin for free (e.g. a Lucky Spin drop). Returns new skins, or null
+   *  if already owned. */
+  grantSkin(wallet: string, skin: number): Promise<{ skins: number } | null>;
   /** Select an owned skin as the active one. Returns the new skin, or null if
    *  the wallet doesn't own it. */
   selectSkin(wallet: string, skin: number): Promise<number | null>;
@@ -329,6 +332,15 @@ class InMemoryStore implements ProfileStore {
     p.token_balance -= amountBase;
     p.skins |= bit;
     return { token_balance: p.token_balance, skins: p.skins };
+  }
+
+  async grantSkin(wallet: string, skin: number): Promise<{ skins: number } | null> {
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    const bit = 1 << skin;
+    if (p.skins & bit) return null; // already owned
+    p.skins |= bit;
+    return { skins: p.skins };
   }
 
   async selectSkin(wallet: string, skin: number): Promise<number | null> {
@@ -695,6 +707,25 @@ class SupabaseStore implements ProfileStore {
       return null;
     }
     return { token_balance, skins };
+  }
+
+  async grantSkin(wallet: string, skin: number): Promise<{ skins: number } | null> {
+    const p = await this.getProfile(wallet);
+    const owned = p?.skins ?? DEFAULT_SKINS;
+    const bit = 1 << skin;
+    if (owned & bit) return null;
+    const skins = owned | bit;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ skins }),
+      });
+    } catch (e) {
+      console.error("[store] grantSkin failed", e);
+      return null;
+    }
+    return { skins };
   }
 
   async selectSkin(wallet: string, skin: number): Promise<number | null> {
@@ -1288,6 +1319,26 @@ class PostgresStore implements ProfileStore {
         : null;
     } catch (e) {
       console.error("[store] pg buySkinToken failed", e);
+      return null;
+    }
+  }
+
+  async grantSkin(wallet: string, skin: number): Promise<{ skins: number } | null> {
+    try {
+      await this.ready;
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
+      const res = await this.pool.query(
+        `update profiles set skins = skins | (1 << $2), updated_at=now()
+         where wallet=$1 and (skins & (1 << $2)) = 0
+         returning skins`,
+        [wallet, skin],
+      );
+      return res.rows[0] ? { skins: res.rows[0].skins as number } : null;
+    } catch (e) {
+      console.error("[store] pg grantSkin failed", e);
       return null;
     }
   }

@@ -131,6 +131,21 @@ export async function buySkinToken(
   return res.json();
 }
 
+export interface SpinResult {
+  ok?: boolean;
+  error?: string;
+  prizeId: number;
+  kind: "chips" | "skin";
+  amount: number;
+  skin: number; // won skin index (-1 if chips)
+  chips: number;
+  skins: number;
+}
+export async function spinWheel(): Promise<SpinResult> {
+  const res = await post("/wheel/spin", {});
+  return res.json();
+}
+
 export async function setNickname(name: string): Promise<{ ok?: boolean; name?: string; error?: string }> {
   const res = await post("/profile/name", { name });
   return res.json();
