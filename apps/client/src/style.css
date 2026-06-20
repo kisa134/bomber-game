@@ -3358,6 +3358,189 @@ button.big {
   gap: 8px;
 }
 
+/* --- PROFILE (full-screen career screen: hero · progression · stats) --- */
+#profile {
+  justify-content: flex-start;
+  padding: calc(var(--chrome-h, 120px) + 6px) 16px calc(12px + var(--sai-bottom));
+}
+.prof-wrap {
+  width: min(900px, 100%);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* Same glass as the lobby/shop windows (unified style). */
+  background: rgba(13, 16, 26, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+  padding: 16px;
+}
+.prof-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.prof-top .lobby-title {
+  flex: 1 1 auto;
+  text-align: center;
+}
+.prof-share-btn {
+  width: auto;
+  flex: none;
+  padding: 8px 14px;
+}
+#profile-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+/* Hero: character + name + rank */
+.prof-hero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 16px;
+  background: radial-gradient(circle at 18% 40%, rgba(255, 204, 51, 0.12), transparent 60%),
+    rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.prof-hero-av {
+  width: 96px;
+  height: 96px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.5));
+}
+.prof-hero-av .avatar,
+.prof-hero-av .avatar img {
+  width: 96px;
+  height: 96px;
+  font-size: 3rem;
+}
+.prof-hero-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.prof-name-input {
+  width: 100%;
+  max-width: 280px;
+  text-align: left;
+  font-size: 1.4rem;
+  font-weight: 800;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.25);
+}
+.prof-id {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+.prof-rankrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+.prof-league {
+  font-weight: 800;
+}
+.prof-rating {
+  font-size: 1.4rem;
+  font-weight: 900;
+  color: var(--accent);
+}
+.prof-sub {
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+/* Zone grid */
+.prof-zones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.prof-zones .prof-card:first-child {
+  grid-column: 1 / -1; /* progression spans full width on top */
+}
+.prof-card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.prof-card-h {
+  font-weight: 800;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.prof-bigstat {
+  font-size: 1.8rem;
+  font-weight: 900;
+}
+.prof-prog {
+  height: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.prof-progfill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #ffe487);
+  border-radius: 8px;
+}
+.prof-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.prof-row-l {
+  color: var(--muted);
+}
+.prof-row-v {
+  font-weight: 700;
+}
+.prof-statgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+@media (max-width: 760px) {
+  .prof-zones {
+    grid-template-columns: 1fr;
+  }
+  .prof-hero {
+    flex-direction: column;
+    text-align: center;
+  }
+  .prof-hero-info {
+    align-items: center;
+  }
+  .prof-name-input {
+    text-align: center;
+  }
+}
+
 /* --- SHOP (full-screen game store: filters · grid · focused detail panel) --- */
 #shop {
   justify-content: flex-start;

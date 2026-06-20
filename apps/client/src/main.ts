@@ -11,6 +11,7 @@ import {
   PROTOCOL_VERSION,
   EMOTES,
   leagueFor,
+  LEAGUES,
   STARTING_RATING,
   SPECTATOR_ID,
   TOKEN_MINT,
@@ -1441,6 +1442,16 @@ function wireBank(): void {
   });
 }
 
+/** Progress from the current rating toward the next league up. */
+function leagueProgress(rating: number): { pct: number; label: string } {
+  const cur = leagueFor(rating);
+  const higher = LEAGUES.filter((l) => l.min > cur.min).sort((a, b) => a.min - b.min)[0];
+  if (!higher) return { pct: 100, label: "👑 Top league reached" };
+  const span = higher.min - cur.min;
+  const pct = Math.max(4, Math.min(100, ((rating - cur.min) / span) * 100));
+  return { pct, label: `${(higher.min - rating).toLocaleString()} rating to ${higher.emoji} ${higher.name}` };
+}
+
 async function openProfile(): Promise<void> {
   showScreen("profile");
   const body = document.getElementById("profile-body")!;
@@ -1456,39 +1467,20 @@ async function openProfile(): Promise<void> {
     setTokenBadge(p.gameTokens);
     const wr = p.matches ? Math.round((p.wins / p.matches) * 100) : 0;
     const tokWon = (p.tokens_won ?? 0) / 10 ** TOKEN_DECIMALS;
-    body.innerHTML = "";
     const lg = leagueFor(p.rating);
-    body.append(
-      el("div", "prof-addr", shortAddr(w.address)),
-      // League + rating is the rank/progression (no more cosmetic levels).
-      el("div", "prof-level", `${lg.emoji} ${lg.name} · ${p.rating}`),
-      el("div", "prof-chips", `🪙 ${p.chips.toLocaleString()} chips`),
-      el("div", "prof-chips", `💎 ${(p.gameTokens ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })} $${TOKEN_TICKER} in game`),
-    );
-    const grid = document.createElement("div");
-    grid.className = "prof-grid";
-    grid.append(
-      profCell("Rating", p.rating),
-      profCell("League", `${lg.emoji} ${lg.name}`),
-      profCell("Matches", p.matches),
-      profCell("Wins", p.wins),
-      profCell("Win rate", `${wr}%`),
-      profCell("Frags", p.frags),
-      profCell("⏱ Time", formatPlaytime(p.playtime_sec)),
-      profCell(`Won 💎`, tokWon.toLocaleString(undefined, { maximumFractionDigits: 2 })),
-      profCell("Won 🪙", (p.chips_won ?? 0).toLocaleString()),
-    );
-    body.append(grid);
+    const skin = p.skin ?? Number(localStorage.getItem("bp_skin")) ?? 0;
+    body.innerHTML = "";
 
-    // Editable display name (applies everywhere from the next match).
-    const nameRow = document.createElement("div");
-    nameRow.className = "setting-row";
-    nameRow.append(el("span", "", "Name"));
+    // --- Hero: character + name (editable) + rank --------------------------
+    const hero = el("div", "prof-hero", "");
+    const av = el("div", "prof-hero-av", "");
+    av.appendChild(skinAvatar(skin, PLAYER_COLORS[skin % PLAYER_COLORS.length]));
+    const info = el("div", "prof-hero-info", "");
     const nameInput = document.createElement("input");
+    nameInput.className = "prof-name-input";
     nameInput.maxLength = 16;
-    nameInput.value = localStorage.getItem("bp_nick") ?? "";
-    nameInput.style.width = "150px";
-    const save = () => {
+    nameInput.value = p.name || localStorage.getItem("bp_nick") || "";
+    const save = (): void => {
       const v = nameInput.value.trim().slice(0, 16);
       if (!v) return;
       localStorage.setItem("bp_nick", v);
@@ -1497,9 +1489,65 @@ async function openProfile(): Promise<void> {
     };
     nameInput.addEventListener("change", save);
     nameInput.addEventListener("blur", save);
-    nameRow.append(nameInput);
-    body.append(nameRow);
-    body.append(el("div", "status fair", "Name updates in the lobby, HUD and leaderboard from your next match."));
+    const rank = el("div", "prof-rankrow", "");
+    rank.innerHTML = `<span class="prof-league">${lg.emoji} ${lg.name}</span><span class="prof-rating">${p.rating}</span>`;
+    info.append(nameInput, el("div", "prof-id", shortAddr(w.address)), rank);
+    info.append(el("div", "prof-sub", "✎ Name applies from your next match"));
+    hero.append(av, info);
+    body.append(hero);
+
+    // --- Zone grid: progression · stats · account --------------------------
+    const card = (title: string): HTMLElement => {
+      const c = el("div", "prof-card", "");
+      c.appendChild(el("div", "prof-card-h", title));
+      return c;
+    };
+    const row = (label: string, val: string): HTMLElement => {
+      const r = el("div", "prof-row", "");
+      r.append(el("span", "prof-row-l", label), el("b", "prof-row-v", val));
+      return r;
+    };
+    const zones = el("div", "prof-zones", "");
+
+    // Progression
+    const prog = card("📈 Progression");
+    const pr = leagueProgress(p.rating);
+    prog.appendChild(el("div", "prof-bigstat", `${lg.emoji} ${p.rating}`));
+    const bar = el("div", "prof-prog", "");
+    const fill = el("div", "prof-progfill", "");
+    fill.style.width = `${pr.pct}%`;
+    bar.appendChild(fill);
+    prog.appendChild(bar);
+    prog.appendChild(el("div", "prof-sub", pr.label));
+    prog.appendChild(row("Level", `LV ${p.level ?? 1} · ${(p.xp ?? 0) % 200}/200 XP`));
+    zones.appendChild(prog);
+
+    // Career stats
+    const stats = card("⚔️ Career stats");
+    const sgrid = el("div", "prof-statgrid", "");
+    sgrid.append(
+      profCell("Matches", p.matches),
+      profCell("Wins", p.wins),
+      profCell("Win rate", `${wr}%`),
+      profCell("Frags", p.frags),
+      profCell("Deaths", p.deaths),
+      profCell("Best streak", p.best_streak ?? 0),
+      profCell("⏱ Time", formatPlaytime(p.playtime_sec)),
+    );
+    stats.appendChild(sgrid);
+    zones.appendChild(stats);
+
+    // Account / economy
+    const acct = card("💰 Account");
+    acct.append(
+      row("🪙 Chips", p.chips.toLocaleString()),
+      row(`💎 In game`, `${(p.gameTokens ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}${usdOf(p.gameTokens ?? 0)}`),
+      row("🏆 Won 💎", tokWon.toLocaleString(undefined, { maximumFractionDigits: 2 })),
+      row("🏆 Won 🪙", (p.chips_won ?? 0).toLocaleString()),
+    );
+    zones.appendChild(acct);
+
+    body.append(zones);
   } catch {
     body.innerHTML = '<p class="status">Failed to load.</p>';
   }
