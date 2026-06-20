@@ -1519,7 +1519,7 @@ async function openProfile(): Promise<void> {
     bar.appendChild(fill);
     prog.appendChild(bar);
     prog.appendChild(el("div", "prof-sub", pr.label));
-    prog.appendChild(row("Level", `LV ${p.level ?? 1} · ${(p.xp ?? 0) % 200}/200 XP`));
+    prog.appendChild(row("Level", `${p.level ?? 1} · ${(p.xp ?? 0) % 200}/200 XP`));
     zones.appendChild(prog);
 
     // Career stats
@@ -2954,8 +2954,17 @@ function walletShort(): string | null {
 function buildCardData(kind: "result" | "profile"): CardData {
   const nick = (localStorage.getItem("bp_nick") || "pumper").trim();
   const lg = leagueFor(lastRating);
+  // Result card uses the in-match (deduped) skin; the profile card isn't in a
+  // match, so use the equipped skin from the loadout.
+  const equipped = Number(localStorage.getItem("bp_skin"));
+  const skin =
+    kind === "result"
+      ? state.skinOf(state.myId)
+      : Number.isInteger(equipped) && equipped >= 0
+        ? equipped
+        : state.skinOf(state.myId);
   const data: CardData = {
-    kind, nickname: nick, skin: state.skinOf(state.myId), rating: lastRating,
+    kind, nickname: nick, skin, rating: lastRating,
     league: { emoji: lg.emoji, name: lg.name }, chips: lastChips ?? 0,
     refUrl: referralLink(), refCode: walletShort(),
   };
