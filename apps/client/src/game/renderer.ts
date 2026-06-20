@@ -138,6 +138,7 @@ export class Renderer {
   private bloodBlocks = new Map<number, { dirs: number; seed: number; n: number; born: number; nextDrip: number }>();
   // Persistent blood on the ground (death-cell mush + smeared footprints). cell -> intensity.
   private bloodGround = new Map<number, number>();
+  private puBuf: HTMLCanvasElement | null = null; // scratch buffer for powerup sheen masked to the icon
   private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
   private bloodDirty = false;
   private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
@@ -2101,10 +2102,10 @@ export class Renderer {
       // Bright pulsing colored glow (two additive rings for a brighter halo).
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      const rad = t * (0.66 + 0.13 * pulse);
+      const rad = t * (0.6 + 0.12 * pulse);
       const g = ctx.createRadialGradient(cx, cy + bob, 0, cx, cy + bob, rad);
-      g.addColorStop(0, `rgba(${gr},${gg},${gb},${0.95 * pulse})`); // brighter, more saturated
-      g.addColorStop(0.45, `rgba(${gr},${gg},${gb},${0.45 * pulse})`);
+      g.addColorStop(0, `rgba(${gr},${gg},${gb},${0.62 * pulse})`); // a tidy halo, not a square wash
+      g.addColorStop(0.5, `rgba(${gr},${gg},${gb},${0.22 * pulse})`);
       g.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
       ctx.fillStyle = g;
       ctx.beginPath();
@@ -2112,10 +2113,40 @@ export class Renderer {
       ctx.fill();
       ctx.restore();
 
-      // The relic itself, bobbing.
       const img = key ? this.sprite(key) : null;
       if (img) {
-        ctx.drawImage(img, px, py + bob, t, t);
+        // Render icon + specular + diagonal metallic sheen into a buffer, then mask
+        // it all to the icon's alpha (destination-in) so the shine sits STRICTLY on
+        // the icon shape — never washing over the empty tile.
+        const buf = this.puBuf ?? (this.puBuf = document.createElement("canvas"));
+        if (buf.width !== t || buf.height !== t) { buf.width = t; buf.height = t; }
+        const bg = buf.getContext("2d");
+        if (bg) {
+          bg.globalCompositeOperation = "source-over";
+          bg.clearRect(0, 0, t, t);
+          bg.drawImage(img, 0, 0, t, t);
+          bg.globalCompositeOperation = "lighter"; // additive shine over the icon
+          // glossy specular
+          const hg = bg.createRadialGradient(t * 0.35, t * 0.3, 0, t * 0.35, t * 0.3, t * 0.2);
+          hg.addColorStop(0, `rgba(255,255,255,${0.6 * pulse})`);
+          hg.addColorStop(1, "rgba(255,255,255,0)");
+          bg.fillStyle = hg; bg.fillRect(0, 0, t, t);
+          // diagonal metallic sheen band sweeping across
+          const sweep = (now / 1500 + (x * 0.27 + y * 0.19)) % 1;
+          const sxc = -t * 0.6 + sweep * (t * 2.2);
+          const bw = t * 0.2;
+          const sg = bg.createLinearGradient(sxc - bw, 0, sxc + bw, t);
+          sg.addColorStop(0, "rgba(255,255,255,0)");
+          sg.addColorStop(0.5, "rgba(255,255,255,0.6)");
+          sg.addColorStop(1, "rgba(255,255,255,0)");
+          bg.fillStyle = sg; bg.fillRect(0, 0, t, t);
+          bg.globalCompositeOperation = "destination-in"; // clip the shine to the icon shape
+          bg.drawImage(img, 0, 0, t, t);
+          bg.globalCompositeOperation = "source-over";
+          ctx.drawImage(buf, px, py + bob);
+        } else {
+          ctx.drawImage(img, px, py + bob, t, t);
+        }
       } else if (icon) {
         ctx.font = `${Math.floor(t * 0.6)}px system-ui`;
         ctx.textAlign = "center";
@@ -2123,38 +2154,6 @@ export class Renderer {
         ctx.fillStyle = "#fff";
         ctx.fillText(icon, cx, cy + bob + 1);
       }
-
-      // Glossy specular highlight.
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      const hx = cx - t * 0.15;
-      const hy = cy - t * 0.2 + bob;
-      const hr = t * 0.2;
-      const hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, hr);
-      hg.addColorStop(0, `rgba(255,255,255,${0.75 * pulse})`);
-      hg.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = hg;
-      ctx.beginPath();
-      ctx.arc(hx, hy, hr, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-
-      // Diagonal metallic sheen sweeping across the relic (clipped to the tile).
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(px, py + bob, t, t);
-      ctx.clip();
-      ctx.globalCompositeOperation = "lighter";
-      const sweep = (now / 1500 + (x * 0.27 + y * 0.19)) % 1; // staggered glint per tile
-      const sxc = px - t * 0.6 + sweep * (t * 2.2); // band travels across, top-left -> bottom-right
-      const bandW = t * 0.22;
-      const sg = ctx.createLinearGradient(sxc - bandW, py + bob, sxc + bandW, py + bob + t);
-      sg.addColorStop(0, "rgba(255,255,255,0)");
-      sg.addColorStop(0.5, "rgba(255,255,255,0.55)");
-      sg.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = sg;
-      ctx.fillRect(px, py + bob, t, t);
-      ctx.restore();
     }
   }
 
