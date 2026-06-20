@@ -2179,7 +2179,9 @@ function buildEmoteBar(id: string): void {
 buildEmoteBar("room-emotes");
 buildEmoteBar("game-emotes");
 
-/** Show a reaction: a bubble over the player in-game, plus a lobby pop. */
+/** Show a reaction: a bubble over the player in-game, plus a floating lobby pop.
+ *  Lobby pops spawn at a random x with a little drift and rise up, so multiple
+ *  reactions scatter across the screen instead of stacking in one place. */
 function showEmote(playerId: number, emote: number): void {
   const e = EMOTES[emote] ?? "❓";
   renderer?.showEmote(playerId, e);
@@ -2187,8 +2189,10 @@ function showEmote(playerId: number, emote: number): void {
     const pop = document.createElement("div");
     pop.className = "emote-pop";
     pop.textContent = `${state.nameOf(playerId)} ${e}`;
+    pop.style.left = `${12 + Math.random() * 70}%`; // scatter horizontally
+    pop.style.setProperty("--drift", `${(Math.random() * 2 - 1) * 44}px`);
     document.getElementById("room")?.appendChild(pop);
-    setTimeout(() => pop.remove(), 1800);
+    setTimeout(() => pop.remove(), 2200);
   }
 }
 
