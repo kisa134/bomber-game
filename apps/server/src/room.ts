@@ -387,6 +387,17 @@ export class Room {
     this.broadcastRoomInfo();
   }
 
+  /** Lobby skin pick. Sets the player's preferred character; the final per-match
+   *  dedupe still guarantees everyone looks distinct (earlier seats keep theirs). */
+  setSkin(id: number, skin: number): void {
+    const p = this.players.get(id);
+    if (!p || this.phase !== MatchPhase.LOBBY) return;
+    if (!Number.isInteger(skin) || skin < 0 || skin >= SKIN_COUNT) return;
+    p.preferredSkin = skin;
+    p.skin = skin;
+    this.broadcastRoomInfo();
+  }
+
   /** Host removes a player from the lobby. */
   kick(hostId: number, targetId: number): void {
     if (this.phase !== MatchPhase.LOBBY) return;

@@ -47,6 +47,7 @@ export enum ClientMsg {
   PROPOSE_STAKE = 8, // any player proposes raising the stake (lobby only)
   VOTE_STAKE = 9, // accept/decline an active stake proposal
   KICK = 10, // host removes a player from the lobby
+  SET_SKIN = 11, // pick your character in the lobby
 }
 
 /** Server -> Client message ids. */

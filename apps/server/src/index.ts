@@ -1164,6 +1164,8 @@ app.ws<SocketData>("/ws", {
       room.voteStake(ud.playerId, msg.accept);
     } else if (msg.type === ClientMsg.KICK) {
       room.kick(ud.playerId, msg.targetId);
+    } else if (msg.type === ClientMsg.SET_SKIN) {
+      room.setSkin(ud.playerId, msg.skin);
     }
   },
   close: (ws) => {

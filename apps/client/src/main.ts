@@ -1876,6 +1876,15 @@ wireMenuLinks();
 wireBank();
 setProfileHandler((p) => openPlayerCard(p));
 setKickHandler((playerId) => net.sendKick(playerId));
+// Character (skin) picker: cycle skins; the server echoes the roster so the seat
+// avatar + the character stage update.
+function cycleSkin(delta: number): void {
+  const me = state.roomPlayers.find((p) => p.id === state.myId);
+  if (!me) return;
+  net.sendSkin((me.skin + delta + SKIN_COUNT) % SKIN_COUNT);
+}
+document.getElementById("skin-prev")?.addEventListener("click", () => cycleSkin(-1));
+document.getElementById("skin-next")?.addEventListener("click", () => cycleSkin(1));
 // While the lobby ready-countdown is running, refresh the waiting room once a
 // second so the "Starting in Ns" ticks down (the server broadcasts it once).
 setInterval(() => {

@@ -9,6 +9,7 @@ import {
   encodeSetReady,
   encodeEmote,
   encodeKick,
+  encodeSetSkin,
   encodeSetStake,
   encodeProposeStake,
   encodeVoteStake,
@@ -361,6 +362,10 @@ export class Net {
 
   sendKick(targetId: number): void {
     this.send(encodeKick(targetId));
+  }
+
+  sendSkin(skin: number): void {
+    this.send(encodeSetSkin(skin));
   }
 
   sendPing(): void {

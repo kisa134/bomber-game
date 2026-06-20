@@ -113,6 +113,10 @@ export function encodeKick(targetId: number): Uint8Array {
   return new Uint8Array([ClientMsg.KICK, targetId & 0xff]);
 }
 
+export function encodeSetSkin(skin: number): Uint8Array {
+  return new Uint8Array([ClientMsg.SET_SKIN, skin & 0xff]);
+}
+
 export type ClientMessage =
   | { type: ClientMsg.INPUT_MOVE; dir: Direction; tick: number }
   | { type: ClientMsg.INPUT_PLACE_BOMB; seq: number }
@@ -123,7 +127,8 @@ export type ClientMessage =
   | { type: ClientMsg.SET_STAKE; stake: number }
   | { type: ClientMsg.PROPOSE_STAKE; stake: number }
   | { type: ClientMsg.VOTE_STAKE; accept: boolean }
-  | { type: ClientMsg.KICK; targetId: number };
+  | { type: ClientMsg.KICK; targetId: number }
+  | { type: ClientMsg.SET_SKIN; skin: number };
 
 export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | null {
   const dv = asView(data);
@@ -159,6 +164,9 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
     case ClientMsg.KICK:
       if (dv.byteLength < 2) return null;
       return { type, targetId: dv.getUint8(1) };
+    case ClientMsg.SET_SKIN:
+      if (dv.byteLength < 2) return null;
+      return { type, skin: dv.getUint8(1) };
     default:
       return null;
   }
