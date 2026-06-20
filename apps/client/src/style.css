@@ -4529,3 +4529,50 @@ button.big {
   font-size: 1.2rem;
   animation: winpop 0.4s ease-out both;
 }
+
+/* --- Splash entry screen (own video backdrop + Enter / Connect / About) --- */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  overflow: hidden;
+}
+#splash-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.6s ease;
+}
+#splash-video.ready {
+  opacity: 1;
+}
+.splash-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: radial-gradient(120% 120% at 50% 38%, rgba(8, 10, 16, 0.25) 0%, rgba(8, 10, 16, 0.8) 100%);
+}
+.splash-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(360px, 100%);
+  text-align: center;
+}
+.splash-logo {
+  font-size: 2.1rem;
+}
+.splash-tagline {
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.splash-card button {
+  width: 100%;
+}

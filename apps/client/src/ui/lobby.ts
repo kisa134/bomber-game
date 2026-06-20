@@ -126,6 +126,7 @@ import type { GameState } from "../game/state.js";
 import type { TableInfo } from "../net/socket.js";
 
 export type ScreenName =
+  | "splash"
   | "loading"
   | "menu"
   | "settings"
@@ -139,6 +140,7 @@ export type ScreenName =
   | "game"
   | "result";
 const SCREENS: ScreenName[] = [
+  "splash",
   "loading",
   "menu",
   "settings",
@@ -158,17 +160,25 @@ export function showScreen(name: ScreenName): void {
     document.getElementById(id)?.classList.toggle("hidden", id !== name);
   }
   // Persistent top chrome (alpha notice + global status bar + XP): on every
-  // screen except the in-game view (the board is a Canvas with its own HUD).
-  document.getElementById("chrome")?.classList.toggle("hidden", name === "game");
+  // screen except the in-game view (Canvas with its own HUD) and the splash
+  // entry screen (a clean, chrome-less welcome).
+  document.getElementById("chrome")?.classList.toggle("hidden", name === "game" || name === "splash");
   syncChrome();
-  // Background video runs everywhere except in-game (saves CPU/battery).
+  // Global background video runs everywhere except in-game (CPU/battery) and the
+  // splash screen (which has its own video backdrop covering it).
   const bg = document.getElementById("bg");
   const video = document.getElementById("bg-video") as HTMLVideoElement | null;
-  const showBg = name !== "game";
+  const showBg = name !== "game" && name !== "splash";
   if (bg) bg.style.display = showBg ? "" : "none";
   if (video) {
     if (showBg) void video.play().catch(() => {});
     else video.pause();
+  }
+  // The splash's own video plays only while the splash is up.
+  const sv = document.getElementById("splash-video") as HTMLVideoElement | null;
+  if (sv) {
+    if (name === "splash") void sv.play().catch(() => {});
+    else sv.pause();
   }
 }
 

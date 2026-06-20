@@ -1174,6 +1174,14 @@ function refreshWalletBtn(): void {
     document.getElementById("player-stats")?.classList.add("hidden");
     setTokenBadge(undefined);
   }
+  updateSplashButtons(); // hide "Connect wallet" on the splash once connected
+}
+
+/** Landing site for the splash "About" button. */
+const LANDING_URL = "https://bombermeme.fun";
+/** The splash "Connect wallet" button only shows when no wallet is connected. */
+function updateSplashButtons(): void {
+  document.getElementById("splash-connect")?.classList.toggle("hidden", !!loadWallet());
 }
 
 function openWalletModal(): void {
@@ -2536,12 +2544,11 @@ function wireMenuLinks(): void {
 
 function setupBackground(): void {
   const v = document.getElementById("bg-video") as HTMLVideoElement;
-  // First-frame poster shows instantly while the video downloads (no empty gap).
-  v.poster = `/bg/menu-poster.webp?v=${ASSET_VER}`;
-  // ?v= busts the cache when the file is replaced under the same name. The
-  // boomerang mp4 loops seamlessly via the element's `loop` attr; webm dropped
-  // (mp4 is universal and tried first).
-  const sources = [`/bg/menu.mp4?v=${ASSET_VER}`];
+  // Global app background = gamebg.mp4 (loops via the element's `loop` attr).
+  // ?v= busts the cache when the file is replaced under the same name. A gradient
+  // shows underneath until the first frame is ready (no poster — gamebg differs
+  // from the old menu first-frame).
+  const sources = [`/bg/gamebg.mp4?v=${ASSET_VER}`];
   let i = 0;
   const tryNext = () => {
     if (i >= sources.length) return; // no bg; gradient stays
@@ -2550,6 +2557,14 @@ function setupBackground(): void {
   v.addEventListener("canplay", () => v.classList.add("ready"));
   v.addEventListener("error", tryNext);
   tryNext();
+
+  // The OLD menu video is the backdrop for the splash entry screen only.
+  const sv = document.getElementById("splash-video") as HTMLVideoElement | null;
+  if (sv) {
+    sv.src = `/bg/menu.mp4?v=${ASSET_VER}`;
+    sv.poster = `/bg/menu-poster.webp?v=${ASSET_VER}`;
+    sv.addEventListener("canplay", () => sv.classList.add("ready"));
+  }
 }
 
 // --- bootstrap ------------------------------------------------------------
@@ -3294,15 +3309,28 @@ document.getElementById("sc-copy")?.addEventListener("click", () => {
 document.getElementById("result-share")?.addEventListener("click", () => void openShareCard("result"));
 document.getElementById("profile-share")?.addEventListener("click", () => void openShareCard("profile"));
 
+// Splash entry screen: Enter game · Connect wallet (if none) · About → landing.
+document.getElementById("splash-enter")?.addEventListener("click", () => {
+  showScreen("menu");
+  music("lobby");
+});
+document.getElementById("splash-connect")?.addEventListener("click", () => {
+  document.getElementById("wallet-btn")?.click(); // reuse the connect flow
+});
+document.getElementById("splash-about")?.addEventListener("click", () => {
+  window.open(LANDING_URL, "_blank", "noopener");
+});
+
 // Deep link: ?room=CODE auto-joins with the saved nick/skin.
-(function autoJoinFromUrl(): void {
+const autoJoined = (function autoJoinFromUrl(): boolean {
   const code = new URLSearchParams(location.search).get("room");
-  if (!code) return;
+  if (!code) return false;
   history.replaceState(null, "", location.pathname); // clean the URL
   const name = (localStorage.getItem("bp_nick") || `pumper${(Math.random() * 1000) | 0}`).trim();
   const skin = Number(localStorage.getItem("bp_skin") ?? 0);
   setMenuStatus(`Joining room ${code.toUpperCase()}…`);
   void connect(() => joinRoom(name, code.toUpperCase(), skin));
+  return true;
 })();
 
 // UI click sound + kick music off the first user gesture (autoplay policy).
@@ -3312,6 +3340,9 @@ document.addEventListener("pointerdown", (e) => {
 });
 document.addEventListener("pointerdown", () => assets.playMusic(currentTrack), { once: true });
 
-showScreen("menu");
+// Deep links jump straight in (connect() drives the screen); otherwise the
+// splash entry screen is the first thing the player sees.
+updateSplashButtons();
+if (!autoJoined) showScreen("splash");
 music("lobby");
 requestAnimationFrame(frame);

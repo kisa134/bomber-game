@@ -85,8 +85,22 @@
         </div>
       </div>
 
+      <!-- Splash: the very first entry screen (its own video backdrop) -->
+      <section id="splash" class="screen">
+        <video id="splash-video" autoplay muted loop playsinline preload="auto"></video>
+        <div class="splash-overlay">
+          <div class="splash-card">
+            <div class="splash-logo logo">BomberMeme.fun</div>
+            <p class="splash-tagline">blow up your friends · pump.fun arena</p>
+            <button id="splash-enter" class="primary big">▶ Enter game</button>
+            <button id="splash-connect" class="big">🔗 Connect wallet</button>
+            <button id="splash-about" class="ghost">ℹ About</button>
+          </div>
+        </div>
+      </section>
+
       <!-- Loading -->
-      <section id="loading" class="screen">
+      <section id="loading" class="screen hidden">
         <div class="logo">BomberMeme.fun</div>
         <div class="spinner"></div>
         <p id="loading-status" class="status">loading…</p>
