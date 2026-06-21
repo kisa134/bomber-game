@@ -900,10 +900,13 @@ export class Renderer {
         }
       }
     }
-    for (const ch of this.chips) this.drawChip(g, ch, pu); // wood splinters (under gore)
-    for (const fp of this.footprints) this.drawFoot(g, fp, pu); // smears on top
-    for (const mt of this.meat) this.drawMeat(g, mt, pu); // flesh chunks
-    for (const b of this.bones) this.drawBone(g, b, pu); // bone shards on top
+    // FROZEN decals (bones/meat/chips/footprints) get their OWN fixed pixel size, fully
+    // DECOUPLED from the surface `pu` above — tuning blood can never resize them again.
+    const decalPu = Math.max(1, Math.round(t / 22));
+    for (const ch of this.chips) this.drawChip(g, ch, decalPu); // wood splinters (under gore)
+    for (const fp of this.footprints) this.drawFoot(g, fp, decalPu); // smears on top
+    for (const mt of this.meat) this.drawMeat(g, mt, decalPu); // flesh chunks
+    for (const b of this.bones) this.drawBone(g, b, decalPu); // bone shards on top
     g.globalAlpha = 1;
     this.bloodCanvas = cv;
   }
