@@ -3397,6 +3397,14 @@ button.big {
 #alpha-banner.hidden {
   display: none;
 }
+/* On the splash (the only place it lives now): pin to the very top. */
+.splash-alpha {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+}
 
 .icon-btn {
   position: absolute;

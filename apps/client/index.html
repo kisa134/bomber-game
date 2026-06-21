@@ -28,13 +28,6 @@
       <!-- Persistent top chrome: alpha notice + global status bar (every screen
            except the in-game view). -->
       <div id="chrome">
-        <!-- Pre-launch alpha notice -->
-        <div id="alpha-banner">
-          🔴 FINAL ALPHA — NOT LAUNCHED YET. You're on a <b>temporary TEST token</b> only. The official token
-          launches <b>TOMORROW</b> (it will be a NEW token).
-          <a href="https://pump.fun/coin/2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump" target="_blank" rel="noopener">Current test token ↗</a>
-        </div>
-
         <!-- Global status bar: brand · rating · chips · balance · wallet -->
         <div id="topbar" class="topbar">
           <div class="hub-top">
@@ -74,6 +67,12 @@
       <!-- Splash: the very first entry screen (its own video backdrop) -->
       <section id="splash" class="screen">
         <video id="splash-video" autoplay muted loop playsinline preload="auto"></video>
+        <!-- Pre-launch alpha notice — only on this very first screen -->
+        <div id="alpha-banner" class="splash-alpha">
+          🔴 FINAL ALPHA — NOT LAUNCHED YET. You're on a <b>temporary TEST token</b> only. The official token
+          launches <b>TOMORROW</b> (it will be a NEW token).
+          <a href="https://pump.fun/coin/2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump" target="_blank" rel="noopener">Current test token ↗</a>
+        </div>
         <div class="splash-overlay">
           <div class="splash-card">
             <div class="splash-logo logo">BomberMeme.fun</div>
