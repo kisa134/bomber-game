@@ -762,7 +762,18 @@ export class Renderer {
    *  Persists for the match and accumulates. */
   private markGround(index: number, amount: number): void {
     if (index < 0 || index >= GRID_W * GRID_H) return;
-    if (!this.bloodGround.has(index) && this.bloodGround.size > 170) return; // soft cap
+    // Cap blood coverage so a long respawn match can't speckle the whole map ("blood rain").
+    // At the cap, drop the FAINTEST existing speck (never a fresh pool, never charred) — only
+    // stuff that's already nearly invisible — so a handful of recent pools stay, no rain.
+    if (!this.bloodGround.has(index) && this.bloodGround.size >= 44) {
+      let minIdx = -1, minLvl = 99;
+      for (const [k, v] of this.bloodGround) {
+        if ((this.bakedBlood.get(k) ?? 0) > 0) continue; // keep charred patches
+        if (v < minLvl) { minLvl = v; minIdx = k; }
+      }
+      if (minIdx >= 0) { this.bloodGround.delete(minIdx); this.bakedBlood.delete(minIdx); }
+      else return;
+    }
     this.bloodGround.set(index, Math.min(9, (this.bloodGround.get(index) ?? 0) + amount));
     this.bloodDirty = true;
   }
