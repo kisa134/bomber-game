@@ -56,7 +56,7 @@ const DEATH_MS = 650;
 // Block-blood face bits (which side of a block the blood hit).
 const BF_N = 1, BF_S = 2, BF_E = 4, BF_W = 8;
 const MAX_PARTICLES = 520;
-const SURF_DRY_MS = 2600; // how often the surface "wet" (freshness) dries a step (slow -> fresh red lingers, smearable window is long)
+const MAX_DECALS = 90;
 const LIGHT_LIFE = 460; // ms an explosion light source blooms + fades
 
 interface Particle {
@@ -131,21 +131,17 @@ export class Renderer {
   private firstBloodAt = 0;
   private fbCanvas: HTMLCanvasElement | null = null; // cached pixel "FIRST BLOOD" text
   private prevGrid: Uint8Array | null = null;
-  // (ground scorch/burn now lives in the unified `surf` material below)
+  private burn = new Map<number, number>(); // cell index -> scorch intensity (accumulates with blasts)
   private hardDmg = new Map<number, number>(); // hard-block cell index -> crack level 0..3
   // Blood splattered on a block: which faces were hit (N/S/E/W bitmask), a stable
   // seed for the pattern, and an intensity count. Top face = splatter, front = drips.
   private bloodBlocks = new Map<number, { dirs: number; seed: number; n: number; born: number; nextDrip: number }>();
-  // Battle SURFACE: one evolving material per ground cell (see docs/GORE_SURFACE_SPEC.md).
-  // gore=blood amount (stain, persists), wet=freshness (dries to ~0), burn=ground scorch depth,
-  // char=blood-bake degree. Anti-carpet is in the material (fresh=bright+local, old=dull
-  // dried/charred patina), NOT in deletion. Map is naturally bounded to GRID_W*GRID_H cells.
-  private surf = new Map<number, { gore: number; wet: number; burn: number; char: number; sx: number; sy: number }>();
-  private surfDryAt = 0; // last time the surface dried a step (see drySurface)
-  private surfBuiltAt = 0; // last surface-canvas rebuild (throttle, see drawBloodGround)
+  // Persistent blood on the ground (death-cell mush + smeared footprints). cell -> intensity.
+  private bloodGround = new Map<number, number>();
   private puBuf: HTMLCanvasElement | null = null; // scratch buffer for powerup sheen masked to the icon
-  private bloodCanvas: HTMLCanvasElement | null = null; // cached unified surface overlay (gore+burn+char+decals)
+  private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
   private bloodDirty = false;
+  private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
   private chips: Array<{ x: number; y: number; seed: number }> = []; // wood splinters from broken crates (x,y in cells)
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
   private lastCell = new Map<number, number>(); // player id -> last grid cell (footprint stepping)
@@ -156,6 +152,8 @@ export class Renderer {
   // Floating reward/event popups that pop in with ease-out-back/elastic, rise, fade.
   private floaters: Array<{ x: number; y: number; text: string; color: string; born: number; big: boolean }> = [];
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
+  private scorch: HTMLCanvasElement | null = null; // cached burnt-ground overlay
+  private scorchDirty = false;
   private lastDust = new Map<number, number>();
   private lastTrample = new Map<number, number>();
   // Screen shake as a damped sine (physical recoil), not linear jitter.
@@ -333,9 +331,11 @@ export class Renderer {
     this.placeBombUntil.clear();
     this.hurtUntil.clear();
     this.victorId = -1;
+    this.burn.clear();
     this.hardDmg.clear();
     this.bloodBlocks.clear();
-    this.surf.clear();
+    this.bloodGround.clear();
+    this.bakedBlood.clear();
     this.bloodCanvas = null;
     this.bloodDirty = false;
     this.bloodyFeet.clear();
@@ -349,6 +349,8 @@ export class Renderer {
     this.colorTemp = 1; // start each match cozy-warm
     this.selfKnown = false;
     this.shatters.length = 0;
+    this.scorch = null;
+    this.scorchDirty = false;
     // Per-match caches that must NOT bleed across a rematch in the same room:
     // otherwise the first new grid diffs against the old one (spurious debris),
     // and stale positions/emotes/particles flash on top of the new match.
@@ -558,38 +560,28 @@ export class Renderer {
     // Accumulate scorched ground (per cell) + crack damage on adjacent hard
     // blocks. Cheap and useful on phones too, so do it before the lowFx bail-out.
     const NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-    // Blast falloff (spec §C): burn/char depth ramps from the epicentre (centroid) out,
-    // and scales with blast POWER. Center = deepest scorch + strongest char; edges = light.
-    // Repeated blasts ACCUMULATE depth on the same cells (deepen, not repaint).
-    let ecx = 0, ecy = 0;
-    for (const c of cells) { ecx += c.x + 0.5; ecy += c.y + 0.5; }
-    ecx /= cells.length; ecy /= cells.length;
-    const power = Math.min(1, cells.length / 13);   // bigger blast -> stronger + wider
-    const reach = 1.1 + power * 2.6;                 // cells of strong-effect radius
     for (const c of cells) {
       const idx = c.y * GRID_W + c.x;
-      const d = Math.hypot(c.x + 0.5 - ecx, c.y + 0.5 - ecy);
-      const prox = Math.max(0.12, 1 - d / reach);    // 1 at centre .. ~0 at the rim (tips still lightly scorch)
-      const depth = (0.4 + 0.6 * power) * (0.25 + 0.75 * prox); // burn this blast ADDS
-      const s = this.surfAt(idx);
-      s.burn = Math.min(1, s.burn + depth);          // accumulates -> repeated blasts deepen (rule 4)
-      if (s.gore > 0.04) {
-        // BLAST BAKES BLOOD: dry it out (fresh red -> baked) AND convert to char, both by
-        // the same falloff. Drying is what makes the conversion visually OBVIOUS (the wet
-        // sheen that was hiding the char is burned off). Center cells bake hardest.
-        s.wet = Math.max(0, Math.min(s.wet, 1 - depth * 2.4)); // fire burns off the wetness
-        s.char = Math.min(1, s.char + depth * (1.0 + 0.8 * prox)); // strong conversion, deepest at centre
-        s.gore = Math.max(s.gore, 0.55); // keep enough material so the charred patch reads solid
+      this.burn.set(idx, Math.min(10, (this.burn.get(idx) ?? 0) + 1)); // +1 per blast -> gradual darkening (epicenter darkest)
+      this.scorchDirty = true;
+      // A blast BURNS blood to charcoal. If there's blood on the blast cell or any
+      // of its 8 neighbours (the spread bleeds past the source cells), drop a dense
+      // charred-black patch on the blast cell.
+      {
+        let nearBlood = false;
+        for (let dy = -1; dy <= 1 && !nearBlood; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = c.x + dx, ny = c.y + dy;
+            if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
+            if (this.bloodGround.has(ny * GRID_W + nx)) { nearBlood = true; break; }
+          }
+        }
+        if (nearBlood) {
+          this.bloodGround.set(idx, Math.max(this.bloodGround.get(idx) ?? 0, 6)); // a solid patch to char
+          this.bakedBlood.set(idx, 3); // straight to charcoal-black
+          this.bloodDirty = true;
+        }
       }
-      // Bake the BLOOD just AROUND the blast too, so a pool chars more fully (gradually outward),
-      // not just the exact + footprint. Lighter than the centre.
-      for (const [ddx, ddy] of NB) {
-        const nx2 = c.x + ddx, ny2 = c.y + ddy;
-        if (nx2 < 0 || ny2 < 0 || nx2 >= GRID_W || ny2 >= GRID_H) continue;
-        const ns = this.surf.get(ny2 * GRID_W + nx2);
-        if (ns && ns.gore > 0.04) { ns.char = Math.min(1, ns.char + depth * 0.55); ns.wet = Math.max(0, Math.min(ns.wet, 1 - depth * 1.4)); }
-      }
-      this.bloodDirty = true;
       if (this.prevGrid) {
         for (const [dx, dy] of NB) {
           const nx = c.x + dx, ny = c.y + dy;
@@ -650,7 +642,7 @@ export class Renderer {
         x: cx, y: cy, vx: 0, vy: 0, life: 0.14, max: 0.14, drag: 1,
         size: this.tile * (0.85 + Math.random() * 0.2), color: "rgba(255,196,96,0.7)", shape: "flash",
       });
-      // (ground scorch is now the persistent `surf.burn` material, not a fading decal)
+      this.addDecal(c.x, c.y, "scorch");
       // Volumetric light source for this blast cell.
       this.lights.push({ x: cx, y: cy, born: now });
       if (this.lights.length > 80) this.lights.shift();
@@ -676,9 +668,10 @@ export class Renderer {
     // Persistent blood marks first (cheap, runs on phones too): a thick gory mush
     // that STAYS on the death cell, blood on the floor neighbours, and face-aware
     // blood on adjacent blocks (top splatter + front drips toward the kill).
-    this.addGore(cy * GRID_W + cx, 1); // death cell -> max fresh mush (over any old char base; render shows fresh on top)
+    this.markGround(cy * GRID_W + cx, 9); // death cell -> the whole tile in thick mush
     const grid = this.prevGrid;
-    // Compact fresh-gore epicentre: inner ring drenched, sparse outer satellites.
+    // Spread gore over a 5x5 area: 8 direct neighbours fully bloodied (cells AND
+    // blocks), then an outer ring of spray. The kill site is drenched.
     for (let dy = -2; dy <= 2; dy++) {
       for (let dx = -2; dx <= 2; dx++) {
         if (dx === 0 && dy === 0) continue;
@@ -692,42 +685,42 @@ export class Renderer {
             this.markBlockBlood(ni, -dx, -dy);
             this.markBlockBlood(ni, -dx, -dy); // doubled -> heavy splatter on the face
           } else {
-            this.addGore(ni, dx === 0 || dy === 0 ? 0.85 : 0.7); // thicker, gorier mush
+            this.markGround(ni, dx === 0 || dy === 0 ? 3 : 2); // tight pool that falls off fast
           }
-        } else { // outer ring: scattered satellite gore (more of it now)
+        } else { // outer ring: only the odd satellite speck (keep the pool concentrated)
           if (isBlock) {
-            if (Math.random() < 0.45) this.markBlockBlood(ni, -dx, -dy);
-          } else if (Math.random() < 0.5) {
-            this.addGore(ni, 0.3 + Math.random() * 0.2);
+            if (Math.random() < 0.3) this.markBlockBlood(ni, -dx, -dy);
+          } else if (Math.random() < 0.3) {
+            this.markGround(ni, 1);
           }
         }
       }
     }
     // Scatter persistent bone shards + flesh chunks through the gore (random spread).
-    const nBones = 6 + ((Math.random() * 6) | 0); // a real bone explosion
+    const nBones = 4 + ((Math.random() * 5) | 0); // more bones
     for (let i = 0; i < nBones; i++) {
-      const bx = cx + 0.5 + (Math.random() - 0.5) * 3.2;
-      const by = cy + 0.5 + (Math.random() - 0.5) * 3.2;
+      const bx = cx + 0.5 + (Math.random() - 0.5) * 2.8;
+      const by = cy + 0.5 + (Math.random() - 0.5) * 2.8;
       if (bx < 0.2 || by < 0.2 || bx > GRID_W - 0.2 || by > GRID_H - 0.2) continue;
       this.bones.push({ x: bx, y: by, seed: (Math.random() * 0xffffffff) >>> 0 });
     }
-    const nMeat = 5 + ((Math.random() * 5) | 0); // more flesh chunks
+    const nMeat = 3 + ((Math.random() * 4) | 0);
     for (let i = 0; i < nMeat; i++) {
-      const mx = cx + 0.5 + (Math.random() - 0.5) * 2.8;
-      const my = cy + 0.5 + (Math.random() - 0.5) * 2.8;
+      const mx = cx + 0.5 + (Math.random() - 0.5) * 2.4;
+      const my = cy + 0.5 + (Math.random() - 0.5) * 2.4;
       if (mx < 0.2 || my < 0.2 || mx > GRID_W - 0.2 || my > GRID_H - 0.2) continue;
       this.meat.push({ x: mx, y: my, seed: (Math.random() * 0xffffffff) >>> 0 });
     }
-    if (this.bones.length > 170) this.bones.splice(0, this.bones.length - 170);
-    if (this.meat.length > 150) this.meat.splice(0, this.meat.length - 150);
+    if (this.bones.length > 130) this.bones.splice(0, this.bones.length - 130);
+    if (this.meat.length > 110) this.meat.splice(0, this.meat.length - 110);
     this.bloodDirty = true; // bones + meat live in the cached blood overlay
     if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
     const reds = ["#8a0000", "#a30000", "#c81e1e", "#6a0000"];
-    for (let i = 0; i < Math.round(72 * this.fxScale); i++) {
+    for (let i = 0; i < Math.round(50 * this.fxScale); i++) {
       const a = Math.random() * Math.PI * 2;
-      const s = 2 + Math.random() * 4.5; // ground-plane spray speed
+      const s = 2 + Math.random() * 4; // ground-plane spray speed
       this.push({
         x: cx + 0.5, y: cy + 0.5,
         vx: Math.cos(a) * s, vy: Math.sin(a) * s,
@@ -739,11 +732,11 @@ export class Renderer {
         shape: "rect", rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 16,
       });
     }
-    this.burst(cx, cy, "#d61e1e", 36, 6); // fine blood spray
-    this.burst(cx, cy, "#7a0000", 24, 4.6); // darker gore spray
-    this.burst(cx, cy, color, 10, 3); // a hint of the player's color
-    this.burst(cx, cy, "#efe6cf", 9, 3.4); // bone / teeth bits
-    this.shake(22, 320);
+    this.burst(cx, cy, "#d61e1e", 26, 5.5); // fine blood spray
+    this.burst(cx, cy, "#7a0000", 16, 4.2); // darker gore spray
+    this.burst(cx, cy, color, 8, 3); // a hint of the player's color
+    this.burst(cx, cy, "#efe6cf", 6, 3.2); // bone / teeth bits
+    this.shake(20, 300);
   }
 
   /** Record blood on a block's face(s). (ddx,ddy) points from the block toward
@@ -765,56 +758,26 @@ export class Renderer {
     });
   }
 
-  /** Get (or create) the surface material for a cell. */
-  private surfAt(index: number): { gore: number; wet: number; burn: number; char: number; sx: number; sy: number } {
-    let s = this.surf.get(index);
-    if (!s) { s = { gore: 0, wet: 0, burn: 0, char: 0, sx: 0, sy: 0 }; this.surf.set(index, s); }
-    return s;
-  }
-
-  /** Lay FRESH gore on a cell (spec §A/§E). Raises gore to at least `amount` and makes
-   *  it fully wet; the char base underneath is kept (render draws fresh on top). */
-  private addGore(index: number, amount: number): void {
+  /** Add blood to a floor cell (death-cell mush = big amount; footprints = 1).
+   *  Persists for the match and accumulates. */
+  private markGround(index: number, amount: number): void {
     if (index < 0 || index >= GRID_W * GRID_H) return;
-    const s = this.surfAt(index);
-    s.gore = Math.min(1, Math.max(s.gore, amount));
-    s.wet = 1;
+    if (!this.bloodGround.has(index) && this.bloodGround.size > 170) return; // soft cap
+    this.bloodGround.set(index, Math.min(9, (this.bloodGround.get(index) ?? 0) + amount));
     this.bloodDirty = true;
-  }
-
-  /** Spec §D: surface freshness dries toward ~0 over time, but the gore STAIN stays
-   *  (history is never deleted). burn/char are permanent. Map is bounded to the grid. */
-  private drySurface(now: number): void {
-    if (now - this.surfDryAt < SURF_DRY_MS) return;
-    this.surfDryAt = now;
-    let changed = false;
-    for (const s of this.surf.values()) {
-      if (s.wet > 0.02) { s.wet *= 0.85; changed = true; } // gloss -> matte -> dry stain (gentle)
-    }
-    if (changed) this.bloodDirty = true;
   }
 
   /** Persistent ground blood: thick gory mush where players died (fills the whole
    *  cell), pooled splatter around, faint smears where bloody feet tracked it.
    *  Dense grid-fill at grass-fine pixels, cached to a canvas and blitted. */
   private drawBloodGround(W: number, H: number): void {
-    if (!this.surf.size) return;
-    const sizeChanged = !this.bloodCanvas || this.bloodCanvas.width !== W || this.bloodCanvas.height !== H;
-    const now = performance.now();
-    // THROTTLE rebuilds: the surface canvas is expensive, and footsteps/blasts can dirty it
-    // every frame. Coalesce into at most ~1 rebuild / 70ms (ground decals don't need 60fps).
-    if (sizeChanged || (this.bloodDirty && now - this.surfBuiltAt > 70)) {
-      this.surfBuiltAt = now;
+    if (!this.bloodGround.size) return;
+    if (this.bloodDirty || !this.bloodCanvas || this.bloodCanvas.width !== W || this.bloodCanvas.height !== H) {
       this.buildBloodGround(W, H);
     }
     if (this.bloodCanvas) this.ctx.drawImage(this.bloodCanvas, 0, 0, W, H);
   }
 
-  // Unified SURFACE render (spec v3.1). MATERIAL language, not a procedural noise pass:
-  //  (1) WHOLE-TILE base mass — the block visibly burns/chars first (burn + char fills),
-  //  (2) organic GORE built from a few asymmetric elongated LOBES (meaty mass, not round
-  //      stamps; smears elongate along the drag), then (3) coarse low-freq detail (dry ash
-  //      crust, dark clots, wet glint) as secondary accent. Chunky pixels = far less rib.
   private buildBloodGround(W: number, H: number): void {
     this.bloodDirty = false;
     const cv = this.bloodCanvas && this.bloodCanvas.width === W && this.bloodCanvas.height === H
@@ -824,107 +787,52 @@ export class Renderer {
     if (!g) return;
     g.clearRect(0, 0, W, H);
     const t = this.tile;
-    const pu = Math.max(1, Math.round(t / (this.lowFx ? 16 : 28))); // FINE pixels (matches the block art); perf held by the rebuild throttle
-    const NB = Math.max(pu * 2, Math.round(t / 10)); // medium structures: cohesive, fewer big holes, still not rib
-
-    for (const [idx, s] of this.surf) {
-      if (s.gore < 0.04 && s.burn < 0.06 && s.char < 0.06) continue;
+    const pu = Math.max(1, Math.round(t / 24)); // grass-fine pixels
+    // PER-CELL render (reverted from the continuous field): each blood cell is drawn
+    // on its own, so empty cells stay clean — distinct pools, no map-wide red carpet.
+    for (const [idx, lvl] of this.bloodGround) {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
-      let seed = ((idx + 1) * 2654435761) >>> 0;
-      const rnd = (): number => { seed = (seed ^ (seed << 13)) >>> 0; seed = (seed ^ (seed >>> 17)) >>> 0; seed = (seed ^ (seed << 5)) >>> 0; return (seed & 0xffff) / 0xffff; };
-      const charVis = s.char * (1 - Math.min(1, s.wet * 1.3)); // wet fresh blood keeps top priority over char
-
-      // (1) WHOLE-TILE BASE MASS — the affected block is darkened/burnt as one mass first.
-      if (s.burn > 0.06) {
-        const dk = s.burn, bb = Math.round(28 - 22 * dk);
-        g.globalAlpha = Math.min(0.92, 0.32 + 0.6 * dk); // clearly burns the whole block
-        g.fillStyle = `rgb(${bb},${(bb * 0.82) | 0},${(bb * 0.74) | 0})`; // near-neutral charred earth, NOT brown-orange
-        g.fillRect(ox, oy, t, t);
-      }
-      if (charVis > 0.06) {
-        const cb = Math.max(4, Math.round(16 - 11 * charVis));
-        g.globalAlpha = Math.min(0.96, 0.46 + 0.52 * charVis); // deep dry burnt mass -> near-black
-        g.fillStyle = `rgb(${cb},${(cb * 0.8) | 0},${(cb * 0.72) | 0})`;
-        g.fillRect(ox, oy, t, t);
-      }
-
-      // (2) GORE LOBES — big + medium first; offset/elongated/asymmetric (no round stamps).
-      let lobes: Array<{ lx: number; ly: number; rad2: number; cos: number; sin: number; elong: number }> | null = null;
-      if (s.gore > 0.04) {
-        const nL = s.gore > 0.55 ? 3 : 2;
-        const smear = (s.sx || s.sy) ? Math.atan2(s.sy, s.sx) : null; // smear -> elongate along the drag
-        lobes = [];
-        for (let l = 0; l < nL; l++) {
-          const big = l === 0;
-          const ang = smear !== null ? smear : rnd() * Math.PI;
-          const elong = smear !== null ? 1.9 + rnd() * 1.3 : 1 + rnd() * 0.9;
-          const rad = (big ? 0.42 + rnd() * 0.12 : 0.2 + rnd() * 0.18) * t;
-          lobes.push({
-            lx: ox + (0.5 + (big ? (rnd() - 0.5) * 0.28 : (rnd() - 0.5) * 0.72)) * t,
-            ly: oy + (0.5 + (big ? (rnd() - 0.5) * 0.28 : (rnd() - 0.5) * 0.72)) * t,
-            rad2: rad * rad, cos: Math.cos(ang), sin: Math.sin(ang), elong,
-          });
-        }
-      }
-
-      // (3) PIXEL PASS — gore lobe density + coarse crusty/ash detail (secondary).
+      let s = (idx * 2654435761) >>> 0;
+      s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0;
+      const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh, 1 crust, 2 darker, 3 charcoal
+      const baked = bakeLvl > 0;
+      const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14);
+      g.globalAlpha = Math.min(0.95, (baked ? 0.6 : 0.5) + lvl * 0.08);
+      const NB = pu * 4; // coarse noise block -> irregular outline/holes
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
-          const ax = ox + gx, ay = oy + gy, pcx = ax + pu / 2, pcy = ay + pu / 2;
-          let cn = (((ax / NB) | 0) * 374761393 ^ ((ay / NB) | 0) * 668265263) >>> 0; cn = ((cn ^ (cn >>> 13)) * 1274126177) >>> 0; const coarse = (cn & 1023) / 1023;
-          let fn = (ax * 73856093 ^ ay * 19349663) >>> 0; fn = ((fn ^ (fn >>> 13)) * 1274126177) >>> 0;
-
-          if (lobes) {
-            let dens = 0;
-            for (const lo of lobes) {
-              const ddx = pcx - lo.lx, ddy = pcy - lo.ly;
-              const rx = (ddx * lo.cos + ddy * lo.sin) / lo.elong, ry = -ddx * lo.sin + ddy * lo.cos;
-              const v = 1 - (rx * rx + ry * ry) / lo.rad2; if (v > dens) dens = v; // squared dist (no sqrt) -> cheap, smooth dome
-            }
-            const edge = dens + (coarse - 0.5) * 0.26; // gently ragged boundary (cohesive, fewer holes)
-            if (edge > 0.02) {
-              const density = Math.min(1, edge) * Math.min(1, s.gore * 1.2);
-              const core = Math.min(1, density * 1.3), wet = s.wet;
-              // realistic blood: deep CRIMSON (low green so it never reads orange/rust; a touch of
-              // blue keeps it crimson not brick). fresh = vivid dark red, dried = dark maroon.
-              let R = Math.round((48 + 82 * wet) * core + 14);
-              let G = Math.round(R * (0.05 + 0.1 * (1 - wet))), B = Math.round(R * (0.09 + 0.03 * (1 - wet)));
-              // CHAR suppresses the red: where blood has baked, the red gore fades out so the
-              // cell reads as black charcoal, not dark red. THIS is the visible blast->bake conversion.
-              let alpha = Math.min(0.97, (0.42 + 0.52 * core) * (0.55 + 0.45 * wet)) * Math.max(0, 1 - charVis * 1.25);
-              if (wet > 0.6 && core > 0.6 && (fn & 63) < 2) { R = 160 + (fn % 40); G = 58 + (fn % 22); B = 52; alpha = 0.92; } // wet glint (accent)
-              else if (core > 0.78 && (fn & 31) === 0) { R = (R * 0.4) | 0; G = (G * 0.4) | 0; B = (B * 0.4) | 0; }            // dark clot (accent)
-              else if (wet < 0.3 && (fn & 63) === 0) { R += 26; G += 16; B += 10; }                                          // dried dirty fleck
-              g.globalAlpha = alpha;
-              g.fillStyle = `rgb(${R},${Math.max(0, G)},${Math.max(0, B)})`;
-              g.fillRect(ax, ay, pu, pu);
+          const qx = (gx / NB) | 0, qy = (gy / NB) | 0;
+          let n = (idx * 374761 + qx * 2654435761 + qy * 40503) >>> 0;
+          n = (n ^ (n << 13)) >>> 0; n = (n ^ (n >>> 17)) >>> 0; n = (n ^ (n << 5)) >>> 0;
+          const cn = (n & 1023) / 1023;
+          let f = (idx * 97 + gx * 131 + gy * 923) >>> 0;
+          f = (f ^ (f << 13)) >>> 0; f = (f ^ (f >>> 17)) >>> 0; f = (f ^ (f << 5)) >>> 0;
+          const localCover = cover * ((baked ? 0.6 : 0.45) + cn * 1.15);
+          if ((f & 1023) / 1023 > Math.min(1, localCover)) continue;
+          if (baked) {
+            const darken = 1 - (bakeLvl - 1) * 0.42;
+            if (bakeLvl >= 3 && (f & 15) === 0) g.fillStyle = `rgb(${90 + (f % 60)},${18 + (f % 18)},6)`;
+            else { const br = ((22 + (f % 44)) * darken) | 0; g.fillStyle = `rgb(${br},${(br * (0.4 - (bakeLvl - 1) * 0.12)) | 0},${(br * 0.22) | 0})`; }
+          } else {
+            const ndx = (gx + pu / 2 - t / 2) / (t / 2), ndy = (gy + pu / 2 - t / 2) / (t / 2);
+            const dc = Math.min(1, Math.sqrt(ndx * ndx + ndy * ndy));
+            const tone = (f >> 7) & 7;
+            if (tone >= 6 && (f & 7) < 2 && dc < 0.6 && lvl >= 4) {
+              g.fillStyle = `rgb(${190 + (f % 60)},${70 + (f % 40)},${68 + (f % 40)})`;
+            } else {
+              let r = tone === 0 ? 26 + (f % 26) : tone >= 6 ? 130 + (f % 70) : 60 + (f % 70);
+              r = (r * (0.5 + 0.5 * dc)) | 0;
+              g.fillStyle = `rgb(${r},${(r * 0.1) | 0},${(r * 0.08) | 0})`;
             }
           }
-
-          if (charVis > 0.06 && coarse < 0.52) { // dry crusty char texture over the char mass
-            let R: number, G: number, B: number;
-            if ((fn & 127) === 0 && charVis > 0.5) { R = 84 + (fn % 50); G = 22 + (fn % 14); B = 6; }                 // rare ember
-            else if (coarse < 0.15) { const a = 28 + (fn % 16); R = a; G = (a * 0.84) | 0; B = (a * 0.74) | 0; }      // pale ash crust
-            else { const b = Math.max(3, 8 + (fn % 6)); R = b; G = (b * 0.66) | 0; B = (b * 0.5) | 0; }               // deep char crack
-            g.globalAlpha = Math.min(0.82, 0.28 + 0.5 * charVis);
-            g.fillStyle = `rgb(${R},${G},${B})`;
-            g.fillRect(ax, ay, pu, pu);
-          } else if (!lobes && s.burn > 0.06 && coarse < 0.42) { // ragged scorch detail on bare burnt earth
-            const dk = s.burn, b = Math.round(28 - 22 * dk) + (fn & 5);
-            g.globalAlpha = Math.min(0.7, 0.2 + 0.4 * dk);
-            g.fillStyle = `rgb(${b},${(b * 0.7) | 0},${(b * 0.5) | 0})`;
-            g.fillRect(ax, ay, pu, pu);
-          }
+          g.fillRect(ox + gx, oy + gy, pu, pu);
         }
       }
     }
-    // FROZEN decals (bones/meat/chips/footprints) get their OWN fixed pixel size, fully
-    // DECOUPLED from the surface `pu` above — tuning blood can never resize them again.
-    const decalPu = Math.max(1, Math.round(t / 34)); // bones/meat/chips even finer -> crisp detailed shards
-    for (const ch of this.chips) this.drawChip(g, ch, decalPu); // wood splinters (under gore)
-    for (const fp of this.footprints) this.drawFoot(g, fp, decalPu); // smears on top
-    for (const mt of this.meat) this.drawMeat(g, mt, decalPu); // flesh chunks
-    for (const b of this.bones) this.drawBone(g, b, decalPu); // bone shards on top
+    for (const ch of this.chips) this.drawChip(g, ch, pu); // wood splinters (under gore)
+    for (const fp of this.footprints) this.drawFoot(g, fp, pu); // smears on top
+    for (const mt of this.meat) this.drawMeat(g, mt, pu); // flesh chunks
+    for (const b of this.bones) this.drawBone(g, b, pu); // bone shards on top
     g.globalAlpha = 1;
     this.bloodCanvas = cv;
   }
@@ -1192,63 +1100,65 @@ export class Renderer {
     // Per-block variation so each bloodied block looks DIFFERENT (no uniform pool).
     const sv = ((m.seed >>> 8) & 1023) / 1023;
 
-    // This draws ON TOP of the baked blood sprite, so it's deliberately SUBTLE — a few
-    // fresh specks up top + thin runs down the front. It must read as "fresh spatter
-    // that just landed", never as opaque pools.
-
-    // TOP-face spatter — a handful of small fresh specks near the top face.
+    // TOP-face spatter — irregular scattered specks, varied amount & spread per
+    // block, emanating from the centre. No solid central pool.
     const topStrong = m.dirs & BF_N ? 1 : 0.6;
-    const topBlobs = Math.round((3 + n * 2) * topStrong * (0.5 + sv * 0.8));
-    const topR = t * (0.22 + n * 0.05 + sv * 0.1);
+    const topBlobs = Math.round((7 + n * 5) * topStrong * (0.5 + sv * 1.1));
+    const topR = t * (0.24 + n * 0.07 + sv * 0.12);
     for (let i = 0; i < topBlobs; i++) {
       const ang = rnd() * Math.PI * 2;
       const dist = Math.sqrt(rnd()) * topR;
       const bx = cxp + Math.cos(ang) * dist;
-      const by = py + t * 0.18 + Math.sin(ang) * dist * 0.5;
-      const sz = pu * (1 + Math.floor(rnd() * 1.8));
-      ctx.globalAlpha = 0.55 + rnd() * 0.35;
-      ctx.fillStyle = reds[1 + ((rnd() * 4) | 0)];
+      const by = py + t * 0.2 + Math.sin(ang) * dist * 0.55;
+      const sz = pu * (1 + Math.floor(rnd() * 2.6));
+      ctx.fillStyle = reds[(rnd() * reds.length) | 0];
       ctx.fillRect(Math.round((bx - sz / 2) / pu) * pu, Math.round((by - sz / 2) / pu) * pu, sz, sz);
     }
-    // Cast-off spines — only on some blocks, thin flick marks off the top.
-    if (sv > 0.5) {
-      const spines = 1 + Math.round(sv * 3);
+    // Cast-off spines — only on SOME blocks, varied count (signature of spatter).
+    if (sv > 0.4) {
+      const spines = 2 + Math.round(sv * 5);
       for (let i = 0; i < spines; i++) {
         const ang = rnd() * Math.PI * 2;
-        const reach = topR * (0.6 + rnd() * 0.6);
+        const reach = topR * (0.7 + rnd() * 0.7);
         const wob = (rnd() - 0.5) * 0.25;
-        ctx.globalAlpha = 0.6;
         ctx.fillStyle = reds[2 + ((rnd() * 3) | 0)];
         for (let sdist = topR * 0.25; sdist < reach; sdist += pu) {
           const aa = ang + wob * (sdist / reach);
-          const sx = cxp + Math.cos(aa) * sdist, sy = py + t * 0.18 + Math.sin(aa) * sdist * 0.5;
+          const sx = cxp + Math.cos(aa) * sdist, sy = py + t * 0.2 + Math.sin(aa) * sdist * 0.55;
           ctx.fillRect(Math.round(sx / pu) * pu, Math.round(sy / pu) * pu, pu, pu);
+        }
+        const ex = cxp + Math.cos(ang + wob) * reach, ey = py + t * 0.2 + Math.sin(ang + wob) * reach * 0.55;
+        ctx.fillRect(Math.round((ex - pu) / pu) * pu, Math.round((ey - pu) / pu) * pu, pu * 2, pu * 2);
+      }
+    }
+    // FRONT-face drips: blood oozes DOWN the front face over time, bead-headed runs,
+    // varied per block, staying within the block. NO pool forms on the ground below.
+    const frontStrong = m.dirs & BF_S ? 1 : 0.55;
+    const wantDrips = (m.dirs & BF_S) !== 0 || sv > 0.5;
+    const drips = wantDrips ? Math.max(1, Math.round((1 + n * 1.1) * (0.5 + frontStrong) * (0.6 + sv * 0.6))) : 0;
+    const now = performance.now();
+    for (let d = 0; d < drips; d++) {
+      const dx = cxp + (rnd() - 0.5) * t * 0.66;
+      const top = py + t * 0.36; // start at the top/front-face boundary
+      const maxLen = t * (0.16 + rnd() * 0.4 * frontStrong); // stays within the front face
+      const delay = rnd() * 700, grow = 1400 + rnd() * 1500;
+      const prog = Math.max(0, Math.min(1, (now - m.born - delay) / grow));
+      const len = maxLen * (1 - (1 - prog) * (1 - prog)); // ease-out grow
+      const w = pu * (1 + Math.floor(rnd() * 1.3));
+      ctx.fillStyle = reds[1 + ((rnd() * 3) | 0)];
+      for (let y = 0; y < len; y += pu) { // thin at top, a touch wider toward the bottom
+        const ww = Math.max(pu, Math.round((w * (0.5 + 0.5 * (y / Math.max(pu, len)))) / pu) * pu);
+        ctx.fillRect(Math.round((dx - ww / 2) / pu) * pu, Math.round((top + y) / pu) * pu, ww, pu);
+      }
+      if (len > pu * 2) { // heavy rounded bead at the bottom of the run
+        ctx.fillStyle = reds[0];
+        const bw = w + pu, bh = pu * 1.4;
+        for (let yy = -pu; yy <= bh; yy += pu) for (let xx = -bw; xx <= bw; xx += pu) {
+          if ((xx * xx) / (bw * bw) + (yy * yy) / (bh * bh) > 1) continue;
+          ctx.fillRect(Math.round((dx + xx) / pu) * pu, Math.round((top + len + yy) / pu) * pu, pu, pu);
         }
       }
     }
-    // FRONT-face drips: THIN runs that ooze down and TAPER to nothing — no bottom bead,
-    // semi-transparent so they sit as streaks over the baked blood, never as a pool.
-    const frontStrong = m.dirs & BF_S ? 1 : 0.55;
-    const wantDrips = (m.dirs & BF_S) !== 0 || sv > 0.55;
-    const drips = wantDrips ? Math.max(1, Math.round((0.6 + n * 0.7) * (0.5 + frontStrong))) : 0;
-    const now = performance.now();
-    for (let d = 0; d < drips; d++) {
-      const dx = cxp + (rnd() - 0.5) * t * 0.6;
-      const top = py + t * 0.4; // start below the top/front-face boundary
-      const maxLen = t * (0.12 + rnd() * 0.3 * frontStrong); // stays within the front face
-      const delay = rnd() * 700, grow = 1500 + rnd() * 1500;
-      const prog = Math.max(0, Math.min(1, (now - m.born - delay) / grow));
-      const len = maxLen * (1 - (1 - prog) * (1 - prog)); // ease-out grow
-      const shade = reds[1 + ((rnd() * 2) | 0)];
-      for (let y = 0; y < len; y += pu) {
-        const frac = y / Math.max(pu, len);
-        const ww = frac < 0.45 ? pu * 2 : pu; // a touch wider near the top, 1px lower down
-        ctx.globalAlpha = 0.5 * (1 - frac * 0.85); // fades toward the tip -> dissolves, no bead
-        ctx.fillStyle = shade;
-        ctx.fillRect(Math.round((dx - ww / 2) / pu) * pu, Math.round((top + y) / pu) * pu, ww, pu);
-      }
-    }
-    ctx.globalAlpha = 1;
   }
 
   /** FIRST BLOOD announcement (first kill of the match). Builds the chunky pixel
@@ -1288,6 +1198,11 @@ export class Renderer {
     this.fbCanvas = c;
   }
 
+  private addDecal(x: number, y: number, kind: Decal["kind"]): void {
+    this.decals.push({ x, y, born: this.lastTime, life: kind === "scorch" ? 6000 : 2600, kind, rot: Math.random() * Math.PI });
+    if (this.decals.length > MAX_DECALS) this.decals.shift();
+  }
+
   // -- main draw -------------------------------------------------------------
 
   render(view: RenderView, myId: number): void {
@@ -1318,9 +1233,10 @@ export class Renderer {
     // the floor sprite has finished loading (preload is async).
     if (this.lowFx && !this.floorSpriteBaked && this.assets?.img("floor")) this.buildFloor();
     if (this.floor) ctx.drawImage(this.floor, 0, 0, W, H);
-    // Unified battle surface (scorch + gore + char + decals) over the floor.
-    this.drySurface(performance.now()); // freshness dries toward 0; gore stain + char persist
-    this.drawBloodGround(W, H);
+    // Scorched ground: burnt patches that build up where blasts happened.
+    if (this.scorchDirty || (this.burn.size && !this.scorch)) this.buildScorch(W, H);
+    if (this.scorch) ctx.drawImage(this.scorch, 0, 0, W, H);
+    this.drawBloodGround(W, H); // persistent blood mush + smeared footprints (over the floor)
 
     if (view.grid) {
       // Detect soft-block breaks (SOFT -> not SOFT) to spray debris.
@@ -1582,36 +1498,24 @@ export class Renderer {
           this.kickGibs(ci, rp.x, rp.y); // boot any bones/meat on this cell aside
           let mdx = 0, mdy = 0; // travel direction (from the previous cell)
           if (prevCi !== undefined) { mdx = (ci % GRID_W) - (prevCi % GRID_W); mdy = ((ci / GRID_W) | 0) - ((prevCi / GRID_W) | 0); }
-          // §B TRANSFER: step into WET gore -> feet pick it up and the epicentre DEPLETES
-          // (blood is carried away, not created). Then it's dragged out as a thinning trail.
-          const here = this.surf.get(ci);
-          if (here && here.gore > 0.12 && here.wet > 0.25) {
-            this.bloodyFeet.set(p.id, 12); // longer, bloodier trail
-            here.gore *= 0.78; // visibly tracked away -> the epicentre thins as blood is dragged out
-            this.bloodDirty = true;
-          }
+          if ((this.bloodGround.get(ci) ?? 0) >= 3) this.bloodyFeet.set(p.id, 12); // stepped in a pool -> long bloody trail
           const feet = this.bloodyFeet.get(p.id) ?? 0;
           if (feet > 0 && (mdx || mdy)) {
             this.bloodyFeet.set(p.id, feet - 1);
-            // First steps smear strongly, then fade over the trail.
-            const a = feet >= 10 ? 0.85 : feet >= 7 ? 0.6 : feet >= 4 ? 0.38 : 0.22;
+            // First ~2 cells smear strongly, then fade over the trail.
+            const a = feet >= 10 ? 0.85 : feet >= 7 ? 0.55 : feet >= 4 ? 0.34 : 0.2;
             let ux = mdx, uy = mdy; const mm = Math.hypot(ux, uy) || 1; ux /= mm; uy /= mm;
-            // Anchor to the CENTRE of the cell just entered (path centerline). Footprint
-            // VISUAL is unchanged (frozen layer 2) — only the mechanic below is new.
+            // Anchor to the CENTRE of the cell just entered (path centerline), not the
+            // player's continuous position (which sits on tile seams mid-step). Only a
+            // small jitter inside the central zone + a tiny left/right foot alternation.
             const ccx = (ci % GRID_W) + 0.5, ccy = ((ci / GRID_W) | 0) + 0.5;
             const horiz = Math.abs(mdx) > Math.abs(mdy);
             const off = horiz ? ((feet & 1) === 0 ? -1 : 1) * 0.08 : 0;
             const jx = (Math.random() - 0.5) * 0.16, jy = (Math.random() - 0.5) * 0.16;
             this.footprints.push({ x: ccx + jx - uy * off, y: ccy + jy + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
             if (this.footprints.length > 160) this.footprints.shift();
-            // Lay a THIN, LOW-WET (dried/dull, never bright) smear of the CARRIED blood onto
-            // the trail — transfer of existing gore, thinning out. Dull -> can't read as a
-            // bright carpet; it's worn patina (spec). wet kept low so it renders as a stain.
-            const dep = 0.2 + 0.28 * (feet / 12); // thicker near the pool, thinning toward the end
-            const sd = this.surfAt(ci);
-            sd.gore = Math.min(0.7, Math.max(sd.gore, dep));
-            sd.wet = Math.max(sd.wet, 0.22 + 0.5 * (feet / 12)); // stays RED while dragged (visible transfer), dries after
-            sd.sx = ux; sd.sy = uy; // smear DIRECTION -> render elongates the mass along the drag (mass transfer)
+            // (footprints are drawn as their own smears — they no longer add to the
+            // ground-blood field, which used to carpet the whole map in thin red.)
             this.bloodDirty = true;
           }
         }
@@ -1711,6 +1615,44 @@ export class Renderer {
     }
   }
 
+  /** Rebuild the burnt-ground overlay: dark pixel scorch per cell, denser and
+   *  darker the more blasts that cell has seen. Cached (rebuilt only when the
+   *  burn map changes), so each frame is just one blit. */
+  private buildScorch(W: number, H: number): void {
+    this.scorchDirty = false;
+    if (!this.burn.size) { this.scorch = null; return; }
+    const t = this.tile;
+    const cv = this.scorch && this.scorch.width === W && this.scorch.height === H ? this.scorch : document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d");
+    if (!g) return;
+    g.clearRect(0, 0, W, H);
+    // Denser, finer pixels + higher coverage + calmer brightness so the burn
+    // reads as a smooth scorched patch instead of grainy salt-and-pepper noise.
+    const pu = Math.max(1, Math.round(t / 16));
+    for (const [idx, lvl] of this.burn) {
+      const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
+      // One blast already leaves a clearly dark scorch; repeated blasts deepen it to
+      // near-black charcoal (the epicentre, hit most, ends up darkest).
+      const p = Math.min(1, 0.45 + lvl * 0.11); // 1 blast ~0.56, ~5 blasts -> 1.0
+      const cover = 0.55 + p * 0.42; // fuller patch
+      const a = 0.32 + p * 0.5; // clearly opaque
+      const base = Math.round(16 - p * 11); // 16 (dark) -> 5 (near black)
+      let h = (idx * 2654435761) >>> 0;
+      for (let gy = 0; gy < t; gy += pu) {
+        for (let gx = 0; gx < t; gx += pu) {
+          h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
+          if ((h & 1023) / 1023 > cover) continue;
+          const d = base + (h & 7); // scorch shade for this stage + grain
+          g.globalAlpha = a;
+          g.fillStyle = `rgb(${d},${Math.max(0, d - 2)},${Math.max(0, d - 4)})`;
+          g.fillRect(ox + gx, oy + gy, pu, pu);
+        }
+      }
+    }
+    g.globalAlpha = 1;
+    this.scorch = cv;
+  }
 
   /** Procedural crack overlay for a damaged hard block (level 1..3): jagged dark
    *  pixel cracks plus a few knocked-off chips at higher damage. */
@@ -2113,7 +2055,7 @@ export class Renderer {
             if (dmg > 0) this.drawCracks(px, py, index);
           }
         }
-        if (bm) this.drawBlockBlood(px, py, index); // refined dynamic gore ON TOP of the block
+        if (bm) this.drawBlockBlood(px, py, index); // dynamic splatter + drips ON TOP of the block
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       }
@@ -2128,7 +2070,7 @@ export class Renderer {
             this.drawTileSprite("soft", px, py) ||
             this.drawSoft(px, py));
         }
-        if (sm) this.drawBlockBlood(px, py, index); // refined dynamic gore ON TOP of the block
+        if (sm) this.drawBlockBlood(px, py, index); // dynamic splatter + drips ON TOP of the block
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
       }
@@ -2338,7 +2280,7 @@ export class Renderer {
         const i = y * GRID_W + x;
         const tile = view.grid[i] as TileType;
         if (tile === TileType.HARD || tile === TileType.SOFT || tile === TileType.EXPLOSION) continue;
-        const sc = this.surf.get(i); if (sc && (sc.burn > 0.2 || sc.gore > 0.4)) continue; // burnt/bloodied: no grass
+        if (this.burn.has(i)) continue; // blasted ground: grass is burnt away
         this.drawGrassBlades(x * t, y * t, x, y, now);
       }
     }
