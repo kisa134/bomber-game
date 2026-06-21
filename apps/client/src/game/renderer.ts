@@ -57,7 +57,7 @@ const DEATH_MS = 650;
 const BF_N = 1, BF_S = 2, BF_E = 4, BF_W = 8;
 const MAX_PARTICLES = 520;
 const MAX_DECALS = 90;
-const BLOOD_MAX_CELLS = 46; // hard cap on bloodied ground cells (of 187) -> never a map-wide carpet
+const BLOOD_DECAY_MS = 4200; // every tick, fresh (non-charred) ground blood thins by 1 -> self-cleaning, no carpet
 const LIGHT_LIFE = 460; // ms an explosion light source blooms + fades
 
 interface Particle {
@@ -143,6 +143,7 @@ export class Renderer {
   private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
   private bloodDirty = false;
   private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
+  private bloodDecayAt = 0; // last time fresh ground blood thinned a step (see decayBlood)
   private chips: Array<{ x: number; y: number; seed: number }> = []; // wood splinters from broken crates (x,y in cells)
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
   private lastCell = new Map<number, number>(); // player id -> last grid cell (footprint stepping)
@@ -577,7 +578,7 @@ export class Renderer {
             if (this.bloodGround.has(ny * GRID_W + nx)) { nearBlood = true; break; }
           }
         }
-        if (nearBlood && (this.bloodGround.has(idx) || this.bloodGround.size < BLOOD_MAX_CELLS)) {
+        if (nearBlood) {
           this.bloodGround.set(idx, Math.max(this.bloodGround.get(idx) ?? 0, 6)); // a solid patch to char
           this.bakedBlood.set(idx, 3); // blood -> charcoal-black
           this.burn.set(idx, Math.min(10, Math.max(this.burn.get(idx) ?? 0, 5))); // ground under it scorches deep too -> ONE unified charcoal patch
@@ -670,6 +671,7 @@ export class Renderer {
     // Persistent blood marks first (cheap, runs on phones too): a thick gory mush
     // that STAYS on the death cell, blood on the floor neighbours, and face-aware
     // blood on adjacent blocks (top splatter + front drips toward the kill).
+    this.bakedBlood.delete(cy * GRID_W + cx); // fresh kill: wipe any old char here so new RED mush shows on top
     this.markGround(cy * GRID_W + cx, 9); // death cell -> the whole tile in thick mush
     const grid = this.prevGrid;
     // Spread gore over a 5x5 area: 8 direct neighbours fully bloodied (cells AND
@@ -687,6 +689,7 @@ export class Renderer {
             this.markBlockBlood(ni, -dx, -dy);
             this.markBlockBlood(ni, -dx, -dy); // doubled -> heavy splatter on the face
           } else {
+            this.bakedBlood.delete(ni); // fresh mush over any old char on the inner ring too
             this.markGround(ni, dx === 0 || dy === 0 ? 4 : 3); // thick mush at the epicentre, falls off fast
           }
         } else { // outer ring: only the odd satellite speck (keep the pool concentrated)
@@ -764,19 +767,26 @@ export class Renderer {
    *  Persists for the match and accumulates. */
   private markGround(index: number, amount: number): void {
     if (index < 0 || index >= GRID_W * GRID_H) return;
-    if (!this.bloodGround.has(index)) {
-      // HARD cap with oldest-first eviction: blood can never cover the map. Map keeps
-      // insertion order, so the first key is the oldest bloodied cell — drop it (and
-      // its bake state) to make room. ~46 cells of 187 = scattered pools, never a carpet.
-      while (this.bloodGround.size >= BLOOD_MAX_CELLS) {
-        const oldest = this.bloodGround.keys().next().value;
-        if (oldest === undefined) break;
-        this.bloodGround.delete(oldest);
-        this.bakedBlood.delete(oldest);
-      }
-    }
+    // No eviction — pools never vanish on you. The slow decay tick (decayBlood) is what
+    // keeps the map from carpeting: fresh mush thins out over time; charred blood stays.
     this.bloodGround.set(index, Math.min(9, (this.bloodGround.get(index) ?? 0) + amount));
     this.bloodDirty = true;
+  }
+
+  /** Fresh blood slowly thins/dries so the board self-cleans (the smeared mush
+   *  disperses over time). Charred (baked) blood persists — it stays as scorched
+   *  charcoal until a fresh kill lays new mush over it. */
+  private decayBlood(now: number): void {
+    if (now - this.bloodDecayAt < BLOOD_DECAY_MS) return;
+    this.bloodDecayAt = now;
+    let changed = false;
+    for (const [idx, lvl] of this.bloodGround) {
+      if ((this.bakedBlood.get(idx) ?? 0) > 0) continue; // char stays
+      if (lvl <= 1) this.bloodGround.delete(idx);
+      else this.bloodGround.set(idx, lvl - 1);
+      changed = true;
+    }
+    if (changed) this.bloodDirty = true;
   }
 
   /** Persistent ground blood: thick gory mush where players died (fills the whole
@@ -1261,6 +1271,7 @@ export class Renderer {
     // Scorched ground: burnt patches that build up where blasts happened.
     if (this.scorchDirty || (this.burn.size && !this.scorch)) this.buildScorch(W, H);
     if (this.scorch) ctx.drawImage(this.scorch, 0, 0, W, H);
+    this.decayBlood(performance.now()); // fresh mush slowly thins (self-cleaning); char persists
     this.drawBloodGround(W, H); // persistent blood mush + smeared footprints (over the floor)
 
     if (view.grid) {
