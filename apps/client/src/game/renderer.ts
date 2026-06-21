@@ -150,6 +150,7 @@ export class Renderer {
   private footprints: Array<{ x: number; y: number; dx: number; dy: number; a: number; seed: number }> = [];
   private bones: Array<{ x: number; y: number; seed: number }> = []; // scattered bone-shard decals (x,y in cells)
   private meat: Array<{ x: number; y: number; seed: number }> = []; // scattered flesh-chunk decals (x,y in cells)
+  private organs: Array<{ x: number; y: number; seed: number }> = []; // intestine coils / organ decals (x,y in cells)
   // Floating reward/event popups that pop in with ease-out-back/elastic, rise, fade.
   private floaters: Array<{ x: number; y: number; text: string; color: string; born: number; big: boolean }> = [];
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
@@ -344,6 +345,7 @@ export class Renderer {
     this.footprints = [];
     this.bones = [];
     this.meat = [];
+    this.organs = [];
     this.chips = [];
     this.floaters = [];
     this.danger = 0;
@@ -733,9 +735,18 @@ export class Renderer {
       if (mx < 0.2 || my < 0.2 || mx > GRID_W - 0.2 || my > GRID_H - 0.2 || onBlock(mx, my)) continue;
       this.meat.push({ x: mx, y: my, seed: (Math.random() * 0xffffffff) >>> 0 });
     }
+    // Guts: a couple of intestine coils / organs flung near the kill (tighter spread).
+    const nOrgans = 2 + ((Math.random() * 3) | 0);
+    for (let i = 0; i < nOrgans; i++) {
+      const ox2 = cx + 0.5 + (Math.random() - 0.5) * 2.0;
+      const oy2 = cy + 0.5 + (Math.random() - 0.5) * 2.0;
+      if (ox2 < 0.2 || oy2 < 0.2 || ox2 > GRID_W - 0.2 || oy2 > GRID_H - 0.2 || onBlock(ox2, oy2)) continue;
+      this.organs.push({ x: ox2, y: oy2, seed: (Math.random() * 0xffffffff) >>> 0 });
+    }
     if (this.bones.length > 170) this.bones.splice(0, this.bones.length - 170);
     if (this.meat.length > 150) this.meat.splice(0, this.meat.length - 150);
-    this.bloodDirty = true; // bones + meat live in the cached blood overlay
+    if (this.organs.length > 80) this.organs.splice(0, this.organs.length - 80);
+    this.bloodDirty = true; // bones + meat + organs live in the cached blood overlay
     if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
@@ -866,6 +877,7 @@ export class Renderer {
     }
     for (const ch of this.chips) this.drawChip(g, ch, pu); // wood splinters (under gore)
     for (const fp of this.footprints) this.drawFoot(g, fp, pu); // smears on top
+    for (const o of this.organs) this.drawOrgan(g, o, pu); // intestine coils / organs (under the chunks)
     for (const mt of this.meat) this.drawMeat(g, mt, pu); // flesh chunks
     for (const b of this.bones) this.drawBone(g, b, pu); // bone shards on top
     g.globalAlpha = 1;
@@ -1023,6 +1035,45 @@ export class Renderer {
     }
     g.fillStyle = "#ffd0cc"; // tiny specular wet glint
     g.fillRect(Math.round((cx - rx * 0.3) / pu) * pu, Math.round((cy - ry * 0.5) / pu) * pu, pu, pu);
+  }
+
+  /** A spilled intestine coil / organ: a wiggly fleshy tube (glossy pink-purple top, dark
+   *  bruised underside) with a soft shadow and wet glints. Lives in the cached overlay. */
+  private drawOrgan(g: CanvasRenderingContext2D, o: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    let s = o.seed >>> 0;
+    const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
+    const rad = t * (0.045 + rnd() * 0.022); // tube radius
+    const segs = 5 + ((rnd() * 4) | 0);
+    let ang = rnd() * Math.PI * 2, px = o.x * t, py = o.y * t;
+    const pts: Array<[number, number]> = [];
+    for (let i = 0; i < segs; i++) { pts.push([px, py]); ang += (rnd() - 0.5) * 1.7; px += Math.cos(ang) * rad * 1.5; py += Math.sin(ang) * rad * 1.5; }
+    // soft shadow under the coil
+    g.globalAlpha = 0.26; g.fillStyle = "#000000";
+    for (const [bx, by] of pts) for (let yy = -rad; yy <= rad; yy += pu) for (let xx = -rad; xx <= rad; xx += pu) {
+      if (xx * xx + yy * yy > rad * rad) continue;
+      g.fillRect(Math.round((bx + xx + pu) / pu) * pu, Math.round((by + yy + pu * 1.4) / pu) * pu, pu, pu);
+    }
+    g.globalAlpha = 1;
+    const baseR = 150 + (s % 40); // pinkish flesh
+    const orad = rad + pu;
+    for (const [bx, by] of pts) {
+      g.fillStyle = "#3a0012"; // dark bruised outline ring
+      for (let yy = -orad; yy <= orad; yy += pu) for (let xx = -orad; xx <= orad; xx += pu) {
+        if (xx * xx + yy * yy > orad * orad) continue;
+        g.fillRect(Math.round((bx + xx) / pu) * pu, Math.round((by + yy) / pu) * pu, pu, pu);
+      }
+      for (let yy = -rad; yy <= rad; yy += pu) for (let xx = -rad; xx <= rad; xx += pu) {
+        if (xx * xx + yy * yy > rad * rad) continue;
+        const top = yy < -rad * 0.25; // glossy pink-purple top, dark underside
+        g.fillStyle = top
+          ? `rgb(${Math.min(255, baseR + 70)},${(baseR * 0.5) | 0},${(baseR * 0.6) | 0})`
+          : `rgb(${(baseR * 0.6) | 0},${(baseR * 0.14) | 0},${(baseR * 0.24) | 0})`;
+        g.fillRect(Math.round((bx + xx) / pu) * pu, Math.round((by + yy) / pu) * pu, pu, pu);
+      }
+    }
+    g.fillStyle = "#ffd6e2"; // wet glints along the coil
+    for (let i = 0; i < pts.length; i += 2) { const [bx, by] = pts[i]; g.fillRect(Math.round((bx - rad * 0.3) / pu) * pu, Math.round((by - rad * 0.45) / pu) * pu, pu, pu); }
   }
 
   /** A small scattered bone shard: a bone-white shaft with knobby ends and a soft
@@ -1531,12 +1582,12 @@ export class Renderer {
           this.kickGibs(ci, rp.x, rp.y); // boot any bones/meat on this cell aside
           let mdx = 0, mdy = 0; // travel direction (from the previous cell)
           if (prevCi !== undefined) { mdx = (ci % GRID_W) - (prevCi % GRID_W); mdy = ((ci / GRID_W) | 0) - ((prevCi / GRID_W) | 0); }
-          if ((this.bloodGround.get(ci) ?? 0) >= 3) this.bloodyFeet.set(p.id, 12); // stepped in a pool -> long bloody trail
+          if ((this.bloodGround.get(ci) ?? 0) >= 6) this.bloodyFeet.set(p.id, 6); // stepped in the GORE pile -> drag it out ~5 tiles
           const feet = this.bloodyFeet.get(p.id) ?? 0;
           if (feet > 0 && (mdx || mdy)) {
             this.bloodyFeet.set(p.id, feet - 1);
-            // First ~2 cells smear strongly, then fade over the trail.
-            const a = feet >= 10 ? 0.85 : feet >= 7 ? 0.55 : feet >= 4 ? 0.34 : 0.2;
+            // First cells smear strongly, then fade over the trail.
+            const a = feet >= 5 ? 0.85 : feet >= 4 ? 0.6 : feet >= 3 ? 0.42 : feet >= 2 ? 0.3 : 0.2;
             let ux = mdx, uy = mdy; const mm = Math.hypot(ux, uy) || 1; ux /= mm; uy /= mm;
             // Anchor to the CENTRE of the cell just entered (path centerline), not the
             // player's continuous position (which sits on tile seams mid-step). Only a
@@ -1547,8 +1598,11 @@ export class Renderer {
             const jx = (Math.random() - 0.5) * 0.16, jy = (Math.random() - 0.5) * 0.16;
             this.footprints.push({ x: ccx + jx - uy * off, y: ccy + jy + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
             if (this.footprints.length > 160) this.footprints.shift();
-            // (footprints are drawn as their own smears — they no longer add to the
-            // ground-blood field, which used to carpet the whole map in thin red.)
+            // DRAG the gore out: deposit REAL blood onto the trail, thinning each step (the
+            // pile smears ~5 tiles with a gradual fade). The 44-cell cap stops any carpet,
+            // and only the heavy pile (>=6) re-arms the feet, so it can't run away.
+            const drag = feet >= 5 ? 4 : feet >= 4 ? 3 : feet >= 3 ? 2 : 1;
+            this.markGround(ci, drag);
             this.bloodDirty = true;
           }
         }
