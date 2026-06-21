@@ -1008,7 +1008,8 @@ button.ghost {
   text-align: center;
 }
 .hub-logo {
-  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+  opacity: 0.92;
 }
 .hub-hero-stage {
   height: clamp(170px, 32vh, 300px);
@@ -1163,23 +1164,26 @@ button.ghost {
   white-space: nowrap;
 }
 /* Rail nav (Profile / SHOP / Invite) */
+/* Utility nav — a calm zone, not four loud equal buttons. */
 .hub-nav {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
 }
 .hub-nav .hub-util {
   width: 100%;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 0.9rem;
-  font-weight: 700;
-  padding: 12px 8px;
-  transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 9px 8px;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease, transform 0.12s ease;
 }
 .hub-nav .hub-util:hover {
-  border-color: rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
   transform: translateY(-1px);
 }
 .mod-go {
@@ -1199,15 +1203,44 @@ button.ghost {
   padding: 6px 0;
   font-size: 0.74rem;
 }
+/* Primary CTA — the one dominant, glowing action on the hub. */
+@keyframes ctaGlow {
+  0%, 100% { box-shadow: 0 8px 26px rgba(255, 204, 51, 0.34); }
+  50% { box-shadow: 0 10px 34px rgba(255, 204, 51, 0.55), 0 0 22px rgba(255, 204, 51, 0.32); }
+}
+@keyframes ctaSweep {
+  0%, 55% { transform: translateX(-130%) skewX(-18deg); }
+  100% { transform: translateX(130%) skewX(-18deg); }
+}
 .hub-hero .hub-play {
-  width: min(420px, 100%);
+  width: min(440px, 100%);
+  position: relative;
+  overflow: hidden;
+  font-size: 1.45rem;
+  padding: 20px 22px;
+  animation: ctaGlow 2.8s ease-in-out infinite;
+}
+.hub-hero .hub-play::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: translateX(-130%) skewX(-18deg);
+  animation: ctaSweep 3.4s ease-in-out infinite;
+  pointer-events: none;
 }
 .hub-hero .hub-practice {
-  width: min(420px, 100%);
+  width: min(440px, 100%);
+  font-size: 1.02rem;
+  font-weight: 700;
+  padding: 13px 22px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: var(--text);
-  box-shadow: none;
+  box-shadow: none; /* secondary action — no glow */
 }
 .hub-hero #nickname {
   width: min(300px, 100%);
