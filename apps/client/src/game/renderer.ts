@@ -142,6 +142,7 @@ export class Renderer {
   // dried/charred patina), NOT in deletion. Map is naturally bounded to GRID_W*GRID_H cells.
   private surf = new Map<number, { gore: number; wet: number; burn: number; char: number; sx: number; sy: number }>();
   private surfDryAt = 0; // last time the surface dried a step (see drySurface)
+  private surfBuiltAt = 0; // last surface-canvas rebuild (throttle, see drawBloodGround)
   private puBuf: HTMLCanvasElement | null = null; // scratch buffer for powerup sheen masked to the icon
   private bloodCanvas: HTMLCanvasElement | null = null; // cached unified surface overlay (gore+burn+char+decals)
   private bloodDirty = false;
@@ -790,7 +791,12 @@ export class Renderer {
    *  Dense grid-fill at grass-fine pixels, cached to a canvas and blitted. */
   private drawBloodGround(W: number, H: number): void {
     if (!this.surf.size) return;
-    if (this.bloodDirty || !this.bloodCanvas || this.bloodCanvas.width !== W || this.bloodCanvas.height !== H) {
+    const sizeChanged = !this.bloodCanvas || this.bloodCanvas.width !== W || this.bloodCanvas.height !== H;
+    const now = performance.now();
+    // THROTTLE rebuilds: the surface canvas is expensive, and footsteps/blasts can dirty it
+    // every frame. Coalesce into at most ~1 rebuild / 70ms (ground decals don't need 60fps).
+    if (sizeChanged || (this.bloodDirty && now - this.surfBuiltAt > 70)) {
+      this.surfBuiltAt = now;
       this.buildBloodGround(W, H);
     }
     if (this.bloodCanvas) this.ctx.drawImage(this.bloodCanvas, 0, 0, W, H);
@@ -810,7 +816,7 @@ export class Renderer {
     if (!g) return;
     g.clearRect(0, 0, W, H);
     const t = this.tile;
-    const pu = Math.max(1, Math.round(t / (this.lowFx ? 18 : 30))); // FINER crisp pixels on desktop (coarser on phones for perf)
+    const pu = Math.max(1, Math.round(t / (this.lowFx ? 12 : 19))); // balanced: crisp enough, not laggy
     const NB = Math.max(pu * 2, Math.round(t / 6)); // material structure size is FIXED (~t/6), so fine pixels DON'T add rib
 
     for (const [idx, s] of this.surf) {
@@ -835,7 +841,7 @@ export class Renderer {
       }
 
       // (2) GORE LOBES — big + medium first; offset/elongated/asymmetric (no round stamps).
-      let lobes: Array<{ lx: number; ly: number; rad: number; cos: number; sin: number; elong: number }> | null = null;
+      let lobes: Array<{ lx: number; ly: number; rad2: number; cos: number; sin: number; elong: number }> | null = null;
       if (s.gore > 0.04) {
         const nL = s.gore > 0.55 ? 3 : 2;
         const smear = (s.sx || s.sy) ? Math.atan2(s.sy, s.sx) : null; // smear -> elongate along the drag
@@ -844,11 +850,11 @@ export class Renderer {
           const big = l === 0;
           const ang = smear !== null ? smear : rnd() * Math.PI;
           const elong = smear !== null ? 1.9 + rnd() * 1.3 : 1 + rnd() * 0.9;
+          const rad = (big ? 0.42 + rnd() * 0.12 : 0.2 + rnd() * 0.18) * t;
           lobes.push({
             lx: ox + (0.5 + (big ? (rnd() - 0.5) * 0.28 : (rnd() - 0.5) * 0.72)) * t,
             ly: oy + (0.5 + (big ? (rnd() - 0.5) * 0.28 : (rnd() - 0.5) * 0.72)) * t,
-            rad: (big ? 0.42 + rnd() * 0.12 : 0.2 + rnd() * 0.18) * t,
-            cos: Math.cos(ang), sin: Math.sin(ang), elong,
+            rad2: rad * rad, cos: Math.cos(ang), sin: Math.sin(ang), elong,
           });
         }
       }
@@ -865,7 +871,7 @@ export class Renderer {
             for (const lo of lobes) {
               const ddx = pcx - lo.lx, ddy = pcy - lo.ly;
               const rx = (ddx * lo.cos + ddy * lo.sin) / lo.elong, ry = -ddx * lo.sin + ddy * lo.cos;
-              const v = 1 - Math.hypot(rx, ry) / lo.rad; if (v > dens) dens = v;
+              const v = 1 - (rx * rx + ry * ry) / lo.rad2; if (v > dens) dens = v; // squared dist (no sqrt) -> cheap, smooth dome
             }
             const edge = dens + (coarse - 0.5) * 0.4; // ragged organic boundary (not a clean circle)
             if (edge > 0.05) {
