@@ -827,7 +827,7 @@ export class Renderer {
     if (!g) return;
     g.clearRect(0, 0, W, H);
     const t = this.tile;
-    const pu = Math.max(1, Math.round(t / (this.lowFx ? 16 : 28))); // FINE pixels (matches the block art); perf held by the rebuild throttle
+    const pu = Math.max(1, Math.round(t / (this.lowFx ? 18 : 32))); // FINER pixels (smoother, less blocky); perf held by the rebuild throttle
     const NB = Math.max(pu * 2, Math.round(t / 10)); // medium structures: cohesive, fewer big holes, still not rib
 
     for (const [idx, s] of this.surf) {
@@ -896,18 +896,20 @@ export class Renderer {
               const rx = (ddx * lo.cos + ddy * lo.sin) / lo.elong, ry = -ddx * lo.sin + ddy * lo.cos;
               const v = 1 - (rx * rx + ry * ry) / lo.rad2; if (v > dens) dens = v; // squared dist (no sqrt) -> cheap, smooth dome
             }
-            const edge = dens + (coarse - 0.5) * 0.26; // gently ragged boundary (cohesive, fewer holes)
+            const edge = dens + (coarse - 0.5) * 0.16; // softer boundary -> more uniform mass, less shimmer
             if (edge > 0.02) {
               const density = Math.min(1, edge) * Math.min(1, s.gore * 1.2);
               const core = Math.min(1, density * 1.3), wet = s.wet;
               // realistic blood: deep CRIMSON (low green so it never reads orange/rust; a touch of
               // blue keeps it crimson not brick). fresh = vivid dark red, dried = dark maroon.
-              let R = Math.round((48 + 82 * wet) * core + 14);
-              let G = Math.round(R * (0.05 + 0.1 * (1 - wet))), B = Math.round(R * (0.09 + 0.03 * (1 - wet)));
+              // BLOOD red: high red, very low green (no orange/rust), tiny blue so it's crimson
+              // not brick. Fresh = vivid blood red, dried = dark blood red.
+              let R = Math.round((78 + 96 * wet) * core + 22);
+              let G = Math.round(R * (0.04 + 0.07 * (1 - wet))), B = Math.round(R * (0.1 + 0.04 * (1 - wet)));
               // CHAR suppresses the red: where blood has baked, the red gore fades out so the
               // cell reads as black charcoal, not dark red. THIS is the visible blast->bake conversion.
               let alpha = Math.min(0.97, (0.42 + 0.52 * core) * (0.55 + 0.45 * wet)) * Math.max(0, 1 - charVis * 1.25);
-              if (wet > 0.6 && core > 0.6 && (fn & 63) < 2) { R = 160 + (fn % 40); G = 58 + (fn % 22); B = 52; alpha = 0.92; } // wet glint (accent)
+              if (wet > 0.6 && core > 0.6 && (fn & 63) < 2) { R = 195 + (fn % 40); G = 36 + (fn % 18); B = 40; alpha = 0.94; } // wet glint (accent)
               else if (core > 0.78 && (fn & 31) === 0) { R = (R * 0.4) | 0; G = (G * 0.4) | 0; B = (B * 0.4) | 0; }            // dark clot (accent)
               else if (wet < 0.3 && (fn & 63) === 0) { R += 26; G += 16; B += 10; }                                          // dried dirty fleck
               g.globalAlpha = alpha;
