@@ -16,6 +16,10 @@
     <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/icon-180.png" />
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Runtime analytics config injected by the server from its env vars; lets us
+         set GA/PostHog/Clarity keys in the deploy dashboard with NO client rebuild.
+         Harmless 404 in dev (falls back to import.meta.env / .env). -->
+    <script src="/runtime-config.js"></script>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>

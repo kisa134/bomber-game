@@ -1488,6 +1488,26 @@ app.ws<SocketData>("/ws", {
   },
 });
 
+// Runtime analytics config — the client reads window.__CFG__ first, then falls
+// back to build-time VITE_* values. Lets us set GA/PostHog/Clarity keys in the
+// deploy env with NO client rebuild (fixes "key baked empty at build time").
+app.get("/runtime-config.js", (res) => {
+  res.onAborted(() => {});
+  const cfg = {
+    POSTHOG_KEY: process.env.VITE_POSTHOG_KEY || process.env.POSTHOG_KEY || "",
+    POSTHOG_HOST: process.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com",
+    GA_ID: process.env.VITE_GA_ID || process.env.GA_ID || "",
+    CLARITY_ID: process.env.VITE_CLARITY_ID || process.env.CLARITY_ID || "",
+  };
+  const body = `window.__CFG__=${JSON.stringify(cfg)};`;
+  res.cork(() => {
+    res.writeHeader("Content-Type", "application/javascript; charset=utf-8");
+    res.writeHeader("Cache-Control", "no-cache");
+    writeSecurity(res);
+    res.end(body);
+  });
+});
+
 // Static client (only when a build is present alongside the server).
 if (SERVE_STATIC) {
   app.get("/*", (res, req) => serveStatic(res, req.getUrl()));
