@@ -569,8 +569,11 @@ export class Renderer {
     for (const c of cells) {
       const idx = c.y * GRID_W + c.x;
       const d = Math.hypot(c.x + 0.5 - ecx, c.y + 0.5 - ecy);
-      const prox = Math.max(0.12, 1 - d / reach);    // 1 at centre .. ~0 at the rim (tips still lightly scorch)
-      const depth = (0.4 + 0.6 * power) * (0.25 + 0.75 * prox); // burn this blast ADDS
+      const prox = Math.max(0, 1 - d / reach);       // 1 at centre .. 0 at the rim
+      const proxC = prox * prox;                     // SQUARED -> strong centre, light edge = a real gradient crater
+      // gentler per-blast add (more stages, smoother): one blast darkens a lot at the centre
+      // but stays light at the rim; repeated blasts deepen toward near-black.
+      const depth = (0.3 + 0.55 * power) * (0.08 + 0.92 * proxC); // burn this blast ADDS
       const s = this.surfAt(idx);
       s.burn = Math.min(1, s.burn + depth);          // accumulates -> repeated blasts deepen (rule 4)
       if (s.gore > 0.04) {
@@ -834,17 +837,29 @@ export class Renderer {
       const rnd = (): number => { seed = (seed ^ (seed << 13)) >>> 0; seed = (seed ^ (seed >>> 17)) >>> 0; seed = (seed ^ (seed << 5)) >>> 0; return (seed & 0xffff) / 0xffff; };
       const charVis = s.char * (1 - Math.min(1, s.wet * 1.3)); // wet fresh blood keeps top priority over char
 
-      // (1) WHOLE-TILE BASE MASS — the affected block is darkened/burnt as one mass first.
+      // (1) WHOLE-TILE BASE MASS — darken the cell as one burnt mass, but as a RADIAL gradient
+      // (darkest in the middle, softer at the edges). This smooths tile-to-tile seams so a
+      // multi-cell blast reads as ONE continuous crater gradient, not stepped flat squares.
       if (s.burn > 0.06) {
-        const dk = s.burn, bb = Math.round(28 - 22 * dk);
-        g.globalAlpha = Math.min(0.92, 0.32 + 0.6 * dk); // clearly burns the whole block
-        g.fillStyle = `rgb(${bb},${(bb * 0.82) | 0},${(bb * 0.74) | 0})`; // near-neutral charred earth, NOT brown-orange
+        const dk = s.burn, bb = Math.round(30 - 26 * dk); // deeper range: 30 (faint) -> 4 (near-black)
+        const aCore = Math.min(0.94, 0.2 + 0.74 * dk);    // wider alpha range -> more visible stages
+        const grad = g.createRadialGradient(ox + t / 2, oy + t / 2, 0, ox + t / 2, oy + t / 2, t * 0.72);
+        grad.addColorStop(0, `rgba(${bb},${(bb * 0.82) | 0},${(bb * 0.74) | 0},${aCore})`);
+        grad.addColorStop(0.7, `rgba(${bb + 4},${((bb + 4) * 0.82) | 0},${((bb + 4) * 0.74) | 0},${aCore * 0.7})`);
+        grad.addColorStop(1, `rgba(${bb + 8},${((bb + 8) * 0.82) | 0},${((bb + 8) * 0.74) | 0},${aCore * 0.32})`);
+        g.globalAlpha = 1;
+        g.fillStyle = grad;
         g.fillRect(ox, oy, t, t);
       }
       if (charVis > 0.06) {
-        const cb = Math.max(4, Math.round(16 - 11 * charVis));
-        g.globalAlpha = Math.min(0.96, 0.46 + 0.52 * charVis); // deep dry burnt mass -> near-black
-        g.fillStyle = `rgb(${cb},${(cb * 0.8) | 0},${(cb * 0.72) | 0})`;
+        const cb = Math.max(3, Math.round(15 - 11 * charVis));
+        const aC = Math.min(0.97, 0.34 + 0.62 * charVis);
+        const cg = g.createRadialGradient(ox + t / 2, oy + t / 2, 0, ox + t / 2, oy + t / 2, t * 0.72);
+        cg.addColorStop(0, `rgba(${cb},${(cb * 0.8) | 0},${(cb * 0.72) | 0},${aC})`);
+        cg.addColorStop(0.7, `rgba(${cb + 3},${((cb + 3) * 0.8) | 0},${((cb + 3) * 0.72) | 0},${aC * 0.72})`);
+        cg.addColorStop(1, `rgba(${cb + 6},${((cb + 6) * 0.8) | 0},${((cb + 6) * 0.72) | 0},${aC * 0.34})`);
+        g.globalAlpha = 1;
+        g.fillStyle = cg;
         g.fillRect(ox, oy, t, t);
       }
 
