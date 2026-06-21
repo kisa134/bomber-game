@@ -86,6 +86,16 @@ function loadShare(n: number): Promise<HTMLImageElement | null> {
   return shareCache.get(n)!;
 }
 
+// AI-generated per-character backgrounds: drop art into /public/cardbg as
+// skin_<i>.webp or .png and the "AI art — per character" option uses it.
+const cardbgCache = new Map<number, Promise<HTMLImageElement | null>>();
+function loadCardbg(i: number): Promise<HTMLImageElement | null> {
+  if (!cardbgCache.has(i)) {
+    cardbgCache.set(i, (async () => (await loadImg(v(`/cardbg/skin_${i}.webp`))) ?? (await loadImg(v(`/cardbg/skin_${i}.png`))))());
+  }
+  return cardbgCache.get(i)!;
+}
+
 // ---- colour + shape helpers ----------------------------------------------
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace("#", "");
@@ -114,6 +124,7 @@ function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
 
 // ---- backgrounds ---------------------------------------------------------
 export const BG_KINDS: Array<{ id: string; label: string }> = [
+  { id: "ai", label: "AI art — per character (cardbg)" },
   { id: "proc", label: "Procedural (rarity glow)" },
   { id: "rays", label: "Procedural (neon rays)" },
   { id: "burst", label: "Procedural (comic burst)" },
@@ -148,30 +159,40 @@ function bgVignette(ctx: CanvasRenderingContext2D, S: number): void {
   ctx.fillRect(0, 0, S, S);
 }
 
+/** Cover-fit an image to the square, centered. */
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, S: number): void {
+  const scale = Math.max(S / img.width, S / img.height);
+  const w = img.width * scale, h = img.height * scale;
+  ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+}
+/** Legibility scrim over photographic/AI art (darker at top & bottom). */
+function drawScrim(ctx: CanvasRenderingContext2D, S: number): void {
+  const sc = ctx.createLinearGradient(0, 0, 0, S);
+  sc.addColorStop(0, "rgba(6,7,12,0.72)");
+  sc.addColorStop(0.4, "rgba(6,7,12,0.18)");
+  sc.addColorStop(0.7, "rgba(6,7,12,0.35)");
+  sc.addColorStop(1, "rgba(6,7,12,0.85)");
+  ctx.fillStyle = sc;
+  ctx.fillRect(0, 0, S, S);
+}
+
 async function drawBackground(
   ctx: CanvasRenderingContext2D, index: number, S: number, kind: string, props: Props,
 ): Promise<void> {
   const { color: accent } = rarityOf(index);
 
+  if (kind === "ai") {
+    const img = await loadCardbg(index);
+    if (img) { drawCover(ctx, img, S); drawScrim(ctx, S); return; }
+    // no AI art dropped yet -> fall through to the procedural default below
+  }
+
   if (kind.startsWith("share")) {
     const n = parseInt(kind.slice(5), 10) || 0;
     const img = await loadShare(n);
-    if (img) {
-      // cover-fit
-      const scale = Math.max(S / img.width, S / img.height);
-      const w = img.width * scale, h = img.height * scale;
-      ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
-    } else {
-      bgGradient(ctx, S, accent);
-    }
-    // legibility scrim (top + bottom)
-    const sc = ctx.createLinearGradient(0, 0, 0, S);
-    sc.addColorStop(0, "rgba(6,7,12,0.72)");
-    sc.addColorStop(0.4, "rgba(6,7,12,0.18)");
-    sc.addColorStop(0.7, "rgba(6,7,12,0.35)");
-    sc.addColorStop(1, "rgba(6,7,12,0.85)");
-    ctx.fillStyle = sc;
-    ctx.fillRect(0, 0, S, S);
+    if (img) drawCover(ctx, img, S);
+    else bgGradient(ctx, S, accent);
+    drawScrim(ctx, S);
     return;
   }
 
