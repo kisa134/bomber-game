@@ -35,11 +35,11 @@
             <div class="hub-top-actions">
               <span id="player-stats" class="player-stats hidden">
                 <span class="stat-badge chips" title="Your free chips">
-                  <span class="stat-cap">CHIPS</span>🪙 <span id="chip-amount">0</span>
+                  🪙 <span id="chip-amount">0</span> <span class="stat-cap">CHIPS</span>
                 </span>
               </span>
               <a id="token-badge" class="stat-badge token hidden" target="_blank" rel="noopener" title="Your token balance — tap to view on pump.fun">
-                <span class="stat-cap">$BGDF</span>💎 <span id="token-amount">0</span> <span id="token-ticker"></span><span id="token-usd" class="token-usd"></span>
+                💎 <span id="token-amount">0</span> <span class="stat-cap">$BGDF</span><span id="token-ticker" class="hidden"></span><span id="token-usd" class="token-usd"></span>
               </a>
               <button id="wallet-btn">🔗 Connect</button>
               <button id="open-settings" class="icon-btn" title="Settings">⚙</button>
@@ -93,17 +93,20 @@
           <div class="hub-stage">
             <div class="hero-unit">
               <div class="hub-hero-stage">
-                <span class="hub-spot" aria-hidden="true"></span>
+                <span class="hub-cone" aria-hidden="true"></span>
+                <span class="hub-fog" aria-hidden="true"></span>
                 <img id="hub-hero-img" class="hub-hero-img" alt="" />
+                <span class="hub-contact" aria-hidden="true"></span>
               </div>
-              <!-- Hero passport: anchored to the character's feet -->
+              <!-- Hero passport: solid platform under the character's feet -->
               <div class="hero-passport">
                 <div class="passport-top">
+                  <span class="passport-crown" aria-hidden="true">👑</span>
                   <input id="nickname" class="passport-name" maxlength="16" placeholder="your nickname" autocomplete="off" />
-                  <span class="passport-lv">LV <span id="hub-level">1</span></span>
                 </div>
                 <div id="hub-progress" class="passport-track hidden">
                   <span id="hub-rank" class="rrk">🌱 Beginner</span>
+                  <span class="lvl">LV <span id="hub-level">1</span></span>
                   <div class="ratebar"><div id="hub-ratefill" class="ratefill"></div></div>
                   <span id="hub-ratetext" class="ratetext"></span>
                 </div>

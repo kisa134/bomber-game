@@ -962,28 +962,49 @@ button.ghost {
 .hub-top-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
 }
 .hub-top-actions .player-stats {
   width: auto;
   display: inline-flex;
-  gap: 8px;
+  align-items: center;
+  gap: 14px;
+}
+/* Naked currency typography — no pills, no borders. */
+.hub-top-actions .stat-badge {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+.hub-top-actions .stat-cap {
+  margin: 0 0 0 4px;
+  font-size: 0.6rem;
+  opacity: 0.55;
 }
 .hub-top-actions #wallet-btn {
   width: auto;
-  padding: 6px 12px;
+  padding: 4px 6px;
   font-size: 0.8rem;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text);
+  background: none;
+  border: none;
+  color: var(--muted);
 }
+.hub-top-actions #wallet-btn:hover { color: var(--text); }
 .hub-top .icon-btn {
   position: static;
-  width: 34px;
-  height: 34px;
-  font-size: 0.95rem;
+  width: 30px;
+  height: 30px;
+  font-size: 1.05rem;
+  background: none;
+  border: none;
+  opacity: 0.7;
 }
+.hub-top .icon-btn:hover { opacity: 1; }
 /* ===== Hero-centered hub (Variant A): the character + PLAY are the screen ===== */
 /* ===== Hero-centered hub (image_18a07a spec): staged, theatrical, strict ===== */
 .hub.hub-hero-layout {
@@ -1031,16 +1052,44 @@ button.ghost {
   align-items: flex-end;
   justify-content: center;
 }
-/* Cinematic radial spotlight directly behind the character. */
-.hub-spot {
+/* Theatrical top-down cone spotlight focused on the hero. */
+.hub-cone {
   position: absolute;
-  bottom: -2%;
+  top: -16%;
   left: 50%;
-  width: clamp(360px, 64vh, 680px);
-  height: clamp(360px, 64vh, 680px);
+  width: clamp(300px, 48vw, 640px);
+  height: 128%;
   transform: translateX(-50%);
-  background: radial-gradient(circle at 50% 45%,
-    rgba(255, 226, 170, 0.16) 0%, rgba(255, 200, 120, 0.07) 30%, transparent 64%);
+  background: linear-gradient(to bottom,
+    rgba(255, 241, 212, 0.18) 0%, rgba(255, 226, 170, 0.07) 38%, transparent 80%);
+  clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+/* Soft radial fog behind the sprite. */
+.hub-fog {
+  position: absolute;
+  bottom: 6%;
+  left: 50%;
+  width: clamp(320px, 56vh, 600px);
+  height: clamp(320px, 56vh, 600px);
+  transform: translateX(-50%);
+  background: radial-gradient(circle at 50% 50%,
+    rgba(150, 170, 215, 0.12) 0%, rgba(120, 140, 190, 0.05) 34%, transparent 64%);
+  filter: blur(6px);
+  pointer-events: none;
+  z-index: 0;
+}
+/* Diffused horizontal contact shadow grounding the hero on the floor. */
+.hub-contact {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: clamp(160px, 24vh, 300px);
+  height: clamp(16px, 3vh, 34px);
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.62), rgba(0, 0, 0, 0.3) 44%, transparent 72%);
+  filter: blur(4px);
   pointer-events: none;
   z-index: 0;
 }
@@ -1066,63 +1115,66 @@ button.ghost {
   font-weight: 700;
   margin-left: 4px;
 }
-/* Hero passport — anchored to the character's feet; nickname + LV prominent,
-   one premium horizontal tracking line. */
+/* Hero passport — a solid dark-glass platform under the feet; crowned nickname
+   + one merged level/progress tracking line. */
 .hero-passport {
   position: relative;
   z-index: 2;
-  margin-top: clamp(-20px, -1.8vh, -8px);
+  margin-top: clamp(-24px, -2.2vh, -12px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  width: fit-content;
+  gap: 7px;
+  width: clamp(300px, 34vw, 460px); /* ~1.5x wider — a real platform */
   max-width: 92vw;
-  padding: 8px 18px 10px;
-  border-radius: 14px;
-  background: rgba(10, 12, 20, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  padding: 10px 22px 12px;
+  border-radius: 16px;
+  background: rgba(8, 10, 16, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 .passport-top {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  gap: 8px;
+}
+.passport-crown {
+  font-size: 1rem;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
 .passport-name {
   width: auto;
-  min-width: 150px;
-  max-width: 240px;
+  min-width: 110px;
+  max-width: 260px;
   text-align: center;
   font-weight: 800;
-  font-size: 1.15rem;
-  padding: 2px 6px;
+  font-size: 1.22rem;
+  letter-spacing: 0.3px;
+  padding: 1px 4px;
   background: transparent;
   border: none;
   color: var(--text);
 }
 .passport-name:focus { outline: none; }
-.passport-lv {
-  font-weight: 800;
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
-  color: #0e1018;
-  background: var(--accent);
-  padding: 2px 9px;
-  border-radius: 999px;
-  white-space: nowrap;
-}
 .passport-track {
   display: flex;
   align-items: center;
   gap: 9px;
-  width: min(300px, 78vw);
+  width: 100%;
   font-size: 0.72rem;
 }
 .passport-track .rrk {
   font-weight: 700;
   color: var(--c, var(--muted));
+  white-space: nowrap;
+}
+.passport-track .lvl {
+  font-weight: 800;
+  color: var(--text);
+  opacity: 0.9;
   white-space: nowrap;
 }
 .passport-track .ratebar {
@@ -1142,7 +1194,7 @@ button.ghost {
   transition: width 0.5s ease;
 }
 .passport-track .ratetext {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   color: var(--muted);
   white-space: nowrap;
@@ -1197,11 +1249,14 @@ button.ghost {
   font-size: clamp(1.3rem, 2.6vw, 1.85rem);
   padding: clamp(20px, 2.9vh, 28px) 26px;
   letter-spacing: 0.5px;
-  border: 1px solid rgba(255, 210, 90, 0.6);
+  color: #2a1c02;
+  /* Rich amber, dimensional — not a flat yellow fill. */
+  background: linear-gradient(180deg, #ffe79c 0%, #f6bd3a 46%, #e09a1c 100%);
+  border: 1px solid rgba(255, 226, 150, 0.85);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 0 24px rgba(255, 180, 40, 0.45),
-    0 6px 16px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -2px 6px rgba(150, 90, 0, 0.4),
+    0 8px 20px rgba(0, 0, 0, 0.4);
 }
 .hub-play::after {
   content: "";
@@ -1243,69 +1298,73 @@ button.ghost {
   gap: 16px;
   padding: 0 6px clamp(8px, 2vh, 18px);
 }
-/* Secondary teasers — low-opacity text row, not cards. */
-.hub-teasers {
-  display: flex;
-  gap: 18px;
-  flex-wrap: wrap;
-  align-items: center;
-  opacity: 0.55;
-  transition: opacity 0.15s ease;
-}
-.hub-teasers:hover { opacity: 1; }
-.hub-chip {
-  width: auto;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: 0;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-button.hub-chip { cursor: pointer; }
-button.hub-chip:hover .chip-k,
-button.hub-chip:hover .chip-v { color: var(--text); }
-.hub-chip .chip-k {
-  font-weight: 700;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.8);
-}
-.hub-chip .chip-v {
-  font-size: 0.8rem;
-  color: var(--muted);
-}
-
-/* Utility dock — quietest layer: base 40% opacity, full on hover, bigger icons. */
+/* Both corner docks: unified dark-glass bento tabs, 50% → 100% on hover. */
+.hub-teasers,
 .hub-dock {
   display: flex;
-  gap: 12px;
-  align-items: center;
+  align-items: stretch;
+  gap: 2px;
+  padding: 5px;
+  border-radius: 14px;
+  background: rgba(8, 10, 16, 0.46);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+  opacity: 0.5;
+  transition: opacity 0.18s ease;
 }
+.hub-teasers:hover,
+.hub-dock:hover {
+  opacity: 1;
+}
+/* Teaser tabs (Season / Leaderboard / Friends) */
+.hub-chip {
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  transition: background 0.12s ease;
+}
+button.hub-chip { cursor: pointer; }
+button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
+.hub-chip .chip-k {
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+.hub-chip .chip-v {
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+/* Utility tabs (Profile / Shop / Spin / Invite) */
 .hub-dock-btn {
   width: auto;
+  min-width: 60px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 4px 6px;
+  padding: 6px 12px;
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--text);
   background: none;
   border: none;
-  opacity: 0.4;
-  transition: opacity 0.15s ease, transform 0.12s ease;
+  border-radius: 9px;
+  transition: background 0.12s ease;
 }
 .hub-dock-btn .dock-ic {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
 }
 .hub-dock-btn:hover {
-  opacity: 1;
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.06);
 }
 /* CTA animations (used by .hub-play). */
 @keyframes ctaGlow {
