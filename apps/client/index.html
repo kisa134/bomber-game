@@ -108,46 +108,46 @@
 
       <!-- Home — main hub (the global status bar + XP live in #chrome above) -->
       <section id="menu" class="screen hidden">
-        <div class="hub">
-          <!-- Main: hero (left) + module rail (right) -->
-          <div class="hub-main">
-            <div class="hub-hero">
-              <div class="hub-logo logo">BomberMeme.fun</div>
-              <p class="tagline">blow up your friends · pump.fun arena</p>
-              <div class="hub-hero-stage"><img id="hub-hero-img" class="hub-hero-img" alt="" /></div>
-              <input id="nickname" maxlength="16" placeholder="your nickname" autocomplete="off" />
-              <button id="open-play" class="primary big hub-play">🌐 PLAY ONLINE</button>
-              <button id="open-practice" class="big hub-practice">🤖 Practice vs bots</button>
-              <p id="menu-status" class="status"></p>
+        <div class="hub hub-hero-layout">
+          <!-- Hero-centered: the character + the one dominant PLAY action -->
+          <div class="hub-stage">
+            <div class="hub-brandline">
+              <span class="hub-logo logo">BomberMeme.fun</span>
+              <span class="tagline">blow up your friends · pump.fun arena</span>
             </div>
+            <div class="hub-hero-stage">
+              <span class="hub-hero-ring"></span>
+              <span id="hub-hero-lvl" class="hub-hero-lvl"></span>
+              <img id="hub-hero-img" class="hub-hero-img" alt="" />
+            </div>
+            <input id="nickname" maxlength="16" placeholder="your nickname" autocomplete="off" />
+            <button id="open-play" class="primary big hub-play">🌐 PLAY ONLINE</button>
+            <button id="open-practice" class="hub-practice-link">🤖 or practice vs bots →</button>
+            <p id="menu-status" class="status"></p>
+          </div>
 
-            <div class="hub-rail">
-              <div class="hub-module featured">
-                <div class="hub-mod-label">★ Season 1 · Toxic Arena</div>
-                <div class="hub-mod-sub">Live events & rewards — coming soon</div>
-              </div>
-              <button id="hub-friends" class="hub-module friends">
-                <div class="hub-mod-label">👥 Friends <span id="hub-friends-count" class="friends-count"></span></div>
-                <div id="hub-friends-sub" class="hub-mod-sub">Add friends &amp; play together</div>
-              </button>
-              <!-- Leaderboard inline: switch boards, list updates in place -->
-              <div class="hub-module topweek">
-                <div class="hub-mod-label">🏆 Leaderboard</div>
-                <div id="hub-lb-tabs" class="hub-lb-tabs seg">
-                  <button class="seg-btn active" data-board="rating">🏆 Rating</button>
-                  <button class="seg-btn" data-board="tokens">💎 Earned</button>
-                  <button class="seg-btn" data-board="chips">🪙 Free</button>
-                </div>
-                <ol id="hub-top" class="hub-top-list"></ol>
-              </div>
-              <!-- All navigation lives in the rail now -->
-              <div class="hub-nav">
-                <button id="open-profile" class="hub-util">👤 Profile</button>
-                <button id="open-shop" class="hub-util">🛒 SHOP</button>
-                <button id="open-wheel" class="hub-util">🎰 Lucky Spin</button>
-                <button id="open-referral" class="hub-util">👥 Invite &amp; earn</button>
-              </div>
+          <!-- Secondary modules as compact teaser chips (open the full panels) -->
+          <div class="hub-teasers">
+            <div class="hub-chip hub-chip-static">
+              <span class="chip-k">★ Season 1</span>
+              <span class="chip-v">Toxic Arena · soon</span>
             </div>
+            <button id="open-leaderboard" class="hub-chip">
+              <span class="chip-k">🏆 Leaderboard</span>
+              <span class="chip-v">see the top players</span>
+            </button>
+            <button id="hub-friends" class="hub-chip">
+              <span class="chip-k">👥 Friends <span id="hub-friends-count" class="friends-count"></span></span>
+              <span id="hub-friends-sub" class="chip-v">add &amp; play together</span>
+            </button>
+          </div>
+
+          <!-- Utility navigation: a small icon dock, not four fat buttons -->
+          <div class="hub-dock">
+            <button id="open-profile" class="hub-dock-btn"><span class="dock-ic">👤</span>Profile</button>
+            <button id="open-shop" class="hub-dock-btn"><span class="dock-ic">🛒</span>Shop</button>
+            <button id="open-wheel" class="hub-dock-btn"><span class="dock-ic">🎰</span>Spin</button>
+            <button id="open-referral" class="hub-dock-btn"><span class="dock-ic">👥</span>Invite</button>
           </div>
         </div>
       </section>
