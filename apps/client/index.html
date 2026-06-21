@@ -58,20 +58,6 @@
               <button id="open-help" class="icon-btn" title="How to play / Как играть">❓</button>
             </div>
           </div>
-          <div id="hub-progress" class="hub-progress hidden">
-            <!-- Primary: competitive rating rail (thick, glowing, with rank) -->
-            <div class="prog-row prog-rating">
-              <span id="hub-rank" class="rrk">🌱 Beginner</span>
-              <div class="ratebar"><div id="hub-ratefill" class="ratefill"></div></div>
-              <span id="hub-ratetext" class="ratetext"></span>
-            </div>
-            <!-- Secondary: account level / XP rail (thin, calm) -->
-            <div class="prog-row prog-level">
-              <span class="lvl">LV <span id="hub-level">1</span></span>
-              <div class="xpbar"><div id="hub-xpfill" class="xpfill"></div></div>
-              <span id="hub-xptext" class="xptext"></span>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -121,33 +107,46 @@
               <img id="hub-hero-img" class="hub-hero-img" alt="" />
             </div>
             <input id="nickname" maxlength="16" placeholder="your nickname" autocomplete="off" />
+            <!-- Progression as part of the hero identity (slim, not a top techbar) -->
+            <div id="hub-progress" class="hub-progress hidden">
+              <div class="prog-row prog-rating">
+                <span id="hub-rank" class="rrk">🌱 Beginner</span>
+                <div class="ratebar"><div id="hub-ratefill" class="ratefill"></div></div>
+                <span id="hub-ratetext" class="ratetext"></span>
+              </div>
+              <div class="prog-row prog-level">
+                <span class="lvl">LV <span id="hub-level">1</span></span>
+                <div class="xpbar"><div id="hub-xpfill" class="xpfill"></div></div>
+                <span id="hub-xptext" class="xptext"></span>
+              </div>
+            </div>
             <button id="open-play" class="primary big hub-play">🌐 PLAY ONLINE</button>
             <button id="open-practice" class="hub-practice-link">🤖 or practice vs bots →</button>
             <p id="menu-status" class="status"></p>
           </div>
 
-          <!-- Secondary modules as compact teaser chips (open the full panels) -->
-          <div class="hub-teasers">
-            <div class="hub-chip hub-chip-static">
-              <span class="chip-k">★ Season 1</span>
-              <span class="chip-v">soon</span>
+          <!-- One collected bottom navigation layer: teaser chips + utility dock -->
+          <div class="hub-bottom">
+            <div class="hub-teasers">
+              <div class="hub-chip hub-chip-static">
+                <span class="chip-k">★ Season 1</span>
+                <span class="chip-v">soon</span>
+              </div>
+              <button id="open-leaderboard" class="hub-chip">
+                <span class="chip-k">🏆 Leaderboard</span>
+                <span class="chip-v">Top players →</span>
+              </button>
+              <button id="hub-friends" class="hub-chip">
+                <span class="chip-k">👥 Friends <span id="hub-friends-count" class="friends-count"></span></span>
+                <span id="hub-friends-sub" class="chip-v">add &amp; play together</span>
+              </button>
             </div>
-            <button id="open-leaderboard" class="hub-chip">
-              <span class="chip-k">🏆 Leaderboard</span>
-              <span class="chip-v">Top players →</span>
-            </button>
-            <button id="hub-friends" class="hub-chip">
-              <span class="chip-k">👥 Friends <span id="hub-friends-count" class="friends-count"></span></span>
-              <span id="hub-friends-sub" class="chip-v">add &amp; play together</span>
-            </button>
-          </div>
-
-          <!-- Utility navigation: a small icon dock, not four fat buttons -->
-          <div class="hub-dock">
-            <button id="open-profile" class="hub-dock-btn"><span class="dock-ic">👤</span>Profile</button>
-            <button id="open-shop" class="hub-dock-btn"><span class="dock-ic">🛒</span>Shop</button>
-            <button id="open-wheel" class="hub-dock-btn"><span class="dock-ic">🎰</span>Spin</button>
-            <button id="open-referral" class="hub-dock-btn"><span class="dock-ic">👥</span>Invite</button>
+            <div class="hub-dock">
+              <button id="open-profile" class="hub-dock-btn"><span class="dock-ic">👤</span>Profile</button>
+              <button id="open-shop" class="hub-dock-btn"><span class="dock-ic">🛒</span>Shop</button>
+              <button id="open-wheel" class="hub-dock-btn"><span class="dock-ic">🎰</span>Spin</button>
+              <button id="open-referral" class="hub-dock-btn"><span class="dock-ic">👥</span>Invite</button>
+            </div>
           </div>
         </div>
       </section>
