@@ -19,6 +19,16 @@ export function rarityOf(i: number): { name: string; color: string } {
   return { name: "Mythic", color: "#ff5a5a" };
 }
 
+/** Selectable rarity presets — the admin can override the per-character rarity. */
+export interface Rarity { name: string; color: string; }
+export const RARITIES: Rarity[] = [
+  { name: "Common", color: "#9aa3b2" },
+  { name: "Rare", color: "#4aa3ff" },
+  { name: "Epic", color: "#c879ff" },
+  { name: "Legendary", color: "#ffcc33" },
+  { name: "Mythic", color: "#ff5a5a" },
+];
+
 // ---- asset loading -------------------------------------------------------
 export interface SpriteSet {
   walk: Record<string, HTMLImageElement>; // `${dir}_${f}`
@@ -29,7 +39,9 @@ export interface SpriteSet {
 export interface Props {
   bomb?: HTMLImageElement;
   floor?: HTMLImageElement;
+  hard?: HTMLImageElement;
   explosion: HTMLImageElement[];
+  powerups: HTMLImageElement[];
 }
 
 function loadImg(url: string): Promise<HTMLImageElement | null> {
@@ -65,15 +77,21 @@ let propsCache: Promise<Props> | null = null;
 export function loadProps(): Promise<Props> {
   if (propsCache) return propsCache;
   propsCache = (async () => {
-    const [bomb, floor, ...explosion] = await Promise.all([
+    const [bomb, floor, hard, ...explosion] = await Promise.all([
       loadImg(v("/sprites/bomb.webp")),
       loadImg(v("/sprites/floor.webp")),
+      loadImg(v("/sprites/hard.webp")),
       ...[0, 1, 2, 3, 4].map((i) => loadImg(v(`/sprites/explosion_${i}.webp`))),
     ]);
+    const powerups = (await Promise.all(
+      ["bomb", "fire", "speed", "kick", "wall", "health"].map((p) => loadImg(v(`/sprites/powerup_${p}.webp`))),
+    )).filter((e): e is HTMLImageElement => !!e);
     return {
       bomb: bomb ?? undefined,
       floor: floor ?? undefined,
+      hard: hard ?? undefined,
       explosion: explosion.filter((e): e is HTMLImageElement => !!e),
+      powerups,
     };
   })();
   return propsCache;
@@ -124,6 +142,7 @@ function rr(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: n
 
 // ---- backgrounds ---------------------------------------------------------
 export const BG_KINDS: Array<{ id: string; label: string }> = [
+  { id: "theme", label: "Per-character theme 🎭" },
   { id: "ai", label: "AI art — per character (cardbg)" },
   { id: "proc", label: "Procedural (rarity glow)" },
   { id: "rays", label: "Procedural (neon rays)" },
@@ -176,10 +195,155 @@ function drawScrim(ctx: CanvasRenderingContext2D, S: number): void {
   ctx.fillRect(0, 0, S, S);
 }
 
+// Per-character identity themes (palette + motif). These are about WHO the
+// character is, independent of the (overridable) rarity accent.
+interface Theme { g: [string, string]; glow: string; motif: string; }
+const THEMES: Theme[] = [
+  { g: ["#3a2a12", "#0a0805"], glow: "#ffae57", motif: "coins" },     // Shiba
+  { g: ["#10301a", "#05100a"], glow: "#5ee06a", motif: "bubbles" },   // Pepe
+  { g: ["#33240a", "#0a0703"], glow: "#ffd24a", motif: "bills" },     // Trump
+  { g: ["#141038", "#05040c"], glow: "#5b9bff", motif: "stars" },     // Musk
+  { g: ["#3a3008", "#0c0a03"], glow: "#ffe04a", motif: "coins" },     // Doge
+  { g: ["#0c3320", "#04120b"], glow: "#39ff9b", motif: "candles" },   // Pump
+  { g: ["#0e2740", "#050d16"], glow: "#4ea3ff", motif: "planes" },    // Durov
+  { g: ["#24123a", "#0a0512"], glow: "#c879ff", motif: "crystals" },  // Vitalik
+  { g: ["#1a1a1a", "#050505"], glow: "#ff5a5a", motif: "halftone" },  // Troll
+  { g: ["#2a0a0e", "#0c0304"], glow: "#ff3b3b", motif: "smoke" },     // Bogdanoff
+  { g: ["#20202a", "#070708"], glow: "#dfe6ff", motif: "rays" },      // Gigachad
+];
+
+/** Tiny seeded RNG so motif placement is stable across preview + export. */
+function seeded(seed: number): () => number {
+  let s = (seed * 9301 + 49297) % 233280;
+  return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+}
+
+function drawThemed(ctx: CanvasRenderingContext2D, index: number, S: number, props: Props): void {
+  const t = THEMES[index % THEMES.length];
+  const g = ctx.createLinearGradient(0, 0, S, S);
+  g.addColorStop(0, t.g[0]);
+  g.addColorStop(0.6, t.g[1]);
+  g.addColorStop(1, "#050609");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, S, S);
+
+  // faint game floor on the lower half (uses real assets)
+  if (props.floor) {
+    ctx.globalAlpha = 0.1;
+    const ts = S * 0.1;
+    for (let y = S * 0.5; y < S; y += ts) for (let x = 0; x < S; x += ts) ctx.drawImage(props.floor, x, y, ts, ts);
+    ctx.globalAlpha = 1;
+  }
+
+  const rnd = seeded(index + 1);
+  // ambient powerup pickups drifting in the back (real assets, low alpha)
+  if (props.powerups.length) {
+    ctx.globalAlpha = 0.12;
+    for (let i = 0; i < 7; i++) {
+      const img = props.powerups[Math.floor(rnd() * props.powerups.length)];
+      const s = S * (0.05 + rnd() * 0.04);
+      ctx.drawImage(img, rnd() * (S - s), rnd() * S * 0.55, s, s);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  // per-character motif
+  themedMotif(ctx, S, t, rnd);
+
+  // identity glow + vignette
+  const gr = ctx.createRadialGradient(S * 0.5, S * 0.48, S * 0.04, S * 0.5, S * 0.48, S * 0.55);
+  gr.addColorStop(0, rgba(t.glow, 0.3));
+  gr.addColorStop(1, rgba(t.glow, 0));
+  ctx.fillStyle = gr;
+  ctx.fillRect(0, 0, S, S);
+  bgVignette(ctx, S);
+}
+
+function themedMotif(ctx: CanvasRenderingContext2D, S: number, t: Theme, rnd: () => number): void {
+  const c = t.glow;
+  switch (t.motif) {
+    case "candles": // green/red trading candles climbing up
+      for (let i = 0; i < 14; i++) {
+        const x = S * 0.06 + i * S * 0.066, h = S * (0.08 + rnd() * 0.5), up = rnd() > 0.4;
+        ctx.fillStyle = up ? rgba("#39ff9b", 0.2) : rgba("#ff5a5a", 0.16);
+        ctx.fillRect(x, S - h - S * 0.16, S * 0.03, h);
+      }
+      break;
+    case "coins":
+      for (let i = 0; i < 22; i++) {
+        const x = rnd() * S, y = rnd() * S, r = S * (0.012 + rnd() * 0.03);
+        const gg = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gg.addColorStop(0, rgba(c, 0.55)); gg.addColorStop(1, rgba(c, 0));
+        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    case "bubbles":
+      ctx.lineWidth = Math.max(1, S * 0.003);
+      for (let i = 0; i < 20; i++) {
+        const x = rnd() * S, y = rnd() * S, r = S * (0.01 + rnd() * 0.04);
+        ctx.strokeStyle = rgba(c, 0.25); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+      }
+      break;
+    case "bills":
+      for (let i = 0; i < 16; i++) {
+        const x = rnd() * S, y = rnd() * S, w = S * 0.07, h = S * 0.035;
+        ctx.save(); ctx.translate(x, y); ctx.rotate((rnd() - 0.5) * 1.2);
+        ctx.fillStyle = rgba(c, 0.16); rr(ctx, -w / 2, -h / 2, w, h, h * 0.2); ctx.fill(); ctx.restore();
+      }
+      break;
+    case "stars":
+      for (let i = 0; i < 80; i++) {
+        ctx.fillStyle = rgba("#ffffff", 0.1 + rnd() * 0.35);
+        ctx.fillRect(rnd() * S, rnd() * S, S * 0.004, S * 0.004);
+      }
+      break;
+    case "planes": // telegram paper planes
+      for (let i = 0; i < 14; i++) {
+        const x = rnd() * S, y = rnd() * S, s = S * (0.02 + rnd() * 0.03);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(rnd() * Math.PI * 2);
+        ctx.fillStyle = rgba(c, 0.18); ctx.beginPath();
+        ctx.moveTo(s, 0); ctx.lineTo(-s, s * 0.7); ctx.lineTo(-s * 0.4, 0); ctx.lineTo(-s, -s * 0.7);
+        ctx.closePath(); ctx.fill(); ctx.restore();
+      }
+      break;
+    case "crystals":
+      for (let i = 0; i < 16; i++) {
+        const x = rnd() * S, y = rnd() * S, s = S * (0.015 + rnd() * 0.035);
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4);
+        ctx.fillStyle = rgba(c, 0.16); ctx.fillRect(-s / 2, -s / 2, s, s); ctx.restore();
+      }
+      break;
+    case "halftone":
+      for (let y = 0; y < S; y += S * 0.045) for (let x = 0; x < S; x += S * 0.045) {
+        const r = (x / S) * S * 0.012 + S * 0.002;
+        ctx.fillStyle = rgba("#ffffff", 0.06); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    case "smoke":
+      for (let i = 0; i < 10; i++) {
+        const x = rnd() * S, y = S * 0.5 + rnd() * S * 0.5, r = S * (0.08 + rnd() * 0.14);
+        const gg = ctx.createRadialGradient(x, y, 0, x, y, r);
+        gg.addColorStop(0, rgba(c, 0.14)); gg.addColorStop(1, rgba(c, 0));
+        ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      break;
+    case "rays":
+    default:
+      ctx.save(); ctx.translate(S * 0.5, -S * 0.1);
+      for (let i = 0; i < 10; i++) {
+        ctx.rotate((Math.PI * 2) / 10);
+        ctx.fillStyle = rgba(c, 0.05);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-S * 0.05, S * 1.4); ctx.lineTo(S * 0.05, S * 1.4); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      break;
+  }
+}
+
 async function drawBackground(
-  ctx: CanvasRenderingContext2D, index: number, S: number, kind: string, props: Props,
+  ctx: CanvasRenderingContext2D, index: number, S: number, kind: string, props: Props, accent: string,
 ): Promise<void> {
-  const { color: accent } = rarityOf(index);
+  if (kind === "theme") { drawThemed(ctx, index, S, props); return; }
 
   if (kind === "ai") {
     const img = await loadCardbg(index);
@@ -310,8 +474,10 @@ function drawQR(ctx: CanvasRenderingContext2D, text: string, x: number, y: numbe
   }
 }
 
-function drawOverlay(ctx: CanvasRenderingContext2D, index: number, S: number, link: string): void {
-  const { color: accent, name: rarityName } = rarityOf(index);
+function drawOverlay(
+  ctx: CanvasRenderingContext2D, index: number, S: number, link: string, rarity: Rarity, showLabel: boolean,
+): void {
+  const accent = rarity.color, rarityName = rarity.name;
   const name = SKIN_NAMES[index];
 
   // accent frame
@@ -337,18 +503,20 @@ function drawOverlay(ctx: CanvasRenderingContext2D, index: number, S: number, li
   ctx.fillText(name.toUpperCase(), S * 0.5, S * 0.785);
   ctx.shadowBlur = 0;
 
-  // rarity chip
-  const chipW = S * 0.26, chipH = S * 0.05, chipX = S * 0.5 - chipW / 2, chipY = S * 0.81;
-  ctx.fillStyle = rgba(accent, 0.18);
-  rr(ctx, chipX, chipY, chipW, chipH, chipH / 2);
-  ctx.fill();
-  ctx.strokeStyle = rgba(accent, 0.8);
-  ctx.lineWidth = Math.max(1, S * 0.003);
-  rr(ctx, chipX, chipY, chipW, chipH, chipH / 2);
-  ctx.stroke();
-  ctx.fillStyle = accent;
-  ctx.font = `800 ${Math.round(S * 0.028)}px system-ui, sans-serif`;
-  ctx.fillText(rarityName.toUpperCase(), S * 0.5, chipY + chipH * 0.68);
+  // rarity chip (optional — the admin can hide it)
+  if (showLabel) {
+    const chipW = S * 0.26, chipH = S * 0.05, chipX = S * 0.5 - chipW / 2, chipY = S * 0.81;
+    ctx.fillStyle = rgba(accent, 0.18);
+    rr(ctx, chipX, chipY, chipW, chipH, chipH / 2);
+    ctx.fill();
+    ctx.strokeStyle = rgba(accent, 0.8);
+    ctx.lineWidth = Math.max(1, S * 0.003);
+    rr(ctx, chipX, chipY, chipW, chipH, chipH / 2);
+    ctx.stroke();
+    ctx.fillStyle = accent;
+    ctx.font = `800 ${Math.round(S * 0.028)}px system-ui, sans-serif`;
+    ctx.fillText(rarityName.toUpperCase(), S * 0.5, chipY + chipH * 0.68);
+  }
 
   // QR + label
   const qrSize = S * 0.17;
@@ -366,15 +534,20 @@ function drawOverlay(ctx: CanvasRenderingContext2D, index: number, S: number, li
   ctx.fillText(shown.length > 22 ? shown.slice(0, 21) + "…" : shown, S * 0.07, S * 0.94);
 }
 
-export interface BaseOpts { link: string; bgKind: string; ring: boolean; props: Props; }
+export interface BaseOpts {
+  link: string; bgKind: string; ring: boolean; props: Props;
+  rarity?: Rarity; // override; defaults to the character's own tier
+  showLabel?: boolean; // show the rarity chip (default true)
+}
 
 export async function buildBase(index: number, size: number, opts: BaseOpts): Promise<HTMLCanvasElement> {
   const cv = document.createElement("canvas");
   cv.width = cv.height = size;
   const ctx = cv.getContext("2d")!;
-  await drawBackground(ctx, index, size, opts.bgKind, opts.props);
-  if (opts.ring) drawRing(ctx, size, rarityOf(index).color);
-  drawOverlay(ctx, index, size, opts.link);
+  const rar = opts.rarity ?? rarityOf(index);
+  await drawBackground(ctx, index, size, opts.bgKind, opts.props, rar.color);
+  if (opts.ring) drawRing(ctx, size, rar.color);
+  drawOverlay(ctx, index, size, opts.link, rar, opts.showLabel !== false);
   return cv;
 }
 
@@ -547,9 +720,11 @@ const QUALITY_COLORS: Record<string, number> = { high: 256, medium: 128, low: 64
 
 export async function exportGif(
   index: number, set: SpriteSet, props: Props, mode: Mode, size: number,
-  opts: { link: string; bgKind: string; quality: string },
+  opts: { link: string; bgKind: string; quality: string; rarity?: Rarity; showLabel?: boolean },
 ): Promise<Uint8Array> {
-  const base = await buildBase(index, size, { link: opts.link, bgKind: opts.bgKind, ring: mode.ring, props });
+  const base = await buildBase(index, size, {
+    link: opts.link, bgKind: opts.bgKind, ring: mode.ring, props, rarity: opts.rarity, showLabel: opts.showLabel,
+  });
   const cv = document.createElement("canvas");
   cv.width = cv.height = size;
   const ctx = cv.getContext("2d", { willReadFrequently: true })!;
@@ -568,9 +743,11 @@ export async function exportGif(
 
 export async function exportPng(
   index: number, set: SpriteSet, props: Props, mode: Mode, size: number,
-  opts: { link: string; bgKind: string },
+  opts: { link: string; bgKind: string; rarity?: Rarity; showLabel?: boolean },
 ): Promise<Blob> {
-  const base = await buildBase(index, size, { link: opts.link, bgKind: opts.bgKind, ring: mode.ring, props });
+  const base = await buildBase(index, size, {
+    link: opts.link, bgKind: opts.bgKind, ring: mode.ring, props, rarity: opts.rarity, showLabel: opts.showLabel,
+  });
   const cv = document.createElement("canvas");
   cv.width = cv.height = size;
   const ctx = cv.getContext("2d")!;

@@ -3,9 +3,9 @@
 // live, then export each as an animated GIF / still PNG — or all of them as one
 // ZIP.
 import {
-  SKIN_NAMES, rarityOf, MODES, BG_KINDS, modeById,
+  SKIN_NAMES, rarityOf, RARITIES, MODES, BG_KINDS, modeById,
   loadSpriteSet, loadProps, buildBase, drawFrame, exportGif, exportPng,
-  type SpriteSet, type Props, type Mode,
+  type SpriteSet, type Props, type Mode, type Rarity,
 } from "./cards.js";
 import { zipSync } from "fflate";
 import "./admin.css";
@@ -27,6 +27,13 @@ let bgKind = BG_KINDS[0].id;
 let mode: Mode = MODES[0];
 let gifSize = 720;
 let quality = "high";
+let raritySel = "auto"; // "auto" = each character's own tier
+let showLabel = true;
+
+/** Resolve the rarity override (undefined = use each character's own tier). */
+function rarityOverride(): Rarity | undefined {
+  return raritySel === "auto" ? undefined : RARITIES.find((r) => r.name === raritySel);
+}
 
 function download(blob: Blob, filename: string): void {
   const a = document.createElement("a");
@@ -47,7 +54,7 @@ function gifName(i: number): string {
 async function rebuildBases(): Promise<void> {
   await Promise.all(
     cards.map(async (c) => {
-      c.base = await buildBase(c.index, PREVIEW, { link, bgKind, ring: mode.ring, props });
+      c.base = await buildBase(c.index, PREVIEW, { link, bgKind, ring: mode.ring, props, rarity: rarityOverride(), showLabel });
     }),
   );
 }
@@ -81,7 +88,7 @@ async function build(): Promise<void> {
     cell.append(cv, actions);
     grid.append(cell);
 
-    const base = await buildBase(i, PREVIEW, { link, bgKind, ring: mode.ring, props });
+    const base = await buildBase(i, PREVIEW, { link, bgKind, ring: mode.ring, props, rarity: rarityOverride(), showLabel });
     const card: Card = { index: i, set, ctx, base };
     cards.push(card);
 
@@ -90,7 +97,7 @@ async function build(): Promise<void> {
       gifBtn.textContent = "…";
       setTimeout(async () => {
         try {
-          const bytes = await exportGif(i, set, props, mode, gifSize, { link, bgKind, quality });
+          const bytes = await exportGif(i, set, props, mode, gifSize, { link, bgKind, quality, rarity: rarityOverride(), showLabel });
           download(new Blob([bytes.slice()], { type: "image/gif" }), gifName(i));
         } finally {
           gifBtn.disabled = false;
@@ -100,7 +107,7 @@ async function build(): Promise<void> {
     };
     pngBtn.onclick = async () => {
       pngBtn.disabled = true;
-      const blob = await exportPng(i, set, props, mode, gifSize, { link, bgKind });
+      const blob = await exportPng(i, set, props, mode, gifSize, { link, bgKind, rarity: rarityOverride(), showLabel });
       download(blob, `bombermeme-${slug(i)}.png`);
       pngBtn.disabled = false;
     };
@@ -144,6 +151,15 @@ function wireControls(): void {
     { value: "medium", label: "Medium (128)" },
     { value: "low", label: "Low (64 · smallest)" },
   ], quality);
+  const raritySelEl = makeSelect("rarity", [
+    { value: "auto", label: "Rarity: auto (per character)" },
+    ...RARITIES.map((r) => ({ value: r.name, label: `Rarity: ${r.name}` })),
+  ], raritySel);
+  const labelChk = document.getElementById("showlabel") as HTMLInputElement;
+  labelChk.checked = showLabel;
+
+  raritySelEl.onchange = async () => { raritySel = raritySelEl.value; await rebuildBases(); };
+  labelChk.onchange = async () => { showLabel = labelChk.checked; await rebuildBases(); };
 
   animSel.onchange = async () => {
     mode = modeById(animSel.value);
@@ -170,7 +186,7 @@ function wireControls(): void {
     const files: Record<string, Uint8Array> = {};
     for (let i = 0; i < cards.length; i++) {
       zipBtn.textContent = `📦 ${i + 1}/${cards.length}…`;
-      files[gifName(i)] = await exportGif(i, cards[i].set, props, mode, gifSize, { link, bgKind, quality });
+      files[gifName(i)] = await exportGif(i, cards[i].set, props, mode, gifSize, { link, bgKind, quality, rarity: rarityOverride(), showLabel });
       await new Promise((r) => setTimeout(r, 0)); // let the UI breathe
     }
     zipBtn.textContent = "📦 zipping…";
