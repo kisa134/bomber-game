@@ -585,9 +585,12 @@ export class Renderer {
           }
         }
         if (nearBlood) {
-          const bake = prox > 0.6 ? 3 : prox > 0.3 ? 2 : 1; // centre charcoal, edges partial crust
           this.bloodGround.set(idx, Math.max(this.bloodGround.get(idx) ?? 0, 6)); // solid patch to char
-          this.bakedBlood.set(idx, Math.max(this.bakedBlood.get(idx) ?? 0, bake));
+          // SLOW GRADUAL bake over 6 stages: each blast ADVANCES the char (it doesn't jump to
+          // full). Centre advances ~2.5x faster than the rim -> a smooth gradient from the
+          // epicentre, and ~3 blasts to reach full charcoal at the centre.
+          const adv = 0.6 + 1.6 * prox;
+          this.bakedBlood.set(idx, Math.min(6, (this.bakedBlood.get(idx) ?? 0) + adv));
           this.bloodDirty = true;
         }
       }
@@ -814,10 +817,11 @@ export class Renderer {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
       let s = (idx * 2654435761) >>> 0;
       s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0;
-      const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh, 1 crust, 2 darker, 3 charcoal
+      const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh .. 6 charcoal (6 smooth stages)
       const baked = bakeLvl > 0;
+      const bp = Math.min(1, bakeLvl / 6); // 0..1 char progress
       const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14);
-      g.globalAlpha = Math.min(0.95, (baked ? 0.6 : 0.5) + lvl * 0.08);
+      g.globalAlpha = Math.min(0.95, (baked ? 0.52 + bp * 0.38 : 0.5) + lvl * 0.07);
       const NB = pu * 4; // coarse noise block -> irregular outline/holes
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
@@ -830,9 +834,10 @@ export class Renderer {
           const localCover = cover * ((baked ? 0.6 : 0.45) + cn * 1.15);
           if ((f & 1023) / 1023 > Math.min(1, localCover)) continue;
           if (baked) {
-            const darken = 1 - (bakeLvl - 1) * 0.42;
-            if (bakeLvl >= 3 && (f & 15) === 0) g.fillStyle = `rgb(${90 + (f % 60)},${18 + (f % 18)},6)`;
-            else { const br = ((22 + (f % 44)) * darken) | 0; g.fillStyle = `rgb(${br},${(br * (0.4 - (bakeLvl - 1) * 0.12)) | 0},${(br * 0.22) | 0})`; }
+            // 6 smooth stages: light brown crust (bp~0.15) -> dark -> charcoal (bp~1) + ember.
+            const darken = 1 - bp * 0.9; // 1.0 (crust) -> 0.1 (charcoal)
+            if (bakeLvl >= 5 && (f & 15) === 0) g.fillStyle = `rgb(${90 + (f % 60)},${18 + (f % 18)},6)`; // ember only at deep char
+            else { const br = Math.max(3, ((26 + (f % 40)) * darken) | 0); g.fillStyle = `rgb(${br},${(br * (0.42 - bp * 0.34)) | 0},${(br * 0.22) | 0})`; }
           } else {
             const ndx = (gx + pu / 2 - t / 2) / (t / 2), ndy = (gy + pu / 2 - t / 2) / (t / 2);
             const dc = Math.min(1, Math.sqrt(ndx * ndx + ndy * ndy));
