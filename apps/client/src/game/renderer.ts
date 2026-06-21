@@ -83,7 +83,22 @@ interface Particle {
   rest?: number; // restitution on bounce (gore ~0.15, debris ~0.6)
   fric?: number; // horizontal friction multiplier applied on each ground contact
   solid?: boolean; // gore/debris: bounce off the sides of hard/unbroken-soft blocks (near the ground)
+  gore?: { kind: GoreKind; seed: number }; // a FLYING gore piece -> renders via its draw fn, becomes a decal on landing
 }
+
+type GoreKind = "bone" | "meat" | "organ" | "skull" | "brain" | "limb" | "eye" | "tooth";
+// Per-kind flight feel: soft/liquid (organ/brain) barely fly + stick; hard/light (bone/tooth/
+// eye) fly far + bounce. vz=launch height, sp=ground speed, gz=fall, rest=bounce, fric=slide.
+const GORE_PHYS: Record<GoreKind, { vz: number; vzv: number; sp: number; spv: number; gz: number; rest: number; fric: number }> = {
+  bone: { vz: 6, vzv: 4, sp: 2.5, spv: 2.6, gz: 30, rest: 0.5, fric: 0.86 },
+  tooth: { vz: 6.5, vzv: 5, sp: 3, spv: 3.2, gz: 28, rest: 0.55, fric: 0.88 },
+  meat: { vz: 4, vzv: 4, sp: 2, spv: 2.4, gz: 34, rest: 0.2, fric: 0.82 },
+  skull: { vz: 4, vzv: 2.5, sp: 1.6, spv: 1.8, gz: 32, rest: 0.3, fric: 0.8 },
+  limb: { vz: 3.6, vzv: 3, sp: 2, spv: 2.2, gz: 33, rest: 0.24, fric: 0.82 },
+  organ: { vz: 2.6, vzv: 2, sp: 1, spv: 1.4, gz: 37, rest: 0.1, fric: 0.68 },
+  brain: { vz: 2.6, vzv: 2, sp: 1, spv: 1.3, gz: 37, rest: 0.1, fric: 0.68 },
+  eye: { vz: 4.5, vzv: 4, sp: 2.5, spv: 3, gz: 30, rest: 0.45, fric: 0.9 },
+};
 
 interface Decal {
   x: number; // cell coords (top-left)
@@ -643,6 +658,7 @@ export class Renderer {
       }
     }
     this.blastGibs(cells, Math.min(1, cells.length / 13)); // fling gibs outward, farther for a bigger blast
+    if (!this.lowFx) this.blastGore(cells, ecx, ecy, power); // re-fling any LANDED gore caught in the blast
     if (this.lowFx) return; // phones: explosion tiles still render; skip the heavy VFX
     for (const c of cells) {
       const cx = c.x + 0.5;
@@ -735,69 +751,28 @@ export class Renderer {
         }
       }
     }
-    // Scatter persistent bone shards + flesh chunks through the gore (random spread).
-    // Skip any that land ON a block (hard / unbroken soft) — they rest on open ground only.
-    const onBlock = (fx: number, fy: number): boolean => {
-      const g = this.prevGrid; if (!g) return false;
-      const tt = g[(fy | 0) * GRID_W + (fx | 0)];
-      return tt === TileType.HARD || tt === TileType.SOFT;
-    };
-    const nBones = 6 + ((Math.random() * 6) | 0); // a real bone explosion
-    for (let i = 0; i < nBones; i++) {
-      const bx = cx + 0.5 + (Math.random() - 0.5) * 3.2;
-      const by = cy + 0.5 + (Math.random() - 0.5) * 3.2;
-      if (bx < 0.2 || by < 0.2 || bx > GRID_W - 0.2 || by > GRID_H - 0.2 || onBlock(bx, by)) continue;
-      this.bones.push({ x: bx, y: by, seed: (Math.random() * 0xffffffff) >>> 0 });
-    }
-    const nMeat = 5 + ((Math.random() * 5) | 0); // more flesh chunks
-    for (let i = 0; i < nMeat; i++) {
-      const mx = cx + 0.5 + (Math.random() - 0.5) * 2.8;
-      const my = cy + 0.5 + (Math.random() - 0.5) * 2.8;
-      if (mx < 0.2 || my < 0.2 || mx > GRID_W - 0.2 || my > GRID_H - 0.2 || onBlock(mx, my)) continue;
-      this.meat.push({ x: mx, y: my, seed: (Math.random() * 0xffffffff) >>> 0 });
-    }
-    // Guts: a couple of intestine coils / organs flung near the kill (tighter spread).
-    const nOrgans = 2 + ((Math.random() * 3) | 0);
-    for (let i = 0; i < nOrgans; i++) {
-      const ox2 = cx + 0.5 + (Math.random() - 0.5) * 2.0;
-      const oy2 = cy + 0.5 + (Math.random() - 0.5) * 2.0;
-      if (ox2 < 0.2 || oy2 < 0.2 || ox2 > GRID_W - 0.2 || oy2 > GRID_H - 0.2 || onBlock(ox2, oy2)) continue;
-      this.organs.push({ x: ox2, y: oy2, seed: (Math.random() * 0xffffffff) >>> 0 });
-    }
-    // A skull near the kill (usually 1, sometimes 2) + a brain or two.
-    for (let i = 0; i < 1 + ((Math.random() < 0.4 ? 1 : 0)); i++) {
-      const sx = cx + 0.5 + (Math.random() - 0.5) * 2.4, sy = cy + 0.5 + (Math.random() - 0.5) * 2.4;
-      if (sx < 0.2 || sy < 0.2 || sx > GRID_W - 0.2 || sy > GRID_H - 0.2 || onBlock(sx, sy)) continue;
-      this.skulls.push({ x: sx, y: sy, seed: (Math.random() * 0xffffffff) >>> 0 });
-    }
-    for (let i = 0; i < 1 + ((Math.random() * 2) | 0); i++) {
-      const bx2 = cx + 0.5 + (Math.random() - 0.5) * 2.2, by2 = cy + 0.5 + (Math.random() - 0.5) * 2.2;
-      if (bx2 < 0.2 || by2 < 0.2 || bx2 > GRID_W - 0.2 || by2 > GRID_H - 0.2 || onBlock(bx2, by2)) continue;
-      this.brains.push({ x: bx2, y: by2, seed: (Math.random() * 0xffffffff) >>> 0 });
-    }
-    // Helper: scatter `n` decals of a kind into an array, skipping blocks/edges.
-    const scatter = (arr: Array<{ x: number; y: number; seed: number }>, n: number, spread: number): void => {
-      for (let i = 0; i < n; i++) {
-        const fx = cx + 0.5 + (Math.random() - 0.5) * spread, fy = cy + 0.5 + (Math.random() - 0.5) * spread;
-        if (fx < 0.2 || fy < 0.2 || fx > GRID_W - 0.2 || fy > GRID_H - 0.2 || onBlock(fx, fy)) continue;
-        arr.push({ x: fx, y: fy, seed: (Math.random() * 0xffffffff) >>> 0 });
+    // FLING all the gore OUT from the kill — each piece flies with weight-based physics
+    // (soft guts barely move + stick, hard bone/teeth fly far + bounce), bounces off blocks,
+    // then settles as a persistent decal (see spawnGore / landGore).
+    const C = cx + 0.5, Cy = cy + 0.5;
+    const fling = (kind: GoreKind, n: number): void => { for (let i = 0; i < n; i++) this.spawnGore(kind, C, Cy); };
+    fling("bone", 6 + ((Math.random() * 6) | 0));
+    fling("meat", 5 + ((Math.random() * 5) | 0));
+    fling("organ", 2 + ((Math.random() * 3) | 0));
+    fling("skull", 1 + (Math.random() < 0.4 ? 1 : 0));
+    fling("brain", 1 + ((Math.random() * 2) | 0));
+    fling("limb", 1 + ((Math.random() * 2) | 0));
+    fling("eye", 1 + ((Math.random() * 2) | 0));
+    fling("tooth", 4 + ((Math.random() * 6) | 0));
+    // Bile is liquid -> it just pools where the body fell (doesn't fly).
+    if (Math.random() < 0.5) {
+      const bx = cx + 0.5 + (Math.random() - 0.5) * 1.6, by = cy + 0.5 + (Math.random() - 0.5) * 1.6;
+      const g = this.prevGrid, tt = g ? g[(by | 0) * GRID_W + (bx | 0)] : 0;
+      if (bx >= 0.2 && by >= 0.2 && bx <= GRID_W - 0.2 && by <= GRID_H - 0.2 && tt !== TileType.HARD && tt !== TileType.SOFT) {
+        this.bile.push({ x: bx, y: by, seed: (Math.random() * 0xffffffff) >>> 0 });
+        if (this.bile.length > 120) this.bile.splice(0, this.bile.length - 120);
       }
-    };
-    scatter(this.limbs, 1 + ((Math.random() * 2) | 0), 3.4); // torn arms/legs fling wide
-    scatter(this.eyes, 1 + ((Math.random() * 2) | 0), 2.6);  // popped eyeballs
-    scatter(this.teeth, 4 + ((Math.random() * 6) | 0), 2.4); // a mouthful of teeth
-    if (Math.random() < 0.5) scatter(this.bile, 1, 1.6);      // a bile/slime puddle, sometimes
-    // High perf-safety ceilings only (so thousands of decals never lag) — far above what a
-    // match produces, so in practice the gore just piles up uncapped.
-    if (this.bones.length > 400) this.bones.splice(0, this.bones.length - 400);
-    if (this.meat.length > 400) this.meat.splice(0, this.meat.length - 400);
-    if (this.organs.length > 240) this.organs.splice(0, this.organs.length - 240);
-    if (this.skulls.length > 160) this.skulls.splice(0, this.skulls.length - 160);
-    if (this.brains.length > 160) this.brains.splice(0, this.brains.length - 160);
-    if (this.limbs.length > 160) this.limbs.splice(0, this.limbs.length - 160);
-    if (this.eyes.length > 200) this.eyes.splice(0, this.eyes.length - 200);
-    if (this.teeth.length > 400) this.teeth.splice(0, this.teeth.length - 400);
-    if (this.bile.length > 120) this.bile.splice(0, this.bile.length - 120);
+    }
     this.bloodDirty = true; // bones + meat + organs live in the cached blood overlay
     if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
@@ -972,33 +947,64 @@ export class Renderer {
 
   /** Boot bones/meat lying on `cell` aside when a player runs over them — they
    *  scatter away from the player (like an accidental kick) + a little chip flies. */
+  private static readonly GORE_KINDS: GoreKind[] = ["bone", "meat", "organ", "skull", "brain", "limb", "eye", "tooth"];
+
+  private goreArr(kind: GoreKind): Array<{ x: number; y: number; seed: number }> {
+    switch (kind) {
+      case "bone": return this.bones; case "meat": return this.meat; case "organ": return this.organs;
+      case "skull": return this.skulls; case "brain": return this.brains; case "limb": return this.limbs;
+      case "eye": return this.eyes; default: return this.teeth;
+    }
+  }
+
+  private goreDraw(kind: GoreKind, g: CanvasRenderingContext2D, m: { x: number; y: number; seed: number }, pu: number): void {
+    switch (kind) {
+      case "bone": this.drawBone(g, m, pu); break; case "meat": this.drawMeat(g, m, pu); break;
+      case "organ": this.drawOrgan(g, m, pu); break; case "skull": this.drawSkull(g, m, pu); break;
+      case "brain": this.drawBrain(g, m, pu); break; case "limb": this.drawLimb(g, m, pu); break;
+      case "eye": this.drawEye(g, m, pu); break; default: this.drawTooth(g, m, pu); break;
+    }
+  }
+
+  /** Fling a flying gore piece of `kind` from (cx,cy). With an aim (ax,ay) it's a directional
+   *  KICK (softer); otherwise a random death-burst. Soft kinds barely fly (GORE_PHYS). */
+  private spawnGore(kind: GoreKind, cx: number, cy: number, ax = 0, ay = 0, strength = 1): void {
+    if (this.lowFx) { this.goreArr(kind).push({ x: cx, y: cy, seed: (Math.random() * 0xffffffff) >>> 0 }); this.bloodDirty = true; return; }
+    const w = GORE_PHYS[kind];
+    const aimed = ax !== 0 || ay !== 0;
+    const a = aimed ? Math.atan2(ay, ax) + (Math.random() - 0.5) * 0.9 : Math.random() * Math.PI * 2;
+    const sp = (aimed ? w.sp * 0.45 + Math.random() * w.spv * 0.6 : w.sp + Math.random() * w.spv) * strength;
+    this.push({
+      x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      vz: (w.vz + Math.random() * w.vzv) * (aimed ? 0.6 : 1) * strength, gz: w.gz, rest: w.rest, fric: w.fric, solid: true,
+      life: 100, max: 100, size: this.tile * 0.08, color: "#000",
+      gore: { kind, seed: (Math.random() * 0xffffffff) >>> 0 },
+    });
+  }
+
+  /** A flying gore piece has settled -> drop it as a persistent decal (high perf cap). */
+  private landGore(p: Particle): void {
+    if (!p.gore) return;
+    const arr = this.goreArr(p.gore.kind);
+    arr.push({ x: p.x, y: p.y, seed: p.gore.seed });
+    if (arr.length > 360) arr.splice(0, arr.length - 360);
+    this.bloodDirty = true;
+  }
+
+  /** Boot any LANDED gore on `cell` back into flight, away from (fromX,fromY) — a foot kick. */
   private kickGibs(cell: number, fromX: number, fromY: number): void {
-    const t2 = this.tile;
     const px = fromX + 0.5, py = fromY + 0.5;
     let kicked = false;
-    const boot = (arr: Array<{ x: number; y: number; seed: number }>, chip: string): void => {
-      for (const o of arr) {
+    for (const kind of Renderer.GORE_KINDS) {
+      const arr = this.goreArr(kind);
+      for (let j = arr.length - 1; j >= 0; j--) {
+        const o = arr[j];
         if (((o.y | 0) * GRID_W + (o.x | 0)) !== cell) continue;
-        let dx = o.x - px, dy = o.y - py;
-        const d = Math.hypot(dx, dy) || 1;
-        dx /= d; dy /= d;
-        const dist = 0.35 + Math.random() * 0.7;
-        o.x = Math.max(0.2, Math.min(GRID_W - 0.2, o.x + dx * dist + (Math.random() - 0.5) * 0.3));
-        o.y = Math.max(0.2, Math.min(GRID_H - 0.2, o.y + dy * dist + (Math.random() - 0.5) * 0.3));
+        arr.splice(j, 1);
+        this.spawnGore(kind, o.x, o.y, o.x - px, o.y - py, 1); // kick it flying away from the foot
         kicked = true;
-        if (!this.lowFx) {
-          this.push({
-            x: o.x, y: o.y, vx: dx * (2 + Math.random() * 2), vy: dy * (1.5 + Math.random() * 1.5) - 1.5,
-            life: 0.35 + Math.random() * 0.25, max: 0.6, gravity: 16, drag: 0.95,
-            size: t2 * (0.04 + Math.random() * 0.04), color: chip, shape: "rect",
-            rot: Math.random() * 3, spin: (Math.random() - 0.5) * 14,
-          });
-        }
       }
-    };
-    boot(this.bones, "#ece4cf");
-    boot(this.meat, "#9c1414");
-    boot(this.chips, "#a06b48");
+    }
     if (kicked) {
       this.bloodDirty = true;
       const now = performance.now();
@@ -1018,10 +1024,24 @@ export class Renderer {
     return { vol: Math.max(0.25, 1 / (1 + d2 / 22)), pan: Math.max(-1, Math.min(1, dx / 8.5)) };
   }
 
-  /** Blow bones/meat/chips lying on the blast cells outward from the epicentre,
-   *  flinging a flying piece (our z-physics) and relocating the persistent decal. */
+  /** Re-fling any LANDED gore caught in the blast back into flight, outward from the
+   *  epicentre (strength scales with blast power; soft kinds still don't go far). */
+  private blastGore(cells: Array<{ x: number; y: number }>, ecx: number, ecy: number, power: number): void {
+    const set = new Set(cells.map((c) => c.y * GRID_W + c.x));
+    for (const kind of Renderer.GORE_KINDS) {
+      const arr = this.goreArr(kind);
+      for (let j = arr.length - 1; j >= 0; j--) {
+        const o = arr[j];
+        if (!set.has((o.y | 0) * GRID_W + (o.x | 0))) continue;
+        arr.splice(j, 1);
+        this.spawnGore(kind, o.x, o.y, o.x - ecx + 0.001, o.y - ecy + 0.001, 1.6 + power * 1.6);
+      }
+    }
+  }
+
+  /** Blow chips lying on the blast cells outward from the epicentre (z-physics + relocate). */
   private blastGibs(cells: Array<{ x: number; y: number }>, power = 0.5): void {
-    if ((!this.bones.length && !this.meat.length && !this.chips.length) || !cells.length) return;
+    if (!this.chips.length || !cells.length) return; // bones/meat/gore now go through blastGore
     const set = new Set(cells.map((c) => c.y * GRID_W + c.x));
     let cxs = 0, cys = 0;
     for (const c of cells) { cxs += c.x + 0.5; cys += c.y + 0.5; }
@@ -1050,9 +1070,7 @@ export class Renderer {
         }
       }
     };
-    blast(this.bones, "#ece4cf", 0.4);
-    blast(this.meat, "#9c1414", 0.18);
-    blast(this.chips, "#a06b48", 0.6);
+    blast(this.chips, "#a06b48", 0.6); // wood splinters only (gore kinds go through blastGore)
     if (moved) {
       this.bloodDirty = true;
       if (this.assets) {
@@ -2284,6 +2302,8 @@ export class Renderer {
           p.z = 0;
           if (Math.abs(p.vz) < 1.1) {
             p.vz = 0; p.vx *= 0.45; p.vy *= 0.45; // settle / friction-stick
+            // A flying GORE piece that's basically stopped -> drop it as a persistent decal.
+            if (p.gore && Math.abs(p.vx) + Math.abs(p.vy) < 0.45) { this.landGore(p); this.particles.splice(i, 1); continue; }
           } else {
             p.vz = -p.vz * (p.rest ?? 0.4); // bounce
             p.vx *= (p.fric ?? 0.9); p.vy *= (p.fric ?? 0.9);
@@ -2304,6 +2324,11 @@ export class Renderer {
       const a = Math.max(0, p.life / p.max);
       const px = p.x * t;
       const py = (p.y - (p.z ?? 0)) * t; // height raises it on screen
+      if (p.gore) { // a flying gore piece -> draw it via its own decal renderer, raised by height
+        ctx.globalAlpha = 1;
+        this.goreDraw(p.gore.kind, ctx, { x: p.x, y: p.y - (p.z ?? 0), seed: p.gore.seed }, Math.max(1, Math.round(t / 24)));
+        continue;
+      }
       if (p.shape === "flash") {
         ctx.globalCompositeOperation = "lighter";
         ctx.globalAlpha = a;
