@@ -581,6 +581,14 @@ export class Renderer {
         s.char = Math.min(1, s.char + depth * (1.0 + 0.8 * prox)); // strong conversion, deepest at centre
         s.gore = Math.max(s.gore, 0.55); // keep enough material so the charred patch reads solid
       }
+      // Bake the BLOOD just AROUND the blast too, so a pool chars more fully (gradually outward),
+      // not just the exact + footprint. Lighter than the centre.
+      for (const [ddx, ddy] of NB) {
+        const nx2 = c.x + ddx, ny2 = c.y + ddy;
+        if (nx2 < 0 || ny2 < 0 || nx2 >= GRID_W || ny2 >= GRID_H) continue;
+        const ns = this.surf.get(ny2 * GRID_W + nx2);
+        if (ns && ns.gore > 0.04) { ns.char = Math.min(1, ns.char + depth * 0.55); ns.wet = Math.max(0, Math.min(ns.wet, 1 - depth * 1.4)); }
+      }
       this.bloodDirty = true;
       if (this.prevGrid) {
         for (const [dx, dy] of NB) {
@@ -817,7 +825,7 @@ export class Renderer {
     g.clearRect(0, 0, W, H);
     const t = this.tile;
     const pu = Math.max(1, Math.round(t / (this.lowFx ? 12 : 19))); // balanced: crisp enough, not laggy
-    const NB = Math.max(pu * 2, Math.round(t / 6)); // material structure size is FIXED (~t/6), so fine pixels DON'T add rib
+    const NB = Math.max(pu * 2, Math.round(t / 9)); // medium structures: cohesive, fewer big holes, still not rib
 
     for (const [idx, s] of this.surf) {
       if (s.gore < 0.04 && s.burn < 0.06 && s.char < 0.06) continue;
@@ -828,15 +836,15 @@ export class Renderer {
 
       // (1) WHOLE-TILE BASE MASS — the affected block is darkened/burnt as one mass first.
       if (s.burn > 0.06) {
-        const dk = s.burn, bb = Math.round(34 - 26 * dk);
-        g.globalAlpha = Math.min(0.9, 0.3 + 0.62 * dk); // clearly burns the whole block
-        g.fillStyle = `rgb(${bb},${(bb * 0.7) | 0},${(bb * 0.5) | 0})`;
+        const dk = s.burn, bb = Math.round(28 - 22 * dk);
+        g.globalAlpha = Math.min(0.92, 0.32 + 0.6 * dk); // clearly burns the whole block
+        g.fillStyle = `rgb(${bb},${(bb * 0.82) | 0},${(bb * 0.74) | 0})`; // near-neutral charred earth, NOT brown-orange
         g.fillRect(ox, oy, t, t);
       }
       if (charVis > 0.06) {
-        const cb = Math.max(6, Math.round(20 - 12 * charVis));
-        g.globalAlpha = Math.min(0.95, 0.42 + 0.55 * charVis); // deep dry burnt mass
-        g.fillStyle = `rgb(${cb},${(cb * 0.62) | 0},${(cb * 0.48) | 0})`;
+        const cb = Math.max(4, Math.round(16 - 11 * charVis));
+        g.globalAlpha = Math.min(0.96, 0.46 + 0.52 * charVis); // deep dry burnt mass -> near-black
+        g.fillStyle = `rgb(${cb},${(cb * 0.8) | 0},${(cb * 0.72) | 0})`;
         g.fillRect(ox, oy, t, t);
       }
 
@@ -873,13 +881,14 @@ export class Renderer {
               const rx = (ddx * lo.cos + ddy * lo.sin) / lo.elong, ry = -ddx * lo.sin + ddy * lo.cos;
               const v = 1 - (rx * rx + ry * ry) / lo.rad2; if (v > dens) dens = v; // squared dist (no sqrt) -> cheap, smooth dome
             }
-            const edge = dens + (coarse - 0.5) * 0.4; // ragged organic boundary (not a clean circle)
-            if (edge > 0.05) {
+            const edge = dens + (coarse - 0.5) * 0.26; // gently ragged boundary (cohesive, fewer holes)
+            if (edge > 0.02) {
               const density = Math.min(1, edge) * Math.min(1, s.gore * 1.2);
               const core = Math.min(1, density * 1.3), wet = s.wet;
-              // fresh (wet) = bright clear red; dragged (mid wet) = mid red; dried = dark brown-maroon
-              let R = Math.round((40 + 90 * wet) * core + 16);
-              let G = Math.round(R * (0.1 + 0.12 * (1 - wet))), B = Math.round(R * (0.07 + 0.06 * (1 - wet)));
+              // realistic blood: deep CRIMSON (low green so it never reads orange/rust; a touch of
+              // blue keeps it crimson not brick). fresh = vivid dark red, dried = dark maroon.
+              let R = Math.round((48 + 82 * wet) * core + 14);
+              let G = Math.round(R * (0.05 + 0.1 * (1 - wet))), B = Math.round(R * (0.09 + 0.03 * (1 - wet)));
               // CHAR suppresses the red: where blood has baked, the red gore fades out so the
               // cell reads as black charcoal, not dark red. THIS is the visible blast->bake conversion.
               let alpha = Math.min(0.97, (0.42 + 0.52 * core) * (0.55 + 0.45 * wet)) * Math.max(0, 1 - charVis * 1.25);
