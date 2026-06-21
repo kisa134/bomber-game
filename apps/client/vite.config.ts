@@ -12,8 +12,9 @@ export default defineConfig({
     target: "esnext",
     sourcemap: true,
     rollupOptions: {
-      // Multi-page: the game (index.html) + the standalone admin tool.
-      input: { main: r("./index.html"), admin: r("./admin.html") },
+      // Multi-page: the game (index.html) + the character-cards tool embedded
+      // inside the admin dashboard (cards.html).
+      input: { main: r("./index.html"), cards: r("./cards.html") },
     },
   },
   plugins: [

@@ -89,6 +89,8 @@ export function adminPageHtml(): string {
     <table id="ref-levels"><thead><tr><th>Level</th><th>Players</th><th>Reward</th></tr></thead><tbody></tbody></table>
     <h4 style="margin:10px 0 4px">Top partners</h4>
     <table id="ref-top"><thead><tr><th>#</th><th>Partner</th><th>Direct refs</th><th>Earned</th></tr></thead><tbody></tbody></table>
+    <h3>🎨 Character Cards <span class="muted" style="font-weight:400;font-size:.8rem">· marketing kit — download each character walking in a circle as a GIF/PNG</span></h3>
+    <iframe id="cards-frame" data-src="/cards.html" style="width:100%;height:1300px;border:1px solid var(--border);border-radius:12px;background:var(--bg)" allow="fullscreen"></iframe>
     <h3>Analytics <span class="muted" style="font-weight:400;font-size:.8rem">· PostHog</span></h3>
     <div id="ext-links"></div>
     <div id="analytics">
@@ -111,6 +113,8 @@ async function poll(){
     if(r.status===401){$("#msg").innerHTML='<span class="err">Wrong or missing token.</span>';$("#board").style.display="none";$("#gate").style.display="flex";$("#dot").className="";return;}
     const d=await r.json();
     $("#gate").style.display="none";$("#board").style.display="block";$("#msg").textContent="";$("#dot").className="live";
+    // Load the character-cards tool only once the admin is authenticated.
+    var cardsFr=$("#cards-frame");if(cardsFr&&!cardsFr.src)cardsFr.src=cardsFr.dataset.src;
     $("#meta").textContent="store: "+d.store+" · uptime "+dur(d.totals.uptimeMs)+" · "+new Date(d.now).toLocaleTimeString();
     // Config pills — at a glance: is the economy/referral actually turned on?
     var cf=d.config||{};
