@@ -2218,8 +2218,6 @@ function setProgress(level: number, xp: number): void {
   box.classList.remove("hidden");
   const lv = document.getElementById("hub-level");
   if (lv) lv.textContent = String(level);
-  const heroLv = document.getElementById("hub-hero-lvl");
-  if (heroLv) heroLv.textContent = `LVL ${level}`;
   const fill = document.getElementById("hub-xpfill") as HTMLElement | null;
   if (fill) fill.style.width = `${Math.max(4, Math.min(100, ((xp % 200) / 200) * 100))}%`;
   const txt = document.getElementById("hub-xptext");
