@@ -590,7 +590,7 @@ export class Renderer {
           // SLOW GRADUAL bake over 6 stages: each blast ADVANCES the char (it doesn't jump to
           // full). Centre advances ~2.5x faster than the rim -> a smooth gradient from the
           // epicentre, and ~3 blasts to reach full charcoal at the centre.
-          const adv = 0.08 + 0.2 * prox; // ~1/4 the previous rate -> one blast barely chars; ~4 blasts = the old 1-blast darkness
+          const adv = 0.02 + 0.05 * prox; // another /4 -> char builds VERY gradually; only sustained bombing of one spot blackens it
           this.bakedBlood.set(idx, Math.min(12, (this.bakedBlood.get(idx) ?? 0) + adv));
           this.bloodDirty = true;
         }
