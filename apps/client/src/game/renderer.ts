@@ -829,7 +829,7 @@ export class Renderer {
           let n = (idx * 374761 + qx * 2654435761 + qy * 40503) >>> 0;
           n = (n ^ (n << 13)) >>> 0; n = (n ^ (n >>> 17)) >>> 0; n = (n ^ (n << 5)) >>> 0;
           const cn = (n & 1023) / 1023;
-          let f = (idx * 97 + gx * 131 + gy * 923) >>> 0;
+          let f = (idx * 374761393 ^ gx * 73856093 ^ gy * 19349663) >>> 0; // XOR of big primes -> no diagonal bands
           f = (f ^ (f << 13)) >>> 0; f = (f ^ (f >>> 17)) >>> 0; f = (f ^ (f << 5)) >>> 0;
           const localCover = cover * ((baked ? 0.6 : 0.45) + cn * 1.15);
           if ((f & 1023) / 1023 > Math.min(1, localCover)) continue;
