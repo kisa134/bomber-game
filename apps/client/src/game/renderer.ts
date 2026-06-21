@@ -560,13 +560,21 @@ export class Renderer {
     // Accumulate scorched ground (per cell) + crack damage on adjacent hard
     // blocks. Cheap and useful on phones too, so do it before the lowFx bail-out.
     const NB = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    // GRADIENT CRATER: burn/char deepen from the blast epicentre (centroid) out, scaled by
+    // power. Centre = darkest/most charred, edges = light scorch. Repeated blasts deepen.
+    let ecx = 0, ecy = 0;
+    for (const c of cells) { ecx += c.x; ecy += c.y; }
+    ecx /= cells.length; ecy /= cells.length;
+    const power = Math.min(1, cells.length / 13);
+    const reach = 1.2 + power * 2.6;
     for (const c of cells) {
       const idx = c.y * GRID_W + c.x;
-      this.burn.set(idx, Math.min(10, (this.burn.get(idx) ?? 0) + 1)); // +1 per blast -> gradual darkening (epicenter darkest)
+      const d = Math.hypot(c.x - ecx, c.y - ecy);
+      const prox = Math.max(0.18, 1 - d / reach); // 1 at centre .. ~0 at the rim
+      const add = 2 + Math.round(prox * 6 * (0.5 + 0.5 * power)); // centre +up to ~8, edge +~2
+      this.burn.set(idx, Math.min(10, (this.burn.get(idx) ?? 0) + add));
       this.scorchDirty = true;
-      // A blast BURNS blood to charcoal. If there's blood on the blast cell or any
-      // of its 8 neighbours (the spread bleeds past the source cells), drop a dense
-      // charred-black patch on the blast cell.
+      // A blast BURNS blood to charcoal — by the SAME falloff (centre = full char, edge partial).
       {
         let nearBlood = false;
         for (let dy = -1; dy <= 1 && !nearBlood; dy++) {
@@ -577,8 +585,9 @@ export class Renderer {
           }
         }
         if (nearBlood) {
-          this.bloodGround.set(idx, Math.max(this.bloodGround.get(idx) ?? 0, 6)); // a solid patch to char
-          this.bakedBlood.set(idx, 3); // straight to charcoal-black
+          const bake = prox > 0.6 ? 3 : prox > 0.3 ? 2 : 1; // centre charcoal, edges partial crust
+          this.bloodGround.set(idx, Math.max(this.bloodGround.get(idx) ?? 0, 6)); // solid patch to char
+          this.bakedBlood.set(idx, Math.max(this.bakedBlood.get(idx) ?? 0, bake));
           this.bloodDirty = true;
         }
       }
@@ -1646,6 +1655,12 @@ export class Renderer {
       // One blast already leaves a clearly dark scorch; repeated blasts deepen it to
       // near-black charcoal (the epicentre, hit most, ends up darkest).
       const p = Math.min(1, 0.45 + lvl * 0.11); // 1 blast ~0.56, ~5 blasts -> 1.0
+      // WHOLE-TILE base burn: tint the ENTIRE cell as one mass first (reads as a burnt block,
+      // not loose pixels), darker the deeper the burn. Detail texture goes on top.
+      const baseDk = Math.round(20 - p * 15); // 20 -> 5 (near black)
+      g.globalAlpha = Math.min(0.85, 0.26 + p * 0.52);
+      g.fillStyle = `rgb(${baseDk},${Math.max(0, baseDk - 2)},${Math.max(0, baseDk - 4)})`;
+      g.fillRect(ox, oy, t, t);
       const cover = 0.55 + p * 0.42; // fuller patch
       const a = 0.32 + p * 0.5; // clearly opaque
       const base = Math.round(16 - p * 11); // 16 (dark) -> 5 (near black)
