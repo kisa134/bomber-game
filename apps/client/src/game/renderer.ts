@@ -82,6 +82,7 @@ interface Particle {
   gz?: number; // z-gravity (cells/s^2)
   rest?: number; // restitution on bounce (gore ~0.15, debris ~0.6)
   fric?: number; // horizontal friction multiplier applied on each ground contact
+  solid?: boolean; // gore/debris: bounce off the sides of hard/unbroken-soft blocks (near the ground)
 }
 
 interface Decal {
@@ -589,7 +590,7 @@ export class Renderer {
           // SLOW GRADUAL bake over 6 stages: each blast ADVANCES the char (it doesn't jump to
           // full). Centre advances ~2.5x faster than the rim -> a smooth gradient from the
           // epicentre, and ~3 blasts to reach full charcoal at the centre.
-          const adv = 0.3 + 0.8 * prox; // half the previous rate -> ~6 blasts to full charcoal at the centre
+          const adv = 0.08 + 0.2 * prox; // ~1/4 the previous rate -> one blast barely chars; ~4 blasts = the old 1-blast darkness
           this.bakedBlood.set(idx, Math.min(12, (this.bakedBlood.get(idx) ?? 0) + adv));
           this.bloodDirty = true;
         }
@@ -709,18 +710,24 @@ export class Renderer {
       }
     }
     // Scatter persistent bone shards + flesh chunks through the gore (random spread).
+    // Skip any that land ON a block (hard / unbroken soft) — they rest on open ground only.
+    const onBlock = (fx: number, fy: number): boolean => {
+      const g = this.prevGrid; if (!g) return false;
+      const tt = g[(fy | 0) * GRID_W + (fx | 0)];
+      return tt === TileType.HARD || tt === TileType.SOFT;
+    };
     const nBones = 6 + ((Math.random() * 6) | 0); // a real bone explosion
     for (let i = 0; i < nBones; i++) {
       const bx = cx + 0.5 + (Math.random() - 0.5) * 3.2;
       const by = cy + 0.5 + (Math.random() - 0.5) * 3.2;
-      if (bx < 0.2 || by < 0.2 || bx > GRID_W - 0.2 || by > GRID_H - 0.2) continue;
+      if (bx < 0.2 || by < 0.2 || bx > GRID_W - 0.2 || by > GRID_H - 0.2 || onBlock(bx, by)) continue;
       this.bones.push({ x: bx, y: by, seed: (Math.random() * 0xffffffff) >>> 0 });
     }
     const nMeat = 5 + ((Math.random() * 5) | 0); // more flesh chunks
     for (let i = 0; i < nMeat; i++) {
       const mx = cx + 0.5 + (Math.random() - 0.5) * 2.8;
       const my = cy + 0.5 + (Math.random() - 0.5) * 2.8;
-      if (mx < 0.2 || my < 0.2 || mx > GRID_W - 0.2 || my > GRID_H - 0.2) continue;
+      if (mx < 0.2 || my < 0.2 || mx > GRID_W - 0.2 || my > GRID_H - 0.2 || onBlock(mx, my)) continue;
       this.meat.push({ x: mx, y: my, seed: (Math.random() * 0xffffffff) >>> 0 });
     }
     if (this.bones.length > 170) this.bones.splice(0, this.bones.length - 170);
@@ -737,7 +744,7 @@ export class Renderer {
         x: cx + 0.5, y: cy + 0.5,
         vx: Math.cos(a) * s, vy: Math.sin(a) * s,
         vz: 4.5 + Math.random() * 5.5, // launched upward, then falls fast
-        gz: 34, rest: 0.18, fric: 0.84, // gore: heavy wet shlap, low bounce, sticks
+        gz: 34, rest: 0.18, fric: 0.84, solid: true, // gore: heavy wet shlap, bounces off block sides
         life: 0.7 + Math.random() * 0.7, max: 1.4,
         size: this.tile * (0.06 + Math.random() * 0.13),
         color: reds[(Math.random() * reds.length) | 0],
@@ -963,7 +970,7 @@ export class Renderer {
         if (!this.lowFx) {
           this.push({
             x: startX, y: startY, vx: dx * (4 + Math.random() * 4) * force, vy: dy * (4 + Math.random() * 4) * force,
-            vz: (5 + Math.random() * 5) * (0.7 + power * 0.6), gz: 32, rest, fric: 0.86,
+            vz: (5 + Math.random() * 5) * (0.7 + power * 0.6), gz: 32, rest, fric: 0.86, solid: true,
             life: 0.5 + Math.random() * 0.45, max: 0.95, size: this.tile * (0.05 + Math.random() * 0.06),
             color, shape: "rect", rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 18,
           });
@@ -1629,7 +1636,7 @@ export class Renderer {
       const s = 1.2 + Math.random() * 2.4;
       this.push({
         x: gx + 0.5, y: gy + 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
-        vz: 4 + Math.random() * 5, gz: 30, rest: 0.6, fric: 0.9, // crate debris: crunchy bouncy
+        vz: 4 + Math.random() * 5, gz: 30, rest: 0.6, fric: 0.9, solid: true, // crate debris: crunchy bouncy, bounces off blocks
         life: 0.5 + Math.random() * 0.4, max: 0.9,
         size: t * (0.06 + Math.random() * 0.07), shape: "rect",
         rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 14,
@@ -1973,6 +1980,23 @@ export class Renderer {
 
   /** Subtle wind: a soft light band drifting diagonally across the field. */
 
+  /** Advance a particle by dt with optional BLOCK collision. Gore/debris (`solid`) bounces
+   *  off the sides of hard + unbroken-soft blocks — but only near the ground (`z<0.5`), so a
+   *  high arc sails OVER a block instead of bouncing in mid-air. Cheap: ≤2 grid lookups. */
+  private stepParticle(p: Particle, dt: number): void {
+    const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
+    if (!p.solid || (p.z ?? 0) > 0.5) { p.x = nx; p.y = ny; return; }
+    const grid = this.prevGrid;
+    const blocked = (cx: number, cy: number): boolean => {
+      if (cx < 0 || cy < 0 || cx >= GRID_W || cy >= GRID_H) return true; // arena edge
+      const tt = grid ? grid[cy * GRID_W + cx] : undefined;
+      return tt === TileType.HARD || tt === TileType.SOFT;
+    };
+    const r = p.rest ?? 0.4;
+    if (blocked(Math.floor(nx), Math.floor(p.y))) p.vx = -p.vx * r; else p.x = nx; // hit a vertical face
+    if (blocked(Math.floor(p.x), Math.floor(ny))) p.vy = -p.vy * r; else p.y = ny; // hit a horizontal face
+  }
+
   private updateParticles(dt: number): void {
     const ctx = this.ctx;
     const t = this.tile;
@@ -1987,8 +2011,7 @@ export class Renderer {
         // Pseudo-3D gore/debris: arc up, fall fast, bounce + stick on the ground.
         p.vz -= (p.gz ?? 26) * dt;
         p.z = (p.z ?? 0) + p.vz * dt;
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
+        this.stepParticle(p, dt);
         if (p.z <= 0) {
           p.z = 0;
           if (Math.abs(p.vz) < 1.1) {
@@ -2002,8 +2025,7 @@ export class Renderer {
         p.vx *= damp; p.vy *= damp;
       } else {
         if (p.gravity) p.vy += p.gravity * dt;
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
+        this.stepParticle(p, dt);
         const drag = p.drag ?? 0.92;
         p.vx *= drag;
         p.vy *= drag;
