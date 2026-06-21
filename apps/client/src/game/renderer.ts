@@ -589,8 +589,8 @@ export class Renderer {
           // SLOW GRADUAL bake over 6 stages: each blast ADVANCES the char (it doesn't jump to
           // full). Centre advances ~2.5x faster than the rim -> a smooth gradient from the
           // epicentre, and ~3 blasts to reach full charcoal at the centre.
-          const adv = 0.6 + 1.6 * prox;
-          this.bakedBlood.set(idx, Math.min(6, (this.bakedBlood.get(idx) ?? 0) + adv));
+          const adv = 0.3 + 0.8 * prox; // half the previous rate -> ~6 blasts to full charcoal at the centre
+          this.bakedBlood.set(idx, Math.min(12, (this.bakedBlood.get(idx) ?? 0) + adv));
           this.bloodDirty = true;
         }
       }
@@ -817,9 +817,9 @@ export class Renderer {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
       let s = (idx * 2654435761) >>> 0;
       s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0;
-      const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh .. 6 charcoal (6 smooth stages)
+      const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh .. 12 charcoal (12 smooth stages)
       const baked = bakeLvl > 0;
-      const bp = Math.min(1, bakeLvl / 6); // 0..1 char progress
+      const bp = Math.min(1, bakeLvl / 12); // 0..1 char progress
       const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14);
       g.globalAlpha = Math.min(0.95, (baked ? 0.52 + bp * 0.38 : 0.5) + lvl * 0.07);
       const NB = pu * 4; // coarse noise block -> irregular outline/holes
@@ -836,7 +836,7 @@ export class Renderer {
           if (baked) {
             // 6 smooth stages: light brown crust (bp~0.15) -> dark -> charcoal (bp~1) + ember.
             const darken = 1 - bp * 0.9; // 1.0 (crust) -> 0.1 (charcoal)
-            if (bakeLvl >= 5 && (f & 15) === 0) g.fillStyle = `rgb(${90 + (f % 60)},${18 + (f % 18)},6)`; // ember only at deep char
+            if (bakeLvl >= 10 && (f & 15) === 0) g.fillStyle = `rgb(${90 + (f % 60)},${18 + (f % 18)},6)`; // ember only at deep char
             else { const br = Math.max(3, ((26 + (f % 40)) * darken) | 0); g.fillStyle = `rgb(${br},${(br * (0.42 - bp * 0.34)) | 0},${(br * 0.22) | 0})`; }
           } else {
             const ndx = (gx + pu / 2 - t / 2) / (t / 2), ndy = (gy + pu / 2 - t / 2) / (t / 2);
