@@ -10,12 +10,16 @@
     <header class="adm-top">
       <h1>🎨 Character Cards</h1>
       <p class="hint">
-        Marketing kit: every character walking in a circle, ready to download as an animated GIF or a still PNG.
+        Marketing kit: pick an animation + background, then download each character as an animated GIF / still PNG — or grab them all as one ZIP.
       </p>
       <div class="adm-controls">
+        <label>Animation <select id="anim"></select></label>
+        <label>Background <select id="bg"></select></label>
+        <label>Size <select id="size"></select></label>
+        <label>Quality <select id="qual"></select></label>
         <label>QR / link <input id="link" type="text" placeholder="https://bombermeme.fun" /></label>
-        <button id="apply">Apply</button>
-        <button id="dl-all">⬇️ All GIFs</button>
+        <button id="apply">Apply link</button>
+        <button id="dl-zip">📦 All as ZIP</button>
       </div>
     </header>
     <main id="grid" class="adm-grid"></main>
