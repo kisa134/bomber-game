@@ -824,8 +824,8 @@ export class Renderer {
     if (!g) return;
     g.clearRect(0, 0, W, H);
     const t = this.tile;
-    const pu = Math.max(1, Math.round(t / (this.lowFx ? 12 : 19))); // balanced: crisp enough, not laggy
-    const NB = Math.max(pu * 2, Math.round(t / 9)); // medium structures: cohesive, fewer big holes, still not rib
+    const pu = Math.max(1, Math.round(t / (this.lowFx ? 16 : 28))); // FINE pixels (matches the block art); perf held by the rebuild throttle
+    const NB = Math.max(pu * 2, Math.round(t / 10)); // medium structures: cohesive, fewer big holes, still not rib
 
     for (const [idx, s] of this.surf) {
       if (s.gore < 0.04 && s.burn < 0.06 && s.char < 0.06) continue;
