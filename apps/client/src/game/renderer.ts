@@ -571,9 +571,12 @@ export class Renderer {
     for (const c of cells) {
       const idx = c.y * GRID_W + c.x;
       const d = Math.hypot(c.x - ecx, c.y - ecy);
-      const prox = Math.max(0.18, 1 - d / reach); // 1 at centre .. ~0 at the rim
-      const add = 2 + Math.round(prox * 6 * (0.5 + 0.5 * power)); // centre +up to ~8, edge +~2
-      this.burn.set(idx, Math.min(10, (this.burn.get(idx) ?? 0) + add));
+      const prox = Math.max(0, 1 - d / reach); // 1 at centre .. 0 at the rim
+      const proxC = prox * prox; // SQUARED -> dramatic centre-dark / edge-faint gradient
+      // GRADUAL scorch: one blast only lightly darkens; the centre builds far faster than the
+      // rim, so repeated blasts on one spot deepen it to black (centre first).
+      const add = (0.7 + 0.7 * power) * proxC;
+      this.burn.set(idx, Math.min(8, (this.burn.get(idx) ?? 0) + add));
       this.scorchDirty = true;
       // A blast BURNS blood to charcoal — by the SAME falloff (centre = full char, edge partial).
       {
@@ -590,7 +593,7 @@ export class Renderer {
           // SLOW GRADUAL bake over 6 stages: each blast ADVANCES the char (it doesn't jump to
           // full). Centre advances ~2.5x faster than the rim -> a smooth gradient from the
           // epicentre, and ~3 blasts to reach full charcoal at the centre.
-          const adv = 0.02 + 0.05 * prox; // another /4 -> char builds VERY gradually; only sustained bombing of one spot blackens it
+          const adv = (0.12 + 0.4 * power) * proxC; // gradual char, SAME dramatic centre->edge gradient as the scorch
           this.bakedBlood.set(idx, Math.min(12, (this.bakedBlood.get(idx) ?? 0) + adv));
           this.bloodDirty = true;
         }
@@ -1664,16 +1667,16 @@ export class Renderer {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
       // One blast already leaves a clearly dark scorch; repeated blasts deepen it to
       // near-black charcoal (the epicentre, hit most, ends up darkest).
-      const p = Math.min(1, 0.45 + lvl * 0.11); // 1 blast ~0.56, ~5 blasts -> 1.0
+      const p = Math.min(1, lvl / 6); // NO base offset -> a single light blast is faint; ~6 blasts -> black
       // WHOLE-TILE base burn: tint the ENTIRE cell as one mass first (reads as a burnt block,
       // not loose pixels), darker the deeper the burn. Detail texture goes on top.
-      const baseDk = Math.round(20 - p * 15); // 20 -> 5 (near black)
-      g.globalAlpha = Math.min(0.85, 0.26 + p * 0.52);
+      const baseDk = Math.round(24 - p * 19); // 24 (faint) -> 5 (near black)
+      g.globalAlpha = Math.min(0.85, 0.12 + p * 0.66); // faint at low burn -> opaque when black
       g.fillStyle = `rgb(${baseDk},${Math.max(0, baseDk - 2)},${Math.max(0, baseDk - 4)})`;
       g.fillRect(ox, oy, t, t);
-      const cover = 0.55 + p * 0.42; // fuller patch
-      const a = 0.32 + p * 0.5; // clearly opaque
-      const base = Math.round(16 - p * 11); // 16 (dark) -> 5 (near black)
+      const cover = 0.3 + p * 0.65; // sparse when faint -> full when black
+      const a = 0.2 + p * 0.6;
+      const base = Math.round(18 - p * 13);
       let h = (idx * 2654435761) >>> 0;
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
