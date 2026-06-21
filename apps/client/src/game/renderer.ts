@@ -683,13 +683,13 @@ export class Renderer {
             this.markBlockBlood(ni, -dx, -dy);
             this.markBlockBlood(ni, -dx, -dy); // doubled -> heavy splatter on the face
           } else {
-            this.addGore(ni, dx === 0 || dy === 0 ? 0.66 : 0.5); // thick mush, falls off fast
+            this.addGore(ni, dx === 0 || dy === 0 ? 0.85 : 0.7); // thicker, gorier mush
           }
-        } else { // outer ring: only the odd satellite speck (keep the pool concentrated)
+        } else { // outer ring: scattered satellite gore (more of it now)
           if (isBlock) {
-            if (Math.random() < 0.3) this.markBlockBlood(ni, -dx, -dy);
-          } else if (Math.random() < 0.3) {
-            this.addGore(ni, 0.25);
+            if (Math.random() < 0.45) this.markBlockBlood(ni, -dx, -dy);
+          } else if (Math.random() < 0.5) {
+            this.addGore(ni, 0.3 + Math.random() * 0.2);
           }
         }
       }
@@ -810,8 +810,8 @@ export class Renderer {
     if (!g) return;
     g.clearRect(0, 0, W, H);
     const t = this.tile;
-    const pu = Math.max(1, Math.round(t / 22)); // FINE pixels (also drives chips/meat/bones/footprints — keep crisp)
-    const NB = pu * 4;                          // big noise blocks -> large material structures, low rib, despite fine pixels
+    const pu = Math.max(1, Math.round(t / (this.lowFx ? 18 : 30))); // FINER crisp pixels on desktop (coarser on phones for perf)
+    const NB = Math.max(pu * 2, Math.round(t / 6)); // material structure size is FIXED (~t/6), so fine pixels DON'T add rib
 
     for (const [idx, s] of this.surf) {
       if (s.gore < 0.04 && s.burn < 0.06 && s.char < 0.06) continue;
@@ -874,7 +874,9 @@ export class Renderer {
               // fresh (wet) = bright clear red; dragged (mid wet) = mid red; dried = dark brown-maroon
               let R = Math.round((40 + 90 * wet) * core + 16);
               let G = Math.round(R * (0.1 + 0.12 * (1 - wet))), B = Math.round(R * (0.07 + 0.06 * (1 - wet)));
-              let alpha = Math.min(0.97, (0.42 + 0.52 * core) * (0.55 + 0.45 * wet));
+              // CHAR suppresses the red: where blood has baked, the red gore fades out so the
+              // cell reads as black charcoal, not dark red. THIS is the visible blast->bake conversion.
+              let alpha = Math.min(0.97, (0.42 + 0.52 * core) * (0.55 + 0.45 * wet)) * Math.max(0, 1 - charVis * 1.25);
               if (wet > 0.6 && core > 0.6 && (fn & 63) < 2) { R = 160 + (fn % 40); G = 58 + (fn % 22); B = 52; alpha = 0.92; } // wet glint (accent)
               else if (core > 0.78 && (fn & 31) === 0) { R = (R * 0.4) | 0; G = (G * 0.4) | 0; B = (B * 0.4) | 0; }            // dark clot (accent)
               else if (wet < 0.3 && (fn & 63) === 0) { R += 26; G += 16; B += 10; }                                          // dried dirty fleck
@@ -903,7 +905,7 @@ export class Renderer {
     }
     // FROZEN decals (bones/meat/chips/footprints) get their OWN fixed pixel size, fully
     // DECOUPLED from the surface `pu` above — tuning blood can never resize them again.
-    const decalPu = Math.max(1, Math.round(t / 22));
+    const decalPu = Math.max(1, Math.round(t / 34)); // bones/meat/chips even finer -> crisp detailed shards
     for (const ch of this.chips) this.drawChip(g, ch, decalPu); // wood splinters (under gore)
     for (const fp of this.footprints) this.drawFoot(g, fp, decalPu); // smears on top
     for (const mt of this.meat) this.drawMeat(g, mt, decalPu); // flesh chunks
@@ -1569,7 +1571,7 @@ export class Renderer {
           // (blood is carried away, not created). Then it's dragged out as a thinning trail.
           const here = this.surf.get(ci);
           if (here && here.gore > 0.12 && here.wet > 0.25) {
-            this.bloodyFeet.set(p.id, 9);
+            this.bloodyFeet.set(p.id, 12); // longer, bloodier trail
             here.gore *= 0.78; // visibly tracked away -> the epicentre thins as blood is dragged out
             this.bloodDirty = true;
           }
@@ -1577,7 +1579,7 @@ export class Renderer {
           if (feet > 0 && (mdx || mdy)) {
             this.bloodyFeet.set(p.id, feet - 1);
             // First steps smear strongly, then fade over the trail.
-            const a = feet >= 8 ? 0.8 : feet >= 6 ? 0.55 : feet >= 3 ? 0.34 : 0.2;
+            const a = feet >= 10 ? 0.85 : feet >= 7 ? 0.6 : feet >= 4 ? 0.38 : 0.22;
             let ux = mdx, uy = mdy; const mm = Math.hypot(ux, uy) || 1; ux /= mm; uy /= mm;
             // Anchor to the CENTRE of the cell just entered (path centerline). Footprint
             // VISUAL is unchanged (frozen layer 2) — only the mechanic below is new.
@@ -1590,10 +1592,10 @@ export class Renderer {
             // Lay a THIN, LOW-WET (dried/dull, never bright) smear of the CARRIED blood onto
             // the trail — transfer of existing gore, thinning out. Dull -> can't read as a
             // bright carpet; it's worn patina (spec). wet kept low so it renders as a stain.
-            const dep = 0.16 + 0.22 * (feet / 9); // thicker near the pool, thinning toward the end
+            const dep = 0.2 + 0.28 * (feet / 12); // thicker near the pool, thinning toward the end
             const sd = this.surfAt(ci);
-            sd.gore = Math.min(0.6, Math.max(sd.gore, dep));
-            sd.wet = Math.max(sd.wet, 0.2 + 0.45 * (feet / 9)); // stays RED while dragged (visible transfer), dries after
+            sd.gore = Math.min(0.7, Math.max(sd.gore, dep));
+            sd.wet = Math.max(sd.wet, 0.22 + 0.5 * (feet / 12)); // stays RED while dragged (visible transfer), dries after
             sd.sx = ux; sd.sy = uy; // smear DIRECTION -> render elongates the mass along the drag (mass transfer)
             this.bloodDirty = true;
           }
