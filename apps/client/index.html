@@ -34,6 +34,9 @@
             <div class="hub-brand">BomberMeme.fun</div>
             <div class="hub-status">
               <span id="player-stats" class="player-stats hidden">
+                <span class="stat-badge ratingb" title="Your rating — beat stronger players to climb">
+                  <span class="stat-cap">RATING</span><span id="rating-badge">🌱 1000</span>
+                </span>
                 <span class="stat-badge chips" title="Your free chips">
                   <span class="stat-cap">CHIPS</span>🪙 <span id="chip-amount">0</span>
                 </span>
@@ -98,18 +101,22 @@
               <span class="tagline">blow up your friends · pump.fun arena</span>
             </div>
             <div class="hub-hero-stage">
-              <span class="hub-spot" aria-hidden="true"></span>
+              <span class="hub-hero-ring"></span>
+              <span id="hub-hero-lvl" class="hub-hero-lvl"></span>
               <img id="hub-hero-img" class="hub-hero-img" alt="" />
-              <span class="hub-floor" aria-hidden="true"></span>
             </div>
-            <!-- Unified player passport: nickname + rank + LV + one slim bar -->
-            <div class="hub-passport">
-              <input id="nickname" class="passport-name" maxlength="16" placeholder="your nickname" autocomplete="off" />
-              <div id="hub-progress" class="passport-prog hidden">
+            <input id="nickname" maxlength="16" placeholder="your nickname" autocomplete="off" />
+            <!-- Progression as part of the hero identity (slim, not a top techbar) -->
+            <div id="hub-progress" class="hub-progress hidden">
+              <div class="prog-row prog-rating">
                 <span id="hub-rank" class="rrk">🌱 Beginner</span>
-                <span class="lvl">LV <span id="hub-level">1</span></span>
                 <div class="ratebar"><div id="hub-ratefill" class="ratefill"></div></div>
                 <span id="hub-ratetext" class="ratetext"></span>
+              </div>
+              <div class="prog-row prog-level">
+                <span class="lvl">LV <span id="hub-level">1</span></span>
+                <div class="xpbar"><div id="hub-xpfill" class="xpfill"></div></div>
+                <span id="hub-xptext" class="xptext"></span>
               </div>
             </div>
             <button id="open-play" class="primary big hub-play">🌐 PLAY ONLINE</button>
