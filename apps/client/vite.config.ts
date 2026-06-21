@@ -1,5 +1,8 @@
 import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
 import { VitePWA } from "vite-plugin-pwa";
+
+const r = (p: string): string => fileURLToPath(new URL(p, import.meta.url));
 
 export default defineConfig({
   server: {
@@ -8,6 +11,10 @@ export default defineConfig({
   build: {
     target: "esnext",
     sourcemap: true,
+    rollupOptions: {
+      // Multi-page: the game (index.html) + the standalone admin tool.
+      input: { main: r("./index.html"), admin: r("./admin.html") },
+    },
   },
   plugins: [
     VitePWA({
