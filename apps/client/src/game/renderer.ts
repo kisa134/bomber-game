@@ -810,8 +810,8 @@ export class Renderer {
     if (!g) return;
     g.clearRect(0, 0, W, H);
     const t = this.tile;
-    const pu = Math.max(2, Math.round(t / 13)); // CHUNKY material pixels (was t/22) -> much less micro-noise
-    const NB = pu * 2;                          // coarse noise block -> big material structures, not salt-pepper
+    const pu = Math.max(1, Math.round(t / 22)); // FINE pixels (also drives chips/meat/bones/footprints — keep crisp)
+    const NB = pu * 4;                          // big noise blocks -> large material structures, low rib, despite fine pixels
 
     for (const [idx, s] of this.surf) {
       if (s.gore < 0.04 && s.burn < 0.06 && s.char < 0.06) continue;
