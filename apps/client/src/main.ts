@@ -1034,12 +1034,13 @@ function updateCountdown(): void {
 
 // --- main loop ------------------------------------------------------------
 
+let frameErrLogged = false;
 function frame(): void {
+  try {
   const now = performance.now();
   // Hit-stop: freeze the whole view briefly on an elimination so the kill lands
   // with weight (the canvas holds its last frame, then snaps back).
   if (now < hitStopUntil) {
-    requestAnimationFrame(frame);
     return;
   }
   updateDebug();
@@ -1084,7 +1085,15 @@ function frame(): void {
   } else if (state.phase === MatchPhase.LOBBY && !document.getElementById("room")!.classList.contains("hidden")) {
     renderRoom(state);
   }
-  requestAnimationFrame(frame);
+  } catch (err) {
+    // A single bad frame must NEVER kill the render loop. Log once, keep going.
+    if (!frameErrLogged) {
+      frameErrLogged = true;
+      console.error("[frame] render error (loop kept alive):", err);
+    }
+  } finally {
+    requestAnimationFrame(frame);
+  }
 }
 
 // --- settings -------------------------------------------------------------

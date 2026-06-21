@@ -1332,6 +1332,12 @@ export class Room {
       const rake = Math.floor((this.potSnapshot(contributors) * rakeBp) / 10000);
       const payout = this.potSnapshot(contributors) - rake;
       const w = winner.wallet;
+      if (!(payout > 0)) {
+        // Defensive: a bad pot/rake must never credit 0/negative. Keep the
+        // open-stakes safety net so a reboot can refund stakers cleanly.
+        alert(`PAYOUT SANITY: non-positive payout (${payout}) in room ${this.id} — open-stakes kept for recovery`);
+        return;
+      }
       const credited = await this.adjustBalance(w, payout);
       if (credited === null) {
         // Owed money — DON'T clear the safety net; a reboot will refund stakers.
@@ -1344,7 +1350,11 @@ export class Room {
       // only. Each staker's chain gets a slice of the rake their stake produced.
       if (this.currency === Currency.TOKEN && rakeBp > 0) {
         const perStakeRake = Math.floor((this.stakeBase() * rakeBp) / 10000);
-        for (const wallet of contributors) void distributeReferralRewards(wallet, perStakeRake);
+        for (const wallet of contributors) {
+          void distributeReferralRewards(wallet, perStakeRake).catch((e) =>
+            alert(`REFERRAL PAYOUT FAILED for ${shortWallet(wallet)} (room ${this.id}): ${String(e)}`),
+          );
+        }
       }
     } else {
       this.lastContributors = [];

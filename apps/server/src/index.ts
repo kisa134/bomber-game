@@ -121,6 +121,7 @@ interface SocketData {
   bound: boolean;
   msgTokens: number;
   msgTs: number;
+  ip: string;
 }
 
 // Per-IP HTTP rate limit (token bucket) for the mutating endpoints.
@@ -160,6 +161,11 @@ function httpAllow(ip: string): boolean {
 // input per tick (~60/s), so headroom is 2x that plus pings/bombs.
 const WS_RATE = 130; // msgs/sec
 const WS_BURST = 200;
+// Per-IP WebSocket connection cap — stops a single host opening unlimited
+// sockets to exhaust room slots / memory. A few tabs are fine; this just kills
+// floods. Tunable via WS_MAX_PER_IP.
+const WS_MAX_PER_IP = Number(process.env.WS_MAX_PER_IP) || 12;
+const wsConnsByIp = new Map<string, number>();
 
 setInterval(() => {
   const now = Date.now();
@@ -174,6 +180,16 @@ const CORS = {
 
 function writeCors(res: uWS.HttpResponse): void {
   for (const [k, v] of Object.entries(CORS)) res.writeHeader(k, v);
+}
+
+// Conservative security headers — safe defaults that don't break the game, the
+// PostHog/wallet integrations, or the same-origin admin iframe (CSP is left for
+// a dedicated pass since it needs a per-source allowlist).
+function writeSecurity(res: uWS.HttpResponse): void {
+  res.writeHeader("X-Content-Type-Options", "nosniff");
+  res.writeHeader("X-Frame-Options", "SAMEORIGIN");
+  res.writeHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.writeHeader("Strict-Transport-Security", "max-age=15552000; includeSubDomains");
 }
 
 // Tracks whether the client aborted/closed the request, so we never write to a
@@ -258,6 +274,7 @@ function serveStatic(res: uWS.HttpResponse, urlPath: string): void {
   res.cork(() => {
     res.writeHeader("Content-Type", type);
     res.writeHeader("Cache-Control", cacheHeader);
+    writeSecurity(res);
     res.end(body);
   });
 }
@@ -1364,6 +1381,12 @@ app.ws<SocketData>("/ws", {
   maxBackpressure: 1024 * 1024,
   upgrade: (res, req, context) => {
     const qs = new URLSearchParams(req.getQuery());
+    const ip = clientIp(res, req);
+    if ((wsConnsByIp.get(ip) ?? 0) >= WS_MAX_PER_IP) {
+      res.cork(() => res.writeStatus("429 Too Many Requests").end());
+      return;
+    }
+    wsConnsByIp.set(ip, (wsConnsByIp.get(ip) ?? 0) + 1);
     res.upgrade<SocketData>(
       {
         token: qs.get("token") ?? "",
@@ -1373,6 +1396,7 @@ app.ws<SocketData>("/ws", {
         bound: false,
         msgTokens: WS_BURST,
         msgTs: Date.now(),
+        ip,
       },
       req.getHeader("sec-websocket-key"),
       req.getHeader("sec-websocket-protocol"),
@@ -1455,6 +1479,11 @@ app.ws<SocketData>("/ws", {
   },
   close: (ws) => {
     const ud = ws.getUserData();
+    if (ud.ip) {
+      const n = (wsConnsByIp.get(ud.ip) ?? 1) - 1;
+      if (n > 0) wsConnsByIp.set(ud.ip, n);
+      else wsConnsByIp.delete(ud.ip);
+    }
     if (ud.bound) mm.getRoom(ud.roomId)?.handleDisconnect(ud.playerId);
   },
 });

@@ -151,9 +151,12 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
   if (dv.byteLength < 1) return null;
   const type = dv.getUint8(0) as ClientMsg;
   switch (type) {
-    case ClientMsg.INPUT_MOVE:
+    case ClientMsg.INPUT_MOVE: {
       if (dv.byteLength < 6) return null;
-      return { type, dir: dv.getUint8(1) as Direction, tick: dv.getUint32(2, true) };
+      const dir = dv.getUint8(1);
+      if (dir > Direction.RIGHT) return null; // reject out-of-range direction (anti-corruption)
+      return { type, dir: dir as Direction, tick: dv.getUint32(2, true) };
+    }
     case ClientMsg.INPUT_PLACE_BOMB:
       if (dv.byteLength < 5) return null;
       return { type, seq: dv.getUint32(1, true) };

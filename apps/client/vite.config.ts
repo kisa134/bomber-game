@@ -10,7 +10,7 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
-    sourcemap: true,
+    sourcemap: false, // don't ship source maps publicly (re-enable as "hidden" once Sentry uploads them)
     rollupOptions: {
       // Multi-page: the game (index.html) + the character-cards tool embedded
       // inside the admin dashboard (cards.html).

@@ -333,6 +333,9 @@ export class Net {
     this.intentional = false;
     this.attempts = 0;
     this.reconnectToken = "";
+    // Idempotent: drop any prior registration so repeated connect() calls can
+    // never stack duplicate listeners (defensive — the ref is stable anyway).
+    document.removeEventListener("visibilitychange", this.onVisible);
     document.addEventListener("visibilitychange", this.onVisible);
     this.open(`token=${encodeURIComponent(token)}`);
   }

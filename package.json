@@ -5,7 +5,7 @@
   "description": "Bomberpump — fast browser multiplayer bomberman for pump.fun",
   "packageManager": "pnpm@10.33.0",
   "scripts": {
-    "build": "pnpm -r --filter ./packages/shared build && pnpm -r --filter ./apps/* build",
+    "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "dev": "pnpm --filter @bomberpump/server dev",
     "dev:client": "pnpm --filter @bomberpump/client dev",
