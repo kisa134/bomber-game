@@ -57,7 +57,7 @@ const DEATH_MS = 650;
 const BF_N = 1, BF_S = 2, BF_E = 4, BF_W = 8;
 const MAX_PARTICLES = 520;
 const MAX_DECALS = 90;
-const BLOOD_DECAY_MS = 4200; // every tick, fresh (non-charred) ground blood thins by 1 -> self-cleaning, no carpet
+const BLOOD_DECAY_MS = 12000; // slow self-clean only (blood now comes from deaths/bombs, not running) -> pools persist, gentle fade
 const LIGHT_LIFE = 460; // ms an explosion light source blooms + fades
 
 interface Particle {
@@ -1550,11 +1550,9 @@ export class Renderer {
             const jx = (Math.random() - 0.5) * 0.16, jy = (Math.random() - 0.5) * 0.16;
             this.footprints.push({ x: ccx + jx - uy * off, y: ccy + jy + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
             if (this.footprints.length > 160) this.footprints.shift();
-            // SMEAR the mush across tiles: drag blood onto the cell just entered, THICK
-            // near the pool and thinning with every step away from the epicentre. The
-            // 46-cell hard cap in markGround() keeps this from ever carpeting the map.
-            const track = feet >= 10 ? 3 : feet >= 7 ? 2 : feet >= 5 ? 1 : 0;
-            if (track > 0) this.markGround(ci, track);
+            // The smear IS the footprint streak above (its own layer) — it does NOT add
+            // blood to the ground field. Tracking real blood onto every tile a player
+            // crossed is exactly what carpeted the whole map; never do that again.
             this.bloodDirty = true;
           }
         }
