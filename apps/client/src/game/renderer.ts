@@ -153,6 +153,10 @@ export class Renderer {
   private organs: Array<{ x: number; y: number; seed: number }> = []; // intestine coils / organ decals (x,y in cells)
   private skulls: Array<{ x: number; y: number; seed: number }> = []; // skull decals (x,y in cells)
   private brains: Array<{ x: number; y: number; seed: number }> = []; // brain decals (x,y in cells)
+  private limbs: Array<{ x: number; y: number; seed: number }> = []; // torn arm/leg decals
+  private eyes: Array<{ x: number; y: number; seed: number }> = []; // eyeball decals
+  private teeth: Array<{ x: number; y: number; seed: number }> = []; // knocked-out teeth
+  private bile: Array<{ x: number; y: number; seed: number }> = []; // bile / slime puddles
   // Floating reward/event popups that pop in with ease-out-back/elastic, rise, fade.
   private floaters: Array<{ x: number; y: number; text: string; color: string; born: number; big: boolean }> = [];
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
@@ -350,6 +354,10 @@ export class Renderer {
     this.organs = [];
     this.skulls = [];
     this.brains = [];
+    this.limbs = [];
+    this.eyes = [];
+    this.teeth = [];
+    this.bile = [];
     this.chips = [];
     this.floaters = [];
     this.danger = 0;
@@ -658,6 +666,15 @@ export class Renderer {
           size: this.tile * 0.18, color: "rgba(70,66,60,0.5)",
         });
       }
+      // Glowing EMBER sparks: tiny additive flecks that fling out, float up and wink out.
+      for (let i = 0; i < Math.round(5 * this.fxScale); i++) {
+        const ea = Math.random() * Math.PI * 2, es = 1 + Math.random() * 3;
+        this.push({
+          x: cx, y: cy, vx: Math.cos(ea) * es, vy: Math.sin(ea) * es - 1.2, gravity: -2.5, drag: 0.93,
+          life: 0.5 + Math.random() * 0.9, max: 1.4, size: this.tile * (0.018 + Math.random() * 0.022),
+          color: Math.random() < 0.5 ? "#ffc040" : "#ff6418", shape: "flash",
+        });
+      }
       // Hot core bloom: a brief WARM additive glow at the blast core (localized,
       // not a full-screen flash) — gives the explosion an extra punch.
       this.push({
@@ -758,6 +775,18 @@ export class Renderer {
       if (bx2 < 0.2 || by2 < 0.2 || bx2 > GRID_W - 0.2 || by2 > GRID_H - 0.2 || onBlock(bx2, by2)) continue;
       this.brains.push({ x: bx2, y: by2, seed: (Math.random() * 0xffffffff) >>> 0 });
     }
+    // Helper: scatter `n` decals of a kind into an array, skipping blocks/edges.
+    const scatter = (arr: Array<{ x: number; y: number; seed: number }>, n: number, spread: number): void => {
+      for (let i = 0; i < n; i++) {
+        const fx = cx + 0.5 + (Math.random() - 0.5) * spread, fy = cy + 0.5 + (Math.random() - 0.5) * spread;
+        if (fx < 0.2 || fy < 0.2 || fx > GRID_W - 0.2 || fy > GRID_H - 0.2 || onBlock(fx, fy)) continue;
+        arr.push({ x: fx, y: fy, seed: (Math.random() * 0xffffffff) >>> 0 });
+      }
+    };
+    scatter(this.limbs, 1 + ((Math.random() * 2) | 0), 3.4); // torn arms/legs fling wide
+    scatter(this.eyes, 1 + ((Math.random() * 2) | 0), 2.6);  // popped eyeballs
+    scatter(this.teeth, 4 + ((Math.random() * 6) | 0), 2.4); // a mouthful of teeth
+    if (Math.random() < 0.5) scatter(this.bile, 1, 1.6);      // a bile/slime puddle, sometimes
     // High perf-safety ceilings only (so thousands of decals never lag) — far above what a
     // match produces, so in practice the gore just piles up uncapped.
     if (this.bones.length > 400) this.bones.splice(0, this.bones.length - 400);
@@ -765,6 +794,10 @@ export class Renderer {
     if (this.organs.length > 240) this.organs.splice(0, this.organs.length - 240);
     if (this.skulls.length > 160) this.skulls.splice(0, this.skulls.length - 160);
     if (this.brains.length > 160) this.brains.splice(0, this.brains.length - 160);
+    if (this.limbs.length > 160) this.limbs.splice(0, this.limbs.length - 160);
+    if (this.eyes.length > 200) this.eyes.splice(0, this.eyes.length - 200);
+    if (this.teeth.length > 400) this.teeth.splice(0, this.teeth.length - 400);
+    if (this.bile.length > 120) this.bile.splice(0, this.bile.length - 120);
     this.bloodDirty = true; // bones + meat + organs live in the cached blood overlay
     if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
@@ -896,11 +929,15 @@ export class Renderer {
     }
     for (const ch of this.chips) this.drawChip(g, ch, pu); // wood splinters (under gore)
     for (const fp of this.footprints) this.drawFoot(g, fp, pu); // smears on top
+    for (const bl of this.bile) this.drawBile(g, bl, pu); // bile/slime puddles (under the gore)
     for (const o of this.organs) this.drawOrgan(g, o, pu); // intestine coils / organs (under the chunks)
     for (const br of this.brains) this.drawBrain(g, br, pu); // brains (soft tissue)
+    for (const lm of this.limbs) this.drawLimb(g, lm, pu); // torn arms/legs
     for (const mt of this.meat) this.drawMeat(g, mt, pu); // flesh chunks
     for (const b of this.bones) this.drawBone(g, b, pu); // bone shards on top
     for (const sk of this.skulls) this.drawSkull(g, sk, pu); // skulls on top
+    for (const ey of this.eyes) this.drawEye(g, ey, pu); // eyeballs
+    for (const th of this.teeth) this.drawTooth(g, th, pu); // teeth
     g.globalAlpha = 1;
     this.bloodCanvas = cv;
   }
@@ -1156,6 +1193,98 @@ export class Renderer {
     for (let yy = -ry * 0.9; yy <= ry * 0.9; yy += pu) g.fillRect(Math.round((cx + Math.sin(yy * 0.4) * rx * 0.12) / pu) * pu, Math.round((cy + yy) / pu) * pu, pu, pu);
     for (let k2 = 0; k2 < 3; k2++) { const wy = (rnd() - 0.5) * ry * 1.2; for (let xx = -rx * 0.7; xx <= rx * 0.7; xx += pu) g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + wy + Math.sin(xx * 0.5) * pu) / pu) * pu, pu, pu); }
     g.fillStyle = "#ffe0e6"; g.fillRect(Math.round((cx - rx * 0.3) / pu) * pu, Math.round((cy - ry * 0.4) / pu) * pu, pu, pu); // glint
+  }
+
+  /** A torn-off arm/leg: a fleshy limb capsule with a white bone stump and a ragged bloody
+   *  end, randomly oriented. */
+  private drawLimb(g: CanvasRenderingContext2D, l: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const cx = l.x * t, cy = l.y * t;
+    let s = l.seed >>> 0;
+    const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
+    const len = t * (0.16 + rnd() * 0.08), rad = t * (0.038 + rnd() * 0.012);
+    const ang = rnd() * Math.PI * 2, ca = Math.cos(ang), sa = Math.sin(ang);
+    const skin = 184 + (s % 44); // flesh tone (varies)
+    const seg = (dist: number, r: number, col: string): void => {
+      const bx = cx + ca * dist, by = cy + sa * dist;
+      for (let yy = -r; yy <= r; yy += pu) for (let xx = -r; xx <= r; xx += pu) {
+        if (xx * xx + yy * yy > r * r) continue;
+        g.fillStyle = col;
+        g.fillRect(Math.round((bx + xx) / pu) * pu, Math.round((by + yy) / pu) * pu, pu, pu);
+      }
+    };
+    g.globalAlpha = 0.28; for (let d = -len; d <= len; d += pu) seg(d + pu, rad + pu, "#000000"); g.globalAlpha = 1; // shadow
+    for (let d = -len; d <= len; d += pu) { // skin tube (lighter top, darker bottom)
+      const top = sa < 0;
+      seg(d, rad, top ? `rgb(${Math.min(255, skin + 24)},${(skin * 0.78) | 0},${(skin * 0.68) | 0})` : `rgb(${(skin * 0.8) | 0},${(skin * 0.56) | 0},${(skin * 0.5) | 0})`);
+    }
+    seg(-len, rad * 1.15, "#e8e0cf"); seg(-len + pu * 1.2, rad * 0.7, "#c8c0ae"); // bone stump at one end
+    seg(len, rad * 1.1, "#5a0000"); seg(len - pu, rad * 0.8, "#9c0000"); // ragged bloody torn end
+  }
+
+  /** A popped eyeball: white sclera, coloured iris, black pupil, bloodshot + a trailing
+   *  optic nerve / blood streak. */
+  private drawEye(g: CanvasRenderingContext2D, e: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const cx = e.x * t, cy = e.y * t;
+    let s = e.seed >>> 0;
+    const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
+    const r = t * (0.04 + rnd() * 0.012);
+    const disc = (ox: number, oy: number, rr: number, col: string): void => {
+      for (let yy = -rr; yy <= rr; yy += pu) for (let xx = -rr; xx <= rr; xx += pu) {
+        if (xx * xx + yy * yy > rr * rr) continue;
+        g.fillStyle = col;
+        g.fillRect(Math.round((cx + ox + xx) / pu) * pu, Math.round((cy + oy + yy) / pu) * pu, pu, pu);
+      }
+    };
+    // optic-nerve / blood streak trailing out one side
+    const na = rnd() * Math.PI * 2;
+    g.fillStyle = "#7a0000";
+    for (let d = 0; d < r * 2.2; d += pu) g.fillRect(Math.round((cx + Math.cos(na) * (r + d)) / pu) * pu, Math.round((cy + Math.sin(na) * (r + d)) / pu) * pu, pu, pu);
+    g.globalAlpha = 0.26; disc(pu, pu * 1.3, r + pu, "#000000"); g.globalAlpha = 1; // shadow
+    disc(0, 0, r, "#f2efe6"); // white
+    // bloodshot veins
+    g.fillStyle = "#c0201a";
+    for (let i = 0; i < 4; i++) { const a = rnd() * 6.28; for (let d = r * 0.4; d < r; d += pu) if (rnd() < 0.6) g.fillRect(Math.round((cx + Math.cos(a) * d) / pu) * pu, Math.round((cy + Math.sin(a) * d) / pu) * pu, pu, pu); }
+    const iris = ["#3a6a8a", "#5a3a1a", "#2a6a3a", "#444"][((s >>> 5) & 3)];
+    disc(0, 0, r * 0.5, iris); // iris
+    disc(0, 0, r * 0.24, "#000000"); // pupil
+    g.fillStyle = "#ffffff"; g.fillRect(Math.round((cx - r * 0.2) / pu) * pu, Math.round((cy - r * 0.2) / pu) * pu, pu, pu); // glint
+  }
+
+  /** A knocked-out tooth: a tiny off-white nub with a faint root. */
+  private drawTooth(g: CanvasRenderingContext2D, th: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const cx = th.x * t, cy = th.y * t;
+    const s = th.seed >>> 0;
+    const w = Math.max(pu, Math.round(t * 0.018)), h = Math.max(pu, Math.round(t * 0.026));
+    g.globalAlpha = 0.25; g.fillStyle = "#000000";
+    g.fillRect(Math.round((cx - w / 2 + pu) / pu) * pu, Math.round((cy + pu) / pu) * pu, w, h); // shadow
+    g.globalAlpha = 1;
+    g.fillStyle = `rgb(${236 - (s % 16)},${232 - (s % 16)},${214 - (s % 20)})`; // enamel
+    g.fillRect(Math.round((cx - w / 2) / pu) * pu, Math.round((cy - h / 2) / pu) * pu, w, h);
+    g.fillStyle = "#cfc7ad"; // root shading at the base
+    g.fillRect(Math.round((cx - w / 2) / pu) * pu, Math.round((cy + h / 2 - pu) / pu) * pu, w, pu);
+  }
+
+  /** A bile / slime puddle: a translucent greenish-yellow splat with a glossy sheen. */
+  private drawBile(g: CanvasRenderingContext2D, b: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const cx = b.x * t, cy = b.y * t;
+    let s = b.seed >>> 0;
+    const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
+    const rx = t * (0.12 + rnd() * 0.06), ry = t * (0.09 + rnd() * 0.05);
+    const wob = (): number => 1 + (rnd() - 0.5) * 0.6;
+    for (let yy = -ry; yy <= ry; yy += pu) for (let xx = -rx; xx <= rx; xx += pu) {
+      if (((xx * xx) / (rx * rx) + (yy * yy) / (ry * ry)) * wob() > 1) continue;
+      const gg = 120 + (((xx * 7 + yy * 13) & 31)); // murky yellow-green
+      g.globalAlpha = 0.55;
+      g.fillStyle = `rgb(${(gg * 0.8) | 0},${gg},${(gg * 0.3) | 0})`;
+      g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + yy) / pu) * pu, pu, pu);
+    }
+    g.globalAlpha = 0.5; g.fillStyle = "#e8ffb0"; // glossy sheen
+    g.fillRect(Math.round((cx - rx * 0.25) / pu) * pu, Math.round((cy - ry * 0.35) / pu) * pu, pu * 2, pu);
+    g.globalAlpha = 1;
   }
 
   /** A small scattered bone shard: a bone-white shaft with knobby ends and a soft
