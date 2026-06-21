@@ -57,7 +57,8 @@ const DEATH_MS = 650;
 const BF_N = 1, BF_S = 2, BF_E = 4, BF_W = 8;
 const MAX_PARTICLES = 520;
 const MAX_DECALS = 90;
-const BLOOD_DECAY_MS = 12000; // slow self-clean only (blood now comes from deaths/bombs, not running) -> pools persist, gentle fade
+const BLOOD_DECAY_MS = 3500; // fresh mush disperses over ~30s (footprints linger longer) -> self-cleaning
+const BLOOD_MAX_CELLS = 60;  // hard cap on bloodied cells (of 187) -> physically can't carpet; evicts only the faintest
 const LIGHT_LIFE = 460; // ms an explosion light source blooms + fades
 
 interface Particle {
@@ -767,8 +768,19 @@ export class Renderer {
    *  Persists for the match and accumulates. */
   private markGround(index: number, amount: number): void {
     if (index < 0 || index >= GRID_W * GRID_H) return;
-    // No eviction — pools never vanish on you. The slow decay tick (decayBlood) is what
-    // keeps the map from carpeting: fresh mush thins out over time; charred blood stays.
+    // HARD coverage cap so a long match (many respawns/deaths) can NEVER carpet the map.
+    // When full, evict the single FAINTEST fresh cell — one that's already decayed to a
+    // near-invisible trace — never a vivid pool and never charred blood. So no visible
+    // blood ever "disappears": only stuff that was about to fade out anyway is dropped.
+    if (!this.bloodGround.has(index) && this.bloodGround.size >= BLOOD_MAX_CELLS) {
+      let minIdx = -1, minLvl = 99;
+      for (const [k, v] of this.bloodGround) {
+        if ((this.bakedBlood.get(k) ?? 0) > 0) continue; // keep charred patches
+        if (v < minLvl) { minLvl = v; minIdx = k; }
+      }
+      if (minIdx >= 0) { this.bloodGround.delete(minIdx); this.bakedBlood.delete(minIdx); }
+      else return; // everything is charred — just don't add a new fresh cell
+    }
     this.bloodGround.set(index, Math.min(9, (this.bloodGround.get(index) ?? 0) + amount));
     this.bloodDirty = true;
   }
