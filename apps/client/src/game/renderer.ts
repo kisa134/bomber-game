@@ -579,7 +579,8 @@ export class Renderer {
         }
         if (nearBlood && (this.bloodGround.has(idx) || this.bloodGround.size < BLOOD_MAX_CELLS)) {
           this.bloodGround.set(idx, Math.max(this.bloodGround.get(idx) ?? 0, 6)); // a solid patch to char
-          this.bakedBlood.set(idx, 3); // straight to charcoal-black
+          this.bakedBlood.set(idx, 3); // blood -> charcoal-black
+          this.burn.set(idx, Math.min(10, Math.max(this.burn.get(idx) ?? 0, 5))); // ground under it scorches deep too -> ONE unified charcoal patch
           this.bloodDirty = true;
         }
       }
@@ -686,7 +687,7 @@ export class Renderer {
             this.markBlockBlood(ni, -dx, -dy);
             this.markBlockBlood(ni, -dx, -dy); // doubled -> heavy splatter on the face
           } else {
-            this.markGround(ni, dx === 0 || dy === 0 ? 3 : 2); // tight pool that falls off fast
+            this.markGround(ni, dx === 0 || dy === 0 ? 4 : 3); // thick mush at the epicentre, falls off fast
           }
         } else { // outer ring: only the odd satellite speck (keep the pool concentrated)
           if (isBlock) {
@@ -698,30 +699,30 @@ export class Renderer {
       }
     }
     // Scatter persistent bone shards + flesh chunks through the gore (random spread).
-    const nBones = 4 + ((Math.random() * 5) | 0); // more bones
+    const nBones = 6 + ((Math.random() * 6) | 0); // a real bone explosion
     for (let i = 0; i < nBones; i++) {
-      const bx = cx + 0.5 + (Math.random() - 0.5) * 2.8;
-      const by = cy + 0.5 + (Math.random() - 0.5) * 2.8;
+      const bx = cx + 0.5 + (Math.random() - 0.5) * 3.2;
+      const by = cy + 0.5 + (Math.random() - 0.5) * 3.2;
       if (bx < 0.2 || by < 0.2 || bx > GRID_W - 0.2 || by > GRID_H - 0.2) continue;
       this.bones.push({ x: bx, y: by, seed: (Math.random() * 0xffffffff) >>> 0 });
     }
-    const nMeat = 3 + ((Math.random() * 4) | 0);
+    const nMeat = 5 + ((Math.random() * 5) | 0); // more flesh chunks
     for (let i = 0; i < nMeat; i++) {
-      const mx = cx + 0.5 + (Math.random() - 0.5) * 2.4;
-      const my = cy + 0.5 + (Math.random() - 0.5) * 2.4;
+      const mx = cx + 0.5 + (Math.random() - 0.5) * 2.8;
+      const my = cy + 0.5 + (Math.random() - 0.5) * 2.8;
       if (mx < 0.2 || my < 0.2 || mx > GRID_W - 0.2 || my > GRID_H - 0.2) continue;
       this.meat.push({ x: mx, y: my, seed: (Math.random() * 0xffffffff) >>> 0 });
     }
-    if (this.bones.length > 130) this.bones.splice(0, this.bones.length - 130);
-    if (this.meat.length > 110) this.meat.splice(0, this.meat.length - 110);
+    if (this.bones.length > 170) this.bones.splice(0, this.bones.length - 170);
+    if (this.meat.length > 150) this.meat.splice(0, this.meat.length - 150);
     this.bloodDirty = true; // bones + meat live in the cached blood overlay
     if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
     const reds = ["#8a0000", "#a30000", "#c81e1e", "#6a0000"];
-    for (let i = 0; i < Math.round(50 * this.fxScale); i++) {
+    for (let i = 0; i < Math.round(72 * this.fxScale); i++) {
       const a = Math.random() * Math.PI * 2;
-      const s = 2 + Math.random() * 4; // ground-plane spray speed
+      const s = 2 + Math.random() * 4.5; // ground-plane spray speed
       this.push({
         x: cx + 0.5, y: cy + 0.5,
         vx: Math.cos(a) * s, vy: Math.sin(a) * s,
@@ -733,11 +734,11 @@ export class Renderer {
         shape: "rect", rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 16,
       });
     }
-    this.burst(cx, cy, "#d61e1e", 26, 5.5); // fine blood spray
-    this.burst(cx, cy, "#7a0000", 16, 4.2); // darker gore spray
-    this.burst(cx, cy, color, 8, 3); // a hint of the player's color
-    this.burst(cx, cy, "#efe6cf", 6, 3.2); // bone / teeth bits
-    this.shake(20, 300);
+    this.burst(cx, cy, "#d61e1e", 36, 6); // fine blood spray
+    this.burst(cx, cy, "#7a0000", 24, 4.6); // darker gore spray
+    this.burst(cx, cy, color, 10, 3); // a hint of the player's color
+    this.burst(cx, cy, "#efe6cf", 9, 3.4); // bone / teeth bits
+    this.shake(22, 320);
   }
 
   /** Record blood on a block's face(s). (ddx,ddy) points from the block toward
@@ -1538,8 +1539,11 @@ export class Renderer {
             const jx = (Math.random() - 0.5) * 0.16, jy = (Math.random() - 0.5) * 0.16;
             this.footprints.push({ x: ccx + jx - uy * off, y: ccy + jy + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
             if (this.footprints.length > 160) this.footprints.shift();
-            // (footprints are drawn as their own smears — they no longer add to the
-            // ground-blood field, which used to carpet the whole map in thin red.)
+            // SMEAR the mush across tiles: drag blood onto the cell just entered, THICK
+            // near the pool and thinning with every step away from the epicentre. The
+            // 46-cell hard cap in markGround() keeps this from ever carpeting the map.
+            const track = feet >= 10 ? 3 : feet >= 7 ? 2 : feet >= 5 ? 1 : 0;
+            if (track > 0) this.markGround(ci, track);
             this.bloodDirty = true;
           }
         }
