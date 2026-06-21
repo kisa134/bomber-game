@@ -140,7 +140,7 @@ export class Renderer {
   // gore=blood amount (stain, persists), wet=freshness (dries to ~0), burn=ground scorch depth,
   // char=blood-bake degree. Anti-carpet is in the material (fresh=bright+local, old=dull
   // dried/charred patina), NOT in deletion. Map is naturally bounded to GRID_W*GRID_H cells.
-  private surf = new Map<number, { gore: number; wet: number; burn: number; char: number }>();
+  private surf = new Map<number, { gore: number; wet: number; burn: number; char: number; sx: number; sy: number }>();
   private surfDryAt = 0; // last time the surface dried a step (see drySurface)
   private puBuf: HTMLCanvasElement | null = null; // scratch buffer for powerup sheen masked to the icon
   private bloodCanvas: HTMLCanvasElement | null = null; // cached unified surface overlay (gore+burn+char+decals)
@@ -572,7 +572,14 @@ export class Renderer {
       const depth = (0.4 + 0.6 * power) * (0.25 + 0.75 * prox); // burn this blast ADDS
       const s = this.surfAt(idx);
       s.burn = Math.min(1, s.burn + depth);          // accumulates -> repeated blasts deepen (rule 4)
-      if (s.gore > 0.05) s.char = Math.min(1, s.char + depth * (0.7 + 0.5 * prox)); // blood under blast bakes, SAME falloff
+      if (s.gore > 0.04) {
+        // BLAST BAKES BLOOD: dry it out (fresh red -> baked) AND convert to char, both by
+        // the same falloff. Drying is what makes the conversion visually OBVIOUS (the wet
+        // sheen that was hiding the char is burned off). Center cells bake hardest.
+        s.wet = Math.max(0, Math.min(s.wet, 1 - depth * 2.4)); // fire burns off the wetness
+        s.char = Math.min(1, s.char + depth * (1.0 + 0.8 * prox)); // strong conversion, deepest at centre
+        s.gore = Math.max(s.gore, 0.55); // keep enough material so the charred patch reads solid
+      }
       this.bloodDirty = true;
       if (this.prevGrid) {
         for (const [dx, dy] of NB) {
@@ -750,9 +757,9 @@ export class Renderer {
   }
 
   /** Get (or create) the surface material for a cell. */
-  private surfAt(index: number): { gore: number; wet: number; burn: number; char: number } {
+  private surfAt(index: number): { gore: number; wet: number; burn: number; char: number; sx: number; sy: number } {
     let s = this.surf.get(index);
-    if (!s) { s = { gore: 0, wet: 0, burn: 0, char: 0 }; this.surf.set(index, s); }
+    if (!s) { s = { gore: 0, wet: 0, burn: 0, char: 0, sx: 0, sy: 0 }; this.surf.set(index, s); }
     return s;
   }
 
@@ -789,9 +796,11 @@ export class Renderer {
     if (this.bloodCanvas) this.ctx.drawImage(this.bloodCanvas, 0, 0, W, H);
   }
 
-  // Unified SURFACE render (spec v3.1): per cell, paint the material phases bottom-up —
-  // scorched earth (burn) -> gore stain (fresh glossy / dried matte) -> dry crusty char.
-  // Fresh wet gore has the highest priority (covers char). Organic ragged edges via noise.
+  // Unified SURFACE render (spec v3.1). MATERIAL language, not a procedural noise pass:
+  //  (1) WHOLE-TILE base mass — the block visibly burns/chars first (burn + char fills),
+  //  (2) organic GORE built from a few asymmetric elongated LOBES (meaty mass, not round
+  //      stamps; smears elongate along the drag), then (3) coarse low-freq detail (dry ash
+  //      crust, dark clots, wet glint) as secondary accent. Chunky pixels = far less rib.
   private buildBloodGround(W: number, H: number): void {
     this.bloodDirty = false;
     const cv = this.bloodCanvas && this.bloodCanvas.width === W && this.bloodCanvas.height === H
@@ -801,64 +810,92 @@ export class Renderer {
     if (!g) return;
     g.clearRect(0, 0, W, H);
     const t = this.tile;
-    const pu = Math.max(1, Math.round(t / 22));
+    const pu = Math.max(2, Math.round(t / 13)); // CHUNKY material pixels (was t/22) -> much less micro-noise
+    const NB = pu * 2;                          // coarse noise block -> big material structures, not salt-pepper
 
     for (const [idx, s] of this.surf) {
-      if (s.gore < 0.04 && s.burn < 0.05 && s.char < 0.05) continue;
+      if (s.gore < 0.04 && s.burn < 0.06 && s.char < 0.06) continue;
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
+      let seed = ((idx + 1) * 2654435761) >>> 0;
+      const rnd = (): number => { seed = (seed ^ (seed << 13)) >>> 0; seed = (seed ^ (seed >>> 17)) >>> 0; seed = (seed ^ (seed << 5)) >>> 0; return (seed & 0xffff) / 0xffff; };
+      const charVis = s.char * (1 - Math.min(1, s.wet * 1.3)); // wet fresh blood keeps top priority over char
+
+      // (1) WHOLE-TILE BASE MASS — the affected block is darkened/burnt as one mass first.
+      if (s.burn > 0.06) {
+        const dk = s.burn, bb = Math.round(34 - 26 * dk);
+        g.globalAlpha = Math.min(0.9, 0.3 + 0.62 * dk); // clearly burns the whole block
+        g.fillStyle = `rgb(${bb},${(bb * 0.7) | 0},${(bb * 0.5) | 0})`;
+        g.fillRect(ox, oy, t, t);
+      }
+      if (charVis > 0.06) {
+        const cb = Math.max(6, Math.round(20 - 12 * charVis));
+        g.globalAlpha = Math.min(0.95, 0.42 + 0.55 * charVis); // deep dry burnt mass
+        g.fillStyle = `rgb(${cb},${(cb * 0.62) | 0},${(cb * 0.48) | 0})`;
+        g.fillRect(ox, oy, t, t);
+      }
+
+      // (2) GORE LOBES — big + medium first; offset/elongated/asymmetric (no round stamps).
+      let lobes: Array<{ lx: number; ly: number; rad: number; cos: number; sin: number; elong: number }> | null = null;
+      if (s.gore > 0.04) {
+        const nL = s.gore > 0.55 ? 3 : 2;
+        const smear = (s.sx || s.sy) ? Math.atan2(s.sy, s.sx) : null; // smear -> elongate along the drag
+        lobes = [];
+        for (let l = 0; l < nL; l++) {
+          const big = l === 0;
+          const ang = smear !== null ? smear : rnd() * Math.PI;
+          const elong = smear !== null ? 1.9 + rnd() * 1.3 : 1 + rnd() * 0.9;
+          lobes.push({
+            lx: ox + (0.5 + (big ? (rnd() - 0.5) * 0.28 : (rnd() - 0.5) * 0.72)) * t,
+            ly: oy + (0.5 + (big ? (rnd() - 0.5) * 0.28 : (rnd() - 0.5) * 0.72)) * t,
+            rad: (big ? 0.42 + rnd() * 0.12 : 0.2 + rnd() * 0.18) * t,
+            cos: Math.cos(ang), sin: Math.sin(ang), elong,
+          });
+        }
+      }
+
+      // (3) PIXEL PASS — gore lobe density + coarse crusty/ash detail (secondary).
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
-          const ax = ox + gx, ay = oy + gy;
-          // soft sub-cell radial (pool/crater shaping) + global continuous noise (no tile repeat)
-          const nx = (gx + pu / 2) / t - 0.5, ny = (gy + pu / 2) / t - 0.5;
-          const dc = Math.min(1, Math.hypot(nx, ny) * 2); // 0 centre .. 1 rim
-          let fn = (ax * 73856093 ^ ay * 19349663) >>> 0; fn = ((fn ^ (fn >>> 13)) * 1274126177) >>> 0; const fine = (fn & 1023) / 1023;
-          let cn = (((ax / (pu * 3)) | 0) * 374761393 ^ ((ay / (pu * 3)) | 0) * 668265263) >>> 0; cn = ((cn ^ (cn >>> 13)) * 1274126177) >>> 0; const coarse = (cn & 1023) / 1023;
-          const pool = 1 - dc * 0.5; // stays fairly filled to the rim so adjacent cells merge
+          const ax = ox + gx, ay = oy + gy, pcx = ax + pu / 2, pcy = ay + pu / 2;
+          let cn = (((ax / NB) | 0) * 374761393 ^ ((ay / NB) | 0) * 668265263) >>> 0; cn = ((cn ^ (cn >>> 13)) * 1274126177) >>> 0; const coarse = (cn & 1023) / 1023;
+          let fn = (ax * 73856093 ^ ay * 19349663) >>> 0; fn = ((fn ^ (fn >>> 13)) * 1274126177) >>> 0;
 
-          // 1) SCORCHED EARTH — burnt brown-black ground, ragged organic edge.
-          if (s.burn > 0.05) {
-            const cov = s.burn * (1 - dc * 0.5) * (0.5 + 0.7 * coarse);
-            if (fine < cov) {
-              const dk = s.burn; const base = Math.round(32 - 26 * dk) + (fn & 7); // deeper = darker
-              g.globalAlpha = Math.min(0.92, 0.38 + 0.5 * dk);
-              g.fillStyle = `rgb(${base},${Math.round(base * 0.72)},${Math.round(base * 0.52)})`;
-              g.fillRect(ax, ay, pu, pu);
+          if (lobes) {
+            let dens = 0;
+            for (const lo of lobes) {
+              const ddx = pcx - lo.lx, ddy = pcy - lo.ly;
+              const rx = (ddx * lo.cos + ddy * lo.sin) / lo.elong, ry = -ddx * lo.sin + ddy * lo.cos;
+              const v = 1 - Math.hypot(rx, ry) / lo.rad; if (v > dens) dens = v;
             }
-          }
-
-          // 2) GORE stain — fresh (wet) = deep glossy red; dried (low wet) = duller, browner, dirtier.
-          if (s.gore > 0.04) {
-            const cov = s.gore * (0.45 + 0.6 * coarse) * (0.35 + 0.65 * pool);
-            if (fine < cov) {
-              const wet = s.wet, tone = (fn >> 7) & 7;
-              let rr = tone <= 1 ? 12 + (fn % 14) : tone <= 4 ? 24 + (fn % 24) : 42 + (fn % 40);
-              rr = Math.round(rr * (0.55 + 0.45 * pool)); // meatier at the centre
-              let R = rr, G = Math.round(rr * (wet > 0.4 ? 0.08 : 0.17)), B = Math.round(rr * (wet > 0.4 ? 0.06 : 0.11));
-              let alpha = Math.min(0.96, (0.45 + 0.5 * pool) * (0.5 + 0.5 * wet)); // fresh bolder, dried fainter
-              if (wet > 0.6 && pool > 0.5 && (fn & 31) < 2) { R = 150 + (fn % 50); G = 54 + (fn % 24); B = 50; alpha = 0.9; } // wet glint
-              else if (wet < 0.3 && (fn & 31) === 0) { R = Math.round(R * 1.6 + 22); G = Math.round(G * 1.5 + 16); B = Math.round(B * 1.4 + 12); } // dried crust/dirt fleck
+            const edge = dens + (coarse - 0.5) * 0.4; // ragged organic boundary (not a clean circle)
+            if (edge > 0.05) {
+              const density = Math.min(1, edge) * Math.min(1, s.gore * 1.2);
+              const core = Math.min(1, density * 1.3), wet = s.wet;
+              let R = Math.round((wet > 0.4 ? 72 : 56) * core + 14);
+              let G = Math.round(R * (wet > 0.4 ? 0.1 : 0.2)), B = Math.round(R * (wet > 0.4 ? 0.07 : 0.13));
+              let alpha = Math.min(0.97, (0.42 + 0.52 * core) * (0.55 + 0.45 * wet));
+              if (wet > 0.6 && core > 0.6 && (fn & 63) < 2) { R = 160 + (fn % 40); G = 58 + (fn % 22); B = 52; alpha = 0.92; } // wet glint (accent)
+              else if (core > 0.78 && (fn & 31) === 0) { R = (R * 0.4) | 0; G = (G * 0.4) | 0; B = (B * 0.4) | 0; }            // dark clot (accent)
+              else if (wet < 0.3 && (fn & 63) === 0) { R += 26; G += 16; B += 10; }                                          // dried dirty fleck
               g.globalAlpha = alpha;
-              g.fillStyle = `rgb(${R},${G},${B})`;
+              g.fillStyle = `rgb(${R},${Math.max(0, G)},${Math.max(0, B)})`;
               g.fillRect(ax, ay, pu, pu);
             }
           }
 
-          // 3) CHAR — dry crusty burnt-in matter (NOT flat black). Fresh wet gore hides it (priority).
-          if (s.char > 0.05) {
-            const charVis = s.char * (1 - Math.min(1, s.wet * 1.3));
-            if (charVis > 0.05) {
-              const cov = charVis * (1 - dc * 0.4) * (0.5 + 0.6 * coarse);
-              if (fine < cov) {
-                const deg = charVis; let R: number, G: number, B: number;
-                if ((fn & 63) === 0 && deg > 0.5) { R = 70 + (fn % 60); G = 18 + (fn % 16); B = 6; }      // rare ember
-                else if ((fn & 15) === 0) { const a = 22 + (fn % 18); R = a; G = Math.round(a * 0.82); B = Math.round(a * 0.72); } // grey ash crust (dry texture)
-                else { const b = Math.max(3, Math.round(14 - 8 * deg) + (fn % 6)); R = b; G = Math.round(b * 0.7); B = Math.round(b * 0.55); } // deep char
-                g.globalAlpha = Math.min(0.95, 0.5 + 0.4 * deg);
-                g.fillStyle = `rgb(${R},${G},${B})`;
-                g.fillRect(ax, ay, pu, pu);
-              }
-            }
+          if (charVis > 0.06 && coarse < 0.52) { // dry crusty char texture over the char mass
+            let R: number, G: number, B: number;
+            if ((fn & 127) === 0 && charVis > 0.5) { R = 84 + (fn % 50); G = 22 + (fn % 14); B = 6; }                 // rare ember
+            else if (coarse < 0.15) { const a = 28 + (fn % 16); R = a; G = (a * 0.84) | 0; B = (a * 0.74) | 0; }      // pale ash crust
+            else { const b = Math.max(3, 8 + (fn % 6)); R = b; G = (b * 0.66) | 0; B = (b * 0.5) | 0; }               // deep char crack
+            g.globalAlpha = Math.min(0.82, 0.28 + 0.5 * charVis);
+            g.fillStyle = `rgb(${R},${G},${B})`;
+            g.fillRect(ax, ay, pu, pu);
+          } else if (!lobes && s.burn > 0.06 && coarse < 0.42) { // ragged scorch detail on bare burnt earth
+            const dk = s.burn, b = Math.round(28 - 22 * dk) + (fn & 5);
+            g.globalAlpha = Math.min(0.7, 0.2 + 0.4 * dk);
+            g.fillStyle = `rgb(${b},${(b * 0.7) | 0},${(b * 0.5) | 0})`;
+            g.fillRect(ax, ay, pu, pu);
           }
         }
       }
@@ -1553,6 +1590,7 @@ export class Renderer {
             const sd = this.surfAt(ci);
             sd.gore = Math.min(0.5, Math.max(sd.gore, dep));
             if (sd.wet < 0.25) sd.wet = 0.22; // reads as a dried smear, not a fresh pool
+            sd.sx = ux; sd.sy = uy; // smear DIRECTION -> render elongates the mass along the drag (mass transfer)
             this.bloodDirty = true;
           }
         }
