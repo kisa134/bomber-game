@@ -32,20 +32,15 @@
         <div id="topbar" class="topbar">
           <div class="hub-top">
             <div class="hub-brand">BomberMeme.fun</div>
-            <div class="hub-status">
+            <div class="hub-top-actions">
               <span id="player-stats" class="player-stats hidden">
-                <span class="stat-badge ratingb" title="Your rating — beat stronger players to climb">
-                  <span class="stat-cap">RATING</span><span id="rating-badge">🌱 1000</span>
-                </span>
                 <span class="stat-badge chips" title="Your free chips">
                   <span class="stat-cap">CHIPS</span>🪙 <span id="chip-amount">0</span>
                 </span>
               </span>
               <a id="token-badge" class="stat-badge token hidden" target="_blank" rel="noopener" title="Your token balance — tap to view on pump.fun">
-                <span class="stat-cap">BALANCE</span>💎 <span id="token-amount">0</span> <span id="token-ticker"></span><span id="token-usd" class="token-usd"></span>
+                <span class="stat-cap">$BGDF</span>💎 <span id="token-amount">0</span> <span id="token-ticker"></span><span id="token-usd" class="token-usd"></span>
               </a>
-            </div>
-            <div class="hub-top-actions">
               <button id="wallet-btn">🔗 Connect</button>
               <button id="open-settings" class="icon-btn" title="Settings">⚙</button>
               <button id="open-help" class="icon-btn" title="How to play / Как играть">❓</button>
@@ -94,57 +89,50 @@
       <!-- Home — main hub (the global status bar + XP live in #chrome above) -->
       <section id="menu" class="screen">
         <div class="hub hub-hero-layout">
-          <!-- Hero-centered: the character + the one dominant PLAY action -->
+          <!-- Hero-centered: character + passport = one cohesive unit -->
           <div class="hub-stage">
-            <div class="hub-brandline">
-              <span class="hub-logo logo">BomberMeme.fun</span>
-              <span class="tagline">blow up your friends · pump.fun arena</span>
-            </div>
-            <div class="hub-hero-stage">
-              <span class="hub-hero-ring"></span>
-              <span id="hub-hero-lvl" class="hub-hero-lvl"></span>
-              <img id="hub-hero-img" class="hub-hero-img" alt="" />
-            </div>
-            <input id="nickname" maxlength="16" placeholder="your nickname" autocomplete="off" />
-            <!-- Progression as part of the hero identity (slim, not a top techbar) -->
-            <div id="hub-progress" class="hub-progress hidden">
-              <div class="prog-row prog-rating">
-                <span id="hub-rank" class="rrk">🌱 Beginner</span>
-                <div class="ratebar"><div id="hub-ratefill" class="ratefill"></div></div>
-                <span id="hub-ratetext" class="ratetext"></span>
+            <div class="hero-unit">
+              <div class="hub-hero-stage">
+                <span class="hub-spot" aria-hidden="true"></span>
+                <img id="hub-hero-img" class="hub-hero-img" alt="" />
               </div>
-              <div class="prog-row prog-level">
-                <span class="lvl">LV <span id="hub-level">1</span></span>
-                <div class="xpbar"><div id="hub-xpfill" class="xpfill"></div></div>
-                <span id="hub-xptext" class="xptext"></span>
+              <!-- Hero passport: anchored to the character's feet -->
+              <div class="hero-passport">
+                <div class="passport-top">
+                  <input id="nickname" class="passport-name" maxlength="16" placeholder="your nickname" autocomplete="off" />
+                  <span class="passport-lv">LV <span id="hub-level">1</span></span>
+                </div>
+                <div id="hub-progress" class="passport-track hidden">
+                  <span id="hub-rank" class="rrk">🌱 Beginner</span>
+                  <div class="ratebar"><div id="hub-ratefill" class="ratefill"></div></div>
+                  <span id="hub-ratetext" class="ratetext"></span>
+                </div>
               </div>
             </div>
-            <button id="open-play" class="primary big hub-play">🌐 PLAY ONLINE</button>
-            <button id="open-practice" class="hub-practice-link">🤖 or practice vs bots →</button>
+
+            <button id="open-play" class="primary hub-play">🌐 PLAY ONLINE</button>
+            <button id="open-practice" class="hub-practice-link">or practice vs bots →</button>
             <p id="menu-status" class="status"></p>
           </div>
 
-          <!-- One collected bottom navigation layer: teaser chips + utility dock -->
-          <div class="hub-bottom">
+          <!-- Footer: teasers bottom-left · utility dock bottom-right -->
+          <div class="hub-footer">
             <div class="hub-teasers">
               <div class="hub-chip hub-chip-static">
-                <span class="chip-k">★ Season 1</span>
-                <span class="chip-v">soon</span>
+                <span class="chip-k">★ Season 1</span><span class="chip-v">soon</span>
               </div>
               <button id="open-leaderboard" class="hub-chip">
-                <span class="chip-k">🏆 Leaderboard</span>
-                <span class="chip-v">Top players →</span>
+                <span class="chip-k">🏆 Leaderboard</span><span class="chip-v">Top →</span>
               </button>
               <button id="hub-friends" class="hub-chip">
-                <span class="chip-k">👥 Friends <span id="hub-friends-count" class="friends-count"></span></span>
-                <span id="hub-friends-sub" class="chip-v">add &amp; play together</span>
+                <span class="chip-k">👥 Friends <span id="hub-friends-count" class="friends-count"></span></span><span id="hub-friends-sub" class="chip-v">online</span>
               </button>
             </div>
             <div class="hub-dock">
-              <button id="open-profile" class="hub-dock-btn"><span class="dock-ic">👤</span>Profile</button>
-              <button id="open-shop" class="hub-dock-btn"><span class="dock-ic">🛒</span>Shop</button>
-              <button id="open-wheel" class="hub-dock-btn"><span class="dock-ic">🎰</span>Spin</button>
-              <button id="open-referral" class="hub-dock-btn"><span class="dock-ic">👥</span>Invite</button>
+              <button id="open-profile" class="hub-dock-btn" title="Profile"><span class="dock-ic">👤</span><span class="dock-l">Profile</span></button>
+              <button id="open-shop" class="hub-dock-btn" title="Shop"><span class="dock-ic">🛒</span><span class="dock-l">Shop</span></button>
+              <button id="open-wheel" class="hub-dock-btn" title="Spin"><span class="dock-ic">🎰</span><span class="dock-l">Spin</span></button>
+              <button id="open-referral" class="hub-dock-btn" title="Invite"><span class="dock-ic">👥</span><span class="dock-l">Invite</span></button>
             </div>
           </div>
         </div>
