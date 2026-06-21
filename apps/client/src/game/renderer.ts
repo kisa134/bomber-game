@@ -575,7 +575,7 @@ export class Renderer {
       const proxC = prox * prox; // SQUARED -> dramatic centre-dark / edge-faint gradient
       // GRADUAL scorch: one blast only lightly darkens; the centre builds far faster than the
       // rim, so repeated blasts on one spot deepen it to black (centre first).
-      const add = (0.7 + 0.7 * power) * proxC;
+      const add = (1.4 + 1.4 * power) * proxC; // ~3 blasts on one spot -> full-black scorch at the centre
       this.burn.set(idx, Math.min(8, (this.burn.get(idx) ?? 0) + add));
       this.scorchDirty = true;
       // A blast BURNS blood to charcoal — by the SAME falloff (centre = full char, edge partial).
@@ -593,7 +593,7 @@ export class Renderer {
           // SLOW GRADUAL bake over 6 stages: each blast ADVANCES the char (it doesn't jump to
           // full). Centre advances ~2.5x faster than the rim -> a smooth gradient from the
           // epicentre, and ~3 blasts to reach full charcoal at the centre.
-          const adv = (0.12 + 0.4 * power) * proxC; // gradual char, SAME dramatic centre->edge gradient as the scorch
+          const adv = (3 + 2.5 * power) * proxC; // ~3 blasts -> full blood charcoal at the centre (matches the scorch), same gradient
           this.bakedBlood.set(idx, Math.min(12, (this.bakedBlood.get(idx) ?? 0) + adv));
           this.bloodDirty = true;
         }
