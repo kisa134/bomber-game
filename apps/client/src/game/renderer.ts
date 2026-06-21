@@ -56,7 +56,7 @@ const DEATH_MS = 650;
 // Block-blood face bits (which side of a block the blood hit).
 const BF_N = 1, BF_S = 2, BF_E = 4, BF_W = 8;
 const MAX_PARTICLES = 520;
-const SURF_DRY_MS = 1400; // how often the surface "wet" (freshness) dries a step toward 0 (stain stays)
+const SURF_DRY_MS = 2600; // how often the surface "wet" (freshness) dries a step (slow -> fresh red lingers, smearable window is long)
 const LIGHT_LIFE = 460; // ms an explosion light source blooms + fades
 
 interface Particle {
@@ -780,7 +780,7 @@ export class Renderer {
     this.surfDryAt = now;
     let changed = false;
     for (const s of this.surf.values()) {
-      if (s.wet > 0.02) { s.wet *= 0.8; changed = true; } // gloss -> matte -> dry stain
+      if (s.wet > 0.02) { s.wet *= 0.85; changed = true; } // gloss -> matte -> dry stain (gentle)
     }
     if (changed) this.bloodDirty = true;
   }
@@ -871,8 +871,9 @@ export class Renderer {
             if (edge > 0.05) {
               const density = Math.min(1, edge) * Math.min(1, s.gore * 1.2);
               const core = Math.min(1, density * 1.3), wet = s.wet;
-              let R = Math.round((wet > 0.4 ? 72 : 56) * core + 14);
-              let G = Math.round(R * (wet > 0.4 ? 0.1 : 0.2)), B = Math.round(R * (wet > 0.4 ? 0.07 : 0.13));
+              // fresh (wet) = bright clear red; dragged (mid wet) = mid red; dried = dark brown-maroon
+              let R = Math.round((40 + 90 * wet) * core + 16);
+              let G = Math.round(R * (0.1 + 0.12 * (1 - wet))), B = Math.round(R * (0.07 + 0.06 * (1 - wet)));
               let alpha = Math.min(0.97, (0.42 + 0.52 * core) * (0.55 + 0.45 * wet));
               if (wet > 0.6 && core > 0.6 && (fn & 63) < 2) { R = 160 + (fn % 40); G = 58 + (fn % 22); B = 52; alpha = 0.92; } // wet glint (accent)
               else if (core > 0.78 && (fn & 31) === 0) { R = (R * 0.4) | 0; G = (G * 0.4) | 0; B = (B * 0.4) | 0; }            // dark clot (accent)
@@ -1567,9 +1568,9 @@ export class Renderer {
           // §B TRANSFER: step into WET gore -> feet pick it up and the epicentre DEPLETES
           // (blood is carried away, not created). Then it's dragged out as a thinning trail.
           const here = this.surf.get(ci);
-          if (here && here.gore > 0.18 && here.wet > 0.35) {
+          if (here && here.gore > 0.12 && here.wet > 0.25) {
             this.bloodyFeet.set(p.id, 9);
-            here.gore *= 0.8; // tracked away from the pool (feel-based, so the epicentre thins out)
+            here.gore *= 0.78; // visibly tracked away -> the epicentre thins as blood is dragged out
             this.bloodDirty = true;
           }
           const feet = this.bloodyFeet.get(p.id) ?? 0;
@@ -1589,10 +1590,10 @@ export class Renderer {
             // Lay a THIN, LOW-WET (dried/dull, never bright) smear of the CARRIED blood onto
             // the trail — transfer of existing gore, thinning out. Dull -> can't read as a
             // bright carpet; it's worn patina (spec). wet kept low so it renders as a stain.
-            const dep = 0.18 * (feet / 9);
+            const dep = 0.16 + 0.22 * (feet / 9); // thicker near the pool, thinning toward the end
             const sd = this.surfAt(ci);
-            sd.gore = Math.min(0.5, Math.max(sd.gore, dep));
-            if (sd.wet < 0.25) sd.wet = 0.22; // reads as a dried smear, not a fresh pool
+            sd.gore = Math.min(0.6, Math.max(sd.gore, dep));
+            sd.wet = Math.max(sd.wet, 0.2 + 0.45 * (feet / 9)); // stays RED while dragged (visible transfer), dries after
             sd.sx = ux; sd.sy = uy; // smear DIRECTION -> render elongates the mass along the drag (mass transfer)
             this.bloodDirty = true;
           }
