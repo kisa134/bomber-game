@@ -918,18 +918,20 @@ export class Renderer {
             }
           }
 
-          if (charVis > 0.06 && coarse < 0.52) { // dry crusty char texture over the char mass
+          // DETAIL = sparse FINE grain (per-pixel, not big coarse blocks) over the smooth
+          // radial gradient base -> burnt earth reads smooth, with just a hint of texture.
+          if (charVis > 0.06 && (fn & 7) === 0) { // occasional crusty char fleck
             let R: number, G: number, B: number;
-            if ((fn & 127) === 0 && charVis > 0.5) { R = 84 + (fn % 50); G = 22 + (fn % 14); B = 6; }                 // rare ember
-            else if (coarse < 0.15) { const a = 28 + (fn % 16); R = a; G = (a * 0.84) | 0; B = (a * 0.74) | 0; }      // pale ash crust
-            else { const b = Math.max(3, 8 + (fn % 6)); R = b; G = (b * 0.66) | 0; B = (b * 0.5) | 0; }               // deep char crack
-            g.globalAlpha = Math.min(0.82, 0.28 + 0.5 * charVis);
+            if ((fn & 255) === 0 && charVis > 0.5) { R = 84 + (fn % 50); G = 22 + (fn % 14); B = 6; }       // rare ember
+            else if ((fn & 31) === 0) { const a = 26 + (fn % 14); R = a; G = (a * 0.84) | 0; B = (a * 0.74) | 0; } // ash fleck
+            else { const b = Math.max(3, 7 + (fn % 5)); R = b; G = (b * 0.66) | 0; B = (b * 0.5) | 0; }     // char speck
+            g.globalAlpha = Math.min(0.65, 0.22 + 0.4 * charVis);
             g.fillStyle = `rgb(${R},${G},${B})`;
             g.fillRect(ax, ay, pu, pu);
-          } else if (!lobes && s.burn > 0.06 && coarse < 0.42) { // ragged scorch detail on bare burnt earth
-            const dk = s.burn, b = Math.round(28 - 22 * dk) + (fn & 5);
-            g.globalAlpha = Math.min(0.7, 0.2 + 0.4 * dk);
-            g.fillStyle = `rgb(${b},${(b * 0.7) | 0},${(b * 0.5) | 0})`;
+          } else if (!lobes && s.burn > 0.06 && (fn & 7) < 2) { // sparse fine scorch grain
+            const dk = s.burn, b = Math.round(26 - 20 * dk) + (fn & 4);
+            g.globalAlpha = Math.min(0.5, 0.14 + 0.3 * dk);
+            g.fillStyle = `rgb(${b},${(b * 0.74) | 0},${(b * 0.6) | 0})`;
             g.fillRect(ax, ay, pu, pu);
           }
         }
