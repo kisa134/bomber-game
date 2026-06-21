@@ -151,6 +151,8 @@ export class Renderer {
   private bones: Array<{ x: number; y: number; seed: number }> = []; // scattered bone-shard decals (x,y in cells)
   private meat: Array<{ x: number; y: number; seed: number }> = []; // scattered flesh-chunk decals (x,y in cells)
   private organs: Array<{ x: number; y: number; seed: number }> = []; // intestine coils / organ decals (x,y in cells)
+  private skulls: Array<{ x: number; y: number; seed: number }> = []; // skull decals (x,y in cells)
+  private brains: Array<{ x: number; y: number; seed: number }> = []; // brain decals (x,y in cells)
   // Floating reward/event popups that pop in with ease-out-back/elastic, rise, fade.
   private floaters: Array<{ x: number; y: number; text: string; color: string; born: number; big: boolean }> = [];
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
@@ -346,6 +348,8 @@ export class Renderer {
     this.bones = [];
     this.meat = [];
     this.organs = [];
+    this.skulls = [];
+    this.brains = [];
     this.chips = [];
     this.floaters = [];
     this.danger = 0;
@@ -743,9 +747,24 @@ export class Renderer {
       if (ox2 < 0.2 || oy2 < 0.2 || ox2 > GRID_W - 0.2 || oy2 > GRID_H - 0.2 || onBlock(ox2, oy2)) continue;
       this.organs.push({ x: ox2, y: oy2, seed: (Math.random() * 0xffffffff) >>> 0 });
     }
-    if (this.bones.length > 170) this.bones.splice(0, this.bones.length - 170);
-    if (this.meat.length > 150) this.meat.splice(0, this.meat.length - 150);
-    if (this.organs.length > 80) this.organs.splice(0, this.organs.length - 80);
+    // A skull near the kill (usually 1, sometimes 2) + a brain or two.
+    for (let i = 0; i < 1 + ((Math.random() < 0.4 ? 1 : 0)); i++) {
+      const sx = cx + 0.5 + (Math.random() - 0.5) * 2.4, sy = cy + 0.5 + (Math.random() - 0.5) * 2.4;
+      if (sx < 0.2 || sy < 0.2 || sx > GRID_W - 0.2 || sy > GRID_H - 0.2 || onBlock(sx, sy)) continue;
+      this.skulls.push({ x: sx, y: sy, seed: (Math.random() * 0xffffffff) >>> 0 });
+    }
+    for (let i = 0; i < 1 + ((Math.random() * 2) | 0); i++) {
+      const bx2 = cx + 0.5 + (Math.random() - 0.5) * 2.2, by2 = cy + 0.5 + (Math.random() - 0.5) * 2.2;
+      if (bx2 < 0.2 || by2 < 0.2 || bx2 > GRID_W - 0.2 || by2 > GRID_H - 0.2 || onBlock(bx2, by2)) continue;
+      this.brains.push({ x: bx2, y: by2, seed: (Math.random() * 0xffffffff) >>> 0 });
+    }
+    // High perf-safety ceilings only (so thousands of decals never lag) — far above what a
+    // match produces, so in practice the gore just piles up uncapped.
+    if (this.bones.length > 400) this.bones.splice(0, this.bones.length - 400);
+    if (this.meat.length > 400) this.meat.splice(0, this.meat.length - 400);
+    if (this.organs.length > 240) this.organs.splice(0, this.organs.length - 240);
+    if (this.skulls.length > 160) this.skulls.splice(0, this.skulls.length - 160);
+    if (this.brains.length > 160) this.brains.splice(0, this.brains.length - 160);
     this.bloodDirty = true; // bones + meat + organs live in the cached blood overlay
     if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
@@ -798,7 +817,7 @@ export class Renderer {
     // Cap blood coverage so a long respawn match can't speckle the whole map ("blood rain").
     // At the cap, drop the FAINTEST existing speck (never a fresh pool, never charred) — only
     // stuff that's already nearly invisible — so a handful of recent pools stay, no rain.
-    if (!this.bloodGround.has(index) && this.bloodGround.size >= 44) {
+    if (!this.bloodGround.has(index) && this.bloodGround.size >= 110) { // raised way up -> blood piles up freely (still short of the whole 187-tile map)
       let minIdx = -1, minLvl = 99;
       for (const [k, v] of this.bloodGround) {
         if ((this.bakedBlood.get(k) ?? 0) > 0) continue; // keep charred patches
@@ -878,8 +897,10 @@ export class Renderer {
     for (const ch of this.chips) this.drawChip(g, ch, pu); // wood splinters (under gore)
     for (const fp of this.footprints) this.drawFoot(g, fp, pu); // smears on top
     for (const o of this.organs) this.drawOrgan(g, o, pu); // intestine coils / organs (under the chunks)
+    for (const br of this.brains) this.drawBrain(g, br, pu); // brains (soft tissue)
     for (const mt of this.meat) this.drawMeat(g, mt, pu); // flesh chunks
     for (const b of this.bones) this.drawBone(g, b, pu); // bone shards on top
+    for (const sk of this.skulls) this.drawSkull(g, sk, pu); // skulls on top
     g.globalAlpha = 1;
     this.bloodCanvas = cv;
   }
@@ -1074,6 +1095,67 @@ export class Renderer {
     }
     g.fillStyle = "#ffd6e2"; // wet glints along the coil
     for (let i = 0; i < pts.length; i += 2) { const [bx, by] = pts[i]; g.fillRect(Math.round((bx - rad * 0.3) / pu) * pu, Math.round((by - rad * 0.45) / pu) * pu, pu, pu); }
+  }
+
+  /** A severed head / skull: a bone-white cranium with two dark eye sockets, a nasal hole
+   *  and a little tooth row. Soft shadow under it. */
+  private drawSkull(g: CanvasRenderingContext2D, k: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const cx = k.x * t, cy = k.y * t;
+    let s = k.seed >>> 0;
+    const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
+    const rx = t * (0.07 + rnd() * 0.015), ry = rx * 1.12; // a touch taller than wide
+    g.globalAlpha = 0.3; g.fillStyle = "#000000"; // shadow
+    for (let yy = -ry; yy <= ry; yy += pu) for (let xx = -rx; xx <= rx; xx += pu) {
+      if ((xx * xx) / (rx * rx) + (yy * yy) / (ry * ry) > 1) continue;
+      g.fillRect(Math.round((cx + xx + pu) / pu) * pu, Math.round((cy + yy + pu * 1.6) / pu) * pu, pu, pu);
+    }
+    g.globalAlpha = 1;
+    const bw = 214 + (s % 26); // bone white
+    for (let yy = -ry; yy <= ry; yy += pu) for (let xx = -rx; xx <= rx; xx += pu) {
+      if ((xx * xx) / (rx * rx) + (yy * yy) / (ry * ry) > 1) continue;
+      const lit = yy < -ry * 0.15 ? 0 : 18; // slight shading on the lower half
+      g.fillStyle = `rgb(${bw - lit},${bw - 10 - lit},${bw - 34 - lit})`;
+      g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + yy) / pu) * pu, pu, pu);
+    }
+    // eye sockets (two dark hollows) + nasal hole
+    g.fillStyle = "#15100c";
+    const ew = rx * 0.34, eh = ry * 0.3, eox = rx * 0.42, eoy = -ry * 0.08;
+    for (const sgn of [-1, 1]) for (let yy = -eh; yy <= eh; yy += pu) for (let xx = -ew; xx <= ew; xx += pu) {
+      if ((xx * xx) / (ew * ew) + (yy * yy) / (eh * eh) > 1) continue;
+      g.fillRect(Math.round((cx + sgn * eox + xx) / pu) * pu, Math.round((cy + eoy + yy) / pu) * pu, pu, pu);
+    }
+    g.fillRect(Math.round((cx - pu / 2) / pu) * pu, Math.round((cy + ry * 0.28) / pu) * pu, pu, Math.max(pu, Math.round(ry * 0.22))); // nasal
+    // tooth row
+    g.fillStyle = `rgb(${bw},${bw - 6},${bw - 24})`;
+    for (let xx = -rx * 0.5; xx <= rx * 0.5; xx += pu * 2) g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + ry * 0.62) / pu) * pu, pu, pu);
+  }
+
+  /** A spilled brain: a pinkish-grey blob with two hemispheres, a central groove and a few
+   *  wrinkle folds, glossy on top. */
+  private drawBrain(g: CanvasRenderingContext2D, b: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const cx = b.x * t, cy = b.y * t;
+    let s = b.seed >>> 0;
+    const rnd = (): number => { s = (s ^ (s << 13)) >>> 0; s = (s ^ (s >>> 17)) >>> 0; s = (s ^ (s << 5)) >>> 0; return (s & 1023) / 1023; };
+    const rx = t * (0.07 + rnd() * 0.018), ry = t * (0.058 + rnd() * 0.014);
+    g.globalAlpha = 0.26; g.fillStyle = "#000000"; // shadow
+    for (let yy = -ry; yy <= ry; yy += pu) for (let xx = -rx; xx <= rx; xx += pu) {
+      if ((xx * xx) / (rx * rx) + (yy * yy) / (ry * ry) > 1) continue;
+      g.fillRect(Math.round((cx + xx + pu) / pu) * pu, Math.round((cy + yy + pu * 1.4) / pu) * pu, pu, pu);
+    }
+    g.globalAlpha = 1;
+    const base = 196 + (s % 28); // pinkish grey
+    for (let yy = -ry; yy <= ry; yy += pu) for (let xx = -rx; xx <= rx; xx += pu) {
+      if ((xx * xx) / (rx * rx) + (yy * yy) / (ry * ry) > 1) continue;
+      const top = yy < -ry * 0.2;
+      g.fillStyle = top ? `rgb(${base},${(base * 0.72) | 0},${(base * 0.74) | 0})` : `rgb(${(base * 0.72) | 0},${(base * 0.42) | 0},${(base * 0.44) | 0})`;
+      g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + yy) / pu) * pu, pu, pu);
+    }
+    g.fillStyle = `rgb(${(base * 0.5) | 0},${(base * 0.28) | 0},${(base * 0.3) | 0})`; // central groove + wrinkle folds
+    for (let yy = -ry * 0.9; yy <= ry * 0.9; yy += pu) g.fillRect(Math.round((cx + Math.sin(yy * 0.4) * rx * 0.12) / pu) * pu, Math.round((cy + yy) / pu) * pu, pu, pu);
+    for (let k2 = 0; k2 < 3; k2++) { const wy = (rnd() - 0.5) * ry * 1.2; for (let xx = -rx * 0.7; xx <= rx * 0.7; xx += pu) g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + wy + Math.sin(xx * 0.5) * pu) / pu) * pu, pu, pu); }
+    g.fillStyle = "#ffe0e6"; g.fillRect(Math.round((cx - rx * 0.3) / pu) * pu, Math.round((cy - ry * 0.4) / pu) * pu, pu, pu); // glint
   }
 
   /** A small scattered bone shard: a bone-white shaft with knobby ends and a soft
