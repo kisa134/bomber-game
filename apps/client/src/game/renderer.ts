@@ -806,7 +806,7 @@ export class Renderer {
     const now = performance.now();
     // THROTTLE rebuilds: the surface canvas is expensive, and footsteps/blasts can dirty it
     // every frame. Coalesce into at most ~1 rebuild / 70ms (ground decals don't need 60fps).
-    if (sizeChanged || (this.bloodDirty && now - this.surfBuiltAt > 70)) {
+    if (sizeChanged || (this.bloodDirty && now - this.surfBuiltAt > 95)) {
       this.surfBuiltAt = now;
       this.buildBloodGround(W, H);
     }
@@ -837,29 +837,19 @@ export class Renderer {
       const rnd = (): number => { seed = (seed ^ (seed << 13)) >>> 0; seed = (seed ^ (seed >>> 17)) >>> 0; seed = (seed ^ (seed << 5)) >>> 0; return (seed & 0xffff) / 0xffff; };
       const charVis = s.char * (1 - Math.min(1, s.wet * 1.3)); // wet fresh blood keeps top priority over char
 
-      // (1) WHOLE-TILE BASE MASS — darken the cell as one burnt mass, but as a RADIAL gradient
-      // (darkest in the middle, softer at the edges). This smooths tile-to-tile seams so a
-      // multi-cell blast reads as ONE continuous crater gradient, not stepped flat squares.
+      // (1) WHOLE-TILE BASE MASS — darken the cell as one burnt mass (cheap flat fill; the
+      // crater gradient still comes from the cell-to-cell burn falloff). No per-cell radial
+      // gradients — those were expensive and stuttered after a big blast.
       if (s.burn > 0.06) {
-        const dk = s.burn, bb = Math.round(30 - 26 * dk); // deeper range: 30 (faint) -> 4 (near-black)
-        const aCore = Math.min(0.94, 0.2 + 0.74 * dk);    // wider alpha range -> more visible stages
-        const grad = g.createRadialGradient(ox + t / 2, oy + t / 2, 0, ox + t / 2, oy + t / 2, t * 0.72);
-        grad.addColorStop(0, `rgba(${bb},${(bb * 0.82) | 0},${(bb * 0.74) | 0},${aCore})`);
-        grad.addColorStop(0.7, `rgba(${bb + 4},${((bb + 4) * 0.82) | 0},${((bb + 4) * 0.74) | 0},${aCore * 0.7})`);
-        grad.addColorStop(1, `rgba(${bb + 8},${((bb + 8) * 0.82) | 0},${((bb + 8) * 0.74) | 0},${aCore * 0.32})`);
-        g.globalAlpha = 1;
-        g.fillStyle = grad;
+        const dk = s.burn, bb = Math.round(30 - 26 * dk); // 30 (faint) -> 4 (near-black)
+        g.globalAlpha = Math.min(0.92, 0.22 + 0.68 * dk);
+        g.fillStyle = `rgb(${bb},${(bb * 0.82) | 0},${(bb * 0.74) | 0})`;
         g.fillRect(ox, oy, t, t);
       }
       if (charVis > 0.06) {
         const cb = Math.max(3, Math.round(15 - 11 * charVis));
-        const aC = Math.min(0.97, 0.34 + 0.62 * charVis);
-        const cg = g.createRadialGradient(ox + t / 2, oy + t / 2, 0, ox + t / 2, oy + t / 2, t * 0.72);
-        cg.addColorStop(0, `rgba(${cb},${(cb * 0.8) | 0},${(cb * 0.72) | 0},${aC})`);
-        cg.addColorStop(0.7, `rgba(${cb + 3},${((cb + 3) * 0.8) | 0},${((cb + 3) * 0.72) | 0},${aC * 0.72})`);
-        cg.addColorStop(1, `rgba(${cb + 6},${((cb + 6) * 0.8) | 0},${((cb + 6) * 0.72) | 0},${aC * 0.34})`);
-        g.globalAlpha = 1;
-        g.fillStyle = cg;
+        g.globalAlpha = Math.min(0.96, 0.36 + 0.58 * charVis);
+        g.fillStyle = `rgb(${cb},${(cb * 0.8) | 0},${(cb * 0.72) | 0})`;
         g.fillRect(ox, oy, t, t);
       }
 
