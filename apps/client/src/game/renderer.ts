@@ -1125,65 +1125,63 @@ export class Renderer {
     // Per-block variation so each bloodied block looks DIFFERENT (no uniform pool).
     const sv = ((m.seed >>> 8) & 1023) / 1023;
 
-    // TOP-face spatter — irregular scattered specks, varied amount & spread per
-    // block, emanating from the centre. No solid central pool.
+    // This draws ON TOP of the baked blood sprite, so it's deliberately SUBTLE — a few
+    // fresh specks up top + thin runs down the front. It must read as "fresh spatter
+    // that just landed", never as opaque pools.
+
+    // TOP-face spatter — a handful of small fresh specks near the top face.
     const topStrong = m.dirs & BF_N ? 1 : 0.6;
-    const topBlobs = Math.round((7 + n * 5) * topStrong * (0.5 + sv * 1.1));
-    const topR = t * (0.24 + n * 0.07 + sv * 0.12);
+    const topBlobs = Math.round((3 + n * 2) * topStrong * (0.5 + sv * 0.8));
+    const topR = t * (0.22 + n * 0.05 + sv * 0.1);
     for (let i = 0; i < topBlobs; i++) {
       const ang = rnd() * Math.PI * 2;
       const dist = Math.sqrt(rnd()) * topR;
       const bx = cxp + Math.cos(ang) * dist;
-      const by = py + t * 0.2 + Math.sin(ang) * dist * 0.55;
-      const sz = pu * (1 + Math.floor(rnd() * 2.6));
-      ctx.fillStyle = reds[(rnd() * reds.length) | 0];
+      const by = py + t * 0.18 + Math.sin(ang) * dist * 0.5;
+      const sz = pu * (1 + Math.floor(rnd() * 1.8));
+      ctx.globalAlpha = 0.55 + rnd() * 0.35;
+      ctx.fillStyle = reds[1 + ((rnd() * 4) | 0)];
       ctx.fillRect(Math.round((bx - sz / 2) / pu) * pu, Math.round((by - sz / 2) / pu) * pu, sz, sz);
     }
-    // Cast-off spines — only on SOME blocks, varied count (signature of spatter).
-    if (sv > 0.4) {
-      const spines = 2 + Math.round(sv * 5);
+    // Cast-off spines — only on some blocks, thin flick marks off the top.
+    if (sv > 0.5) {
+      const spines = 1 + Math.round(sv * 3);
       for (let i = 0; i < spines; i++) {
         const ang = rnd() * Math.PI * 2;
-        const reach = topR * (0.7 + rnd() * 0.7);
+        const reach = topR * (0.6 + rnd() * 0.6);
         const wob = (rnd() - 0.5) * 0.25;
+        ctx.globalAlpha = 0.6;
         ctx.fillStyle = reds[2 + ((rnd() * 3) | 0)];
         for (let sdist = topR * 0.25; sdist < reach; sdist += pu) {
           const aa = ang + wob * (sdist / reach);
-          const sx = cxp + Math.cos(aa) * sdist, sy = py + t * 0.2 + Math.sin(aa) * sdist * 0.55;
+          const sx = cxp + Math.cos(aa) * sdist, sy = py + t * 0.18 + Math.sin(aa) * sdist * 0.5;
           ctx.fillRect(Math.round(sx / pu) * pu, Math.round(sy / pu) * pu, pu, pu);
         }
-        const ex = cxp + Math.cos(ang + wob) * reach, ey = py + t * 0.2 + Math.sin(ang + wob) * reach * 0.55;
-        ctx.fillRect(Math.round((ex - pu) / pu) * pu, Math.round((ey - pu) / pu) * pu, pu * 2, pu * 2);
       }
     }
-    // FRONT-face drips: blood oozes DOWN the front face over time, bead-headed runs,
-    // varied per block, staying within the block. NO pool forms on the ground below.
+    // FRONT-face drips: THIN runs that ooze down and TAPER to nothing — no bottom bead,
+    // semi-transparent so they sit as streaks over the baked blood, never as a pool.
     const frontStrong = m.dirs & BF_S ? 1 : 0.55;
-    const wantDrips = (m.dirs & BF_S) !== 0 || sv > 0.5;
-    const drips = wantDrips ? Math.max(1, Math.round((1 + n * 1.1) * (0.5 + frontStrong) * (0.6 + sv * 0.6))) : 0;
+    const wantDrips = (m.dirs & BF_S) !== 0 || sv > 0.55;
+    const drips = wantDrips ? Math.max(1, Math.round((0.6 + n * 0.7) * (0.5 + frontStrong))) : 0;
     const now = performance.now();
     for (let d = 0; d < drips; d++) {
-      const dx = cxp + (rnd() - 0.5) * t * 0.66;
-      const top = py + t * 0.36; // start at the top/front-face boundary
-      const maxLen = t * (0.16 + rnd() * 0.4 * frontStrong); // stays within the front face
-      const delay = rnd() * 700, grow = 1400 + rnd() * 1500;
+      const dx = cxp + (rnd() - 0.5) * t * 0.6;
+      const top = py + t * 0.4; // start below the top/front-face boundary
+      const maxLen = t * (0.12 + rnd() * 0.3 * frontStrong); // stays within the front face
+      const delay = rnd() * 700, grow = 1500 + rnd() * 1500;
       const prog = Math.max(0, Math.min(1, (now - m.born - delay) / grow));
       const len = maxLen * (1 - (1 - prog) * (1 - prog)); // ease-out grow
-      const w = pu * (1 + Math.floor(rnd() * 1.3));
-      ctx.fillStyle = reds[1 + ((rnd() * 3) | 0)];
-      for (let y = 0; y < len; y += pu) { // thin at top, a touch wider toward the bottom
-        const ww = Math.max(pu, Math.round((w * (0.5 + 0.5 * (y / Math.max(pu, len)))) / pu) * pu);
+      const shade = reds[1 + ((rnd() * 2) | 0)];
+      for (let y = 0; y < len; y += pu) {
+        const frac = y / Math.max(pu, len);
+        const ww = frac < 0.45 ? pu * 2 : pu; // a touch wider near the top, 1px lower down
+        ctx.globalAlpha = 0.5 * (1 - frac * 0.85); // fades toward the tip -> dissolves, no bead
+        ctx.fillStyle = shade;
         ctx.fillRect(Math.round((dx - ww / 2) / pu) * pu, Math.round((top + y) / pu) * pu, ww, pu);
       }
-      if (len > pu * 2) { // heavy rounded bead at the bottom of the run
-        ctx.fillStyle = reds[0];
-        const bw = w + pu, bh = pu * 1.4;
-        for (let yy = -pu; yy <= bh; yy += pu) for (let xx = -bw; xx <= bw; xx += pu) {
-          if ((xx * xx) / (bw * bw) + (yy * yy) / (bh * bh) > 1) continue;
-          ctx.fillRect(Math.round((dx + xx) / pu) * pu, Math.round((top + len + yy) / pu) * pu, pu, pu);
-        }
-      }
     }
+    ctx.globalAlpha = 1;
   }
 
   /** FIRST BLOOD announcement (first kill of the match). Builds the chunky pixel
