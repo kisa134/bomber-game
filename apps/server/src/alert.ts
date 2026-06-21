@@ -11,8 +11,22 @@ const WEBHOOK = process.env.ALERT_WEBHOOK ?? "";
 const THROTTLE_MS = 60_000;
 const lastSent = new Map<string, number>(); // de-dupe identical alerts
 
+// In-process error tally + ring buffer, surfaced in the admin control centre so
+// ops (and the AI analyst) can see failure volume at a glance.
+let totalAlerts = 0;
+const recent: Array<{ t: number; msg: string }> = [];
+export function alertCount(): number {
+  return totalAlerts;
+}
+export function recentAlerts(n = 20): Array<{ t: number; msg: string }> {
+  return recent.slice(-n).reverse();
+}
+
 export function alert(msg: string, key = msg): void {
   console.error("[ALERT]", msg);
+  totalAlerts += 1;
+  recent.push({ t: Date.now(), msg });
+  if (recent.length > 50) recent.shift();
   try {
     logEvent("🚨", msg);
   } catch {

@@ -9,7 +9,8 @@ import { handleTgUpdate, tgWebhookSecretOk, setupTelegramBot } from "./tgbot.js"
 import { analytics } from "./analytics.js";
 import { REFERRAL_LEVEL_BPS } from "./referral.js";
 import { logEvent, recentEvents, shortWallet } from "./events.js";
-import { alert } from "./alert.js";
+import { alert, alertCount, recentAlerts } from "./alert.js";
+import { aiAnalyze } from "./ai.js";
 import { metrics } from "./metrics.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
@@ -166,6 +167,26 @@ const WS_BURST = 200;
 // floods. Tunable via WS_MAX_PER_IP.
 const WS_MAX_PER_IP = Number(process.env.WS_MAX_PER_IP) || 12;
 const wsConnsByIp = new Map<string, number>();
+function totalWsConns(): number {
+  let n = 0;
+  for (const c of wsConnsByIp.values()) n += c;
+  return n;
+}
+/** Technical health for the admin control centre (memory, uptime, errors, WS). */
+function systemHealth(): Record<string, unknown> {
+  const mem = process.memoryUsage();
+  return {
+    uptimeMs: Math.round(process.uptime() * 1000),
+    rssMb: Math.round(mem.rss / 1048576),
+    heapUsedMb: Math.round(mem.heapUsed / 1048576),
+    errors: alertCount(),
+    recentErrors: recentAlerts(8),
+    wsConns: totalWsConns(),
+    ipsConnected: wsConnsByIp.size,
+    node: process.version,
+    store: store.kind,
+  };
+}
 
 setInterval(() => {
   const now = Date.now();
@@ -504,6 +525,7 @@ app.get("/admin/stats", (res, req) => {
         load: mm.load,
         totals: analytics.snapshot(),
         store: store.kind,
+        system: systemHealth(),
         embedUrl: POSTHOG_EMBED_URL,
         gaUrl: GA_DASHBOARD_URL,
         gaEmbedUrl: GA_EMBED_URL,
@@ -533,6 +555,48 @@ app.get("/admin/stats", (res, req) => {
       });
     })
     .catch(() => sendJson(res, { error: "stats_failed" }, "500 Internal Server Error"));
+});
+
+// AI analyst — unified snapshot (business + game + technical) → LLM brief.
+app.post("/admin/ai-analyze", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  void (async () => {
+    try {
+      const [top, ref, econ] = await Promise.all([
+        store.leaderboard(5, "rating"),
+        store.referralOverview(10, REFERRAL_ROOT),
+        store.economyStats(),
+      ]);
+      const snapshot = {
+        now: new Date().toISOString(),
+        online: onlineCount(),
+        growth: metrics.snapshot(),
+        growthTargets: GROWTH_TARGETS,
+        economy: { players: econ.players, chips: econ.chips, tokens: fromBaseUnits(econ.tokenBase) },
+        spins: { ...spinStats, net: spinStats.cost - spinStats.paid },
+        totals: analytics.snapshot(),
+        live: mm.adminStats,
+        load: mm.load,
+        system: systemHealth(),
+        config: {
+          rakePct: (Number(process.env.HOUSE_RAKE_BP ?? 0) || 0) / 100,
+          referralRoot: !!REFERRAL_ROOT,
+          deposits: depositsOn(),
+          withdrawals: withdrawalsOn(),
+        },
+        topPlayers: top.map((p) => ({ name: p.name, rating: p.rating, matches: p.matches, wins: p.wins })),
+        referrals: {
+          networkSize: ref.networkSize,
+          totalEarned: fromBaseUnits(ref.totalEarned),
+          unattached: ref.unattached,
+        },
+      };
+      sendJson(res, await aiAnalyze(snapshot));
+    } catch (e) {
+      sendJson(res, { ok: false, reason: `snapshot failed: ${String(e)}` }, "500 Internal Server Error");
+    }
+  })();
 });
 
 // The dashboard page itself (HTML asks for the token, then polls /admin/stats).

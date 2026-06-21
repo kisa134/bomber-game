@@ -39,6 +39,8 @@ export function adminPageHtml(): string {
   .feed .ev{display:flex;gap:8px;font-size:.85rem;padding:3px 0;border-bottom:1px solid var(--border)}
   .feed .ev time{color:var(--muted);flex:0 0 60px;font-variant-numeric:tabular-nums}
   .feed .empty{color:var(--muted);font-size:.85rem}
+  .ai-out{margin-top:10px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px 16px;white-space:pre-wrap;line-height:1.45;font-size:.9rem;max-height:520px;overflow-y:auto}
+  #ai-run{cursor:pointer}
   .wl{display:flex;gap:8px}
   .wl input{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0c0e14;color:var(--text);font-size:.85rem}
   .ext-links{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
@@ -56,6 +58,15 @@ export function adminPageHtml(): string {
   <div id="board" style="display:none">
     <h3>📈 Growth today <span class="muted" style="font-weight:400;font-size:.8rem">· resets at UTC midnight</span></h3>
     <div class="grid" id="growth"></div>
+    <h3>🤖 AI Analyst <span class="muted" style="font-weight:400;font-size:.8rem">· business + game + tech, analyzed together</span></h3>
+    <div style="margin-bottom:16px">
+      <button id="ai-run">Analyze now</button>
+      <span id="ai-status" class="muted" style="margin-left:10px"></span>
+      <div id="ai-out" class="ai-out" style="display:none"></div>
+    </div>
+    <h3>🩺 System health</h3>
+    <div class="grid" id="system"></div>
+    <div id="err-feed" class="feed" style="margin:0 0 16px"></div>
     <h3>Live now</h3>
     <div class="grid" id="live"></div>
     <h3>💰 Economy <span class="muted" style="font-weight:400;font-size:.8rem">· circulation &amp; treasury</span></h3>
@@ -148,6 +159,18 @@ async function poll(){
       tile("In match",fmt(d.live.humans),fmt(d.live.bots)+" bots")+
       tile("Rooms",fmt(d.live.rooms),fmt(d.live.playing)+" playing · "+fmt(d.live.lobby)+" lobby")+
       tile("Server load",(ld.busy?"⚠ ":"")+ld.tickMs+"ms",(ld.busy?"SATURATED — shedding":"of "+ld.budgetMs+"ms budget"));
+    // System health — technical state for the control centre
+    var sys=d.system||{uptimeMs:0,rssMb:0,heapUsedMb:0,errors:0,recentErrors:[],wsConns:0,store:d.store};
+    $("#system").innerHTML=
+      tile("Uptime",dur(sys.uptimeMs),"since boot")+
+      tile("Memory",sys.rssMb+" MB",sys.heapUsedMb+" MB heap")+
+      tile("Errors",(sys.errors>0?"⚠ ":"")+fmt(sys.errors),"alerts since boot")+
+      tile("WS sockets",fmt(sys.wsConns),fmt(sys.ipsConnected||0)+" IPs")+
+      tile("Store",sys.store||d.store,d.store==="postgres"?"durable":"⚠ not durable");
+    var errs=sys.recentErrors||[];
+    $("#err-feed").innerHTML = errs.length
+      ? errs.map(function(e){return '<div class="ev"><time>'+new Date(e.t).toLocaleTimeString()+'</time><span>🚨 '+e.msg+'</span></div>';}).join("")
+      : '<div class="empty">No errors logged since boot. ✅</div>';
     // Economy — chips/tokens in circulation, treasury flow, live toggles
     var ec=d.economy||{players:0,chips:0,tokens:0};
     $("#economy").innerHTML=
@@ -256,6 +279,19 @@ $("#wl-rating-go").onclick=()=>{const v=Math.trunc(Number($("#wl-rating").value)
 $("#wl-skin-go").onclick=()=>{const s=Math.trunc(Number($("#wl-skin").value));if(s>=0)walletAction("grant-skin","&skin="+s);};
 $("#wl-ban").onclick=()=>walletAction("ban","&on=1");
 $("#wl-unban").onclick=()=>walletAction("ban","&on=0");
+$("#ai-run").onclick=function(){
+  if(!token){return;}
+  var out=$("#ai-out"),st=$("#ai-status"),btn=$("#ai-run");
+  btn.disabled=true;st.textContent="Analyzing…";out.style.display="none";
+  fetch("/admin/ai-analyze?token="+encodeURIComponent(token),{method:"POST"})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      btn.disabled=false;st.textContent=d.model?("· "+d.model):"";
+      out.textContent=d.ok?d.text:(d.reason||"AI failed.");
+      out.style.display="block";
+    })
+    .catch(function(e){btn.disabled=false;st.innerHTML='<span class="err">'+e+'</span>';});
+};
 if(token)poll();
 setInterval(poll,5000);
 </script>

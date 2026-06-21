@@ -50,6 +50,35 @@ the env and restart the service:
 the build-arg the bundle shipped an empty id and GA stayed silent. The runtime
 config removes that trap.)
 
+## Admin control centre (`/admin`)
+
+One token-gated dashboard unifying **business + game + technical** state:
+- Growth today (DAU, paying, matches, depositors vs targets), Economy (chips/
+  tokens circulating, deposits/withdrawals), Lucky Spin net sink, Referral
+  pyramid, Top players, live Activity feed, wallet lookup + support actions.
+- **🩺 System health:** uptime, memory (RSS/heap), error count + recent error
+  feed, live WebSocket sockets/IPs, store durability, server tick load.
+- **🤖 AI Analyst:** "Analyze now" builds a unified snapshot and sends it to an
+  LLM for a prioritized, data-driven brief (verdict, signals, risks, next
+  actions). Enable with env:
+
+| Var | Value |
+| --- | --- |
+| `AI_API_KEY` | LLM key (Anthropic or OpenAI). Empty = button returns a "not configured" notice. |
+| `AI_PROVIDER` | `anthropic` (default) or `openai` |
+| `AI_MODEL` | optional model id override |
+
+Endpoints: `GET /admin/stats` (full snapshot incl. `system`), `POST /admin/ai-analyze`, `GET /metrics` (Prometheus). All token-gated except `/metrics` (optional `METRICS_TOKEN`).
+
+## Token swap at launch (IMPORTANT)
+
+The token is **hard-coded**, not env: `packages/shared/src/constants.ts` —
+`TOKEN_MINT`, `TOKEN_TICKER` (`BGDF`), `TOKEN_DECIMALS` (6). Swapping the token =
+edit that file + **rebuild & redeploy both client and server**. Also at swap:
+**reset test-token balances** (`token_balance` + any open stakes) so test-token
+amounts can't be withdrawn against the real token. (Optionally we can move these
+to env/runtime config so the swap is a config change — pending decision.)
+
 ## Hardening progress
 
 - **Phase 1 (done):** Direction decoder clamp; payout>0 guard; referral payout

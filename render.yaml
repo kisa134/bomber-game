@@ -70,6 +70,14 @@ services:
         sync: false
       - key: POSTHOG_KEY # server-side PostHog key (for authoritative events)
         sync: false
+      # AI analyst in /admin (optional). Set AI_API_KEY to enable the "Analyze now"
+      # button; provider defaults to anthropic. All optional — no key = no-op.
+      - key: AI_API_KEY # LLM key (Anthropic or OpenAI)
+        sync: false
+      - key: AI_PROVIDER # "anthropic" (default) | "openai"
+        sync: false
+      - key: AI_MODEL # override the model id (sensible per-provider default)
+        sync: false
       - key: ADMIN_TOKEN # protects /admin live dashboard (comma-separate for several passwords)
         sync: false
       - key: MAX_ROOMS # cap concurrent rooms (set from a load test; default 500)
