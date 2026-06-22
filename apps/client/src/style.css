@@ -5070,12 +5070,14 @@ button.big {
   overflow: hidden;
   background: linear-gradient(165deg, #211d2a, #0c0b11);
   border: 2px solid var(--tier);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 26px -6px var(--tier);
+  /* --glow scales with rarity (set per card in main.ts) */
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), var(--glow, 0 0 26px -6px var(--tier));
   transform-style: preserve-3d;
   will-change: transform;
 }
 .fighter-card.active .fc-tilt {
-  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.55), 0 0 40px -6px var(--tier);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.58), var(--glow, 0 0 40px -6px var(--tier)),
+    var(--glow, 0 0 40px -6px var(--tier));
 }
 .fc-art {
   position: absolute;
@@ -5367,7 +5369,7 @@ button.big {
   pointer-events: none;
   z-index: 0;
 }
-/* A faint cosmic haze pooled under the cards */
+/* A faint cosmic haze pooled under the cards — tinted to the active tier */
 .fighter-dustfield::before {
   content: "";
   position: absolute;
@@ -5376,8 +5378,14 @@ button.big {
   width: 86%;
   height: 60%;
   transform: translate(-50%, -50%);
-  background: radial-gradient(ellipse at center, rgba(120, 140, 235, 0.1), rgba(90, 70, 160, 0.05) 45%, transparent 72%);
-  filter: blur(26px);
+  background: radial-gradient(
+    ellipse at center,
+    color-mix(in srgb, var(--dusttint, #7a8cff) 22%, transparent),
+    color-mix(in srgb, var(--dusttint, #7a8cff) 8%, transparent) 45%,
+    transparent 72%
+  );
+  filter: blur(28px);
+  transition: background 0.6s ease;
 }
 .dust-mote {
   position: absolute;

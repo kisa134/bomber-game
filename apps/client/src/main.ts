@@ -2262,6 +2262,10 @@ function fighterCardHTML(skin: number): string {
   );
 }
 
+// Rarity tier 0..4 (common→mythic) → drives how much a card glows + sparkles.
+const tierRank = (i: number): number => (i < 4 ? 0 : i < 6 ? 1 : i < 8 ? 2 : i < 10 ? 3 : 4);
+const tierPower = (i: number): number => 0.3 + tierRank(i) * 0.175; // 0.30 … 1.0
+
 function buildCarousel(): void {
   const wrap = document.getElementById("fighter-carousel");
   if (!wrap || carouselBuilt) return;
@@ -2273,8 +2277,11 @@ function buildCarousel(): void {
     card.dataset.ph = String((i * 2.39996) % (Math.PI * 2));
     card.dataset.sp = String(0.62 + (i % 4) * 0.13);
     const r = rarityOf(i);
+    const rank = tierRank(i);
     card.style.setProperty("--tier", r.color);
-    card.style.setProperty("--holo", String(i >= 8 ? 0.28 : i >= 6 ? 0.22 : 0.16));
+    card.style.setProperty("--holo", String(0.12 + rank * 0.052)); // rarer = stronger foil
+    // Rarer = bigger, brighter tier glow halo.
+    card.style.setProperty("--glow", `0 0 ${20 + rank * 9}px ${-9 + rank * 2.5}px var(--tier)`);
     card.innerHTML = fighterCardHTML(i);
     card.addEventListener("click", () => { if (i !== hubBrowseSkin) showFighter(i, true); });
     wrap.appendChild(card);
@@ -2325,6 +2332,8 @@ let mTargetX = 0; // cursor offset from carousel centre, -1..1
 let mTargetY = 0;
 let mCurX = 0; // eased
 let mCurY = 0;
+let dustTarget = 0.5; // sparkle intensity of the active card's tier
+let dustCur = 0.5; // eased
 function startFighterFloat(): void {
   if (floatStarted) return;
   floatStarted = true;
@@ -2342,6 +2351,7 @@ function startFighterFloat(): void {
     if (menu.classList.contains("hidden")) return;
     mCurX += (mTargetX - mCurX) * 0.07;
     mCurY += (mTargetY - mCurY) * 0.07;
+    dustCur += (dustTarget - dustCur) * 0.04;
     const t = now * 0.001;
     for (const card of wrap.querySelectorAll<HTMLElement>(".fighter-card")) {
       if (card.style.visibility === "hidden") continue;
@@ -2373,7 +2383,8 @@ function startFighterFloat(): void {
         const x = m.bx * W + Math.sin(t * m.sp + m.ph) * m.amp + mCurX * 26 * m.depth;
         const y = m.by * H + Math.cos(t * m.sp * 0.85 + m.ph) * m.amp + mCurY * 26 * m.depth;
         m.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-        m.el.style.opacity = (m.tw * (0.5 + 0.5 * Math.sin(t * 1.5 + m.ph))).toFixed(2);
+        // Brighter, more alive dust for higher-tier (cooler) active cards.
+        m.el.style.opacity = (m.tw * (0.3 + dustCur) * (0.55 + 0.45 * Math.sin(t * 1.5 + m.ph))).toFixed(2);
       }
     }
   };
@@ -2433,6 +2444,9 @@ function showFighter(skin: number, equip = false): void {
   animateActiveHero(skin);
   renderFighterDots(skin);
   const r = rarityOf(skin);
+  // Sparkle/glow intensity + dust-glow colour follow the active card's rarity.
+  dustTarget = tierPower(skin);
+  document.getElementById("fighter-dustfield")?.style.setProperty("--dusttint", r.color);
   const nm = document.getElementById("fighter-bigname");
   if (nm) nm.textContent = SKIN_NAMES[skin] ?? `Skin ${skin}`;
   const ra = document.getElementById("fighter-bigrarity");
