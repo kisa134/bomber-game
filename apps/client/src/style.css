@@ -4714,3 +4714,383 @@ button.big {
 .splash-card button {
   width: 100%;
 }
+
+/* =====================================================================
+   AAA redesign — Hub fighter card (ported 1:1 from the design mockup)
+   ===================================================================== */
+.hub-hero-layout .hub-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: min(390px, 100%);
+  margin: 0 auto;
+}
+
+/* Passport strip: avatar · nickname · level · XP bar */
+.hub-passport-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: linear-gradient(180deg, rgba(34, 30, 40, 0.9), rgba(18, 15, 24, 0.9));
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.hps-avatar {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 10px;
+  background: #1a1620;
+  border: 1px solid rgba(255, 204, 51, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+}
+.hps-avatar img {
+  width: 36px;
+  image-rendering: pixelated;
+}
+.hps-body {
+  flex: 1;
+  min-width: 0;
+}
+.hps-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hps-crown {
+  font-size: 0.7rem;
+}
+.hub-passport-strip .passport-name {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  font-family: var(--font-disp);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: var(--cream);
+}
+.hub-passport-strip .passport-name::placeholder {
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+.hps-lv {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--good);
+  flex: none;
+}
+.hps-track {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hps-track .ratebar {
+  flex: 1;
+  height: 5px;
+  border-radius: 4px;
+  background: #0b0a0e;
+  overflow: hidden;
+}
+.hps-track .ratefill {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ff9a3d, #ffd06a);
+  transition: width 0.5s ease;
+}
+.hps-track .ratetext {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* "CHOOSE YOUR FIGHTER" eyebrow */
+.fighter-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.6rem;
+  letter-spacing: 0.24em;
+  color: #d9bd6a;
+  margin-top: 2px;
+}
+.fh-rule {
+  width: 28px;
+  height: 1px;
+}
+.fh-rule.l {
+  background: linear-gradient(90deg, transparent, #d9bd6a);
+}
+.fh-rule.r {
+  background: linear-gradient(90deg, #d9bd6a, transparent);
+}
+
+/* Card + flanking arrows */
+.fighter-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.fighter-card {
+  --tier: #9aa3b2;
+  --holo: 0.18;
+  position: relative;
+  width: min(236px, 68vw);
+  aspect-ratio: 236 / 332;
+  max-height: 46vh;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(165deg, #211d2a, #0c0b11);
+  border: 2px solid var(--tier);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 26px -6px var(--tier);
+}
+.fc-art {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 50% 22%, color-mix(in srgb, var(--tier) 26%, transparent), transparent 64%);
+}
+.fc-ray {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 120%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.07) 0 3deg, transparent 3deg 9deg);
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(circle, #000 8%, transparent 62%);
+  mask: radial-gradient(circle, #000 8%, transparent 62%);
+  opacity: 0.55;
+}
+.fc-hero {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  top: 10%;
+  bottom: 18%;
+  width: 88%;
+  height: 72%;
+  object-fit: contain;
+  object-position: center bottom;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.55));
+}
+.fc-holo {
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(from 0deg, #ff5a4d, #ffd84d, #c4ff3d, #35e3ff, #7a5cff, #ff3ea5, #ff5a4d);
+  background-size: 200% 200%;
+  mix-blend-mode: screen;
+  opacity: var(--holo);
+  pointer-events: none;
+}
+.fc-scan {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.05) 0 8px, transparent 8px 16px);
+  mix-blend-mode: overlay;
+  opacity: 0.55;
+  pointer-events: none;
+}
+.fc-gloss {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(157deg, rgba(255, 255, 255, 0.5) 0%, rgba(255, 255, 255, 0.08) 18%, transparent 42%);
+  mix-blend-mode: screen;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.fc-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 60px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: splash-sheen 4.2s ease-in-out infinite;
+  pointer-events: none;
+}
+.fc-frame {
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 11px;
+  pointer-events: none;
+}
+.fc-corner {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
+}
+.fc-corner.tl {
+  top: 5px;
+  left: 5px;
+  border-top: 2px solid var(--tier);
+  border-left: 2px solid var(--tier);
+  border-top-left-radius: 6px;
+}
+.fc-corner.tr {
+  top: 5px;
+  right: 5px;
+  border-top: 2px solid var(--tier);
+  border-right: 2px solid var(--tier);
+  border-top-right-radius: 6px;
+}
+.fc-corner.bl {
+  bottom: 5px;
+  left: 5px;
+  border-bottom: 2px solid var(--tier);
+  border-left: 2px solid var(--tier);
+  border-bottom-left-radius: 6px;
+}
+.fc-corner.br {
+  bottom: 5px;
+  right: 5px;
+  border-bottom: 2px solid var(--tier);
+  border-right: 2px solid var(--tier);
+  border-bottom-right-radius: 6px;
+}
+.fc-toprow {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+.fc-rarity {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: 0.5rem;
+  letter-spacing: 0.14em;
+  color: var(--tier);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+.fc-no {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.46rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+.fc-namerow {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+.fc-name {
+  font-family: var(--font-disp);
+  font-weight: 800;
+  font-size: 1.2rem;
+  letter-spacing: 0.03em;
+  color: var(--cream);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.75);
+}
+.fc-gems {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  color: var(--tier);
+}
+.fc-badge {
+  position: absolute;
+  bottom: 11px;
+  right: 11px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #ff5a4d, #ffd84d, #35e3ff, #7a5cff, #ff5a4d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 800 0.5rem var(--font-mono);
+  color: rgba(0, 0, 0, 0.65);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+.fc-lock {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.6rem;
+  background: rgba(8, 7, 12, 0.42);
+  backdrop-filter: grayscale(0.6);
+  -webkit-backdrop-filter: grayscale(0.6);
+}
+.fighter-card.locked .fc-hero {
+  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.55)) grayscale(0.7) brightness(0.7);
+}
+.fighter-arrow {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(20, 18, 26, 0.78);
+  color: #e7e9ee;
+  font-size: 1rem;
+  padding: 0;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 2;
+}
+.fighter-arrow:hover {
+  border-color: rgba(255, 204, 51, 0.6);
+}
+.fighter-arrow.prev {
+  margin-right: -14px;
+}
+.fighter-arrow.next {
+  margin-left: -14px;
+}
+.fighter-dots {
+  display: flex;
+  gap: 5px;
+  margin-top: 2px;
+}
+.fighter-dots .fdot {
+  width: 6px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
+  transition: width 0.3s, background 0.3s;
+}
+.fighter-dots .fdot.on {
+  width: 16px;
+  background: var(--accent);
+}
+.hub-play {
+  width: min(300px, 100%);
+  margin-top: 4px;
+}

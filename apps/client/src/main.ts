@@ -2224,9 +2224,62 @@ function animateHubHero(skin: number): void {
   step();
   hubAnimTimer = setInterval(step, 150);
 }
-/** Refresh the hub's hero (equipped character, animated). */
+// --- Hub fighter card (CHOOSE YOUR FIGHTER carousel) ----------------------
+let hubBrowseSkin = -1; // skin shown in the card (lazy-init to equipped)
+const hubEquipped = (): number => Number(localStorage.getItem("bp_skin")) || 0;
+const GEM_COUNT = (i: number): number => (i < 4 ? 2 : i < 6 ? 3 : i < 8 ? 4 : i < 10 ? 5 : 6);
+
+function renderFighterDots(active: number): void {
+  const box = document.getElementById("fighter-dots");
+  if (!box) return;
+  box.innerHTML = "";
+  for (let i = 0; i < SKIN_COUNT; i++) {
+    const d = document.createElement("span");
+    d.className = "fdot" + (i === active ? " on" : "");
+    box.appendChild(d);
+  }
+}
+
+/** Paint the holographic fighter card for a given skin (preview, not equip). */
+function renderFighterCard(skin: number): void {
+  const card = document.getElementById("fighter-card");
+  if (!card) return;
+  const r = rarityOf(skin);
+  card.style.setProperty("--tier", r.color);
+  card.style.setProperty("--holo", String(skin >= 8 ? 0.28 : skin >= 6 ? 0.22 : 0.16));
+  animateHubHero(skin);
+  const owned = skinOwned(skin);
+  card.classList.toggle("locked", !owned);
+  document.getElementById("fighter-lock")?.classList.toggle("hidden", owned);
+  const set = (id: string, txt: string, col?: string): void => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = txt;
+    if (col) e.style.color = col;
+  };
+  set("fighter-name", SKIN_NAMES[skin] ?? `Skin ${skin}`);
+  set("fighter-rarity", r.name.toUpperCase(), r.color);
+  set("fighter-no", `#${String(skin + 1).padStart(2, "0")}`);
+  set("fighter-gems", "◆".repeat(GEM_COUNT(skin)), r.color);
+  const av = document.getElementById("hub-passport-av") as HTMLImageElement | null;
+  if (av) av.src = `/sprites/skin_${hubEquipped()}.webp?v=${ASSET_VER}`;
+  renderFighterDots(skin);
+}
+
+/** Arrow handler: cycle the previewed fighter; equip it if owned. */
+function cycleFighter(delta: number): void {
+  if (hubBrowseSkin < 0) hubBrowseSkin = hubEquipped();
+  hubBrowseSkin = (hubBrowseSkin + delta + SKIN_COUNT) % SKIN_COUNT;
+  renderFighterCard(hubBrowseSkin);
+  if (skinOwned(hubBrowseSkin)) void doSelectSkin(hubBrowseSkin); // equip owned pick
+}
+document.getElementById("fighter-prev")?.addEventListener("click", () => cycleFighter(-1));
+document.getElementById("fighter-next")?.addEventListener("click", () => cycleFighter(1));
+
+/** Refresh the hub's fighter card (equipped character, animated). */
 function refreshHub(): void {
-  animateHubHero(Number(localStorage.getItem("bp_skin")) || 0);
+  hubBrowseSkin = hubEquipped();
+  renderFighterCard(hubBrowseSkin);
 }
 /** Update the level / XP progress bar from a profile (200 XP per level). */
 function setProgress(level: number, xp: number): void {
