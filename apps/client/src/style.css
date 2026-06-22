@@ -5043,6 +5043,8 @@ button.big {
   height: min(348px, 46vh);
   perspective: 1300px;
 }
+/* Outer = fan position (CSS transition). Inner .fc-tilt = the visible card,
+   which floats + tilts to the cursor (driven each frame by main.ts). */
 .fighter-card {
   --tier: #9aa3b2;
   --holo: 0.18;
@@ -5056,15 +5058,23 @@ button.big {
   transform-style: preserve-3d;
   transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.5s ease;
   will-change: transform, opacity;
+  cursor: pointer;
+}
+.fighter-card.active {
+  cursor: default;
+}
+.fc-tilt {
+  position: absolute;
+  inset: 0;
   border-radius: 16px;
   overflow: hidden;
   background: linear-gradient(165deg, #211d2a, #0c0b11);
   border: 2px solid var(--tier);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 26px -6px var(--tier);
-  cursor: pointer;
+  transform-style: preserve-3d;
+  will-change: transform;
 }
-.fighter-card.active {
-  cursor: default;
+.fighter-card.active .fc-tilt {
   box-shadow: 0 22px 54px rgba(0, 0, 0, 0.55), 0 0 40px -6px var(--tier);
 }
 .fc-art {

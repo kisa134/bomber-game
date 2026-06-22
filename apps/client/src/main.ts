@@ -2228,10 +2228,12 @@ const hubEquipped = (): number => Number(localStorage.getItem("bp_skin")) || 0;
 const GEM_COUNT = (i: number): number => (i < 4 ? 2 : i < 6 ? 3 : i < 8 ? 4 : i < 10 ? 5 : 6);
 const padNo = (n: number): string => String(n).padStart(3, "0");
 
-/** Inner HTML for one collectible card (static pose; active card animates). */
+/** Inner HTML for one collectible card (static pose; active card animates).
+    All visible layers live inside .fc-tilt, which floats + tilts to the cursor. */
 function fighterCardHTML(skin: number): string {
   const r = rarityOf(skin);
   return (
+    '<div class="fc-tilt">' +
     '<div class="fc-art"></div><div class="fc-ray"></div>' +
     `<img class="fc-hero" src="/sprites/skin_${skin}_down_1.webp?v=${ASSET_VER}" alt="" />` +
     '<div class="fc-holo"></div><div class="fc-scan"></div><div class="fc-gloss"></div><span class="fc-sheen"></span>' +
@@ -2240,7 +2242,8 @@ function fighterCardHTML(skin: number): string {
     `<div class="fc-toprow"><span class="fc-rarity">${r.name.toUpperCase()}</span><span class="fc-no">${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}</span></div>` +
     `<div class="fc-namerow"><div class="fc-name">${SKIN_NAMES[skin] ?? `Skin ${skin}`}</div><div class="fc-gems">${"◆".repeat(GEM_COUNT(skin))}</div></div>` +
     '<div class="fc-badge">◆</div>' +
-    `<div class="fc-lock${skinOwned(skin) ? " hidden" : ""}">🔒</div>`
+    `<div class="fc-lock${skinOwned(skin) ? " hidden" : ""}">🔒</div>` +
+    "</div>"
   );
 }
 
@@ -2251,6 +2254,9 @@ function buildCarousel(): void {
     const card = document.createElement("div");
     card.className = "fighter-card";
     card.dataset.skin = String(i);
+    // Per-card float phase/speed → each card drifts on its own little orbit.
+    card.dataset.ph = String((i * 2.39996) % (Math.PI * 2));
+    card.dataset.sp = String(0.62 + (i % 4) * 0.13);
     const r = rarityOf(i);
     card.style.setProperty("--tier", r.color);
     card.style.setProperty("--holo", String(i >= 8 ? 0.28 : i >= 6 ? 0.22 : 0.16));
@@ -2259,6 +2265,58 @@ function buildCarousel(): void {
     wrap.appendChild(card);
   }
   carouselBuilt = true;
+  startFighterFloat();
+}
+
+// Living-card physics: every visible card drifts on a gentle orbit (sin/cos)
+// and the whole fan parallax-tilts toward the cursor; the active card tilts
+// most and its holographic foil tracks the pointer.
+let floatStarted = false;
+let mTargetX = 0; // cursor offset from carousel centre, -1..1
+let mTargetY = 0;
+let mCurX = 0; // eased
+let mCurY = 0;
+function startFighterFloat(): void {
+  if (floatStarted) return;
+  floatStarted = true;
+  const wrap = document.getElementById("fighter-carousel");
+  const menu = document.getElementById("menu");
+  if (!wrap || !menu) return;
+  menu.addEventListener("pointermove", (e) => {
+    const r = wrap.getBoundingClientRect();
+    mTargetX = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width / 2)));
+    mTargetY = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (r.height / 2)));
+  });
+  menu.addEventListener("pointerleave", () => { mTargetX = 0; mTargetY = 0; });
+  const tick = (now: number): void => {
+    requestAnimationFrame(tick);
+    if (menu.classList.contains("hidden")) return;
+    mCurX += (mTargetX - mCurX) * 0.07;
+    mCurY += (mTargetY - mCurY) * 0.07;
+    const t = now * 0.001;
+    for (const card of wrap.querySelectorAll<HTMLElement>(".fighter-card")) {
+      if (card.style.visibility === "hidden") continue;
+      const tilt = card.firstElementChild as HTMLElement | null;
+      if (!tilt) continue;
+      const ph = Number(card.dataset.ph) || 0;
+      const sp = Number(card.dataset.sp) || 1;
+      const active = card.classList.contains("active");
+      const tt = t * sp;
+      const bob = Math.sin(tt + ph) * 7; // up/down
+      const sway = Math.cos(tt * 0.8 + ph) * 5; // left/right (→ small orbit)
+      const rz = Math.sin(tt * 0.6 + ph) * 2.2; // gentle roll
+      const depth = active ? 1 : 0.45;
+      const ry = mCurX * 13 * depth;
+      const rx = -mCurY * 10 * depth;
+      tilt.style.transform =
+        `translate3d(${sway}px, ${bob}px, 0) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg)`;
+      if (active) {
+        const holo = tilt.querySelector<HTMLElement>(".fc-holo");
+        if (holo) holo.style.backgroundPosition = `${(50 + mCurX * 35).toFixed(1)}% ${(50 + mCurY * 35).toFixed(1)}%`;
+      }
+    }
+  };
+  requestAnimationFrame(tick);
 }
 
 // 3D fan offsets by |distance from centre|.
