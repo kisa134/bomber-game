@@ -86,7 +86,7 @@ interface Particle {
   gore?: { kind: GoreKind; seed: number }; // a FLYING gore piece -> renders via its draw fn, becomes a decal on landing
 }
 
-type GoreKind = "bone" | "meat" | "organ" | "skull" | "brain" | "limb" | "eye" | "tooth";
+type GoreKind = "bone" | "meat" | "organ" | "skull" | "brain" | "limb" | "eye" | "tooth" | "coin";
 // Per-kind flight feel: soft/liquid (organ/brain) barely fly + stick; hard/light (bone/tooth/
 // eye) fly far + bounce. vz=launch height, sp=ground speed, gz=fall, rest=bounce, fric=slide.
 const GORE_PHYS: Record<GoreKind, { vz: number; vzv: number; sp: number; spv: number; gz: number; rest: number; fric: number }> = {
@@ -98,6 +98,7 @@ const GORE_PHYS: Record<GoreKind, { vz: number; vzv: number; sp: number; spv: nu
   organ: { vz: 2.6, vzv: 2, sp: 1, spv: 1.4, gz: 37, rest: 0.1, fric: 0.68 },
   brain: { vz: 2.6, vzv: 2, sp: 1, spv: 1.3, gz: 37, rest: 0.1, fric: 0.68 },
   eye: { vz: 4.5, vzv: 4, sp: 2.5, spv: 3, gz: 30, rest: 0.45, fric: 0.9 },
+  coin: { vz: 6, vzv: 4, sp: 2.5, spv: 2.8, gz: 26, rest: 0.62, fric: 0.92 }, // light, bouncy, rolls (gore OFF mode)
 };
 
 interface Decal {
@@ -172,6 +173,8 @@ export class Renderer {
   private eyes: Array<{ x: number; y: number; seed: number }> = []; // eyeball decals
   private teeth: Array<{ x: number; y: number; seed: number }> = []; // knocked-out teeth
   private bile: Array<{ x: number; y: number; seed: number }> = []; // bile / slime puddles
+  private coins: Array<{ x: number; y: number; seed: number }> = []; // GORE-OFF mode: gold coins instead of gore
+  private goreEnabled = true; // false -> deaths spill kickable coins instead of blood/guts
   // Floating reward/event popups that pop in with ease-out-back/elastic, rise, fade.
   private floaters: Array<{ x: number; y: number; text: string; color: string; born: number; big: boolean }> = [];
   private shatters: Array<{ x: number; y: number; born: number }> = []; // soft-break shatter fx
@@ -375,6 +378,7 @@ export class Renderer {
     this.eyes = [];
     this.teeth = [];
     this.bile = [];
+    this.coins = [];
     this.chips = [];
     this.floaters = [];
     this.danger = 0;
@@ -722,6 +726,11 @@ export class Renderer {
   }
 
   onDeath(cx: number, cy: number, color: string): void {
+    if (!this.goreEnabled) { // GORE OFF: a shower of kickable gold coins, no blood/guts at all
+      for (let i = 0; i < 10 + ((Math.random() * 8) | 0); i++) this.spawnGore("coin", cx + 0.5, cy + 0.5);
+      this.shake(11, 200);
+      return;
+    }
     // Persistent blood marks first (cheap, runs on phones too): a thick gory mush
     // that STAYS on the death cell, blood on the floor neighbours, and face-aware
     // blood on adjacent blocks (top splatter + front drips toward the kill).
@@ -926,6 +935,7 @@ export class Renderer {
     for (const sk of this.skulls) this.drawSkull(g, sk, pu); // skulls on top
     for (const ey of this.eyes) this.drawEye(g, ey, pu); // eyeballs
     for (const th of this.teeth) this.drawTooth(g, th, pu); // teeth
+    for (const co of this.coins) this.drawCoin(g, co, pu); // gold coins (gore-off mode)
     g.globalAlpha = 1;
     this.bloodCanvas = cv;
   }
@@ -960,13 +970,16 @@ export class Renderer {
 
   /** Boot bones/meat lying on `cell` aside when a player runs over them — they
    *  scatter away from the player (like an accidental kick) + a little chip flies. */
-  private static readonly GORE_KINDS: GoreKind[] = ["bone", "meat", "organ", "skull", "brain", "limb", "eye", "tooth"];
+  private static readonly GORE_KINDS: GoreKind[] = ["bone", "meat", "organ", "skull", "brain", "limb", "eye", "tooth", "coin"];
+
+  /** Toggle the gore mode. OFF -> deaths spill kickable gold coins instead of blood/guts. */
+  setGore(on: boolean): void { this.goreEnabled = on; }
 
   private goreArr(kind: GoreKind): Array<{ x: number; y: number; seed: number }> {
     switch (kind) {
       case "bone": return this.bones; case "meat": return this.meat; case "organ": return this.organs;
       case "skull": return this.skulls; case "brain": return this.brains; case "limb": return this.limbs;
-      case "eye": return this.eyes; default: return this.teeth;
+      case "eye": return this.eyes; case "coin": return this.coins; default: return this.teeth;
     }
   }
 
@@ -975,7 +988,8 @@ export class Renderer {
       case "bone": this.drawBone(g, m, pu); break; case "meat": this.drawMeat(g, m, pu); break;
       case "organ": this.drawOrgan(g, m, pu); break; case "skull": this.drawSkull(g, m, pu); break;
       case "brain": this.drawBrain(g, m, pu); break; case "limb": this.drawLimb(g, m, pu); break;
-      case "eye": this.drawEye(g, m, pu); break; default: this.drawTooth(g, m, pu); break;
+      case "eye": this.drawEye(g, m, pu); break; case "coin": this.drawCoin(g, m, pu); break;
+      default: this.drawTooth(g, m, pu); break;
     }
   }
 
@@ -1302,6 +1316,36 @@ export class Renderer {
     disc(0, 0, r * 0.5, iris); // iris
     disc(0, 0, r * 0.24, "#000000"); // pupil
     g.fillStyle = "#ffffff"; g.fillRect(Math.round((cx - r * 0.2) / pu) * pu, Math.round((cy - r * 0.2) / pu) * pu, pu, pu); // glint
+  }
+
+  /** A gold coin (gore-OFF mode): a shiny disc with a darker rim, a bright sheen and a $ mark. */
+  private drawCoin(g: CanvasRenderingContext2D, c: { x: number; y: number; seed: number }, pu: number): void {
+    const t = this.tile;
+    const cx = c.x * t, cy = c.y * t;
+    const r = t * 0.07;
+    g.globalAlpha = 0.3; g.fillStyle = "#000000"; // shadow
+    for (let yy = -r; yy <= r; yy += pu) for (let xx = -r; xx <= r; xx += pu) {
+      if (xx * xx + yy * yy > r * r) continue;
+      g.fillRect(Math.round((cx + xx + pu) / pu) * pu, Math.round((cy + yy + pu * 1.4) / pu) * pu, pu, pu);
+    }
+    g.globalAlpha = 1;
+    const orad = r + pu;
+    g.fillStyle = "#8a5a08"; // dark gold rim
+    for (let yy = -orad; yy <= orad; yy += pu) for (let xx = -orad; xx <= orad; xx += pu) {
+      if (xx * xx + yy * yy > orad * orad) continue;
+      g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + yy) / pu) * pu, pu, pu);
+    }
+    for (let yy = -r; yy <= r; yy += pu) for (let xx = -r; xx <= r; xx += pu) {
+      if (xx * xx + yy * yy > r * r) continue;
+      const lit = (xx + yy) < -r * 0.3; // bright upper-left, deeper lower-right
+      g.fillStyle = lit ? "#ffe88a" : "#f0b021";
+      g.fillRect(Math.round((cx + xx) / pu) * pu, Math.round((cy + yy) / pu) * pu, pu, pu);
+    }
+    g.fillStyle = "#b9790c"; // engraved $
+    g.fillRect(Math.round((cx - pu / 2) / pu) * pu, Math.round((cy - r * 0.55) / pu) * pu, pu, Math.max(pu, Math.round(r * 1.1)));
+    g.fillRect(Math.round((cx - r * 0.4) / pu) * pu, Math.round((cy - r * 0.3) / pu) * pu, Math.max(pu, Math.round(r * 0.8)), pu);
+    g.fillRect(Math.round((cx - r * 0.4) / pu) * pu, Math.round((cy + r * 0.2) / pu) * pu, Math.max(pu, Math.round(r * 0.8)), pu);
+    g.fillStyle = "#fffbe0"; g.fillRect(Math.round((cx - r * 0.4) / pu) * pu, Math.round((cy - r * 0.5) / pu) * pu, pu, pu); // sheen glint
   }
 
   /** A knocked-out tooth: a tiny off-white nub with a faint root. */

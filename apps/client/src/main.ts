@@ -459,7 +459,7 @@ net.onMessage = (msg) => {
       break;
     case ServerMsg.EVENT_PLAYER_DEATH: {
       assets.play("die");
-      assets.playGore(); // wet splat layered over the death cue
+      if (settings.gore) assets.playGore(); else assets.rewardDing(); // wet splat, or a coin chime when gore is off
       assets.duck(0.6, 260); // sidechain: deeper duck on a kill (-~8dB)
       hitStopUntil = performance.now() + 85; // hit-stop: weighty kill freeze
       const snap = state.latest();
@@ -505,6 +505,7 @@ function enterGame(): void {
     renderer = new Renderer(canvas);
     renderer.setAssets(assets);
     renderer.skinOf = (id) => state.skinOf(id);
+    renderer.setGore(settings.gore);
   }
   renderer.resize();
   renderer.remeasure(); // re-fit after the game screen has actually laid out
@@ -1102,16 +1103,19 @@ function applySettings(): void {
   assets.setMusicEnabled(settings.music);
   assets.setSfxEnabled(settings.sfx);
   input.setControlScheme(settings.controls);
+  renderer?.setGore(settings.gore);
   syncSettingsUI();
 }
 
 function syncSettingsUI(): void {
   const m = document.getElementById("set-music") as HTMLButtonElement;
   const s = document.getElementById("set-sfx") as HTMLButtonElement;
+  const gr = document.getElementById("set-gore") as HTMLButtonElement | null;
   m.dataset.on = String(settings.music);
   m.textContent = settings.music ? "On" : "Off";
   s.dataset.on = String(settings.sfx);
   s.textContent = settings.sfx ? "On" : "Off";
+  if (gr) { gr.dataset.on = String(settings.gore); gr.textContent = settings.gore ? "On" : "Off"; }
   document.getElementById("ctl-joystick")!.classList.toggle("active", settings.controls === "joystick");
   document.getElementById("ctl-dpad")!.classList.toggle("active", settings.controls === "dpad");
 }
@@ -1149,6 +1153,7 @@ function wireSettings(): void {
   });
   document.getElementById("set-music")!.addEventListener("click", () => update("music", !settings.music));
   document.getElementById("set-sfx")!.addEventListener("click", () => update("sfx", !settings.sfx));
+  document.getElementById("set-gore")?.addEventListener("click", () => update("gore", !settings.gore));
   document.getElementById("ctl-joystick")!.addEventListener("click", () => update("controls", "joystick"));
   document.getElementById("ctl-dpad")!.addEventListener("click", () => update("controls", "dpad"));
 }

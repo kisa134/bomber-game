@@ -6,6 +6,7 @@ export interface Settings {
   music: boolean;
   sfx: boolean;
   controls: ControlScheme;
+  gore: boolean; // false -> deaths spill gold coins instead of blood/guts
 }
 
 const KEY = "bp_settings";
@@ -16,6 +17,7 @@ const DEFAULTS: Settings = {
   music: true,
   sfx: true,
   controls: isTouch ? "joystick" : "dpad",
+  gore: true,
 };
 
 export function loadSettings(): Settings {
