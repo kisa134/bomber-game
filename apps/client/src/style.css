@@ -1106,10 +1106,60 @@ button.ghost {
 .hub-top-actions .stat-badge.chips {
   color: var(--accent-bright);
 }
+.hub-top-actions .stat-badge.token {
+  color: #dfe3ea;
+}
+/* mockup shows just the number — drop the CHIPS / $BGDF caps in the chrome */
 .hub-top-actions .stat-cap {
-  margin: 0 0 0 4px;
-  font-size: 0.6rem;
-  opacity: 0.55;
+  display: none;
+}
+.hub-top-div {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.14);
+  flex: none;
+}
+/* Profile pill (avatar + nickname) like the mockup */
+.hub-profile-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  padding: 5px 11px 5px 5px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.hub-profile-chip:hover {
+  border-color: rgba(255, 204, 51, 0.5);
+}
+.hpc-av {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 7px;
+  background: #1a1620;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+}
+.hpc-av img {
+  width: 26px;
+  image-rendering: pixelated;
+}
+.hpc-name {
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--text);
+  white-space: nowrap;
+}
+@media (max-width: 759px) {
+  .hub-profile-chip,
+  .hub-top-div {
+    display: none; /* phone chrome stays compact, like the mockup mobile */
+  }
 }
 /* Connect = gold-outline pill (mockup) */
 .hub-top-actions #wallet-btn {

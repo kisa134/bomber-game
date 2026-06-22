@@ -55,15 +55,20 @@
               </nav>
             </div>
             <div class="hub-top-actions">
-              <span id="player-stats" class="player-stats hidden">
+              <span id="player-stats" class="player-stats">
                 <span class="stat-badge chips" title="Your free chips">
                   🪙 <span id="chip-amount">0</span> <span class="stat-cap">CHIPS</span>
                 </span>
               </span>
-              <a id="token-badge" class="stat-badge token hidden" target="_blank" rel="noopener" title="Your token balance — tap to view on pump.fun">
+              <span class="hub-top-div" aria-hidden="true"></span>
+              <a id="token-badge" class="stat-badge token" target="_blank" rel="noopener" title="Your token balance — tap to view on pump.fun">
                 💎 <span id="token-amount">0</span> <span class="stat-cap">$BGDF</span><span id="token-ticker" class="hidden"></span><span id="token-usd" class="token-usd"></span>
               </a>
               <button id="wallet-btn">🔗 Connect</button>
+              <button id="open-profile-chip" class="hub-profile-chip" title="Profile">
+                <span class="hpc-av"><img id="hub-chip-av" alt="" /></span>
+                <span id="hub-chip-name" class="hpc-name">guest</span>
+              </button>
               <button id="open-settings" class="icon-btn" title="Settings">⚙</button>
               <button id="open-help" class="icon-btn" title="How to play / Как играть">❓</button>
             </div>

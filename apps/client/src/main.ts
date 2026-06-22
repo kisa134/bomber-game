@@ -1188,8 +1188,9 @@ function refreshWalletBtn(): void {
       })
       .catch(() => {});
   } else {
-    document.getElementById("player-stats")?.classList.add("hidden");
-    setTokenBadge(undefined);
+    // Guests still see the chrome currency strip (mockup look) — just zeroed.
+    document.getElementById("player-stats")?.classList.remove("hidden");
+    setTokenBadge(0);
   }
   updateSplashButtons(); // hide "Connect wallet" on the splash once connected
 }
@@ -2320,8 +2321,14 @@ function showFighter(skin: number, equip = false): void {
     ra.textContent = `${r.name.toUpperCase()} · ${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}`;
     ra.style.color = r.color;
   }
+  const avSrc = `/sprites/skin_${hubEquipped()}.webp?v=${ASSET_VER}`;
   const av = document.getElementById("hub-passport-av") as HTMLImageElement | null;
-  if (av) av.src = `/sprites/skin_${hubEquipped()}.webp?v=${ASSET_VER}`;
+  if (av) av.src = avSrc;
+  const chipAv = document.getElementById("hub-chip-av") as HTMLImageElement | null;
+  if (chipAv) chipAv.src = avSrc;
+  const chipName = document.getElementById("hub-chip-name");
+  const nick = (document.getElementById("nickname") as HTMLInputElement | null)?.value?.trim();
+  if (chipName) chipName.textContent = nick || "guest";
   if (equip && skinOwned(skin)) void doSelectSkin(skin);
 }
 
@@ -2605,6 +2612,7 @@ function wireMenuLinks(): void {
   document.getElementById("nav-arena")?.addEventListener("click", () => click("open-play"));
   document.getElementById("nav-shop")?.addEventListener("click", () => click("open-shop"));
   document.getElementById("nav-ranks")?.addEventListener("click", () => click("open-leaderboard"));
+  document.getElementById("open-profile-chip")?.addEventListener("click", () => void openProfile());
   document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
   document.getElementById("open-leaderboard")?.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
   // Hub inline leaderboard tabs: switch board, refresh the list in place.
