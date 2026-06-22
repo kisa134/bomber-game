@@ -2266,12 +2266,19 @@ function fighterCardHTML(skin: number): string {
 const tierRank = (i: number): number => (i < 4 ? 0 : i < 6 ? 1 : i < 8 ? 2 : i < 10 ? 3 : 4);
 const tierPower = (i: number): number => 0.3 + tierRank(i) * 0.175; // 0.30 … 1.0
 
+// Foil finish system. Default finish follows rarity, but any card can be
+// assigned its own finish in CARD_FINISH (handy as the roster grows).
+//   silver · pearl · gold · holo · prismatic
+const FINISH_BY_TIER = ["silver", "pearl", "gold", "holo", "prismatic"];
+const CARD_FINISH: Record<number, string> = {};
+const finishOf = (i: number): string => CARD_FINISH[i] ?? FINISH_BY_TIER[tierRank(i)];
+
 function buildCarousel(): void {
   const wrap = document.getElementById("fighter-carousel");
   if (!wrap || carouselBuilt) return;
   for (let i = 0; i < SKIN_COUNT; i++) {
     const card = document.createElement("div");
-    card.className = "fighter-card";
+    card.className = "fighter-card finish-" + finishOf(i);
     card.dataset.skin = String(i);
     // Per-card float phase/speed → each card drifts on its own little orbit.
     card.dataset.ph = String((i * 2.39996) % (Math.PI * 2));
@@ -2408,6 +2415,11 @@ function layoutCarousel(active: number): void {
     if (off < -n / 2) off += n;
     const a = Math.abs(off);
     card.classList.toggle("active", off === 0);
+    // Only the active card's foil is cursor-driven; let the rest auto-shimmer.
+    if (off !== 0) {
+      const holo = card.querySelector<HTMLElement>(".fc-holo");
+      if (holo) holo.style.backgroundPosition = "";
+    }
     if (a > 2 || (mobile && a > 0)) {
       card.style.opacity = "0";
       card.style.visibility = "hidden";

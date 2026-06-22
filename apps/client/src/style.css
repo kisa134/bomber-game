@@ -5154,19 +5154,51 @@ button.big {
   object-fit: contain;
   object-position: center bottom;
   image-rendering: pixelated;
-  /* Raised a touch above the card surface → the glare passes under it and the
-     character reads as a separate, tactile, embossed layer. */
-  transform: translateZ(16px);
-  filter: drop-shadow(0 13px 15px rgba(0, 0, 0, 0.62)) drop-shadow(0 3px 5px rgba(0, 0, 0, 0.5));
+  /* A whisper of lift — the glare still passes under the hero, but the
+     separation is subtle (no "peeled-off" look). */
+  transform: translateZ(7px);
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.42));
 }
+/* ===== Foil finishes — diagonal (no convergence point), shift with cursor =====
+   The active card's foil tracks the pointer (set in main.ts); the rest drift on
+   a slow auto-shimmer. Each rarity wears a different finish. */
 .fc-holo {
   position: absolute;
   inset: 0;
-  background: conic-gradient(from 0deg, #ff5a4d, #ffd84d, #c4ff3d, #35e3ff, #7a5cff, #ff3ea5, #ff5a4d);
-  background-size: 200% 200%;
+  background-size: 230% 230%;
+  background-position: 50% 50%;
   mix-blend-mode: screen;
   opacity: var(--holo);
   pointer-events: none;
+  animation: foilShift 9s linear infinite;
+}
+@keyframes foilShift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+/* Silver chameleon (common) — cool metallic blue-white shift */
+.finish-silver .fc-holo {
+  background-image: linear-gradient(115deg, #97a3bd 0%, #ffffff 20%, #b6c0d6 38%, #eef2fa 56%, #9aa6c2 76%, #dfe6f2 100%);
+}
+/* Pearl (rare) — soft pastel iridescence */
+.finish-pearl .fc-holo {
+  background-image: linear-gradient(115deg, #ffd9ec 0%, #d9f0ff 24%, #efe0ff 44%, #fff2d9 64%, #d9fff0 84%, #ffe0f0 100%);
+  mix-blend-mode: soft-light;
+  opacity: calc(var(--holo) + 0.14);
+}
+/* Gold chameleon (epic) — warm champagne-gold shift */
+.finish-gold .fc-holo {
+  background-image: linear-gradient(115deg, #c9962a 0%, #ffe9a8 20%, #fff6d6 40%, #e0a52a 60%, #fff0b0 80%, #c9962a 100%);
+}
+/* Holographic (legendary) — full diagonal rainbow */
+.finish-holo .fc-holo {
+  background-image: linear-gradient(115deg, #ff5a4d 0%, #ffd84d 18%, #c4ff3d 34%, #35e3ff 50%, #7a5cff 66%, #ff3ea5 82%, #ff5a4d 100%);
+}
+/* Prismatic (mythic) — tighter, brighter spectrum */
+.finish-prismatic .fc-holo {
+  background-image: linear-gradient(115deg, #ff5a4d 0%, #ffd84d 14%, #c4ff3d 28%, #35e3ff 42%, #7a5cff 56%, #ff3ea5 70%, #35e3ff 84%, #ff5a4d 100%);
+  opacity: calc(var(--holo) + 0.06);
+  animation-duration: 6.5s;
 }
 .fc-scan {
   position: absolute;
