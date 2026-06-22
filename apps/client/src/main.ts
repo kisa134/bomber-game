@@ -3197,6 +3197,12 @@ function openLobby(): void {
 }
 // PLAY ONLINE lands straight on the full-screen lobby browser.
 document.getElementById("open-play")!.addEventListener("click", openLobby);
+// Game-mode picker: only Ranked Arena exists today — flash a "soon" note so
+// the control isn't a dead button.
+document.getElementById("hub-gamemode")?.addEventListener("click", () => {
+  setMenuStatus("🌐 Ranked Arena — more modes coming soon");
+  window.setTimeout(() => setMenuStatus(""), 2400);
+});
 // Train vs bots opens the full-screen Training Setup screen.
 document.getElementById("open-practice")!.addEventListener("click", () => showScreen("training"));
 document.getElementById("train-back")!.addEventListener("click", () => showScreen("menu"));
