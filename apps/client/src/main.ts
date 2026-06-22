@@ -2328,7 +2328,7 @@ const FAN = [
 function layoutCarousel(active: number): void {
   const cards = document.querySelectorAll<HTMLElement>("#fighter-carousel .fighter-card");
   const n = SKIN_COUNT;
-  const mobile = window.innerWidth < 760; // phones show only the active card
+  const mobile = window.innerWidth < 900; // phones show only the active card
   cards.forEach((card) => {
     const i = Number(card.dataset.skin);
     let off = i - active;
@@ -2671,7 +2671,7 @@ function wireMenuLinks(): void {
   document.getElementById("nav-shop")?.addEventListener("click", () => click("open-shop"));
   document.getElementById("nav-ranks")?.addEventListener("click", () => click("open-leaderboard"));
   document.getElementById("open-profile-chip")?.addEventListener("click", () => void openProfile());
-  document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
+  document.getElementById("open-profile")?.addEventListener("click", () => void openProfile());
   document.getElementById("open-leaderboard")?.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
   // Hub inline leaderboard tabs: switch board, refresh the list in place.
   document.getElementById("hub-lb-tabs")?.addEventListener("click", (e) => {

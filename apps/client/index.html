@@ -116,32 +116,45 @@
       <!-- Home — main hub (the global status bar + XP live in #chrome above) -->
       <section id="menu" class="screen">
         <div class="hub hub-hero-layout">
-          <!-- AAA hub: passport strip · holographic fighter card · play -->
-          <div class="hub-stage">
-            <!-- Passport strip: avatar · nickname · level · XP bar -->
-            <div class="hub-passport-strip">
-              <span class="hps-avatar"><img id="hub-passport-av" alt="" /></span>
-              <div class="hps-body">
-                <div class="hps-top">
-                  <span class="hps-crown" aria-hidden="true">👑</span>
-                  <input id="nickname" class="passport-name" maxlength="16" placeholder="your nickname" autocomplete="off" />
-                  <span class="hps-lv">LV&nbsp;<span id="hub-level">1</span></span>
+          <!-- LEFT: player passport card -->
+          <div class="passport-card">
+            <div class="pc-head">
+              <span class="pc-av"><img id="hub-passport-av" alt="" /></span>
+              <div class="pc-id">
+                <div class="pc-namerow">
+                  <span class="pc-crown" aria-hidden="true">👑</span>
+                  <input id="nickname" class="pc-name" maxlength="16" placeholder="your nickname" autocomplete="off" />
                 </div>
-                <div id="hub-progress" class="hps-track hidden">
-                  <div class="ratebar"><div id="hub-ratefill" class="ratefill"></div></div>
-                  <span id="hub-rank" class="rrk hidden">🌱 Beginner</span>
-                  <span id="hub-ratetext" class="ratetext"></span>
-                </div>
+                <div class="pc-tier"><span id="hub-rank" class="pc-rank">🌱 Beginner</span> · LV <span id="hub-level">1</span></div>
               </div>
             </div>
+            <div id="hub-progress" class="pc-rating">
+              <div class="pc-rating-row"><span class="pc-rk">RATING</span><span id="hub-ratetext" class="pc-rv"></span></div>
+              <div class="ratebar"><div id="hub-ratefill" class="ratefill"></div></div>
+            </div>
+          </div>
 
-            <!-- Choose your fighter -->
+          <!-- LEFT: social chips -->
+          <div class="hub-rail hub-rail-left">
+            <button id="hub-friends" class="rail-chip">
+              <span class="rc-k">👥 Friends <span id="hub-friends-count" class="friends-count"></span></span>
+              <span id="hub-friends-sub" class="rc-v">online</span>
+            </button>
+            <button id="open-leaderboard" class="rail-chip">
+              <span class="rc-k">🏆 Leaderboard</span><span class="rc-v">Top →</span>
+            </button>
+            <div class="rail-chip dashed">
+              <span class="rc-k">★ Season 1</span><span class="rc-v">SOON</span>
+            </div>
+          </div>
+
+          <!-- CENTER: holographic fighter carousel -->
+          <div class="hub-stage">
             <div class="fighter-head"><span class="fh-rule l"></span>CHOOSE YOUR FIGHTER<span class="fh-rule r"></span></div>
             <div class="fighter-title">
               <div id="fighter-bigname" class="fighter-bigname">Shiba</div>
               <div id="fighter-bigrarity" class="fighter-bigrarity">COMMON · 001 / 011</div>
             </div>
-
             <div class="fighter-wrap">
               <button id="fighter-prev" class="fighter-arrow prev" title="Previous character">◀</button>
               <!-- 3D fan carousel: cards are built + positioned by main.ts -->
@@ -149,30 +162,39 @@
               <button id="fighter-next" class="fighter-arrow next" title="Next character">▶</button>
             </div>
             <div id="fighter-dots" class="fighter-dots"></div>
-
-            <button id="open-play" class="primary hub-play">🌐 PLAY ONLINE</button>
-            <button id="open-practice" class="hub-practice-link">or practice vs bots →</button>
             <p id="menu-status" class="status"></p>
           </div>
 
-          <!-- Footer: teasers bottom-left · utility dock bottom-right -->
-          <div class="hub-footer">
-            <div class="hub-teasers">
-              <div class="hub-chip hub-chip-static">
-                <span class="chip-k">★ Season 1</span><span class="chip-v">soon</span>
-              </div>
-              <button id="open-leaderboard" class="hub-chip">
-                <span class="chip-k">🏆 Leaderboard</span><span class="chip-v">Top →</span>
-              </button>
-              <button id="hub-friends" class="hub-chip">
-                <span class="chip-k">👥 Friends <span id="hub-friends-count" class="friends-count"></span></span><span id="hub-friends-sub" class="chip-v">online</span>
-              </button>
+          <!-- RIGHT: destinations -->
+          <div class="hub-rail hub-rail-right">
+            <div class="rail-online"><span class="ro-dot" aria-hidden="true"></span><span id="hub-online">ARENA LIVE</span></div>
+            <button id="open-wheel" class="rail-card spin">
+              <div class="rc-top"><span class="rc-title">🎰 Daily Spin</span><span class="rc-badge ready">READY</span></div>
+              <div class="rc-sub">Free spin · every spin wins</div>
+            </button>
+            <button id="open-shop" class="rail-card">
+              <div class="rc-top"><span class="rc-title">🛒 Shop</span><span class="rc-badge new">NEW</span></div>
+              <div class="rc-sub">11 collectible skins</div>
+            </button>
+            <button id="open-referral" class="rail-card">
+              <div class="rc-title">👥 Invite &amp; Earn</div>
+              <div class="rc-sub">5-level rake share</div>
+            </button>
+          </div>
+
+          <!-- BOTTOM: play bar -->
+          <div class="hub-bottombar">
+            <div class="hb-side hb-mode">
+              <div class="hb-label">GAME MODE</div>
+              <button id="hub-gamemode" class="hb-mode-btn">🌐 Ranked Arena <span class="hb-caret">▾</span></button>
             </div>
-            <div class="hub-dock">
-              <button id="open-profile" class="hub-dock-btn" title="Profile"><span class="dock-ic">👤</span><span class="dock-l">Profile</span></button>
-              <button id="open-shop" class="hub-dock-btn" title="Shop"><span class="dock-ic">🛒</span><span class="dock-l">Shop</span></button>
-              <button id="open-wheel" class="hub-dock-btn" title="Spin"><span class="dock-ic">🎰</span><span class="dock-l">Spin</span></button>
-              <button id="open-referral" class="hub-dock-btn" title="Invite"><span class="dock-ic">👥</span><span class="dock-l">Invite</span></button>
+            <button id="open-play" class="primary hub-play">
+              <span class="hp-title">PLAY ONLINE</span>
+              <span class="hp-sub">FIND A MATCH · 2–4</span>
+            </button>
+            <div class="hb-side hb-practice">
+              <div class="hb-label">PRACTICE</div>
+              <button id="open-practice" class="hb-practice-btn">🤖 vs Bots</button>
             </div>
           </div>
         </div>

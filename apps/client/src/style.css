@@ -5310,101 +5310,360 @@ button.big {
   margin-top: 4px;
 }
 
-/* ===== Desktop hub: 3 zones — left passport rail · fan · right rail ===== */
-@media (min-width: 760px) {
+/* ============================================================
+   Hub panels — passport card · social/destination rails · bottom bar
+   (mockup-accurate, fully responsive: grid on desktop, column on phones)
+   ============================================================ */
+.passport-card {
+  width: min(380px, 100%);
+  padding: 14px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(34, 30, 40, 0.9), rgba(18, 15, 24, 0.9));
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.pc-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pc-av {
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 10px;
+  background: #1a1620;
+  border: 1px solid rgba(255, 204, 51, 0.4);
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.pc-av img {
+  width: 38px;
+  image-rendering: pixelated;
+}
+.pc-id {
+  min-width: 0;
+  flex: 1;
+}
+.pc-namerow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.pc-crown {
+  font-size: 0.72rem;
+}
+.pc-name {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  border-radius: 0;
+  font-family: var(--font-disp);
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--cream);
+}
+.pc-name::placeholder {
+  color: var(--muted);
+  font-family: var(--font-ui);
+  font-weight: 600;
+}
+.pc-tier {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  color: #ff9a3d;
+}
+.pc-rating {
+  margin-top: 12px;
+}
+.pc-rating-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.pc-rating-row .pc-rv {
+  color: #cfcbd8;
+}
+.pc-rating .ratebar {
+  margin-top: 5px;
+  height: 7px;
+  border-radius: 5px;
+  background: #0b0a0e;
+  overflow: hidden;
+}
+.pc-rating .ratefill {
+  height: 100%;
+  width: 0;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #ff9a3d, #ffd06a);
+  transition: width 0.5s ease;
+}
+
+/* Rails (left = social chips, right = destination cards) */
+.hub-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  width: min(380px, 100%);
+}
+.rail-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: rgba(34, 30, 40, 0.82);
+  border: 1px solid var(--border);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--text);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.rail-chip:hover {
+  border-color: rgba(255, 204, 51, 0.4);
+}
+.rail-chip.dashed {
+  border-style: dashed;
+  color: #cfcbd8;
+}
+.rail-chip .rc-v {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.64rem;
+  color: #d9bd6a;
+}
+.rail-chip.dashed .rc-v {
+  color: var(--muted);
+}
+.rail-online {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(34, 30, 40, 0.82);
+  border: 1px solid rgba(127, 216, 255, 0.28);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  color: #cfcbd8;
+}
+.ro-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5ad27a;
+  box-shadow: 0 0 8px #5ad27a;
+  animation: blink 1.6s ease-in-out infinite;
+}
+.rail-card {
+  display: block;
+  text-align: left;
+  width: 100%;
+  padding: 13px 14px;
+  border-radius: 14px;
+  background: rgba(34, 30, 40, 0.82);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.rail-card:hover {
+  border-color: rgba(255, 204, 51, 0.4);
+}
+.rail-card.spin {
+  background: linear-gradient(160deg, rgba(40, 32, 20, 0.92), rgba(20, 15, 11, 0.92));
+  border-color: rgba(255, 204, 51, 0.35);
+  box-shadow: 0 0 26px rgba(255, 170, 30, 0.1);
+}
+.rc-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.rc-title {
+  font-family: var(--font-disp);
+  font-weight: 800;
+  font-size: 0.86rem;
+  color: var(--cream);
+}
+.rail-card.spin .rc-title {
+  color: var(--accent-bright);
+}
+.rc-sub {
+  margin-top: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--muted);
+}
+.rail-card.spin .rc-sub {
+  color: #d9bd6a;
+}
+.rc-badge {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.5rem;
+  border-radius: 4px;
+  padding: 2px 5px;
+  color: #0a0820;
+}
+.rc-badge.ready {
+  background: #5ad27a;
+}
+.rc-badge.new {
+  background: #ff5a4d;
+}
+
+/* Bottom bar — GAME MODE · PLAY ONLINE · PRACTICE */
+.hub-bottombar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px;
+  width: min(460px, 100%);
+}
+.hb-side {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: center;
+}
+.hb-label {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.55rem;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+.hb-mode-btn,
+.hb-practice-btn {
+  width: auto;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: rgba(20, 18, 26, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+.hb-mode-btn:hover,
+.hb-practice-btn:hover {
+  border-color: rgba(255, 204, 51, 0.5);
+}
+.hb-caret {
+  color: var(--muted);
+}
+.hub-bottombar .hub-play {
+  width: auto;
+  flex: none;
+  margin-top: 0;
+  padding: 15px 38px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  align-items: center;
+}
+.hp-title {
+  font-family: var(--font-disp);
+  font-weight: 900;
+  font-size: 1.35rem;
+  letter-spacing: 0.06em;
+}
+.hp-sub {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.54rem;
+  letter-spacing: 0.1em;
+  color: #6a4a10;
+}
+
+/* ===== Phone flow: single column, top-aligned + scrollable ===== */
+.hub.hub-hero-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+}
+.passport-card { order: 1; }
+.hub-stage { order: 2; width: 100%; }
+.hub-bottombar { order: 3; }
+.hub-rail-right { order: 4; }
+.hub-rail-left { order: 5; }
+@media (max-width: 899px) {
   #menu {
-    justify-content: center; /* vertically centre the whole hub */
-  }
-  .hub-hero-layout {
-    position: relative;
-    width: 100%;
-    max-width: 1280px;
-    justify-content: center;
-  }
-  /* Centre stage holds the fan + title + play; passport moves to the rail. */
-  .hub-hero-layout .hub-stage {
-    position: static; /* so the absolute passport resolves to .hub-hero-layout */
-    width: min(720px, calc(100% - 30px));
-    margin: 0 auto;
-    justify-content: center;
-    gap: 12px;
-  }
-  .hub-hero-layout .hub-play {
-    margin-top: 14px;
-  }
-  .fighter-carousel {
-    height: 372px;
-  }
-  .fighter-card {
-    width: 232px;
-  }
-  .fighter-arrow.prev {
-    left: calc(50% - 210px);
-  }
-  .fighter-arrow.next {
-    right: calc(50% - 210px);
-  }
-  .hub-play {
-    width: min(340px, 100%);
-  }
-
-  /* LEFT RAIL — passport card (top) + social chips below it */
-  .hub-hero-layout .hub-passport-strip {
-    position: absolute;
-    left: 0;
-    top: 6px;
-    width: 232px;
-    z-index: 15;
-  }
-  .hub-hero-layout .hub-teasers {
-    position: absolute;
-    left: 0;
-    top: 92px;
-    width: 232px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 9px;
-    z-index: 15;
-  }
-  .hub-hero-layout .hub-teasers .hub-chip {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  /* RIGHT RAIL — destinations dock as a vertical stack of cards */
-  .hub-hero-layout .hub-footer {
-    display: contents;
-  }
-  .hub-hero-layout .hub-dock {
-    position: absolute;
-    right: 0;
-    top: 6px;
-    width: 232px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 9px;
-    z-index: 15;
-  }
-  .hub-hero-layout .hub-dock .hub-dock-btn {
-    flex-direction: row;
     justify-content: flex-start;
-    gap: 11px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .hub.hub-hero-layout {
+    flex: 0 0 auto; /* don't stretch — let the column scroll naturally */
+  }
+  .hub-bottombar {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .hb-mode {
+    display: none; /* game-mode picker is "soon" — keep phones uncluttered */
+  }
+  .hub-bottombar .hub-play {
     width: 100%;
-    padding: 13px 14px;
-    border-radius: 12px;
-    background: linear-gradient(180deg, rgba(34, 30, 40, 0.85), rgba(18, 15, 24, 0.85));
-    border: 1px solid var(--border);
   }
-  .hub-hero-layout .hub-dock .hub-dock-btn:hover {
-    border-color: rgba(255, 204, 51, 0.45);
+  .hb-practice {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
   }
-  .hub-hero-layout .hub-dock .hub-dock-btn .dock-ic {
-    font-size: 1.05rem;
+}
+
+/* ===== Desktop grid (>=900px): rails at the edges, fan centre, bar bottom ===== */
+@media (min-width: 900px) {
+  #menu {
+    justify-content: center;
   }
-  .hub-hero-layout .hub-dock .hub-dock-btn .dock-l {
-    font-family: var(--font-disp);
-    font-weight: 800;
-    font-size: 0.92rem;
-    color: var(--cream);
+  .hub.hub-hero-layout {
+    display: grid;
+    grid-template-columns: 244px minmax(0, 1fr) 244px;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "pass   center right"
+      "social center right"
+      "bottom bottom bottom";
+    gap: 14px 18px;
+    align-content: center;
+    width: 100%;
+    max-width: 1240px;
+    min-height: calc(100dvh - var(--chrome-h, 120px) - 36px);
   }
+  .passport-card { grid-area: pass; width: 100%; }
+  .hub-rail-left { grid-area: social; width: 100%; align-self: start; }
+  .hub-stage { grid-area: center; width: 100%; justify-content: center; gap: 12px; }
+  .hub-rail-right { grid-area: right; width: 100%; align-self: start; }
+  .hub-bottombar { grid-area: bottom; width: 100%; max-width: 520px; justify-self: center; margin-top: 6px; }
+  .fighter-carousel { height: 372px; }
+  .fighter-card { width: 232px; }
+  .fighter-arrow.prev { left: calc(50% - 210px); }
+  .fighter-arrow.next { right: calc(50% - 210px); }
 }
