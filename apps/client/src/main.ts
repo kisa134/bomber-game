@@ -2228,20 +2228,31 @@ const hubEquipped = (): number => Number(localStorage.getItem("bp_skin")) || 0;
 const GEM_COUNT = (i: number): number => (i < 4 ? 2 : i < 6 ? 3 : i < 8 ? 4 : i < 10 ? 5 : 6);
 const padNo = (n: number): string => String(n).padStart(3, "0");
 
+// Per-character signature colour → each fighter gets its own card backdrop.
+const CARD_HUE = [
+  "#d98a3a", "#3fbf5a", "#e0533a", "#3a8ad9", "#e0a52a", "#2fcf6a",
+  "#3a6ad9", "#8a5cff", "#8a90a8", "#c99a3a", "#ff4a5a",
+];
+const cardHue = (i: number): string => CARD_HUE[i] ?? "#9aa3b2";
+
 /** Inner HTML for one collectible card (static pose; active card animates).
     All visible layers live inside .fc-tilt, which floats + tilts to the cursor. */
 function fighterCardHTML(skin: number): string {
   const r = rarityOf(skin);
+  const hue = cardHue(skin);
   return (
     '<div class="fc-tilt">' +
-    '<div class="fc-art"></div><div class="fc-ray"></div>' +
+    `<div class="fc-art" style="background:radial-gradient(125% 92% at 50% 26%, ${hue}59, transparent 62%), radial-gradient(90% 70% at 50% 88%, ${hue}33, transparent 70%)"></div>` +
+    '<div class="fc-ray"></div>' +
+    `<div class="fc-cloud" style="--cloud:${hue}"></div>` +
     `<img class="fc-hero" src="/sprites/skin_${skin}_down_1.webp?v=${ASSET_VER}" alt="" />` +
+    '<div class="fc-dust"></div>' +
     '<div class="fc-holo"></div><div class="fc-scan"></div><div class="fc-gloss"></div><span class="fc-sheen"></span>' +
     '<div class="fc-frame"></div>' +
     '<span class="fc-corner tl"></span><span class="fc-corner tr"></span><span class="fc-corner bl"></span><span class="fc-corner br"></span>' +
     `<div class="fc-toprow"><span class="fc-rarity">${r.name.toUpperCase()}</span><span class="fc-no">${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}</span></div>` +
     `<div class="fc-namerow"><div class="fc-name">${SKIN_NAMES[skin] ?? `Skin ${skin}`}</div><div class="fc-gems">${"◆".repeat(GEM_COUNT(skin))}</div></div>` +
-    '<div class="fc-badge">◆</div>' +
+    '<div class="fc-badge" aria-hidden="true"></div>' +
     `<div class="fc-lock${skinOwned(skin) ? " hidden" : ""}">🔒</div>` +
     "</div>"
   );
