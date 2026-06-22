@@ -2256,7 +2256,8 @@ function fighterCardHTML(skin: number): string {
     '<span class="fc-corner tl"></span><span class="fc-corner tr"></span><span class="fc-corner bl"></span><span class="fc-corner br"></span>' +
     `<div class="fc-toprow"><span class="fc-rarity">${r.name.toUpperCase()}</span><span class="fc-no">${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}</span></div>` +
     `<div class="fc-namerow"><div class="fc-name">${SKIN_NAMES[skin] ?? `Skin ${skin}`}</div><div class="fc-gems">${"◆".repeat(GEM_COUNT(skin))}</div></div>` +
-    '<div class="fc-badge" aria-hidden="true"></div>' +
+    `<div class="fc-badge" aria-hidden="true"><span>${["C", "R", "E", "L", "M"][tierRank(skin)]}</span></div>` +
+    '<div class="fc-edge" aria-hidden="true"></div>' +
     `<div class="fc-lock${skinOwned(skin) ? " hidden" : ""}">🔒</div>` +
     "</div>"
   );
@@ -2300,33 +2301,36 @@ function buildCarousel(): void {
 
 // Magic dust: a field of glowing motes whirling AROUND the cards, animated in
 // the same rAF loop and pushed by the cursor.
-interface DustMote { el: HTMLElement; bx: number; by: number; ph: number; sp: number; amp: number; depth: number; tw: number; }
+interface DustMote { el: HTMLElement; bx: number; by: number; ph: number; sp: number; amp: number; depth: number; tw: number; dim: number; }
 const dustMotes: DustMote[] = [];
 function buildDustField(): void {
   const field = document.getElementById("fighter-dustfield");
   if (!field || dustMotes.length) return;
-  const N = 80;
+  const N = 96;
   for (let i = 0; i < N; i++) {
     const el = document.createElement("span");
     el.className = "dust-mote";
-    // Mostly fine motes, a few bigger sparkles.
-    const size = Math.random() < 0.7 ? 0.6 + Math.random() * 1.1 : 1.8 + Math.random() * 1.6;
+    // Depth: dz≈0 = far (tiny, dim, drifts slowly → space depth), dz≈1 = near.
+    const dz = Math.random();
+    const size = 0.5 + dz * 2.4;
     el.style.width = el.style.height = `${size.toFixed(1)}px`;
     const gold = Math.random() < 0.62;
     el.style.background = gold
       ? "radial-gradient(circle, #ffe9a8, transparent 70%)"
       : "radial-gradient(circle, #ffffff, transparent 70%)";
-    el.style.boxShadow = gold ? "0 0 6px 1px rgba(255,210,120,.6)" : "0 0 6px 1px rgba(255,255,255,.5)";
+    const glow = (2 + dz * 5).toFixed(1);
+    el.style.boxShadow = gold ? `0 0 ${glow}px 1px rgba(255,210,120,.55)` : `0 0 ${glow}px 1px rgba(255,255,255,.5)`;
     field.appendChild(el);
     dustMotes.push({
       el,
       bx: Math.random(),
       by: Math.random(),
       ph: Math.random() * Math.PI * 2,
-      sp: 0.25 + Math.random() * 0.6,
-      amp: 7 + Math.random() * 18,
-      depth: (0.3 + Math.random()) * (gold ? 1 : 0.7),
+      sp: 0.22 + dz * 0.6,
+      amp: 6 + dz * 20,
+      depth: 0.2 + dz * 1.2, // far motes parallax less
       tw: 0.4 + Math.random() * 0.6,
+      dim: 0.3 + dz * 0.7, // far motes are fainter
     });
   }
 }
@@ -2346,6 +2350,7 @@ function startFighterFloat(): void {
   floatStarted = true;
   const wrap = document.getElementById("fighter-carousel");
   const menu = document.getElementById("menu");
+  const dustField = document.getElementById("fighter-dustfield");
   if (!wrap || !menu) return;
   menu.addEventListener("pointermove", (e) => {
     const r = wrap.getBoundingClientRect();
@@ -2381,17 +2386,18 @@ function startFighterFloat(): void {
         if (holo) holo.style.backgroundPosition = `${(50 + mCurX * 35).toFixed(1)}% ${(50 + mCurY * 35).toFixed(1)}%`;
       }
     }
-    // Magic dust whirling around the cards, nudged by the cursor.
+    // Magic dust whirling around ALL the cards (wide field), nudged by the
+    // cursor; far motes are tiny + faint → depth of space.
     if (dustMotes.length) {
-      const fr = wrap.getBoundingClientRect();
+      const fr = (dustField ?? wrap).getBoundingClientRect();
       const W = fr.width;
       const H = fr.height;
       for (const m of dustMotes) {
         const x = m.bx * W + Math.sin(t * m.sp + m.ph) * m.amp + mCurX * 26 * m.depth;
         const y = m.by * H + Math.cos(t * m.sp * 0.85 + m.ph) * m.amp + mCurY * 26 * m.depth;
         m.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-        // Brighter, more alive dust for higher-tier (cooler) active cards.
-        m.el.style.opacity = (m.tw * (0.3 + dustCur) * (0.55 + 0.45 * Math.sin(t * 1.5 + m.ph))).toFixed(2);
+        // Brighter on higher-tier active cards; dimmer for far (small) motes.
+        m.el.style.opacity = (m.tw * m.dim * (0.35 + dustCur) * (0.55 + 0.45 * Math.sin(t * 1.5 + m.ph))).toFixed(2);
       }
     }
   };
