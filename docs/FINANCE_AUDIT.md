@@ -78,3 +78,34 @@ Two honest options:
 
 Either way, also: set `HOUSE_RAKE_BP=500`, and at launch switch the ticker/mint
 to **$BMB** (`packages/shared/src/constants.ts`, rebuild, reset test balances).
+
+---
+
+## Update — rake-engine accounting + admin transparency (implemented)
+
+The tokenomics is now a single source of truth in code and **visible in the
+admin** so we can watch every pipe:
+- `packages/shared/src/constants.ts`: `TOTAL_SUPPLY` (1B), `GAME_BUYBACK_TOKENS`
+  (~120M seeded into the game, NOT the whole supply), `INITIAL_ALLOCATION_PCT`
+  (88/5/4/3), `HOUSE_RAKE_BP_DEFAULT` (500), `RAKE_SPLIT_BPS`
+  (burn 25 / yield 25 / devTreasury 24 / referral 21 / dao 5). `referral` is
+  asserted to equal Σ `REFERRAL_LEVEL_BPS` (21%).
+- `apps/server/src/treasury.ts`: on every paid-token settlement the rake is
+  **accrued into its 5 buckets** (`recordRake`), shown in admin **💸 Rake
+  Engine**. Referral is actually paid out; the other buckets are bookkeeping
+  (the funds already sit in the treasury wallet).
+- Admin **🏦 Treasury & supply**: total supply, in-game buyback, allocation %,
+  and the wallet registry (`WALLET_TREASURY/MARKETING/DEVTEAM/BURN/YIELD/DAO`).
+  The AI analyst receives all of this in its snapshot.
+
+### Still NOT done (deliberate, needs decisions/keys)
+- **On-chain movement of the non-referral buckets** — no real burn tx, no
+  transfer to yield/DAO wallets yet. Today they accumulate in the one treasury
+  wallet; the buckets are the accounting of how they *should* be swept.
+- **Durable history** — bucket counters are since-restart (in-memory). Promote to
+  a DB table when we need lifetime totals.
+- **The 3 locked allocation wallets** (Treasury 5% / Marketing 4% / DevTeam 3%)
+  — the addresses are configured/shown for transparency, but the actual **lock /
+  3-month vesting is an on-chain step** (a Solana vesting program or multisig),
+  not game-server code. Create the wallets now (even with the test token), set
+  the env vars, and apply the lock at/just before launch.

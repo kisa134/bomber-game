@@ -73,6 +73,11 @@ export function adminPageHtml(): string {
     <h3>💰 Economy <span class="muted" style="font-weight:400;font-size:.8rem">· circulation &amp; treasury</span></h3>
     <div class="grid" id="economy"></div>
     <div class="cfg" id="toggles"></div>
+    <h3>💸 Rake Engine <span class="muted" style="font-weight:400;font-size:.8rem">· per-match 5% split · accrued since restart</span></h3>
+    <div class="grid" id="rake"></div>
+    <h3>🏦 Treasury &amp; supply <span class="muted" style="font-weight:400;font-size:.8rem">· on-chain transparency</span></h3>
+    <div class="grid" id="supply"></div>
+    <div id="wallets" class="feed" style="margin:0 0 16px"></div>
     <h3>🎰 Lucky Spin <span class="muted" style="font-weight:400;font-size:.8rem">· since restart</span></h3>
     <div class="grid" id="spins"></div>
     <h3>Activity feed <span class="muted" style="font-weight:400;font-size:.8rem">· live</span></h3>
@@ -189,6 +194,33 @@ async function poll(){
       '<button id="tg-wd" style="margin-left:8px">'+(cf.withdrawals?'Disable':'Enable')+' withdrawals</button>';
     $("#tg-dep").onclick=function(){adminToggle("deposits",!cf.deposits);};
     $("#tg-wd").onclick=function(){adminToggle("withdrawals",!cf.withdrawals);};
+    // Rake engine — the 5% house rake split into its pipes (since restart)
+    var re=d.rakeEngine||{accrued:{},split:{},supply:{allocation:{}},wallets:{}};
+    var ra=re.accrued||{}, rs=re.split||{};
+    var bps=function(b){return (b/100)+"%";};
+    $("#rake").innerHTML=
+      tile("Rake collected","${TOKEN_TICKER} "+fmt(ra.total),fmt(ra.matches)+" paid matches · "+((re.rakeBp||0)/100)+"%")+
+      tile("🔥 Burn","${TOKEN_TICKER} "+fmt(ra.burn),bps(rs.burn)+" · deflation")+
+      tile("💎 Real Yield","${TOKEN_TICKER} "+fmt(ra.realYield),bps(rs.realYield)+" · staking")+
+      tile("⚙️ Dev Treasury","${TOKEN_TICKER} "+fmt(ra.devTreasury),bps(rs.devTreasury)+" · R&D")+
+      tile("👥 Referral","${TOKEN_TICKER} "+fmt(ra.referral),bps(rs.referral)+" · paid out")+
+      tile("🏛️ DAO Impact","${TOKEN_TICKER} "+fmt(ra.daoImpact),bps(rs.daoImpact)+" · community");
+    // Treasury & supply
+    var su=re.supply||{allocation:{}}, al=su.allocation||{};
+    $("#supply").innerHTML=
+      tile("Total supply",fmt(su.total),"$BMB cap")+
+      tile("In-game buyback",fmt(su.buyback),"seeded into the economy")+
+      tile("Fair launch",(al.freeMarket||0)+"%","free market liquidity")+
+      tile("Allocations",(al.gameTreasury||0)+"/"+(al.marketingCex||0)+"/"+(al.devTeam||0)+"%","treasury / mktg / dev (locked)");
+    var w=re.wallets||{};
+    var wrow=function(name,addr,note){return '<div class="ev"><time>'+name+'</time><span>'+(addr?('<code>'+addr+'</code>'):'<span class="err">⚠ set wallet env</span>')+(note?(' · '+note):'')+'</span></div>';};
+    $("#wallets").innerHTML=
+      wrow("Game Treasury",w.gameTreasury,"5% · lock")+
+      wrow("Marketing/CEX",w.marketingCex,"4% · lock")+
+      wrow("Dev Team",w.devTeam,"3% · 3-mo vesting lock")+
+      wrow("Burn",w.burn,"rake 25%")+
+      wrow("Real Yield",w.realYield,"rake 25%")+
+      wrow("DAO Impact",w.daoImpact,"rake 5%");
     // Lucky Spin tallies
     var sp=d.spins||{spins:0,cost:0,paid:0,skins:0,net:0};
     $("#spins").innerHTML=

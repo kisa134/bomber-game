@@ -7,10 +7,17 @@
 import { store } from "./store.js";
 import { fromBaseUnits } from "./token.js";
 import { logEvent, shortWallet } from "./events.js";
+import { RAKE_SPLIT_BPS } from "@bomberpump/shared";
 
 // Level payout in basis points of the rake: L1 10%, L2 5%, L3 3%, L4 2%, L5 1%.
-// House keeps the remaining 79% of the rake.
+// Sum = 21% of the rake (the "5-Tier Referral" pipe in the tokenomics). The
+// other 79% of the rake is the burn/yield/devTreasury/dao pipes (see treasury.ts).
 export const REFERRAL_LEVEL_BPS = [1000, 500, 300, 200, 100];
+
+// Safety: keep the referral pipe in lockstep with the published tokenomics split.
+if (REFERRAL_LEVEL_BPS.reduce((a, b) => a + b, 0) !== RAKE_SPLIT_BPS.referral) {
+  console.warn("[referral] REFERRAL_LEVEL_BPS sum != RAKE_SPLIT_BPS.referral — tokenomics drift!");
+}
 
 /** Pay `rakeBase` (token base units of house rake from one staker) up that
  *  staker's referral chain. Safe to await-less; resolves quietly on any error. */

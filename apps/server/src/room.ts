@@ -72,6 +72,7 @@ import { makeRng, encodeMatchSeed, advance } from "@bomberpump/shared";
 import { World, SPAWNS, PRACTICE_SPAWNS, powerupOfTile, type Spawn } from "./world.js";
 import { analytics } from "./analytics.js";
 import { distributeReferralRewards } from "./referral.js";
+import { recordRake } from "./treasury.js";
 import { getTokenDecimals } from "./token.js";
 import { logEvent, shortWallet } from "./events.js";
 import { alert } from "./alert.js";
@@ -1349,6 +1350,7 @@ export class Room {
       // Multi-level referral rewards come OUT of the house rake — token matches
       // only. Each staker's chain gets a slice of the rake their stake produced.
       if (this.currency === Currency.TOKEN && rakeBp > 0) {
+        recordRake(rake); // accrue the rake split (burn/yield/devTreasury/referral/dao) for the admin
         const perStakeRake = Math.floor((this.stakeBase() * rakeBp) / 10000);
         for (const wallet of contributors) {
           void distributeReferralRewards(wallet, perStakeRake).catch((e) =>

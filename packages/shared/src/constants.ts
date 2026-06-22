@@ -190,6 +190,31 @@ export const TOKEN_MINT = "2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump";
 export const TOKEN_TICKER = "BGDF";
 export const TOKEN_DECIMALS = 6; // pump.fun tokens use 6 decimals
 export const HOLDER_MIN = 1; // min token balance (ui amount) to count as a holder
+
+// --- Tokenomics (single source of truth; mirrors the public tokenomics page) -
+// $BMB · Solana · 1,000,000,000 cap. Keep these in lockstep with the website.
+export const TOTAL_SUPPLY = 1_000_000_000;
+// We seed the in-game economy with a buyback of ~120M (not the whole supply).
+export const GAME_BUYBACK_TOKENS = 120_000_000;
+// Initial supply allocation (% of cap). Sum = 100.
+export const INITIAL_ALLOCATION_PCT = {
+  freeMarket: 88, // Fair-launch liquidity
+  gameTreasury: 5, // Ecosystem rewards (Arena pools, leaderboards, tournaments)
+  marketingCex: 4, // Global expansion / CEX
+  devTeam: 3, // Long-term commitment (locked, 3-month vesting)
+} as const;
+// Default house rake = 5% (overridable via HOUSE_RAKE_BP env).
+export const HOUSE_RAKE_BP_DEFAULT = 500;
+// How each house rake splits, in basis points of the rake (sum = 10000):
+// Burn 25 · Real Yield 25 · Dev Treasury 24 · 5-Tier Referral 21 · DAO 5.
+// NOTE: `referral` here MUST equal the sum of REFERRAL_LEVEL_BPS (10/5/3/2/1 = 21%).
+export const RAKE_SPLIT_BPS = {
+  burn: 2500,
+  realYield: 2500,
+  devTreasury: 2400,
+  referral: 2100,
+  daoImpact: 500,
+} as const;
 // Withdraw bounds (whole tokens) — guardrails on the custodial cash-out.
 export const MIN_WITHDRAW = 1;
 export const MAX_WITHDRAW = 10_000_000;

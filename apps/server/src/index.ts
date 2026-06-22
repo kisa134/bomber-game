@@ -1,7 +1,7 @@
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { join, normalize } from "node:path";
 import uWS from "uWebSockets.js";
-import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW, DEFAULT_SKINS, SKIN_PRICES, SKIN_UNLOCK_LEVEL, SKIN_TOKEN_PRICES, SKIN_COUNT, PRACTICE_MAX_BOTS, clampSandbox, SPIN_COST_CHIPS, SKIN_FALLBACK_CHIPS, WHEEL_PRIZES, rollWheel, type SandboxOpts } from "@bomberpump/shared";
+import { ClientMsg, decodeClient, encodePong, encodeReconnectToken, STARTING_CHIPS, STARTING_RATING, BET_SIZES, TOKEN_BET_SIZES, Currency, BotDifficulty, TOKEN_MINT, TOKEN_TICKER, MIN_WITHDRAW, MAX_WITHDRAW, DEFAULT_SKINS, SKIN_PRICES, SKIN_UNLOCK_LEVEL, SKIN_TOKEN_PRICES, SKIN_COUNT, PRACTICE_MAX_BOTS, clampSandbox, SPIN_COST_CHIPS, SKIN_FALLBACK_CHIPS, WHEEL_PRIZES, rollWheel, RAKE_SPLIT_BPS, TOTAL_SUPPLY, GAME_BUYBACK_TOKENS, INITIAL_ALLOCATION_PCT, HOUSE_RAKE_BP_DEFAULT, type SandboxOpts } from "@bomberpump/shared";
 import { Matchmaker, ServerFullError } from "./matchmaker.js";
 import { createNonce, verifySignature, createSession, verifySession, AUTH_SECRET_SET } from "./auth.js";
 import { newRelayState, putRelayPayload, takeRelayPayload, reopenHtml } from "./tgrelay.js";
@@ -11,6 +11,7 @@ import { REFERRAL_LEVEL_BPS } from "./referral.js";
 import { logEvent, recentEvents, shortWallet } from "./events.js";
 import { alert, alertCount, recentAlerts } from "./alert.js";
 import { aiAnalyze, aiInfo } from "./ai.js";
+import { rakeAccrued, treasuryWallets } from "./treasury.js";
 import { metrics } from "./metrics.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
@@ -171,6 +172,26 @@ function totalWsConns(): number {
   let n = 0;
   for (const c of wsConnsByIp.values()) n += c;
   return n;
+}
+/** Rake engine + tokenomics + treasury wallets for the admin control centre. */
+function rakeEngineBlock(): Record<string, unknown> {
+  const a = rakeAccrued();
+  return {
+    rakeBp: Number(process.env.HOUSE_RAKE_BP ?? HOUSE_RAKE_BP_DEFAULT) || 0,
+    split: RAKE_SPLIT_BPS, // bps of rake per pipe
+    accrued: {
+      // display units (since restart)
+      total: fromBaseUnits(a.total),
+      burn: fromBaseUnits(a.burn),
+      realYield: fromBaseUnits(a.realYield),
+      devTreasury: fromBaseUnits(a.devTreasury),
+      referral: fromBaseUnits(a.referral),
+      daoImpact: fromBaseUnits(a.daoImpact),
+      matches: a.matches,
+    },
+    supply: { total: TOTAL_SUPPLY, buyback: GAME_BUYBACK_TOKENS, allocation: INITIAL_ALLOCATION_PCT },
+    wallets: treasuryWallets(),
+  };
 }
 /** Technical health for the admin control centre (memory, uptime, errors, WS). */
 function systemHealth(): Record<string, unknown> {
@@ -526,6 +547,7 @@ app.get("/admin/stats", (res, req) => {
         totals: analytics.snapshot(),
         store: store.kind,
         system: systemHealth(),
+        rakeEngine: rakeEngineBlock(),
         ai: aiInfo(),
         embedUrl: POSTHOG_EMBED_URL,
         gaUrl: GA_DASHBOARD_URL,
@@ -580,6 +602,7 @@ app.post("/admin/ai-analyze", (res, req) => {
         live: mm.adminStats,
         load: mm.load,
         system: systemHealth(),
+        rakeEngine: rakeEngineBlock(),
         config: {
           rakePct: (Number(process.env.HOUSE_RAKE_BP ?? 0) || 0) / 100,
           referralRoot: !!REFERRAL_ROOT,

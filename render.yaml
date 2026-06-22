@@ -99,6 +99,20 @@ services:
         sync: false
       - key: REFERRAL_ROOT # owner wallet = top of the pyramid; un-invited players attach here
         sync: false
+      # Tokenomics wallets (shown in /admin "Treasury & supply" for transparency).
+      # The first three are the locked allocation wallets; the rest are rake sinks.
+      - key: WALLET_TREASURY # Game Treasury allocation (5%) — defaults to TREASURY_ADDRESS
+        sync: false
+      - key: WALLET_MARKETING # Marketing & CEX allocation (4%)
+        sync: false
+      - key: WALLET_DEVTEAM # Dev Team allocation (3%, 3-month vesting lock)
+        sync: false
+      - key: WALLET_BURN # rake burn sink (25% of rake)
+        sync: false
+      - key: WALLET_YIELD # real-yield staking pool (25% of rake)
+        sync: false
+      - key: WALLET_DAO # DAO community fund (5% of rake)
+        sync: false
       - key: METRICS_TOKEN # optional: require ?token=… on /metrics (Prometheus). Empty = open
         sync: false
       # Daily growth targets for the /admin cockpit (optional; defaults 10 / 30).
