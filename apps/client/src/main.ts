@@ -2245,9 +2245,13 @@ function fighterCardHTML(skin: number): string {
     `<div class="fc-art" style="background:radial-gradient(125% 92% at 50% 26%, ${hue}59, transparent 62%), radial-gradient(90% 70% at 50% 88%, ${hue}33, transparent 70%)"></div>` +
     '<div class="fc-ray"></div>' +
     `<div class="fc-cloud" style="--cloud:${hue}"></div>` +
-    `<img class="fc-hero" src="/sprites/skin_${skin}_down_1.webp?v=${ASSET_VER}" alt="" />` +
-    '<div class="fc-dust"></div>' +
+    '<div class="fc-haze"></div>' +
+    // SURFACE shine (holo/scan/gloss/sheen) sits BELOW the hero so the glare
+    // plays on the card surface, never on the character.
     '<div class="fc-holo"></div><div class="fc-scan"></div><div class="fc-gloss"></div><span class="fc-sheen"></span>' +
+    '<div class="fc-grain"></div>' +
+    // The character is raised above the surface (translateZ) → tactile relief.
+    `<img class="fc-hero" src="/sprites/skin_${skin}_down_1.webp?v=${ASSET_VER}" alt="" />` +
     '<div class="fc-frame"></div>' +
     '<span class="fc-corner tl"></span><span class="fc-corner tr"></span><span class="fc-corner bl"></span><span class="fc-corner br"></span>' +
     `<div class="fc-toprow"><span class="fc-rarity">${r.name.toUpperCase()}</span><span class="fc-no">${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}</span></div>` +
@@ -2287,11 +2291,12 @@ const dustMotes: DustMote[] = [];
 function buildDustField(): void {
   const field = document.getElementById("fighter-dustfield");
   if (!field || dustMotes.length) return;
-  const N = 56;
+  const N = 80;
   for (let i = 0; i < N; i++) {
     const el = document.createElement("span");
     el.className = "dust-mote";
-    const size = 1 + Math.random() * 2.8;
+    // Mostly fine motes, a few bigger sparkles.
+    const size = Math.random() < 0.7 ? 0.6 + Math.random() * 1.1 : 1.8 + Math.random() * 1.6;
     el.style.width = el.style.height = `${size.toFixed(1)}px`;
     const gold = Math.random() < 0.62;
     el.style.background = gold

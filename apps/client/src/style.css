@@ -5089,13 +5089,13 @@ button.big {
   width: 130%;
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
-  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.06) 0 3deg, transparent 3deg 9deg);
+  background: repeating-conic-gradient(from 0deg, rgba(255, 255, 255, 0.055) 0 3deg, transparent 3deg 9deg);
   border-radius: 50%;
-  /* RING mask — hollow centre so the convergence point is invisible */
-  -webkit-mask: radial-gradient(circle, transparent 0 24%, #000 40%, transparent 66%);
-  mask: radial-gradient(circle, transparent 0 24%, #000 40%, transparent 66%);
-  filter: blur(2.5px);
-  opacity: 0.5;
+  /* Wide soft hollow centre → the rays fluff out, no visible point of convergence */
+  -webkit-mask: radial-gradient(circle, transparent 0 34%, #000 54%, transparent 74%);
+  mask: radial-gradient(circle, transparent 0 34%, #000 54%, transparent 74%);
+  filter: blur(5px);
+  opacity: 0.45;
 }
 /* Soft cloud the character stands out against (multi-layer-print feel) */
 .fc-cloud {
@@ -5114,24 +5114,32 @@ button.big {
   filter: blur(7px);
   pointer-events: none;
 }
-/* A little magical glowing dust drifting over the card */
-.fc-dust {
+/* Cosmic mist drifting under the character (the "magical-cosmic dust" haze) */
+.fc-haze {
+  position: absolute;
+  left: 50%;
+  bottom: 6%;
+  width: 98%;
+  height: 50%;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(150, 170, 255, 0.16),
+    rgba(120, 140, 230, 0.05) 46%,
+    transparent 72%
+  );
+  filter: blur(10px);
+  pointer-events: none;
+}
+/* A couple percent of surface roughness — matte-laminate grain on the CARD
+   surface (sits below the raised hero, so the character stays crisp). */
+.fc-grain {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  mix-blend-mode: screen;
-  background:
-    radial-gradient(1.6px 1.6px at 22% 32%, rgba(255, 240, 185, 0.95), transparent 60%),
-    radial-gradient(1.2px 1.2px at 68% 24%, rgba(255, 255, 255, 0.85), transparent 60%),
-    radial-gradient(1.7px 1.7px at 80% 62%, rgba(255, 222, 150, 0.9), transparent 60%),
-    radial-gradient(1.1px 1.1px at 36% 74%, rgba(255, 255, 255, 0.8), transparent 60%),
-    radial-gradient(1.5px 1.5px at 56% 48%, rgba(255, 236, 175, 0.9), transparent 60%),
-    radial-gradient(1.2px 1.2px at 46% 18%, rgba(255, 255, 255, 0.8), transparent 60%);
-  animation: dustTwinkle 3.6s ease-in-out infinite;
-}
-@keyframes dustTwinkle {
-  0%, 100% { opacity: 0.3; transform: translateY(0); }
-  50% { opacity: 0.85; transform: translateY(-3px); }
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='110' height='110'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 .fc-hero {
   position: absolute;
@@ -5144,7 +5152,10 @@ button.big {
   object-fit: contain;
   object-position: center bottom;
   image-rendering: pixelated;
-  filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.55));
+  /* Raised a touch above the card surface → the glare passes under it and the
+     character reads as a separate, tactile, embossed layer. */
+  transform: translateZ(16px);
+  filter: drop-shadow(0 13px 15px rgba(0, 0, 0, 0.62)) drop-shadow(0 3px 5px rgba(0, 0, 0, 0.5));
 }
 .fc-holo {
   position: absolute;
@@ -5355,6 +5366,18 @@ button.big {
   inset: 0;
   pointer-events: none;
   z-index: 0;
+}
+/* A faint cosmic haze pooled under the cards */
+.fighter-dustfield::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 56%;
+  width: 86%;
+  height: 60%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center, rgba(120, 140, 235, 0.1), rgba(90, 70, 160, 0.05) 45%, transparent 72%);
+  filter: blur(26px);
 }
 .dust-mote {
   position: absolute;
