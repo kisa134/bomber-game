@@ -580,10 +580,11 @@ button.ghost {
   gap: 8px;
 }
 .result-card-h {
-  font-weight: 800;
-  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.72rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.16em;
   color: var(--muted);
 }
 .result-actions-bar {
@@ -724,6 +725,15 @@ button.ghost {
   align-items: center;
   gap: 10px;
 }
+.lobby-title {
+  font-family: var(--font-disp);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #ffe9a8, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
 .lobby-top .lobby-title {
   flex: 1 1 auto;
   text-align: center;
@@ -818,8 +828,11 @@ button.ghost {
   filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.15));
 }
 .bento-text h3 {
+  font-family: var(--font-disp);
+  font-weight: 800;
   font-size: 1.05rem;
   line-height: 1.1;
+  color: var(--cream);
 }
 .bento-text small {
   color: var(--muted);
@@ -834,15 +847,15 @@ button.ghost {
 .bento-chips.hidden {
   display: none;
 }
-/* Arena token tiers get the toxic-green chip treatment */
+/* Arena token tiers get the gold chip treatment (mockup The Arena) */
 .arena-chips .bento-chip {
-  border-color: rgba(57, 255, 155, 0.3);
-  color: #b6ffd9;
+  border-color: rgba(255, 204, 51, 0.4);
+  color: var(--accent-bright);
 }
 .arena-chips .bento-chip:hover {
-  background: rgba(57, 255, 155, 0.16);
-  border-color: rgba(57, 255, 155, 0.6);
-  box-shadow: 0 0 14px rgba(57, 255, 155, 0.25);
+  background: rgba(255, 216, 77, 0.16);
+  border-color: rgba(255, 204, 51, 0.65);
+  box-shadow: 0 0 14px rgba(255, 170, 30, 0.25);
 }
 .bento-chip {
   flex: 1 1 0;
@@ -872,14 +885,17 @@ button.ghost {
 .bento-card.casual:hover {
   box-shadow: 0 8px 26px rgba(90, 150, 255, 0.22), inset 0 0 24px rgba(90, 150, 255, 0.1);
 }
-/* Arena = featured toxic-green + gold, the money path */
+/* Arena = featured GOLD, the money path (mockup The Arena) */
 .bento-card.arena.featured {
-  border-color: rgba(57, 255, 155, 0.45);
-  background: linear-gradient(160deg, rgba(57, 255, 155, 0.08), rgba(255, 204, 51, 0.05));
-  box-shadow: 0 0 28px rgba(57, 255, 155, 0.16), inset 0 0 30px rgba(57, 255, 155, 0.06);
+  border-color: rgba(255, 204, 51, 0.4);
+  background: linear-gradient(160deg, rgba(40, 30, 20, 0.92), rgba(20, 14, 10, 0.92));
+  box-shadow: 0 0 40px rgba(255, 170, 30, 0.12), inset 0 0 30px rgba(255, 170, 30, 0.05);
 }
 .bento-card.arena.featured:hover {
-  box-shadow: 0 10px 36px rgba(57, 255, 155, 0.3), inset 0 0 30px rgba(57, 255, 155, 0.1);
+  box-shadow: 0 10px 36px rgba(255, 170, 30, 0.28), inset 0 0 30px rgba(255, 170, 30, 0.08);
+}
+.bento-card.arena .bento-text h3 {
+  color: var(--accent-bright);
 }
 .arena-cta {
   background: linear-gradient(180deg, #4dffa6, #1fd17a);
@@ -1793,10 +1809,11 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   min-height: 0;
 }
 .zone-label {
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.16em;
   color: var(--muted);
 }
 .seatcount {
@@ -4094,11 +4111,11 @@ button.big {
   gap: 4px;
   padding: 10px 8px;
   border-radius: 12px;
-  background: rgba(13, 16, 26, 0.5);
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  box-shadow: none;
+  background: linear-gradient(165deg, #211d2a, #0c0b11);
+  border: 2px solid color-mix(in srgb, var(--rarity) 42%, transparent);
+  box-shadow: 0 0 18px -8px var(--rarity);
   cursor: pointer;
-  transition: transform 0.1s ease, border-color 0.1s ease;
+  transition: transform 0.1s ease, border-color 0.1s ease, box-shadow 0.1s ease;
 }
 .shop-card-name {
   max-width: 100%;
@@ -4131,11 +4148,14 @@ button.big {
   height: 100%;
 }
 .shop-card-name {
+  font-family: var(--font-disp);
   font-weight: 800;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
+  color: var(--cream);
 }
 .shop-card-tag {
-  font-size: 0.76rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
   font-weight: 700;
 }
 .shop-card-tag.equipped {
