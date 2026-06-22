@@ -4641,35 +4641,63 @@ button.big {
   inset: 0;
   z-index: 40;
   overflow: hidden;
+  /* AAA mockup: static splash-art hero, slightly dimmed/saturated. */
+  background: #0b070e url("/bg/splash-art.png") center / cover no-repeat;
 }
-#splash-video {
+#splash::before {
+  /* match the mockup's brightness(.62) saturate(1.12) on the art */
+  content: "";
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.6s ease;
+  background: rgba(8, 7, 14, 0.34);
+  backdrop-filter: saturate(1.12);
+  -webkit-backdrop-filter: saturate(1.12);
 }
-#splash-video.ready {
-  opacity: 1;
+#splash-video {
+  display: none; /* replaced by the static splash-art hero */
 }
 .splash-overlay {
   position: absolute;
   inset: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  padding: 20px;
-  background: radial-gradient(120% 120% at 50% 38%, rgba(8, 10, 16, 0.25) 0%, rgba(8, 10, 16, 0.8) 100%);
+  padding: 0 20px 56px;
+  /* mockup vignette: clear at top, deep at the bottom where the CTA sits */
+  background: radial-gradient(125% 95% at 50% 26%, transparent 28%, rgba(8, 7, 14, 0.5) 64%, rgba(8, 7, 14, 0.96) 100%);
 }
 .splash-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  width: min(360px, 100%);
+  width: min(380px, 100%);
   text-align: center;
+}
+/* gold CTA gets a sweeping sheen, like the mockup CONNECT WALLET button */
+.splash-card .primary {
+  position: relative;
+  overflow: hidden;
+}
+.splash-card .primary::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 70px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: splash-sheen 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes splash-sheen {
+  0% {
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  55%,
+  100% {
+    transform: translateX(560%) skewX(-18deg);
+  }
 }
 .splash-logo {
   font-size: clamp(2.4rem, 11vw, 3.6rem);
