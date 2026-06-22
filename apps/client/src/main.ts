@@ -465,7 +465,7 @@ net.onMessage = (msg) => {
       const snap = state.latest();
       const dp = snap?.players.find((p) => p.id === msg.playerId);
       if (dp) renderer?.onDeath(Math.floor(dp.x), Math.floor(dp.y), PLAYER_COLORS[dp.id % PLAYER_COLORS.length]);
-      if (msg.playerId === state.myId) flashHit();
+      if (msg.playerId === state.myId) { flashHit(); myKillTimes = []; } // your death breaks your streak
       break;
     }
     case ServerMsg.EVENT_EMOTE:
@@ -793,7 +793,7 @@ function showCallout(word: string, who = -1): void {
   calloutUntil = performance.now() + 1400;
 }
 
-const STREAK_WORDS = ["", "", "DOUBLE KILL!", "TRIPLE KILL!", "MULTI KILL!", "RAMPAGE!"];
+const STREAK_WORDS = ["", "", "DOUBLE KILL!", "TRIPLE KILL!", "MULTI KILL!", "RAMPAGE!", "UNSTOPPABLE!", "GODLIKE!", "LEGENDARY!"];
 function registerMyKill(): void {
   const now = performance.now();
   myKillTimes = myKillTimes.filter((t) => now - t < 3500);
@@ -801,7 +801,10 @@ function registerMyKill(): void {
   const n = myKillTimes.length;
   if (n >= 2) {
     showCallout(STREAK_WORDS[Math.min(n, STREAK_WORDS.length - 1)]);
-    assets.play("go");
+    const lvl = Math.min(n, 9);
+    assets.play("go", undefined, Math.pow(2, (lvl - 2) / 7)); // pitch climbs with the streak
+    assets.rewardDing(); // extra casino sparkle on top
+    if (n >= 4) { assets.duck(0.55, 240); hitStopUntil = performance.now() + 60; } // a weighty punch on big streaks
   }
 }
 
