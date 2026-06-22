@@ -70,13 +70,16 @@ services:
         sync: false
       - key: POSTHOG_KEY # server-side PostHog key (for authoritative events)
         sync: false
-      # AI analyst in /admin (optional). Set AI_API_KEY to enable the "Analyze now"
-      # button; provider defaults to anthropic. All optional — no key = no-op.
-      - key: AI_API_KEY # LLM key (Anthropic or OpenAI)
+      # AI analyst in /admin (optional). Enables the "Analyze now" button.
+      # BOMBER_ADMIN = WaveSpeed key → provider defaults to wavespeed, model
+      # moonshotai/kimi-k2.6. Or use AI_API_KEY with AI_PROVIDER anthropic/openai.
+      - key: BOMBER_ADMIN # WaveSpeed API key (enables kimi-k2.6 analyst)
         sync: false
-      - key: AI_PROVIDER # "anthropic" (default) | "openai"
+      - key: AI_API_KEY # alt: generic LLM key (Anthropic/OpenAI)
         sync: false
-      - key: AI_MODEL # override the model id (sensible per-provider default)
+      - key: AI_PROVIDER # "wavespeed" (default w/ BOMBER_ADMIN) | "anthropic" | "openai"
+        sync: false
+      - key: AI_MODEL # override the model id (default moonshotai/kimi-k2.6 on wavespeed)
         sync: false
       - key: ADMIN_TOKEN # protects /admin live dashboard (comma-separate for several passwords)
         sync: false

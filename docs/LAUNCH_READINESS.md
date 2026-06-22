@@ -64,9 +64,16 @@ One token-gated dashboard unifying **business + game + technical** state:
 
 | Var | Value |
 | --- | --- |
-| `AI_API_KEY` | LLM key (Anthropic or OpenAI). Empty = button returns a "not configured" notice. |
-| `AI_PROVIDER` | `anthropic` (default) or `openai` |
-| `AI_MODEL` | optional model id override |
+| `BOMBER_ADMIN` | WaveSpeed API key → enables the analyst on `moonshotai/kimi-k2.6` (provider auto = `wavespeed`). |
+| `AI_API_KEY` | alt: generic LLM key for `anthropic`/`openai`. |
+| `AI_PROVIDER` | `wavespeed` (default when `BOMBER_ADMIN` set) / `anthropic` / `openai` |
+| `AI_MODEL` | optional model id override (default `moonshotai/kimi-k2.6` on WaveSpeed) |
+| `WAVESPEED_BASE` | optional API base override (default `https://api.wavespeed.ai/api/v3`) |
+
+The WaveSpeed call follows their async v3 pattern (submit → poll
+`/predictions/{id}/result`) and extracts text defensively; if their LLM response
+shape differs, the admin shows the raw error so we can adjust the field mapping
+in `apps/server/src/ai.ts` quickly.
 
 Endpoints: `GET /admin/stats` (full snapshot incl. `system`), `POST /admin/ai-analyze`, `GET /metrics` (Prometheus). All token-gated except `/metrics` (optional `METRICS_TOKEN`).
 

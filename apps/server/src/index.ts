@@ -10,7 +10,7 @@ import { analytics } from "./analytics.js";
 import { REFERRAL_LEVEL_BPS } from "./referral.js";
 import { logEvent, recentEvents, shortWallet } from "./events.js";
 import { alert, alertCount, recentAlerts } from "./alert.js";
-import { aiAnalyze } from "./ai.js";
+import { aiAnalyze, aiInfo } from "./ai.js";
 import { metrics } from "./metrics.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
@@ -526,6 +526,7 @@ app.get("/admin/stats", (res, req) => {
         totals: analytics.snapshot(),
         store: store.kind,
         system: systemHealth(),
+        ai: aiInfo(),
         embedUrl: POSTHOG_EMBED_URL,
         gaUrl: GA_DASHBOARD_URL,
         gaEmbedUrl: GA_EMBED_URL,

@@ -61,6 +61,7 @@ export function adminPageHtml(): string {
     <h3>🤖 AI Analyst <span class="muted" style="font-weight:400;font-size:.8rem">· business + game + tech, analyzed together</span></h3>
     <div style="margin-bottom:16px">
       <button id="ai-run">Analyze now</button>
+      <span id="ai-info" class="muted" style="margin-left:10px"></span>
       <span id="ai-status" class="muted" style="margin-left:10px"></span>
       <div id="ai-out" class="ai-out" style="display:none"></div>
     </div>
@@ -167,6 +168,10 @@ async function poll(){
       tile("Errors",(sys.errors>0?"⚠ ":"")+fmt(sys.errors),"alerts since boot")+
       tile("WS sockets",fmt(sys.wsConns),fmt(sys.ipsConnected||0)+" IPs")+
       tile("Store",sys.store||d.store,d.store==="postgres"?"durable":"⚠ not durable");
+    var ai=d.ai||{};
+    $("#ai-info").innerHTML = ai.configured
+      ? ("model: "+ai.provider+" · "+ai.model)
+      : '<span class="err">⚠ set BOMBER_ADMIN (WaveSpeed) to enable</span>';
     var errs=sys.recentErrors||[];
     $("#err-feed").innerHTML = errs.length
       ? errs.map(function(e){return '<div class="ev"><time>'+new Date(e.t).toLocaleTimeString()+'</time><span>🚨 '+e.msg+'</span></div>';}).join("")
@@ -286,7 +291,7 @@ $("#ai-run").onclick=function(){
   fetch("/admin/ai-analyze?token="+encodeURIComponent(token),{method:"POST"})
     .then(function(r){return r.json();})
     .then(function(d){
-      btn.disabled=false;st.textContent=d.model?("· "+d.model):"";
+      btn.disabled=false;st.textContent=d.model?("· "+(d.provider||"")+" "+d.model):"";
       out.textContent=d.ok?d.text:(d.reason||"AI failed.");
       out.style.display="block";
     })
