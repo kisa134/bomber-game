@@ -5159,28 +5159,101 @@ button.big {
   margin-top: 4px;
 }
 
-/* Desktop: the fan spreads wide, cards grow, arrows flank the active card. */
+/* ===== Desktop hub: 3 zones — left passport rail · fan · right rail ===== */
 @media (min-width: 760px) {
-  .hub-hero-layout .hub-stage {
-    width: min(1040px, 100%);
-    gap: 10px;
+  #menu {
+    justify-content: center; /* vertically centre the whole hub */
   }
-  .hub-passport-strip {
-    width: min(380px, 100%);
+  .hub-hero-layout {
+    position: relative;
+    width: 100%;
+    max-width: 1280px;
+    justify-content: center;
+  }
+  /* Centre stage holds the fan + title + play; passport moves to the rail. */
+  .hub-hero-layout .hub-stage {
+    position: static; /* so the absolute passport resolves to .hub-hero-layout */
+    width: min(720px, calc(100% - 30px));
+    margin: 0 auto;
+    justify-content: center;
+    gap: 12px;
+  }
+  .hub-hero-layout .hub-play {
+    margin-top: 14px;
   }
   .fighter-carousel {
-    height: 376px;
+    height: 372px;
   }
   .fighter-card {
-    width: 238px;
+    width: 232px;
   }
   .fighter-arrow.prev {
-    left: calc(50% - 212px);
+    left: calc(50% - 210px);
   }
   .fighter-arrow.next {
-    right: calc(50% - 212px);
+    right: calc(50% - 210px);
   }
   .hub-play {
     width: min(340px, 100%);
+  }
+
+  /* LEFT RAIL — passport card (top) + social chips below it */
+  .hub-hero-layout .hub-passport-strip {
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 232px;
+    z-index: 15;
+  }
+  .hub-hero-layout .hub-teasers {
+    position: absolute;
+    left: 0;
+    top: 92px;
+    width: 232px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    z-index: 15;
+  }
+  .hub-hero-layout .hub-teasers .hub-chip {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  /* RIGHT RAIL — destinations dock as a vertical stack of cards */
+  .hub-hero-layout .hub-footer {
+    display: contents;
+  }
+  .hub-hero-layout .hub-dock {
+    position: absolute;
+    right: 0;
+    top: 6px;
+    width: 232px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    z-index: 15;
+  }
+  .hub-hero-layout .hub-dock .hub-dock-btn {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 11px;
+    width: 100%;
+    padding: 13px 14px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(34, 30, 40, 0.85), rgba(18, 15, 24, 0.85));
+    border: 1px solid var(--border);
+  }
+  .hub-hero-layout .hub-dock .hub-dock-btn:hover {
+    border-color: rgba(255, 204, 51, 0.45);
+  }
+  .hub-hero-layout .hub-dock .hub-dock-btn .dock-ic {
+    font-size: 1.05rem;
+  }
+  .hub-hero-layout .hub-dock .hub-dock-btn .dock-l {
+    font-family: var(--font-disp);
+    font-weight: 800;
+    font-size: 0.92rem;
+    color: var(--cream);
   }
 }
