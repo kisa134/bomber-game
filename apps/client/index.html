@@ -118,25 +118,15 @@
 
             <!-- Choose your fighter -->
             <div class="fighter-head"><span class="fh-rule l"></span>CHOOSE YOUR FIGHTER<span class="fh-rule r"></span></div>
+            <div class="fighter-title">
+              <div id="fighter-bigname" class="fighter-bigname">Shiba</div>
+              <div id="fighter-bigrarity" class="fighter-bigrarity">COMMON · 001 / 011</div>
+            </div>
 
             <div class="fighter-wrap">
               <button id="fighter-prev" class="fighter-arrow prev" title="Previous character">◀</button>
-              <div class="fighter-card" id="fighter-card">
-                <div class="fc-art" aria-hidden="true"></div>
-                <div class="fc-ray" aria-hidden="true"></div>
-                <img id="hub-hero-img" class="fc-hero" alt="" />
-                <div class="fc-holo" aria-hidden="true"></div>
-                <div class="fc-scan" aria-hidden="true"></div>
-                <div class="fc-gloss" aria-hidden="true"></div>
-                <span class="fc-sheen" aria-hidden="true"></span>
-                <div class="fc-frame" aria-hidden="true"></div>
-                <span class="fc-corner tl" aria-hidden="true"></span><span class="fc-corner tr" aria-hidden="true"></span>
-                <span class="fc-corner bl" aria-hidden="true"></span><span class="fc-corner br" aria-hidden="true"></span>
-                <div class="fc-toprow"><span id="fighter-rarity" class="fc-rarity">COMMON</span><span id="fighter-no" class="fc-no">#01</span></div>
-                <div class="fc-namerow"><div id="fighter-name" class="fc-name">Shiba</div><div id="fighter-gems" class="fc-gems">◆◆</div></div>
-                <div class="fc-badge" aria-hidden="true">◆</div>
-                <div id="fighter-lock" class="fc-lock hidden">🔒</div>
-              </div>
+              <!-- 3D fan carousel: cards are built + positioned by main.ts -->
+              <div id="fighter-carousel" class="fighter-carousel"></div>
               <button id="fighter-next" class="fighter-arrow next" title="Next character">▶</button>
             </div>
             <div id="fighter-dots" class="fighter-dots"></div>

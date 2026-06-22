@@ -2199,35 +2199,100 @@ document.getElementById("wheel-spin")?.addEventListener("click", () => void doSp
 document.getElementById("wheel-close")?.addEventListener("click", () =>
   document.getElementById("wheel-modal")!.classList.add("hidden"));
 
-// --- main hub modules -------------------------------------------------------
-// Hub hero walks FORWARD toward the viewer (down-facing walk cycle), unlike the
-// lobby stage which turns in a circle.
-const HUB_TURN: Array<[string, number, boolean]> = [
-  ["down", 0, false], ["down", 1, false], ["down", 2, false], ["down", 1, false],
-];
+// --- main hub: CHOOSE YOUR FIGHTER 3D fan carousel ------------------------
+// The active card's hero walks FORWARD toward the viewer (down-facing cycle).
+const HUB_TURN: Array<[string, number]> = [["down", 0], ["down", 1], ["down", 2], ["down", 1]];
 let hubAnimTimer: ReturnType<typeof setInterval> | null = null;
 let hubAnimSkin = -1;
-function animateHubHero(skin: number): void {
-  const img = document.getElementById("hub-hero-img") as HTMLImageElement | null;
-  if (!img) return;
-  if (skin === hubAnimSkin && hubAnimTimer) return;
+/** Animate the ACTIVE card's hero sprite. */
+function animateActiveHero(skin: number): void {
+  if (hubAnimTimer && skin === hubAnimSkin) return;
   hubAnimSkin = skin;
   if (hubAnimTimer) clearInterval(hubAnimTimer);
   let i = 0;
   const step = (): void => {
+    const img = document.querySelector("#fighter-carousel .fighter-card.active .fc-hero") as HTMLImageElement | null;
     if (!img || document.getElementById("menu")?.classList.contains("hidden")) return; // paused off the hub
-    const [dir, f, flip] = HUB_TURN[i % HUB_TURN.length];
+    const [dir, f] = HUB_TURN[i % HUB_TURN.length];
     i++;
     img.src = `/sprites/skin_${skin}_${dir}_${f}.webp?v=${ASSET_VER}`;
-    img.style.transform = flip ? "scaleX(-1)" : "none";
   };
   step();
   hubAnimTimer = setInterval(step, 150);
 }
-// --- Hub fighter card (CHOOSE YOUR FIGHTER carousel) ----------------------
-let hubBrowseSkin = -1; // skin shown in the card (lazy-init to equipped)
+
+let hubBrowseSkin = -1; // skin centred in the carousel (lazy-init to equipped)
+let carouselBuilt = false;
 const hubEquipped = (): number => Number(localStorage.getItem("bp_skin")) || 0;
 const GEM_COUNT = (i: number): number => (i < 4 ? 2 : i < 6 ? 3 : i < 8 ? 4 : i < 10 ? 5 : 6);
+const padNo = (n: number): string => String(n).padStart(3, "0");
+
+/** Inner HTML for one collectible card (static pose; active card animates). */
+function fighterCardHTML(skin: number): string {
+  const r = rarityOf(skin);
+  return (
+    '<div class="fc-art"></div><div class="fc-ray"></div>' +
+    `<img class="fc-hero" src="/sprites/skin_${skin}_down_1.webp?v=${ASSET_VER}" alt="" />` +
+    '<div class="fc-holo"></div><div class="fc-scan"></div><div class="fc-gloss"></div><span class="fc-sheen"></span>' +
+    '<div class="fc-frame"></div>' +
+    '<span class="fc-corner tl"></span><span class="fc-corner tr"></span><span class="fc-corner bl"></span><span class="fc-corner br"></span>' +
+    `<div class="fc-toprow"><span class="fc-rarity">${r.name.toUpperCase()}</span><span class="fc-no">${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}</span></div>` +
+    `<div class="fc-namerow"><div class="fc-name">${SKIN_NAMES[skin] ?? `Skin ${skin}`}</div><div class="fc-gems">${"◆".repeat(GEM_COUNT(skin))}</div></div>` +
+    '<div class="fc-badge">◆</div>' +
+    `<div class="fc-lock${skinOwned(skin) ? " hidden" : ""}">🔒</div>`
+  );
+}
+
+function buildCarousel(): void {
+  const wrap = document.getElementById("fighter-carousel");
+  if (!wrap || carouselBuilt) return;
+  for (let i = 0; i < SKIN_COUNT; i++) {
+    const card = document.createElement("div");
+    card.className = "fighter-card";
+    card.dataset.skin = String(i);
+    const r = rarityOf(i);
+    card.style.setProperty("--tier", r.color);
+    card.style.setProperty("--holo", String(i >= 8 ? 0.28 : i >= 6 ? 0.22 : 0.16));
+    card.innerHTML = fighterCardHTML(i);
+    card.addEventListener("click", () => { if (i !== hubBrowseSkin) showFighter(i, true); });
+    wrap.appendChild(card);
+  }
+  carouselBuilt = true;
+}
+
+// 3D fan offsets by |distance from centre|.
+const FAN = [
+  { x: 0, z: 0, ry: 0, s: 1, op: 1 },
+  { x: 250, z: -150, ry: 26, s: 0.84, op: 0.92 },
+  { x: 432, z: -340, ry: 34, s: 0.66, op: 0.5 },
+];
+function layoutCarousel(active: number): void {
+  const cards = document.querySelectorAll<HTMLElement>("#fighter-carousel .fighter-card");
+  const n = SKIN_COUNT;
+  const mobile = window.innerWidth < 760; // phones show only the active card
+  cards.forEach((card) => {
+    const i = Number(card.dataset.skin);
+    let off = i - active;
+    if (off > n / 2) off -= n;
+    if (off < -n / 2) off += n;
+    const a = Math.abs(off);
+    card.classList.toggle("active", off === 0);
+    if (a > 2 || (mobile && a > 0)) {
+      card.style.opacity = "0";
+      card.style.visibility = "hidden";
+      card.style.pointerEvents = "none";
+      return;
+    }
+    const sign = off < 0 ? -1 : 1;
+    const f = FAN[a];
+    card.style.visibility = "visible";
+    card.style.transform =
+      `translate(-50%, -50%) translateX(${sign * f.x}px) translateZ(${f.z}px) rotateY(${-sign * f.ry}deg) scale(${f.s})`;
+    card.style.opacity = String(f.op);
+    card.style.zIndex = String(10 - a);
+    card.style.pointerEvents = off === 0 ? "none" : "auto";
+  });
+}
 
 function renderFighterDots(active: number): void {
   const box = document.getElementById("fighter-dots");
@@ -2240,46 +2305,41 @@ function renderFighterDots(active: number): void {
   }
 }
 
-/** Paint the holographic fighter card for a given skin (preview, not equip). */
-function renderFighterCard(skin: number): void {
-  const card = document.getElementById("fighter-card");
-  if (!card) return;
+/** Centre a fighter: fan, title, animate; optionally equip (owned only). */
+function showFighter(skin: number, equip = false): void {
+  hubBrowseSkin = skin;
+  buildCarousel();
+  layoutCarousel(skin);
+  animateActiveHero(skin);
+  renderFighterDots(skin);
   const r = rarityOf(skin);
-  card.style.setProperty("--tier", r.color);
-  card.style.setProperty("--holo", String(skin >= 8 ? 0.28 : skin >= 6 ? 0.22 : 0.16));
-  animateHubHero(skin);
-  const owned = skinOwned(skin);
-  card.classList.toggle("locked", !owned);
-  document.getElementById("fighter-lock")?.classList.toggle("hidden", owned);
-  const set = (id: string, txt: string, col?: string): void => {
-    const e = document.getElementById(id);
-    if (!e) return;
-    e.textContent = txt;
-    if (col) e.style.color = col;
-  };
-  set("fighter-name", SKIN_NAMES[skin] ?? `Skin ${skin}`);
-  set("fighter-rarity", r.name.toUpperCase(), r.color);
-  set("fighter-no", `#${String(skin + 1).padStart(2, "0")}`);
-  set("fighter-gems", "◆".repeat(GEM_COUNT(skin)), r.color);
+  const nm = document.getElementById("fighter-bigname");
+  if (nm) nm.textContent = SKIN_NAMES[skin] ?? `Skin ${skin}`;
+  const ra = document.getElementById("fighter-bigrarity");
+  if (ra) {
+    ra.textContent = `${r.name.toUpperCase()} · ${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}`;
+    ra.style.color = r.color;
+  }
   const av = document.getElementById("hub-passport-av") as HTMLImageElement | null;
   if (av) av.src = `/sprites/skin_${hubEquipped()}.webp?v=${ASSET_VER}`;
-  renderFighterDots(skin);
+  if (equip && skinOwned(skin)) void doSelectSkin(skin);
 }
 
-/** Arrow handler: cycle the previewed fighter; equip it if owned. */
 function cycleFighter(delta: number): void {
   if (hubBrowseSkin < 0) hubBrowseSkin = hubEquipped();
-  hubBrowseSkin = (hubBrowseSkin + delta + SKIN_COUNT) % SKIN_COUNT;
-  renderFighterCard(hubBrowseSkin);
-  if (skinOwned(hubBrowseSkin)) void doSelectSkin(hubBrowseSkin); // equip owned pick
+  showFighter((hubBrowseSkin + delta + SKIN_COUNT) % SKIN_COUNT, true);
 }
 document.getElementById("fighter-prev")?.addEventListener("click", () => cycleFighter(-1));
 document.getElementById("fighter-next")?.addEventListener("click", () => cycleFighter(1));
+window.addEventListener("resize", () => { if (hubBrowseSkin >= 0) layoutCarousel(hubBrowseSkin); });
 
-/** Refresh the hub's fighter card (equipped character, animated). */
+/** Refresh the hub fighter carousel (equipped character). */
 function refreshHub(): void {
-  hubBrowseSkin = hubEquipped();
-  renderFighterCard(hubBrowseSkin);
+  buildCarousel();
+  document.querySelectorAll<HTMLElement>("#fighter-carousel .fighter-card").forEach((card) => {
+    card.querySelector(".fc-lock")?.classList.toggle("hidden", skinOwned(Number(card.dataset.skin)));
+  });
+  showFighter(hubEquipped(), false);
 }
 /** Update the level / XP progress bar from a profile (200 XP per level). */
 function setProgress(level: number, xp: number): void {

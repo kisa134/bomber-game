@@ -4867,24 +4867,64 @@ button.big {
 }
 
 /* Card + flanking arrows */
+/* Big active-fighter name + rarity above the carousel (mockup centre title) */
+.fighter-title {
+  text-align: center;
+  margin-top: 2px;
+  pointer-events: none;
+}
+.fighter-bigname {
+  font-family: var(--font-disp);
+  font-weight: 800;
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  letter-spacing: 0.05em;
+  color: var(--cream);
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.7), 0 0 26px rgba(255, 221, 150, 0.3);
+}
+.fighter-bigrarity {
+  margin-top: 1px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.66rem;
+  letter-spacing: 0.22em;
+}
 .fighter-wrap {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 100%;
+}
+/* 3D fan: cards are absolutely stacked at centre, positioned by JS. */
+.fighter-carousel {
+  position: relative;
+  width: 100%;
+  height: min(348px, 46vh);
+  perspective: 1300px;
 }
 .fighter-card {
   --tier: #9aa3b2;
   --holo: 0.18;
-  position: relative;
-  width: min(236px, 68vw);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(236px, 66vw);
   aspect-ratio: 236 / 332;
-  max-height: 46vh;
+  height: auto;
+  transform: translate(-50%, -50%);
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.5s ease;
+  will-change: transform, opacity;
   border-radius: 16px;
   overflow: hidden;
   background: linear-gradient(165deg, #211d2a, #0c0b11);
   border: 2px solid var(--tier);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), 0 0 26px -6px var(--tier);
+  cursor: pointer;
+}
+.fighter-card.active {
+  cursor: default;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.55), 0 0 40px -6px var(--tier);
 }
 .fc-art {
   position: absolute;
@@ -5072,32 +5112,36 @@ button.big {
   filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.55)) grayscale(0.7) brightness(0.7);
 }
 .fighter-arrow {
-  width: 42px;
-  height: 42px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 46px;
+  height: 46px;
   flex: none;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(20, 18, 26, 0.78);
+  background: rgba(20, 18, 26, 0.72);
   color: #e7e9ee;
-  font-size: 1rem;
+  font-size: 1.05rem;
   padding: 0;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  z-index: 2;
+  z-index: 12;
 }
 .fighter-arrow:hover {
   border-color: rgba(255, 204, 51, 0.6);
 }
 .fighter-arrow.prev {
-  margin-right: -14px;
+  left: 4px;
 }
 .fighter-arrow.next {
-  margin-left: -14px;
+  right: 4px;
 }
 .fighter-dots {
   display: flex;
   gap: 5px;
-  margin-top: 2px;
+  margin-top: 10px;
+  justify-content: center;
 }
 .fighter-dots .fdot {
   width: 6px;
@@ -5113,4 +5157,30 @@ button.big {
 .hub-play {
   width: min(300px, 100%);
   margin-top: 4px;
+}
+
+/* Desktop: the fan spreads wide, cards grow, arrows flank the active card. */
+@media (min-width: 760px) {
+  .hub-hero-layout .hub-stage {
+    width: min(1040px, 100%);
+    gap: 10px;
+  }
+  .hub-passport-strip {
+    width: min(380px, 100%);
+  }
+  .fighter-carousel {
+    height: 376px;
+  }
+  .fighter-card {
+    width: 238px;
+  }
+  .fighter-arrow.prev {
+    left: calc(50% - 212px);
+  }
+  .fighter-arrow.next {
+    right: calc(50% - 212px);
+  }
+  .hub-play {
+    width: min(340px, 100%);
+  }
 }
