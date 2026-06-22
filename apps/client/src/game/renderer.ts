@@ -1999,7 +1999,7 @@ export class Renderer {
         const bw = t * 0.62;
         const gap = t * 0.04;
         const sw = (bw - gap * (segs - 1)) / segs;
-        const sh = t * 0.1;
+        const sh = t * 0.05; // half as thick -> clears the leader crown
         const bx = cx - bw / 2;
         const byy = cy - r - t * 0.22;
         for (let s = 0; s < segs; s++) {
