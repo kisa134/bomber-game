@@ -1748,11 +1748,43 @@ export class Renderer {
     this.drawFirstBlood(now); // screen-space announcement, above the world
   }
 
+  /** A floating pixel gold crown (frag leader): glowing band + 5 points with gems. */
+  private drawCrown(cx: number, cy: number, now: number): void {
+    const ctx = this.ctx, t = this.tile;
+    const w = t * 0.44, h = t * 0.26, pu = Math.max(1, Math.round(t / 22));
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter"; // warm glow
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, w);
+    glow.addColorStop(0, `rgba(255,210,90,${0.3 + 0.12 * Math.sin(now / 240)})`);
+    glow.addColorStop(1, "rgba(255,210,90,0)");
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(cx, cy, w, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    const left = cx - w / 2, base = cy + h / 2, pts = 5, mid = (pts - 1) / 2;
+    ctx.fillStyle = "#caa017"; // band
+    ctx.fillRect(Math.round(left / pu) * pu, Math.round((base - pu * 1.5) / pu) * pu, Math.round(w / pu) * pu, pu * 1.5);
+    for (let i = 0; i < pts; i++) { // tapered points, centre tallest
+      const px = left + (w * (i + 0.5)) / pts, ph = (i === mid ? h : h * 0.62);
+      ctx.fillStyle = "#f2c63a";
+      for (let y = 0; y < ph; y += pu) {
+        const ww = pu * (1 + Math.round((1 - y / ph) * 1.5));
+        ctx.fillRect(Math.round((px - ww / 2) / pu) * pu, Math.round((base - pu * 1.5 - y) / pu) * pu, ww, pu);
+      }
+      ctx.fillStyle = "#fff3b0"; // bright tip
+      ctx.fillRect(Math.round((px - pu / 2) / pu) * pu, Math.round((base - pu * 1.5 - ph) / pu) * pu, pu, pu);
+      ctx.fillStyle = i % 2 === 0 ? "#ff4a5a" : "#4ad0ff"; // gem on the band
+      ctx.fillRect(Math.round((px - pu / 2) / pu) * pu, Math.round((base - pu) / pu) * pu, pu, pu);
+    }
+  }
+
   private drawPlayers(view: RenderView, myId: number, now: number): void {
     const ctx = this.ctx;
     const t = this.tile;
     const seen = new Set<number>();
     const WALK_SEQ = [0, 1, 2, 1]; // ping-pong walk cycle
+
+    // Leader = the (alive) player with the most frags — gets a floating gold crown.
+    let leaderId = -1, topFrags = 0;
+    for (const p of view.players) { if (p.alive && p.frags > topFrags) { topFrags = p.frags; leaderId = p.id; } }
 
     for (const p of view.players) {
       seen.add(p.id);
@@ -1953,6 +1985,9 @@ export class Renderer {
         ctx.textBaseline = "middle";
         ctx.fillText(SKIN_EMOJI[sk % SKIN_EMOJI.length], cx, cy + 1);
       }
+
+      // Floating gold crown over the current frag leader.
+      if (p.alive && p.id === leaderId) this.drawCrown(cx, cy - t * (0.52 + 0.04 * Math.sin(now / 320)), now);
 
       // (The old white ring under the local player is replaced by the
       //  start-of-match colored glow above.)
