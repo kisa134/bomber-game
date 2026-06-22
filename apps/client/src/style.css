@@ -89,6 +89,28 @@ body {
 #bg.plain::after {
   display: none; /* no vignette over plain black */
 }
+/* Static blurred splash-art backdrop for the in-app screens (menu/lobby/etc).
+   The same art shows SHARP on the #splash entry screen. */
+#bg.art {
+  background: #0b070e;
+}
+#bg.art::before {
+  content: "";
+  position: absolute;
+  /* Overscan + scale so the heavy blur never leaks transparent edges. */
+  inset: -48px;
+  background: #0b070e url("/bg/splash-art.png") center / cover no-repeat;
+  filter: blur(26px) saturate(1.15) brightness(0.5);
+  transform: scale(1.08);
+}
+/* mockup vignette over the blurred art */
+#bg.art::after {
+  background: radial-gradient(95% 75% at 50% 42%, transparent 34%, rgba(12, 10, 20, 0.82) 100%);
+}
+/* With the static art backdrop the old menu video is hidden. */
+#bg.art #bg-video {
+  display: none;
+}
 #bg-video {
   width: 100%;
   height: 100%;
@@ -990,16 +1012,74 @@ button.ghost {
   background: none;
   border: none;
 }
+.hub-top-left {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  min-width: 0;
+}
+.hub-brand-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: auto;
+  padding: 0;
+  background: none;
+  border: none;
+}
+.brand-bomb {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: 8px;
+  background: radial-gradient(circle at 40% 30%, #ffe27a, #c97e12);
+  border: 1px solid #8a5a10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+}
 .hub-brand {
   font-family: var(--font-disp);
   font-weight: 800;
-  font-size: 1.04rem;
-  letter-spacing: 0.05em;
+  font-size: 1.12rem;
+  letter-spacing: 0.06em;
   white-space: nowrap;
   background: linear-gradient(180deg, #ffe9a8, #e0a52a);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
+}
+/* Top nav (desktop only) — HOME / ARENA / SHOP / RANKS */
+.hub-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.hub-nav-link {
+  width: auto;
+  padding: 10px 13px;
+  background: none;
+  border: none;
+  font-family: var(--font-ui);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+.hub-nav-link:hover {
+  color: var(--text);
+}
+.hub-nav-link.active {
+  color: var(--accent-bright);
+}
+@media (max-width: 759px) {
+  .hub-nav {
+    display: none;
+  }
+  .hub-brand {
+    font-size: 0.98rem;
+  }
 }
 .hub-top-actions {
   display: flex;
@@ -1031,26 +1111,37 @@ button.ghost {
   font-size: 0.6rem;
   opacity: 0.55;
 }
+/* Connect = gold-outline pill (mockup) */
 .hub-top-actions #wallet-btn {
   width: auto;
-  padding: 4px 6px;
-  font-size: 0.8rem;
+  padding: 8px 14px;
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
   font-weight: 700;
-  background: none;
-  border: none;
-  color: var(--muted);
+  border-radius: 10px;
+  background: rgba(255, 204, 51, 0.08);
+  border: 1px solid rgba(255, 204, 51, 0.32);
+  color: #ffe9a8;
 }
-.hub-top-actions #wallet-btn:hover { color: var(--text); }
+.hub-top-actions #wallet-btn:hover {
+  background: rgba(255, 204, 51, 0.14);
+  border-color: rgba(255, 204, 51, 0.65);
+}
+/* ⚙ / ❓ = dark rounded squares (mockup) */
 .hub-top .icon-btn {
   position: static;
-  width: 30px;
-  height: 30px;
-  font-size: 1.05rem;
-  background: none;
-  border: none;
-  opacity: 0.7;
+  width: 34px;
+  height: 34px;
+  font-size: 0.95rem;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #c7cbd6;
+  opacity: 1;
 }
-.hub-top .icon-btn:hover { opacity: 1; }
+.hub-top .icon-btn:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+}
 /* ===== Hero-centered hub (Variant A): the character + PLAY are the screen ===== */
 /* ===== Hero-centered hub (image_18a07a spec): staged, theatrical, strict ===== */
 .hub.hub-hero-layout {

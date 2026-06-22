@@ -2598,6 +2598,13 @@ function setupOnboarding(): void {
 
 function wireMenuLinks(): void {
   setupOnboarding();
+  // Top-nav (desktop) + brand logo — reuse the existing screen handlers.
+  const click = (id: string): void => document.getElementById(id)?.click();
+  document.getElementById("brand-logo")?.addEventListener("click", () => showScreen("menu"));
+  document.getElementById("nav-home")?.addEventListener("click", () => showScreen("menu"));
+  document.getElementById("nav-arena")?.addEventListener("click", () => click("open-play"));
+  document.getElementById("nav-shop")?.addEventListener("click", () => click("open-shop"));
+  document.getElementById("nav-ranks")?.addEventListener("click", () => click("open-leaderboard"));
   document.getElementById("open-profile")!.addEventListener("click", () => void openProfile());
   document.getElementById("open-leaderboard")?.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
   // Hub inline leaderboard tabs: switch board, refresh the list in place.
@@ -2682,11 +2689,11 @@ function setupBackground(): void {
   const v = document.getElementById("bg-video") as HTMLVideoElement;
   const bg = document.getElementById("bg");
   if (!BG_VIDEO_ENABLED) {
-    // Solid black: drop the video + the vignette gradient overlay.
+    // Static blurred splash-art across the in-app screens (the SHARP version of
+    // the same art is the backdrop of the #splash entry screen).
     v.removeAttribute("src");
     v.style.display = "none";
-    if (bg) bg.style.background = "#000";
-    bg?.classList.add("plain"); // CSS kills the ::after vignette
+    bg?.classList.add("art");
   } else {
     // Global app background = gamebg.mp4. The file is baked as a boomerang
     // (forward + reversed), so the element's native `loop` gives a smooth
