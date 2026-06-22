@@ -2276,7 +2276,40 @@ function buildCarousel(): void {
     wrap.appendChild(card);
   }
   carouselBuilt = true;
+  buildDustField();
   startFighterFloat();
+}
+
+// Magic dust: a field of glowing motes whirling AROUND the cards, animated in
+// the same rAF loop and pushed by the cursor.
+interface DustMote { el: HTMLElement; bx: number; by: number; ph: number; sp: number; amp: number; depth: number; tw: number; }
+const dustMotes: DustMote[] = [];
+function buildDustField(): void {
+  const field = document.getElementById("fighter-dustfield");
+  if (!field || dustMotes.length) return;
+  const N = 56;
+  for (let i = 0; i < N; i++) {
+    const el = document.createElement("span");
+    el.className = "dust-mote";
+    const size = 1 + Math.random() * 2.8;
+    el.style.width = el.style.height = `${size.toFixed(1)}px`;
+    const gold = Math.random() < 0.62;
+    el.style.background = gold
+      ? "radial-gradient(circle, #ffe9a8, transparent 70%)"
+      : "radial-gradient(circle, #ffffff, transparent 70%)";
+    el.style.boxShadow = gold ? "0 0 6px 1px rgba(255,210,120,.6)" : "0 0 6px 1px rgba(255,255,255,.5)";
+    field.appendChild(el);
+    dustMotes.push({
+      el,
+      bx: Math.random(),
+      by: Math.random(),
+      ph: Math.random() * Math.PI * 2,
+      sp: 0.25 + Math.random() * 0.6,
+      amp: 7 + Math.random() * 18,
+      depth: (0.3 + Math.random()) * (gold ? 1 : 0.7),
+      tw: 0.4 + Math.random() * 0.6,
+    });
+  }
 }
 
 // Living-card physics: every visible card drifts on a gentle orbit (sin/cos)
@@ -2324,6 +2357,18 @@ function startFighterFloat(): void {
       if (active) {
         const holo = tilt.querySelector<HTMLElement>(".fc-holo");
         if (holo) holo.style.backgroundPosition = `${(50 + mCurX * 35).toFixed(1)}% ${(50 + mCurY * 35).toFixed(1)}%`;
+      }
+    }
+    // Magic dust whirling around the cards, nudged by the cursor.
+    if (dustMotes.length) {
+      const fr = wrap.getBoundingClientRect();
+      const W = fr.width;
+      const H = fr.height;
+      for (const m of dustMotes) {
+        const x = m.bx * W + Math.sin(t * m.sp + m.ph) * m.amp + mCurX * 26 * m.depth;
+        const y = m.by * H + Math.cos(t * m.sp * 0.85 + m.ph) * m.amp + mCurY * 26 * m.depth;
+        m.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
+        m.el.style.opacity = (m.tw * (0.5 + 0.5 * Math.sin(t * 1.5 + m.ph))).toFixed(2);
       }
     }
   };

@@ -156,10 +156,12 @@
               <div id="fighter-bigrarity" class="fighter-bigrarity">COMMON · 001 / 011</div>
             </div>
             <div class="fighter-wrap">
-              <button id="fighter-prev" class="fighter-arrow prev" title="Previous character">◀</button>
+              <!-- Magic dust field (glowing motes around the cards, mouse-reactive) -->
+              <div id="fighter-dustfield" class="fighter-dustfield" aria-hidden="true"></div>
+              <button id="fighter-prev" class="fighter-arrow prev" title="Previous character">❮</button>
               <!-- 3D fan carousel: cards are built + positioned by main.ts -->
               <div id="fighter-carousel" class="fighter-carousel"></div>
-              <button id="fighter-next" class="fighter-arrow next" title="Next character">▶</button>
+              <button id="fighter-next" class="fighter-arrow next" title="Next character">❯</button>
             </div>
             <div id="fighter-dots" class="fighter-dots"></div>
             <p id="menu-status" class="status"></p>
