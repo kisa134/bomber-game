@@ -301,36 +301,42 @@ export class Assets {
     }
     if (ctx.state === "suspended") void ctx.resume();
     const t0 = ctx.currentTime;
-    // Wet squelch: white noise through a lowpass that sweeps down fast.
-    const dur = 0.34;
+    // Wet, MUFFLED squelch: noise through a LOW lowpass (dull, no hiss) + a bandpass that
+    // bends downward fast (the squishy "wet" pitch), with a quick squishy decay.
+    const dur = 0.3;
     const len = Math.floor(ctx.sampleRate * dur);
     const nb = ctx.createBuffer(1, len, ctx.sampleRate);
     const d = nb.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.6);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.1); // faster decay = squishier
     const noise = ctx.createBufferSource();
     noise.buffer = nb;
     const lp = ctx.createBiquadFilter();
     lp.type = "lowpass";
-    lp.frequency.setValueAtTime(2200, t0);
-    lp.frequency.exponentialRampToValueAtTime(180, t0 + dur);
-    lp.Q.value = 6;
+    lp.frequency.setValueAtTime(820, t0); // much lower -> muffled, not bright/hissy
+    lp.frequency.exponentialRampToValueAtTime(75, t0 + dur);
+    lp.Q.value = 1.5;
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass"; // the WET squelch: a resonant blob that bends down quickly
+    bp.frequency.setValueAtTime(520, t0);
+    bp.frequency.exponentialRampToValueAtTime(105, t0 + 0.16);
+    bp.Q.value = 3.5;
     const ng = ctx.createGain();
     ng.gain.setValueAtTime(volume, t0);
     ng.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-    noise.connect(lp).connect(ng).connect(ctx.destination);
+    noise.connect(lp).connect(bp).connect(ng).connect(ctx.destination);
     noise.start(t0);
     noise.stop(t0 + dur);
-    // Low body: a pitch-dropping thud for the "burst" impact.
+    // Deep, DULL thud body (sine, not triangle) — a heavy wet shlap, low and round.
     const osc = ctx.createOscillator();
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(120, t0);
-    osc.frequency.exponentialRampToValueAtTime(38, t0 + 0.22);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(95, t0);
+    osc.frequency.exponentialRampToValueAtTime(27, t0 + 0.2);
     const og = ctx.createGain();
-    og.gain.setValueAtTime(volume * 0.9, t0);
-    og.gain.exponentialRampToValueAtTime(0.001, t0 + 0.26);
+    og.gain.setValueAtTime(volume * 0.85, t0);
+    og.gain.exponentialRampToValueAtTime(0.001, t0 + 0.24);
     osc.connect(og).connect(ctx.destination);
     osc.start(t0);
-    osc.stop(t0 + 0.3);
+    osc.stop(t0 + 0.28);
   }
 
   /** Stop a (possibly long) one-shot sound, e.g. the sudden-death track. */
