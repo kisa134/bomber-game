@@ -20,7 +20,6 @@ const MODEL =
     : PROVIDER === "openai"
       ? "gpt-4o-mini"
       : "claude-haiku-4-5-20251001");
-const WAVESPEED_BASE = process.env.WAVESPEED_BASE ?? "https://api.wavespeed.ai/api/v3";
 
 export function aiConfigured(): boolean {
   return !!KEY;
@@ -105,41 +104,47 @@ function pickText(j: unknown): string {
 
 async function callWaveSpeed(user: string): Promise<string> {
   const headers = { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };
-  const submit = await fetch(`${WAVESPEED_BASE}/${MODEL}`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      prompt: `${SYSTEM_PROMPT}\n\n---\n\n${user}`,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: user },
-      ],
-      max_tokens: 1400,
-      temperature: 0.4,
-    }),
+  const errs: string[] = [];
+  const chatPath = process.env.WAVESPEED_CHAT_PATH ?? "/chat/completions";
+  // LLMs on WaveSpeed are OpenAI-compatible. The exact base path isn't published
+  // to us, so try the likely candidates (or just WAVESPEED_BASE if pinned).
+  const bases = process.env.WAVESPEED_BASE
+    ? [process.env.WAVESPEED_BASE]
+    : ["https://api.wavespeed.ai/api/v3", "https://api.wavespeed.ai/v3", "https://api.wavespeed.ai/v1"];
+  const body = JSON.stringify({
+    model: MODEL,
+    max_tokens: 1400,
+    temperature: 0.4,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: user },
+    ],
   });
-  const sj = (await submit.json().catch(() => ({}))) as Record<string, unknown>;
-  if (!submit.ok) throw new Error(`wavespeed ${submit.status}: ${JSON.stringify(sj).slice(0, 400)}`);
-  // Some models answer synchronously.
-  const immediate = pickText(sj);
-  if (immediate) return immediate;
-  // Otherwise it's an async prediction — poll for the result.
-  const id = ((sj.data as { id?: string })?.id ?? (sj as { id?: string }).id) as string | undefined;
-  if (!id) throw new Error(`wavespeed: no text and no prediction id in ${JSON.stringify(sj).slice(0, 400)}`);
-  for (let i = 0; i < 60; i++) {
-    await new Promise((r) => setTimeout(r, 1500));
-    const r = await fetch(`${WAVESPEED_BASE}/predictions/${id}/result`, { headers });
-    const rj = (await r.json().catch(() => ({}))) as Record<string, unknown>;
-    const d = (rj.data ?? rj) as Record<string, unknown>;
-    const status = String(d?.status ?? "");
-    if (status === "completed" || status === "succeeded" || status === "success") {
-      const t = pickText(rj);
-      if (t) return t;
-      throw new Error(`wavespeed completed but no text: ${JSON.stringify(rj).slice(0, 400)}`);
+  for (const base of bases) {
+    const url = `${base}${chatPath}`;
+    try {
+      const r = await fetch(url, { method: "POST", headers, body });
+      const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+      if (r.ok) {
+        const t =
+          ((j as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content ?? "").trim() ||
+          pickText(j);
+        if (t) return t;
+        errs.push(`${url} → ok but empty`);
+      } else {
+        errs.push(`${url} → ${r.status} ${JSON.stringify(j).slice(0, 160)}`);
+        // A 400 "model not found" means the path is right but the id is wrong —
+        // no point trying other bases with the same id.
+        if (r.status === 400 && /model/i.test(JSON.stringify(j))) break;
+      }
+    } catch (e) {
+      errs.push(`${url} → threw ${String(e)}`);
     }
-    if (status === "failed" || status === "error") throw new Error(`wavespeed failed: ${JSON.stringify(d).slice(0, 400)}`);
   }
-  throw new Error("wavespeed: timed out waiting for the result");
+  throw new Error(
+    `WaveSpeed LLM call failed for model "${MODEL}". Tried: ${errs.join(" | ")}. ` +
+      `If it's a model-id problem set AI_MODEL; if it's the URL set WAVESPEED_BASE / WAVESPEED_CHAT_PATH (copy from the model's API tab).`,
+  );
 }
 
 async function callAnthropic(user: string): Promise<string> {
