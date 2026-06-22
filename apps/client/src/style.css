@@ -1,12 +1,21 @@
 :root {
-  --bg: #0e1018;
-  --bg2: #151926;
-  --panel: #1b2030;
-  --accent: #ffcc33;
-  --accent2: #ff5a5f;
-  --text: #e7e9ee;
-  --muted: #8a90a0;
-  --border: #2c313f;
+  /* AAA redesign palette: purple-tinted darks, rich gold, warm cream text. */
+  --bg: #0b0a0e;
+  --bg2: #12101a;
+  --panel: #1a1620;
+  --panel2: #211d2a;
+  --accent: #f0a92a; /* gold mid — borders / fills */
+  --accent-bright: #ffd84d; /* coin / bright gold */
+  --accent-lite: #ffe27a; /* light gold for gradients */
+  --accent2: #ff5a4d;
+  --good: #5ad27a;
+  --text: #eef0f5;
+  --cream: #fbf7ec; /* warm heading cream */
+  --muted: #8b8696;
+  --border: rgba(255, 255, 255, 0.12);
+  --font-disp: "Cinzel", Georgia, serif;
+  --font-ui: "Space Grotesk", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, "SF Mono", Menlo, monospace;
   /* Safe-area insets mirrored as custom props so JS (input.ts) can read them;
      env() is not directly readable from getComputedStyle values otherwise. */
   --sai-top: env(safe-area-inset-top, 0px);
@@ -19,7 +28,7 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-ui);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -43,7 +52,7 @@ html,
 body {
   height: 100%;
   height: 100dvh;
-  background: radial-gradient(1200px 800px at 50% -10%, #1d2336 0%, var(--bg) 60%) var(--bg);
+  background: radial-gradient(1200px 800px at 50% -10%, #1f1830 0%, var(--bg) 60%) var(--bg);
   color: var(--text);
   overflow: hidden;
   touch-action: none;
@@ -135,17 +144,24 @@ body {
 }
 
 .logo {
+  font-family: var(--font-disp);
   font-size: clamp(1.7rem, 8vw, 2.3rem);
-  font-weight: 800;
-  letter-spacing: 0.3px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
   white-space: nowrap;
-  text-shadow: 0 4px 24px rgba(255, 204, 51, 0.25);
+  background: linear-gradient(180deg, #ffe9a8, #e0a52a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 24px rgba(255, 180, 40, 0.35));
 }
 
 h2 {
+  font-family: var(--font-disp);
   font-size: 1.7rem;
   font-weight: 800;
-  background: linear-gradient(180deg, #fff0a8, var(--accent));
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #ffe9a8, var(--accent));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -187,9 +203,14 @@ button:disabled {
   cursor: not-allowed;
 }
 button.primary {
-  background: linear-gradient(180deg, #ffd95a, var(--accent));
-  color: #1a1a1a;
-  border: none;
+  background: linear-gradient(180deg, var(--accent-lite), var(--accent) 55%, #c97e12);
+  color: #3a2406;
+  border: 1px solid #8a5a10;
+  box-shadow: 0 10px 26px rgba(240, 160, 30, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+button.primary:hover {
+  filter: brightness(1.05);
 }
 button.ghost {
   background: transparent;
@@ -954,10 +975,15 @@ button.ghost {
   border: none;
 }
 .hub-brand {
+  font-family: var(--font-disp);
   font-weight: 800;
-  font-size: 0.98rem;
+  font-size: 1.04rem;
+  letter-spacing: 0.05em;
   white-space: nowrap;
-  opacity: 0.82;
+  background: linear-gradient(180deg, #ffe9a8, #e0a52a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 .hub-top-actions {
   display: flex;
@@ -976,9 +1002,13 @@ button.ghost {
   border: none;
   border-radius: 0;
   padding: 0;
-  font-weight: 800;
-  font-size: 0.95rem;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.9rem;
   color: var(--text);
+}
+.hub-top-actions .stat-badge.chips {
+  color: var(--accent-bright);
 }
 .hub-top-actions .stat-cap {
   margin: 0 0 0 4px;
@@ -4642,11 +4672,16 @@ button.big {
   text-align: center;
 }
 .splash-logo {
-  font-size: 2.1rem;
+  font-size: clamp(2.4rem, 11vw, 3.6rem);
+  letter-spacing: 0.07em;
 }
 .splash-tagline {
-  color: var(--muted);
-  margin: 0 0 10px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #e8cf86;
+  margin: 4px 0 12px;
 }
 .splash-card button {
   width: 100%;
