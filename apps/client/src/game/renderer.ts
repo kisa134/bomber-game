@@ -187,6 +187,8 @@ export class Renderer {
   private danger = 0; // 0..1 threat level -> pulsing red edge vignette (low HP / sudden death)
   private selfX = 0; private selfY = 0; private selfKnown = false; // local player pos (for distance shake)
   private lastClatter = 0; // throttle for bone/chip clatter sfx
+  private smolderAt = 0; // last smoldering-skull smoke wisp tick
+  private lastSplat = 0; // last wet organ-splat sound (throttle)
   private colorTemp = 1; // +1 cozy warm (match start) .. -1 mortuary cold (end / sudden death)
   private lastTime = performance.now();
 
@@ -796,6 +798,17 @@ export class Renderer {
     this.burst(cx, cy, "#7a0000", 24, 4.6); // darker gore spray
     this.burst(cx, cy, color, 10, 3); // a hint of the player's color
     this.burst(cx, cy, "#efe6cf", 6, 3.2); // bone / teeth bits
+    // DISMEMBERMENT: a few big chunky meat gobs blown out, tumbling, with a wet arc.
+    const meaty = ["#8a0000", "#a31414", "#6a0000", "#7a1010"];
+    for (let i = 0; i < Math.round(9 * this.fxScale); i++) {
+      const a = Math.random() * Math.PI * 2, sp = 3 + Math.random() * 4;
+      this.push({
+        x: cx + 0.5, y: cy + 0.5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        vz: 5 + Math.random() * 5, gz: 33, rest: 0.22, fric: 0.82, solid: true,
+        life: 0.9 + Math.random() * 0.6, max: 1.5, size: this.tile * (0.1 + Math.random() * 0.1),
+        color: meaty[(Math.random() * meaty.length) | 0], shape: "rect", rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 20,
+      });
+    }
     this.shake(20, 300);
   }
 
@@ -985,10 +998,31 @@ export class Renderer {
   /** A flying gore piece has settled -> drop it as a persistent decal (high perf cap). */
   private landGore(p: Particle): void {
     if (!p.gore) return;
-    const arr = this.goreArr(p.gore.kind);
+    const k = p.gore.kind;
+    const arr = this.goreArr(k);
     arr.push({ x: p.x, y: p.y, seed: p.gore.seed });
     if (arr.length > 360) arr.splice(0, arr.length - 360);
     this.bloodDirty = true;
+    // Soft, wet kinds make a little SPLAT when they hit the ground (throttled so it never buzzes).
+    if (!this.lowFx && this.assets && (k === "organ" || k === "brain" || k === "meat" || k === "limb")) {
+      const now = performance.now();
+      if (now - this.lastSplat > 85) { this.lastSplat = now; this.assets.playGore(this.soundAt(p.x, p.y).vol * 0.32); }
+    }
+  }
+
+  /** Smoldering skulls puff faint, slow smoke wisps every so often — a quietly grim battlefield. */
+  private emitSmolder(now: number): void {
+    if (this.lowFx || !this.skulls.length || now - this.smolderAt < 430) return;
+    this.smolderAt = now;
+    for (let n = 0; n < 3; n++) {
+      if (Math.random() > 0.5) continue;
+      const sk = this.skulls[(Math.random() * this.skulls.length) | 0];
+      this.push({
+        x: sk.x + (Math.random() - 0.5) * 0.2, y: sk.y - 0.08, vx: (Math.random() - 0.5) * 0.3, vy: -0.45 - Math.random() * 0.4,
+        life: 0.9 + Math.random() * 0.7, max: 1.6, drag: 0.96, grow: this.tile * 0.16,
+        size: this.tile * 0.07, color: "rgba(58,54,50,0.32)",
+      });
+    }
   }
 
   /** Boot any LANDED gore on `cell` back into flight, away from (fromX,fromY) — a foot kick. */
@@ -1659,6 +1693,7 @@ export class Renderer {
 
     this.drawPlayers(view, myId, now);
     this.drawLights(now);
+    this.emitSmolder(now); // smoldering skulls puff faint smoke
     this.updateParticles(dt);
     this.drawFloaters(now); // upbeat reward/event popups (ease-out-back / elastic)
     ctx.restore();
@@ -2279,8 +2314,12 @@ export class Renderer {
       return tt === TileType.HARD || tt === TileType.SOFT;
     };
     const r = p.rest ?? 0.4;
-    if (blocked(Math.floor(nx), Math.floor(p.y))) p.vx = -p.vx * r; else p.x = nx; // hit a vertical face
-    if (blocked(Math.floor(p.x), Math.floor(ny))) p.vy = -p.vy * r; else p.y = ny; // hit a horizontal face
+    // Bloody soft gore (meat/organ/brain/limb) SPLATS blood onto the block face it hits.
+    const wet = p.gore && (p.gore.kind === "meat" || p.gore.kind === "organ" || p.gore.kind === "brain" || p.gore.kind === "limb");
+    const hitX = blocked(Math.floor(nx), Math.floor(p.y));
+    if (hitX) { p.vx = -p.vx * r; if (wet && Math.random() < 0.7) this.markBlockBlood(Math.floor(nx) + Math.floor(p.y) * GRID_W, Math.sign(p.vx) || 1, 0); } else p.x = nx;
+    const hitY = blocked(Math.floor(p.x), Math.floor(ny));
+    if (hitY) { p.vy = -p.vy * r; if (wet && Math.random() < 0.7) this.markBlockBlood(Math.floor(p.x) + Math.floor(ny) * GRID_W, 0, Math.sign(p.vy) || 1); } else p.y = ny;
   }
 
   private updateParticles(dt: number): void {
