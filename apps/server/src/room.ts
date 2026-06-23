@@ -143,6 +143,7 @@ export class Room {
   private lobbyCountdownEndMs = 0; // wall-clock deadline for the ready countdown
   private winnerId = DRAW_WINNER_ID;
   private practiceStarted = false; // practice auto-starts once; then by button
+  private lobbyBotsSeated = false; // persistent rooms: bots pre-seated in the lobby (kickable)
   private firstBloodDone = false; // first-blood bonus awarded this match?
   private lastHumanAtMs = Date.now();
   private readonly lastSentGrid = new Uint8Array(GRID_SIZE);
@@ -547,12 +548,18 @@ export class Room {
     this.broadcastRoomInfo();
   }
 
-  /** Host removes a player from the lobby. */
+  /** Host removes a player from the lobby. In always-open casual rooms the host
+   *  can also kick bots (to free a seat for a friend). */
   kick(hostId: number, targetId: number): void {
     if (this.phase !== MatchPhase.LOBBY) return;
     if (hostId !== this.hostId || targetId === this.hostId) return;
     const p = this.players.get(targetId);
-    if (!p || p.isBot) return;
+    if (!p) return;
+    if (p.isBot) {
+      if (!this.persistent) return; // bots aren't kickable in normal practice
+      this.removePlayer(targetId); // bots get no "kicked" notice
+      return;
+    }
     this.removeWithNotice(targetId, 0); // reason 0 = removed by host
   }
 
@@ -677,6 +684,15 @@ export class Room {
     if (this.practice && !this.coop && !this.persistent && this.humanCount >= 1 && !this.practiceStarted) {
       this.startPractice();
       return;
+    }
+    // Always-open casual room: once a human is in, fill the empty seats with
+    // (kickable) bots so the lobby shows who you'd be playing. The host can kick a
+    // bot to free a seat for a friend, then press Start. Filled once — kicking a
+    // bot won't instantly refill it.
+    if (this.persistent && this.humanCount >= 1 && !this.lobbyBotsSeated) {
+      while (this.players.size < MAX_PLAYERS_PER_ROOM) this.addBot();
+      this.lobbyBotsSeated = true;
+      this.broadcastRoomInfo();
     }
     // All present players ready → start immediately. Practice (incl. co-op) goes
     // through startPractice so the arena gets topped up with bots.
@@ -846,6 +862,8 @@ export class Room {
     this.lobbyCounting = false;
     this.lobbyCountdownEndMs = 0;
     this.winnerId = DRAW_WINNER_ID;
+    // Persistent rooms re-seat lobby bots for the next round (top up any gaps).
+    if (this.persistent) this.lobbyBotsSeated = false;
     this.broadcast(encodePhase(MatchPhase.LOBBY, 0));
     this.broadcastRoomInfo();
   }
@@ -860,6 +878,7 @@ export class Room {
     }
     this.hostId = -1;
     this.practiceStarted = false;
+    this.lobbyBotsSeated = false;
     this.phase = MatchPhase.LOBBY;
     this.bombs = [];
     this.world.fire.fill(0);

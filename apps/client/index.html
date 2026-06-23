@@ -69,6 +69,7 @@
                 <span class="hpc-av"><img id="hub-chip-av" alt="" /></span>
                 <span id="hub-chip-name" class="hpc-name">guest</span>
               </button>
+              <button id="open-daily" class="icon-btn daily-icon hidden" title="Daily reward">🎁</button>
               <button id="open-settings" class="icon-btn" title="Settings">⚙</button>
               <button id="open-help" class="icon-btn" title="How to play">❓</button>
             </div>
@@ -170,10 +171,6 @@
           <!-- RIGHT: destinations -->
           <div class="hub-rail hub-rail-right">
             <div class="rail-online"><span class="ro-dot" aria-hidden="true"></span><span id="hub-online">ARENA LIVE</span></div>
-            <button id="open-daily" class="rail-card daily hidden">
-              <div class="rc-top"><span class="rc-title">🎁 Daily Reward</span><span id="daily-badge" class="rc-badge ready">CLAIM</span></div>
-              <div id="daily-sub" class="rc-sub">Day 1 · come back daily for more</div>
-            </button>
             <button id="open-wheel" class="rail-card spin">
               <div class="rc-top"><span class="rc-title">🎰 Daily Spin</span><span class="rc-badge ready">READY</span></div>
               <div class="rc-sub">Free spin · every spin wins</div>
@@ -219,6 +216,18 @@
           <div id="friends-list" class="friends-section"></div>
           <p id="friends-empty" class="status fair hidden">No friends yet — add someone by their nickname.</p>
           <button id="friends-close" class="ghost">Close</button>
+        </div>
+      </div>
+
+      <!-- Daily login reward — a popup (not a permanent hub card) -->
+      <div id="daily-modal" class="modal hidden">
+        <div class="modal-card daily-card-pop">
+          <div class="daily-gift">🎁</div>
+          <h3>Daily Reward</h3>
+          <p id="daily-streak-line" class="status">Welcome back!</p>
+          <div id="daily-reward-line" class="daily-reward-line"></div>
+          <button id="daily-claim-btn" class="primary big">Claim</button>
+          <button id="daily-close" class="ghost">Later</button>
         </div>
       </div>
 

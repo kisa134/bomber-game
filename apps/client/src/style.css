@@ -5978,20 +5978,31 @@ button.big {
 .rc-badge.new {
   background: #ff5a4d;
 }
-/* Daily Reward card — teal accent; dimmed once today's reward is claimed. */
-.rail-card.daily {
-  background: linear-gradient(160deg, rgba(20, 36, 38, 0.92), rgba(11, 18, 20, 0.92));
-  border-color: rgba(95, 209, 217, 0.4);
+/* Daily reward: a small 🎁 top-bar icon that only appears (and pulses) when the
+   reward is claimable, opening a popup. No permanent hub real-estate. */
+.daily-icon.pulse {
+  animation: dailyPulse 1.5s ease-in-out infinite;
 }
-.rail-card.daily .rc-title {
-  color: #7fe0e0;
+@keyframes dailyPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255, 204, 51, 0); }
+  50% { transform: scale(1.12); box-shadow: 0 0 0 4px rgba(255, 204, 51, 0.35); }
 }
-.rail-card.daily.done {
-  opacity: 0.55;
-  border-color: var(--border);
+.daily-card-pop {
+  text-align: center;
+  max-width: 340px;
 }
-.rail-card.daily.done .rc-title {
-  color: var(--muted);
+.daily-gift {
+  font-size: 3rem;
+  animation: dailyGift 1.8s ease-in-out infinite;
+}
+@keyframes dailyGift {
+  0%, 100% { transform: rotate(-6deg); }
+  50% { transform: rotate(6deg); }
+}
+.daily-reward-line {
+  font-weight: 800;
+  color: #ffcc33;
+  margin: 4px 0 12px;
 }
 
 /* Bottom bar — GAME MODE · PLAY ONLINE · PRACTICE.

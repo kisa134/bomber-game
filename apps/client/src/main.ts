@@ -2682,9 +2682,15 @@ const friendsModalOpen = (): boolean => !friendsModal()?.classList.contains("hid
 // ping the friend to join THIS room.
 let inviteRoomCode = ""; // "" = normal friends view; non-empty = invite mode
 
-/** Open the friends list to invite someone into the current waiting room. */
+/** Open the friends list to invite someone into the current waiting room.
+ *  No wallet (so no friends list) → fall back to copying a shareable link. */
 function openFriendsForInvite(): void {
-  if (!loadWallet()) { showToast("Connect a wallet to invite friends", "info"); return; }
+  if (!loadWallet()) {
+    const url = inviteUrl(state.roomCode);
+    if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(url).catch(() => {});
+    showToast("Invite link copied — share it with a friend", "success");
+    return;
+  }
   inviteRoomCode = state.roomCode;
   document.getElementById("friends-status")!.textContent = "Pick a friend to invite to your room";
   friendsModal()!.classList.remove("hidden");
@@ -3043,34 +3049,48 @@ function maybeRunCoach(): void {
   setTimeout(() => runCoach(COACH_STEPS), 350);
 }
 
-// --- daily login reward ----------------------------------------------------
+// --- daily login reward (a popup + a pulsing 🎁 icon, not a hub card) -------
 const utcDayIndex = (): number => Math.floor(Date.now() / 86_400_000);
+let dailyStreak = 0;
+let dailyAutoShown = false; // auto-open the popup at most once per session
 
-/** Show/refresh the hub's Daily Reward card from a profile (claimable today?). */
+/** Update the 🎁 entry icon from a profile: shown + pulsing only when today's
+ *  reward is claimable; auto-opens the popup the first time it's available. */
 function refreshDaily(p: ProfileData | null): void {
-  const card = document.getElementById("open-daily");
-  if (!card) return;
-  if (!p || !loadWallet()) { card.classList.add("hidden"); return; }
-  card.classList.remove("hidden");
-  const claimable = (p.daily_day ?? 0) !== utcDayIndex();
-  const streak = p.daily_streak ?? 0;
-  const badge = document.getElementById("daily-badge");
-  const sub = document.getElementById("daily-sub");
-  card.classList.toggle("done", !claimable);
-  if (claimable) {
-    if (badge) { badge.textContent = "CLAIM"; badge.className = "rc-badge ready"; }
-    if (sub) sub.textContent = streak > 0 ? `Streak ${streak} 🔥 · claim today's reward` : "Claim your first daily reward";
-  } else {
-    if (badge) { badge.textContent = "DONE"; badge.className = "rc-badge"; }
-    if (sub) sub.textContent = `Streak ${streak} 🔥 · come back tomorrow`;
+  const icon = document.getElementById("open-daily");
+  if (!icon) return;
+  const claimable = !!p && !!loadWallet() && (p.daily_day ?? 0) !== utcDayIndex();
+  dailyStreak = p?.daily_streak ?? 0;
+  icon.classList.toggle("hidden", !claimable);
+  icon.classList.toggle("pulse", claimable);
+  if (claimable && !dailyAutoShown && !document.getElementById("menu")?.classList.contains("hidden")) {
+    dailyAutoShown = true;
+    setTimeout(() => openDailyModal(), 600);
   }
 }
 
+function openDailyModal(): void {
+  const m = document.getElementById("daily-modal");
+  if (!m) return;
+  const line = document.getElementById("daily-streak-line");
+  const reward = document.getElementById("daily-reward-line");
+  const next = dailyStreak + 1; // streak after claiming today
+  if (line) line.textContent = next > 1 ? `Day ${next} streak — keep it going! 🔥` : "Your first daily reward!";
+  if (reward) reward.textContent = next % 7 === 0 ? "🎉 7-day bonus inside!" : "🪙 chips + ✨ XP";
+  m.classList.remove("hidden");
+}
+
 function wireDaily(): void {
-  document.getElementById("open-daily")?.addEventListener("click", () => {
-    const card = document.getElementById("open-daily")!;
-    if (card.classList.contains("done")) { showToast("Daily reward already claimed — come back tomorrow", "info"); return; }
+  document.getElementById("open-daily")?.addEventListener("click", () => openDailyModal());
+  document.getElementById("daily-close")?.addEventListener("click", () =>
+    document.getElementById("daily-modal")?.classList.add("hidden"),
+  );
+  document.getElementById("daily-claim-btn")?.addEventListener("click", () => {
+    const btn = document.getElementById("daily-claim-btn") as HTMLButtonElement;
+    btn.disabled = true;
     void claimDaily().then((r) => {
+      btn.disabled = false;
+      document.getElementById("daily-modal")?.classList.add("hidden");
       if (r.error) { showToast("Couldn't claim — try again", "error"); return; }
       if (r.already) {
         showToast("Already claimed today — come back tomorrow", "info");
