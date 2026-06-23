@@ -102,6 +102,10 @@ export function encodeSetVisibility(isPublic: boolean): Uint8Array {
   return new Uint8Array([ClientMsg.SET_VISIBILITY, isPublic ? 1 : 0]);
 }
 
+export function encodeSetDuration(mins: number): Uint8Array {
+  return new Uint8Array([ClientMsg.SET_DURATION, Math.max(1, Math.min(255, Math.round(mins))) & 0xff]);
+}
+
 export function encodeProposeStake(stake: number): Uint8Array {
   const buf = new Uint8Array(5);
   const dv = new DataView(buf.buffer);
@@ -144,7 +148,8 @@ export type ClientMessage =
   | { type: ClientMsg.KICK; targetId: number }
   | { type: ClientMsg.SET_SKIN; skin: number }
   | { type: ClientMsg.CHAT; text: string }
-  | { type: ClientMsg.SET_VISIBILITY; isPublic: boolean };
+  | { type: ClientMsg.SET_VISIBILITY; isPublic: boolean }
+  | { type: ClientMsg.SET_DURATION; mins: number };
 
 export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | null {
   const dv = asView(data);
@@ -189,6 +194,9 @@ export function decodeClient(data: ArrayBuffer | Uint8Array): ClientMessage | nu
     case ClientMsg.SET_VISIBILITY:
       if (dv.byteLength < 2) return null;
       return { type, isPublic: dv.getUint8(1) !== 0 };
+    case ClientMsg.SET_DURATION:
+      if (dv.byteLength < 2) return null;
+      return { type, mins: dv.getUint8(1) };
     case ClientMsg.CHAT: {
       if (dv.byteLength < 2) return null;
       const len = dv.getUint8(1);
@@ -405,12 +413,13 @@ export function encodeRoomInfo(
   stake: number,
   currency: number,
   isPublic: boolean,
+  durationMins: number,
   players: RoomPlayerInfo[],
 ): Uint8Array {
   const codeBytes = textEncoder.encode(code);
   const nameBytes = players.map((p) => textEncoder.encode(p.name.slice(0, 24)));
   const walletBytes = players.map((p) => textEncoder.encode(p.wallet ?? ""));
-  let size = 1 + 1 + 1 + 2 + 4 + 1 + 1 + 1 + codeBytes.length + 1;
+  let size = 1 + 1 + 1 + 2 + 4 + 1 + 1 + 1 + 1 + codeBytes.length + 1;
   // per player: id + skin + ready + wins + nameLen + name + walletLen + wallet
   for (let i = 0; i < players.length; i++) size += 1 + 1 + 1 + 1 + 1 + nameBytes[i].length + 1 + walletBytes[i].length;
   const buf = new Uint8Array(size);
@@ -423,6 +432,7 @@ export function encodeRoomInfo(
   dv.setUint32(o, Math.max(0, Math.min(0xffffffff, stake)), true); o += 4;
   dv.setUint8(o, currency & 0xff); o += 1;
   dv.setUint8(o, isPublic ? 1 : 0); o += 1;
+  dv.setUint8(o, Math.max(1, Math.min(255, Math.round(durationMins))) & 0xff); o += 1;
   dv.setUint8(o, codeBytes.length); o += 1;
   buf.set(codeBytes, o); o += codeBytes.length;
   dv.setUint8(o, players.length); o += 1;
@@ -615,6 +625,7 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
       const stake = dv.getUint32(o, true); o += 4;
       const currency = dv.getUint8(o); o += 1;
       const isPublic = dv.getUint8(o) !== 0; o += 1;
+      const durationMins = dv.getUint8(o); o += 1;
       const codeLen = dv.getUint8(o); o += 1;
       const code = textDecoder.decode(bytes.subarray(o, o + codeLen)); o += codeLen;
       const count = dv.getUint8(o); o += 1;
@@ -630,7 +641,7 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
         const wallet = textDecoder.decode(bytes.subarray(o, o + walletLen)); o += walletLen;
         players.push({ id, name, skin, ready, wins, wallet });
       }
-      const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, stake, currency, isPublic, players };
+      const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, stake, currency, isPublic, durationMins, players };
       return msg;
     }
     case ServerMsg.EVENT_EMOTE: {

@@ -71,7 +71,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState, type ScreenName } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setDurationHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState, type ScreenName } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
@@ -3180,6 +3180,7 @@ wireMenuLinks();
 wireBank();
 setProfileHandler((p) => openPlayerCard(p));
 setKickHandler((playerId) => net.sendKick(playerId));
+setDurationHandler((mins) => net.sendSetDuration(mins));
 // Lobby character strip: pick an OWNED skin (applies this match + becomes your
 // default); tapping a LOCKED skin opens the SHOP to unlock it.
 setSkinSelectHandler((skin) => {

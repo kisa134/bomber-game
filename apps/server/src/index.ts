@@ -1681,6 +1681,8 @@ app.ws<SocketData>("/ws", {
       room.chat(ud.playerId, msg.text);
     } else if (msg.type === ClientMsg.SET_VISIBILITY) {
       room.setVisibility(ud.playerId, msg.isPublic);
+    } else if (msg.type === ClientMsg.SET_DURATION) {
+      room.setDuration(ud.playerId, msg.mins);
     }
   },
   close: (ws) => {

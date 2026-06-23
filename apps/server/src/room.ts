@@ -7,9 +7,10 @@ import {
   BOMB_TIMER_MS,
   EXPLOSION_LIFETIME_MS,
   COUNTDOWN_MS,
-  MATCH_LENGTH_MS,
-  SUDDEN_DEATH_AT_MS,
+  SUDDEN_DEATH_LEAD_MS,
   SUDDEN_DEATH_STEP_MS,
+  DEFAULT_DURATION_MIN,
+  DURATION_OPTIONS_MIN,
   END_SCREEN_MS,
   ROOM_LINGER_MS,
   PROTOCOL_VERSION,
@@ -110,6 +111,7 @@ export class Room {
   private readonly sandbox: SandboxOpts | null = null;
   private crateTimerMs = 0; // sandbox crate-respawn accumulator
   stake: number; // amount wagered per player (0 = casual); host can change in lobby
+  durationMins: number = DEFAULT_DURATION_MIN; // host-chosen match length (lobby only)
   readonly currency: Currency; // what the stake is denominated in
   private pot = 0; // escrowed amount for the current match (base units for tokens)
   private contributors: string[] = []; // wallets that paid into the pot (for refunds)
@@ -721,7 +723,7 @@ export class Room {
         return Math.max(0, this.phaseTimerMs);
       case MatchPhase.PLAYING:
       case MatchPhase.SUDDEN_DEATH:
-        return Math.max(0, MATCH_LENGTH_MS - this.matchElapsedMs);
+        return Math.max(0, this.durationMs - this.matchElapsedMs);
       case MatchPhase.END:
         return Math.max(0, END_SCREEN_MS - this.endElapsedMs);
       default:
@@ -921,12 +923,13 @@ export class Room {
       return;
     }
 
-    if (this.matchElapsedMs >= SUDDEN_DEATH_AT_MS) {
+    // Walls close in for the final minute, scaled to the chosen match length.
+    if (this.matchElapsedMs >= this.durationMs - SUDDEN_DEATH_LEAD_MS) {
       if (this.phase !== MatchPhase.SUDDEN_DEATH) this.setPhase(MatchPhase.SUDDEN_DEATH);
       this.suddenDeath(dt);
     }
 
-    if (this.matchElapsedMs >= MATCH_LENGTH_MS) {
+    if (this.matchElapsedMs >= this.durationMs) {
       this.checkWin(true);
       return;
     }
@@ -1174,6 +1177,21 @@ export class Room {
     if (this.phase !== MatchPhase.LOBBY) return;
     if (this.isPublic === isPublic) return;
     this.isPublic = isPublic;
+    this.broadcastRoomInfo();
+  }
+
+  /** This match's length in ms (host-chosen, lobby only). */
+  private get durationMs(): number {
+    return this.durationMins * 60_000;
+  }
+
+  /** Host changes the match length (minutes). Lobby only, restricted to the
+   *  offered options so the timer/sudden-death stay sane. */
+  setDuration(id: number, mins: number): void {
+    if (id !== this.hostId || this.phase !== MatchPhase.LOBBY) return;
+    if (!(DURATION_OPTIONS_MIN as readonly number[]).includes(mins)) return;
+    if (mins === this.durationMins) return;
+    this.durationMins = mins;
     this.broadcastRoomInfo();
   }
 
@@ -1481,7 +1499,7 @@ export class Room {
     }));
     const countdown = this.lobbyCounting ? Math.max(0, this.lobbyCountdownEndMs - Date.now()) : 0;
     for (const p of this.players.values()) {
-      p.send(encodeRoomInfo(this.id, this.hostId, p.id === this.hostId, countdown, this.stake, this.currency, this.isPublic, list));
+      p.send(encodeRoomInfo(this.id, this.hostId, p.id === this.hostId, countdown, this.stake, this.currency, this.isPublic, this.durationMins, list));
     }
   }
 

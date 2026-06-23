@@ -33,8 +33,13 @@ export const MAX_PLAYERS_PER_ROOM = 4;
 export const MIN_PLAYERS_TO_START = 2;
 export const SPECTATOR_ID = 255; // welcome id sent to a spectator (not a real seat)
 
-export const MATCH_LENGTH_MS = 180_000; // 3 minutes
+export const MATCH_LENGTH_MS = 180_000; // 3 minutes (default; host can change in-lobby)
 export const SUDDEN_DEATH_AT_MS = 120_000; // last minute (after 2:00): walls close in
+/** Match-length options (minutes) a host can pick in the waiting room. */
+export const DURATION_OPTIONS_MIN = [2, 3, 5] as const;
+export const DEFAULT_DURATION_MIN = 3;
+/** How long before the match end the walls start closing in (the "last minute"). */
+export const SUDDEN_DEATH_LEAD_MS = MATCH_LENGTH_MS - SUDDEN_DEATH_AT_MS; // 60s
 export const SUDDEN_DEATH_STEP_MS = 500; // a new ring tile every 0.5s (closes the 17x11 in the final minute)
 
 export const COUNTDOWN_MS = 3_000;

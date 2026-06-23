@@ -1,6 +1,6 @@
 import { PLAYER_COLORS, skinAvatar } from "../game/renderer.js";
 import { ASSET_VER } from "../game/assets.js";
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, DEFAULT_SKINS, MATCH_LENGTH_MS, PRACTICE_MAX_BOTS, DEFAULT_SANDBOX, type SandboxOpts } from "../net/protocol.js";
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, DEFAULT_SKINS, DURATION_OPTIONS_MIN, PRACTICE_MAX_BOTS, DEFAULT_SANDBOX, type SandboxOpts } from "../net/protocol.js";
 
 /** Which skins the local player owns (bitmask) + their level — for the lobby
  *  character strip (set from main after the profile loads). */
@@ -116,6 +116,11 @@ export function setProfileHandler(fn: (p: CardPlayer) => void): void {
 let onKick: (playerId: number) => void = () => {};
 export function setKickHandler(fn: (playerId: number) => void): void {
   onKick = fn;
+}
+/** Host-only "set match length" action (wired from main → net.sendSetDuration). */
+let onSetDuration: (mins: number) => void = () => {};
+export function setDurationHandler(fn: (mins: number) => void): void {
+  onSetDuration = fn;
 }
 function usdSuffix(tokens: number): string {
   if (!tokenUsd || tokens <= 0) return "";
@@ -657,14 +662,24 @@ export function renderRoom(state: GameState): void {
     list.appendChild(li);
   }
 
-  // --- Match settings (read-only for now; host-editable in a later step) ----
+  // --- Match settings: host picks the match length live; others see it read-only.
   const settings = document.getElementById("room-settings");
   if (settings) {
-    const mins = Math.round(MATCH_LENGTH_MS / 60000);
+    const cur = state.roomDurationMins || 3;
+    const durHtml = state.isHost
+      ? `<span class="setting-seg">⏱ ${DURATION_OPTIONS_MIN.map(
+          (m) => `<button class="dur-btn${m === cur ? " active" : ""}" data-mins="${m}">${m}m</button>`,
+        ).join("")}</span>`
+      : `<span class="setting-chip">⏱ ${cur}:00</span>`;
     settings.innerHTML =
-      `<span class="setting-chip">⏱ ${mins}:00</span>` +
+      durHtml +
       `<span class="setting-chip">🗺 Mode: Last Man Standing</span>` +
-      `<span class="setting-hint">${state.isHost ? "you can change these soon" : "host decides"}</span>`;
+      `<span class="setting-hint">${state.isHost ? "you set the pace" : "host decides"}</span>`;
+    if (state.isHost) {
+      for (const b of settings.querySelectorAll<HTMLButtonElement>(".dur-btn")) {
+        b.addEventListener("click", () => onSetDuration(Number(b.dataset.mins)));
+      }
+    }
   }
 
   // --- Prize / what's on the line ------------------------------------------

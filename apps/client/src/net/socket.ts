@@ -13,6 +13,7 @@ import {
   encodeChat,
   encodeSetStake,
   encodeSetVisibility,
+  encodeSetDuration,
   encodeProposeStake,
   encodeVoteStake,
   type ServerMessage,
@@ -421,6 +422,10 @@ export class Net {
 
   sendSetVisibility(isPublic: boolean): void {
     this.send(encodeSetVisibility(isPublic));
+  }
+
+  sendSetDuration(mins: number): void {
+    this.send(encodeSetDuration(mins));
   }
 
   sendProposeStake(stake: number): void {

@@ -50,6 +50,7 @@ export enum ClientMsg {
   SET_SKIN = 11, // pick your character in the lobby
   CHAT = 12, // lobby chat message
   SET_VISIBILITY = 13, // host toggles public (listed) vs private (code-only)
+  SET_DURATION = 14, // host changes the match length in minutes (lobby only)
 }
 
 /** Server -> Client message ids. */
@@ -218,6 +219,7 @@ export interface RoomInfoMsg {
   stake: number; // amount wagered per player (0 = casual table)
   currency: Currency; // what the stake is denominated in
   isPublic: boolean; // listed in the browser + quick-matchable (false = code-only)
+  durationMins: number; // host-chosen match length in minutes
   players: RoomPlayerInfo[];
 }
 
