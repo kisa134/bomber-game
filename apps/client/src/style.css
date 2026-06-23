@@ -2051,7 +2051,11 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   justify-content: center;
   color: var(--muted);
   border-style: dashed;
-  cursor: default;
+  cursor: pointer;
+}
+.seat.empty.invite:hover {
+  color: var(--accent, #6ee7b7);
+  border-color: var(--accent, #6ee7b7);
 }
 .seat.empty .seat-empty {
   font-size: 0.85rem;

@@ -646,13 +646,14 @@ export function renderRoom(state: GameState): void {
     }
     list.appendChild(li);
   }
-  // Empty seats — first one invites, the rest say "waiting".
+  // Empty seats — EVERY open seat is a clickable "invite a friend" slot (a tap
+  // anywhere on a free chair fires the room's invite/copy-link action).
   for (let i = count; i < MAX_PLAYERS_PER_ROOM; i++) {
     const li = document.createElement("li");
-    li.className = "seat empty";
-    const first = i === count;
-    li.innerHTML = `<div class="seat-empty">${first ? "＋ Invite a friend" : "Waiting…"}</div>`;
-    if (first) li.addEventListener("click", () => document.getElementById("copy-invite")?.click());
+    li.className = "seat empty invite";
+    li.innerHTML = `<div class="seat-empty">＋ Invite a friend</div>`;
+    li.title = "Invite a friend to this seat";
+    li.addEventListener("click", () => document.getElementById("copy-invite")?.click());
     list.appendChild(li);
   }
 

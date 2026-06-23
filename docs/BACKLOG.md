@@ -5,7 +5,7 @@ Tracked task list. `[ ]` = todo, `[~]` = in progress, `[x]` = done. Numbers in
 
 ## 🔴 Bugs (fix first)
 - [x] (2) **Ghost free lobby:** empty lobby stays listed/joinable, can't be entered → *fixed: `listTables()` lists only rooms with `humanCount > 0 && acceptsPlayers()`; empties reap in ≤30s.* ✅
-- [ ] (2) **Invite on empty seats:** can't invite friends from the room; make a click on a free seat at the table trigger invite.
+- [x] (2) **Invite on empty seats:** *fixed: EVERY empty seat is now a clickable "＋ Invite a friend" slot (was only the first) — taps fire the room invite/copy-link.* ✅
 - [ ] (1) **[NEW] Room drops on misclick:** after creating a room, an accidental click elsewhere auto-leaves and the room is gone with no way back.
 - [ ] (1) **Co-op/Practice lobby resets:** changing settings in co-op/practice lobby blows the lobby away.
 - [ ] (1) **Kick:** kicking players from the lobby doesn't work. *(code path verified correct end-to-end client→server; needs live repro to pinpoint — likely UI/state, not protocol.)*
