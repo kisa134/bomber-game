@@ -106,22 +106,22 @@ body {
   /* Big overscan + scale so the heavy blur never leaks transparent edges. */
   inset: -70px;
   background: #0b070e url("/bg/splash-art.png") center / cover no-repeat;
-  /* blur kept moderate (cheaper GPU layer); scale hides the soft edges */
-  filter: blur(30px) saturate(1.2) brightness(0.92);
+  /* spec: blur 40–60px, dimmed to ~65% — a stage, not a texture */
+  filter: blur(44px) saturate(1.08) brightness(0.64);
   transform: scale(1.1);
-  will-change: auto;
 }
-/* A soft warm key-light lifts the centre (lit showcase) while a deep — but not
-   charcoal — radial vignette sinks the edges so the blurred scene still reads. */
+/* A faint warm key-light lifts the centre (lit showcase) while a deep, SOFT
+   radial vignette sinks the edges → rgba(0,0,0,0) centre → ~0.75 at the edges,
+   so the panels/cards pop and corners stay deep but never charcoal. */
 #bg.art::after {
   background:
-    radial-gradient(ellipse 54% 46% at 50% 40%, rgba(255, 224, 175, 0.12), transparent 62%),
+    radial-gradient(ellipse 52% 44% at 50% 42%, rgba(255, 222, 170, 0.08), transparent 60%),
     radial-gradient(
-      ellipse 84% 80% at 50% 44%,
+      ellipse 90% 86% at 50% 45%,
       rgba(0, 0, 0, 0) 0%,
-      rgba(0, 0, 0, 0) 36%,
-      rgba(0, 0, 0, 0.34) 72%,
-      rgba(0, 0, 0, 0.6) 100%
+      rgba(0, 0, 0, 0) 30%,
+      rgba(0, 0, 0, 0.46) 68%,
+      rgba(0, 0, 0, 0.75) 100%
     );
 }
 /* With the static art backdrop the old menu video is hidden. */

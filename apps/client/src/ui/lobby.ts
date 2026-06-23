@@ -322,6 +322,30 @@ export function setupMenu(h: MenuHandlers): void {
         paint();
       }),
     );
+    // Drag (or click) anywhere on the track to set the value directly.
+    const track = root.querySelector<HTMLElement>(".step-track");
+    if (track) {
+      track.style.cursor = "pointer";
+      track.style.touchAction = "none";
+      const setFromX = (clientX: number): void => {
+        const min = Number(root.dataset.min ?? 0);
+        const max = Number(root.dataset.max ?? 10);
+        const r = track.getBoundingClientRect();
+        const frac = r.width > 0 ? Math.max(0, Math.min(1, (clientX - r.left) / r.width)) : 0;
+        set(Math.round(min + frac * (max - min)));
+        paint();
+      };
+      let dragging = false;
+      track.addEventListener("pointerdown", (e) => {
+        dragging = true;
+        try { track.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+        setFromX(e.clientX);
+      });
+      track.addEventListener("pointermove", (e) => { if (dragging) setFromX(e.clientX); });
+      const stop = (): void => { dragging = false; };
+      track.addEventListener("pointerup", stop);
+      track.addEventListener("pointercancel", stop);
+    }
     paint();
   };
 
