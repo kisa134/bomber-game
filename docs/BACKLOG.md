@@ -8,13 +8,13 @@ Tracked task list. `[ ]` = todo, `[~]` = in progress, `[x]` = done. Numbers in
 - [x] (2) **Invite on empty seats:** *fixed: EVERY empty seat is now a clickable "＋ Invite a friend" slot (was only the first) — taps fire the room invite/copy-link.* ✅
 - [x] (1) **[NEW] Room drops on misclick:** *guarded: leaving the waiting room as host now confirms ("Leave and close this room?") so an accidental tap can't silently abandon/reap a room with no way back; cancels tracked to analytics.* ✅
 - [x] (1) **Co-op/Practice lobby resets:** *fixed: the host now edits the match length live in the waiting room (segmented 2/3/5 min, server-broadcast) — no re-create needed; the host-leave confirm still guards accidental abandon. Mode/map stay fixed ("Soon").* ✅
-- [ ] (1) **Kick:** kicking players from the lobby doesn't work. *(code path verified correct end-to-end client→server; needs live repro to pinpoint — likely UI/state, not protocol.)*
+- [x] (1) **Kick:** *fixed: root cause was reachability — the only kick was a tiny 26px ✕ in the seat corner, so on touch a near-miss opened the profile instead. Now there's a clear "👢 Kick from lobby" button inside a member's profile card, the seat ✕ is bigger (34px, above the tap target), and both paths confirm + toast. Server path was already correct.* ✅
 - [~] (1) **Friends online status:** existing friends don't show as online → *hardened: presence TTL 45s→90s (survives background-tab timer throttling), beat on tab-visible, online-wallet count exposed to admin (`Signed-in online` tile) + AI snapshot. Also: friend rows now show live activity (⚔️ in a match / in a lobby / online) and a name taps through to the public profile. Needs live confirm.*
 
 ## 🟡 Build before launch — UI/UX
-- [~] (2) **Bank/winnings display toggle:** menu/settings switch to show room earnings in USD or tokens (auto-convert). *(partial: the in-game HUD now shows the pot on the line in tokens + ≈USD; the settings USD/token toggle itself is still TODO.)*
-- [ ] (1) **Stake indication:** replace the bulky top banner with a glassmorphism/subtle-animation element for "stake raised?".
-- [~] (1) **Match result screen:** dark premium screen, animated LVL bar fill + rich per-match stats as minimal cards. *(partial: the league bar now fills in lock-step with the rating count-up, and a win-streak chip 🔥 N shows on a roll. Still TODO: LVL-bar fill specifically + richer per-match stat cards.)*
+- [x] (2) **Bank/winnings display toggle:** *done: Settings → "Show value in" toggles USD $ / SOL ◎; all token-worth readouts (balance badge, HUD pot, prize pool, table browser, result earnings) convert in the chosen unit and update instantly. /price now returns USD + SOL.* ✅
+- [x] (1) **Stake indication:** *done: stake-raise / kick / error notices are slim, blurred, auto-dismissing glassmorphism toasts (success/info/error accents) instead of the full-width red banner; the live vote panel got a matching backdrop blur.* ✅
+- [x] (1) **Match result screen:** *done: animated LVL/XP bar fills from your pre-match XP to what you earned (level-up snaps to a fresh bar, distinct cyan/violet fill vs the league bar); reward strip gained First Blood + XP-earned cards on top of the existing animated league bar + win-streak chip.* ✅
 - [ ] (1) **Mobile:** bring the main game screen to the final concept; check all screens.
 - [ ] (1) **Web design:** port design to the landing + full integration.
 - [ ] (1) **Lobby UX:** Invite button fires directly on the lobby grid.
@@ -60,4 +60,6 @@ Tracked task list. `[ ]` = todo, `[~]` = in progress, `[x]` = done. Numbers in
 >
 > Done this session: animated result rating/league bar, in-game pot-on-the-line
 > (≈USD), win-streak chip on result, host-editable match length (2/3/5 min),
-> friend live-activity status + tap-name-to-profile.
+> friend live-activity status + tap-name-to-profile, reliable kick (profile-card
+> button + bigger ✕ + confirm), USD/SOL value-unit toggle, glassmorphism toasts,
+> animated result LVL bar + First Blood/XP stat cards.
