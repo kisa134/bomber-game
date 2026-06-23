@@ -48,6 +48,7 @@ export class Matchmaker {
     for (const r of this.rooms.values()) {
       // Skip rooms where this wallet already sits (no playing yourself).
       if (wallet && r.hasWallet(wallet)) continue;
+      if (r.persistent) continue; // casual bot rooms aren't part of PvP matchmaking
       if (r.isPublic && r.stake === stake && r.acceptsPlayers()) {
         room = r;
         break;
@@ -165,32 +166,59 @@ export class Matchmaker {
     competitive = false,
     sandbox: SandboxOpts | null = null,
     coop = false,
+    persistent = false,
   ): Room {
     // Refuse new rooms when at the hard cap OR when the sim thread is saturated
-    // (load shedding) — existing matches keep running smoothly.
-    if (this.rooms.size >= MAX_ROOMS || this.load.busy) throw new ServerFullError();
+    // (load shedding) — existing matches keep running smoothly. Persistent casual
+    // rooms are created at boot and exempt (a small fixed set).
+    if (!persistent && (this.rooms.size >= MAX_ROOMS || this.load.busy)) throw new ServerFullError();
     let code = this.genCode();
     while (this.rooms.has(code)) code = this.genCode();
-    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency, botCount, competitive, sandbox, coop);
+    const room = new Room(code, isPublic, practice, stake, botDifficulty, currency, botCount, competitive, sandbox, coop, persistent);
     this.rooms.set(code, room);
     return room;
   }
 
-  /** Public tables for the browser: joinable (lobby) ones AND live ones to watch. */
-  listTables(): Array<{ code: string; stake: number; currency: Currency; players: number; max: number; live: boolean }> {
-    type Row = { code: string; stake: number; currency: Currency; players: number; max: number; live: boolean };
+  /** Always-open casual bot rooms: a fixed pool of public, non-ranked, chips-only
+   *  rooms (1-2 bots) that never reap, so a player can always drop straight into a
+   *  game. Idempotent — only tops the pool up to `count`. */
+  ensureCasualRooms(count = Number(process.env.CASUAL_BOT_ROOMS ?? 2) || 2, botCount = 2): void {
+    let have = 0;
+    for (const r of this.rooms.values()) if (r.persistent) have++;
+    for (let i = have; i < count; i++) {
+      // public, practice (auto-fills bots + auto-starts), chips, competitive
+      // (grants the small chip/XP play reward), persistent.
+      this.newRoom(true, true, 0, BotDifficulty.NORMAL, Currency.CHIPS, botCount, true, null, false, true);
+    }
+  }
+
+  /** Public tables for the browser: joinable (lobby) ones AND live ones to watch.
+   *  `bots` marks the always-open casual rooms (vs human PvP tables). */
+  listTables(): Array<{ code: string; stake: number; currency: Currency; players: number; max: number; live: boolean; bots: boolean }> {
+    type Row = { code: string; stake: number; currency: Currency; players: number; max: number; live: boolean; bots: boolean };
     const out: Row[] = [];
     for (const r of this.rooms.values()) {
-      if (!r.isPublic || r.practice) continue;
-      const base = { code: r.id, stake: r.stake, currency: r.currency, players: r.players.size, max: r.maxPlayers };
+      if (!r.isPublic) continue;
+      // Always-open casual bot rooms are listed even when idle (no humans) so a
+      // player can always drop straight in; they show the human count, not bots.
+      if (r.persistent) {
+        if (r.acceptsPlayers()) {
+          out.push({ code: r.id, stake: 0, currency: Currency.CHIPS, players: r.humanCount, max: r.maxPlayers, live: false, bots: true });
+        }
+        continue;
+      }
+      if (r.practice) continue;
+      const base = { code: r.id, stake: r.stake, currency: r.currency, players: r.players.size, max: r.maxPlayers, bots: false };
       // Joinable only if it actually has a human in it — an empty lobby (creator
       // left / never bound) must NOT linger in the browser as an un-enterable
       // ghost; it reaps within EMPTY_ROOM_TTL_MS anyway.
       if (r.acceptsPlayers() && r.humanCount > 0) out.push({ ...base, live: false });
       else if (r.watchable && r.humanCount > 0) out.push({ ...base, live: true });
     }
-    // Joinable first, then live; within each, by stake then fullness.
-    return out.sort((a, b) => Number(a.live) - Number(b.live) || a.stake - b.stake || b.players - a.players);
+    // Bot rooms first (always available), then joinable PvP, then live to watch.
+    return out.sort(
+      (a, b) => Number(b.bots) - Number(a.bots) || Number(a.live) - Number(b.live) || a.stake - b.stake || b.players - a.players,
+    );
   }
 
   private genCode(): string {
@@ -221,6 +249,7 @@ export class Matchmaker {
       room = undefined;
       for (const r of this.rooms.values()) {
         if (p.wallet && r.hasWallet(p.wallet)) continue;
+        if (r.persistent) continue; // don't dump a PvP player into a casual bot room
         if (r.isPublic && r.acceptsPlayers()) {
           room = r;
           break;
@@ -252,6 +281,7 @@ export class Matchmaker {
 
   start(): void {
     if (this.loop) return;
+    this.ensureCasualRooms(); // spin up the always-open casual bot rooms
     this.lastTime = Date.now();
     this.acc = 0;
     this.loop = setInterval(() => this.step(), TICK_MS);

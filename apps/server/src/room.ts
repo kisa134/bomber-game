@@ -153,6 +153,10 @@ export class Room {
 
   dead = false;
 
+  // Always-open casual bot room: public + listed even when empty, never reaped,
+  // chips-only, non-ranked (has bots), refills bots for whoever drops in.
+  readonly persistent: boolean = false;
+
   constructor(
     id: string,
     isPublic: boolean,
@@ -164,8 +168,10 @@ export class Room {
     competitive = false,
     sandbox: SandboxOpts | null = null,
     coop = false,
+    persistent = false,
   ) {
     this.id = id;
+    this.persistent = persistent;
     this.isPublic = isPublic;
     this.practice = practice;
     this.competitive = competitive;
@@ -293,8 +299,14 @@ export class Room {
       for (const p of this.players.values()) if (!p.isBot) { next = p.id; break; }
       this.hostId = next;
     }
-    // Empty, or a practice room whose only human left -> close it.
+    // Empty, or a practice room whose only human left -> close it. EXCEPT an
+    // always-open casual room: it stays alive, sheds its bots and resets to a
+    // clean lobby so the next drop-in gets a fresh auto-started bot match.
     if (this.players.size === 0 || this.humanCount === 0) {
+      if (this.persistent) {
+        this.resetToIdle();
+        return;
+      }
       this.dead = true;
       return;
     }
@@ -614,7 +626,7 @@ export class Room {
     if (this.dead) return;
 
     if (this.humanCount > 0) this.lastHumanAtMs = Date.now();
-    else if (Date.now() - this.lastHumanAtMs > EMPTY_ROOM_TTL_MS) {
+    else if (!this.persistent && Date.now() - this.lastHumanAtMs > EMPTY_ROOM_TTL_MS) {
       this.dead = true;
       return;
     }
@@ -835,6 +847,25 @@ export class Room {
     this.winnerId = DRAW_WINNER_ID;
     this.broadcast(encodePhase(MatchPhase.LOBBY, 0));
     this.broadcastRoomInfo();
+  }
+
+  /** An always-open room with no humans left: shed bots, drop the host, and go
+   *  back to a clean lobby so it idles cheaply until the next player drops in
+   *  (who then auto-starts a fresh bot match). */
+  private resetToIdle(): void {
+    for (const id of [...this.bots.keys()]) {
+      this.players.delete(id);
+      this.bots.delete(id);
+    }
+    this.hostId = -1;
+    this.practiceStarted = false;
+    this.phase = MatchPhase.LOBBY;
+    this.bombs = [];
+    this.world.fire.fill(0);
+    this.world.fireOwner.fill(-1);
+    this.lobbyCounting = false;
+    this.lobbyCountdownEndMs = 0;
+    this.winnerId = DRAW_WINNER_ID;
   }
 
   private simulate(dt: number): void {

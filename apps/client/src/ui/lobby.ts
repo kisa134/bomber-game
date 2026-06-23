@@ -558,7 +558,17 @@ function drawTables(): void {
   }
   for (const t of shown) {
     const row = document.createElement("button");
-    row.className = "table-row" + (t.live ? " live" : "");
+    row.className = "table-row" + (t.live ? " live" : "") + (t.bots ? " bots" : "");
+    // Always-open casual bot room: distinct label, always "Play", chips-only.
+    if (t.bots) {
+      row.innerHTML =
+        `<span class="td-stake">🤖 vs Bots<small>casual · chips · no rating</small></span>` +
+        `<span class="td-players">${t.players}/${t.max}<small>${t.players > 0 ? "in play" : "open now"}</small></span>` +
+        `<span class="td-action">Play</span>`;
+      row.addEventListener("click", () => lastOnJoin(t.code));
+      list.appendChild(row);
+      continue;
+    }
     const sym = t.currency === 1 ? "💎" : "🪙";
     const isToken = t.currency === 1;
     const potVal = t.stake * t.players; // total on the line right now

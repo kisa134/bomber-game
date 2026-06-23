@@ -2794,6 +2794,14 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   font-weight: 700;
   text-align: left;
 }
+/* Always-open casual bot room — a calm teal accent so it reads as "always here". */
+.table-row.bots {
+  border-color: rgba(95, 209, 217, 0.4);
+  background: linear-gradient(90deg, rgba(95, 209, 217, 0.08), var(--panel) 60%);
+}
+.table-row.bots .td-action {
+  color: #6fe0e0;
+}
 .table-row .td-stake {
   display: flex;
   flex-direction: column;

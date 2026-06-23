@@ -172,6 +172,7 @@ export interface TableInfo {
   players: number;
   max: number;
   live: boolean; // a match is in progress -> watch instead of join
+  bots?: boolean; // always-open casual room (play vs bots, chips only, non-ranked)
 }
 
 /** Reserve a watch-only token for a live match (specific code, or any). */
