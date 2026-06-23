@@ -1157,6 +1157,8 @@ function syncSettingsUI(): void {
   if (gr) { gr.dataset.on = String(settings.gore); gr.textContent = settings.gore ? "On" : "Off"; }
   document.getElementById("ctl-joystick")!.classList.toggle("active", settings.controls === "joystick");
   document.getElementById("ctl-dpad")!.classList.toggle("active", settings.controls === "dpad");
+  document.getElementById("unit-usd")?.classList.toggle("active", settings.valueUnit === "usd");
+  document.getElementById("unit-sol")?.classList.toggle("active", settings.valueUnit === "sol");
 }
 
 function update<K extends keyof Settings>(key: K, value: Settings[K]): void {
@@ -1195,6 +1197,16 @@ function wireSettings(): void {
   document.getElementById("set-gore")?.addEventListener("click", () => update("gore", !settings.gore));
   document.getElementById("ctl-joystick")!.addEventListener("click", () => update("controls", "joystick"));
   document.getElementById("ctl-dpad")!.addEventListener("click", () => update("controls", "dpad"));
+  document.getElementById("unit-usd")?.addEventListener("click", () => { update("valueUnit", "usd"); applyValueUnit(); });
+  document.getElementById("unit-sol")?.addEventListener("click", () => { update("valueUnit", "sol"); applyValueUnit(); });
+}
+
+/** Re-apply the chosen USD/SOL unit across every live value readout. */
+function applyValueUnit(): void {
+  setTokenUsd(tokenUsd, tokenSol, settings.valueUnit); // redraws the table browser
+  setTokenBadge(lastTokens); // balance badge ≈ value
+  updateBalanceBars(); // HUD / waiting-room balance + pot
+  if (!document.getElementById("room")?.classList.contains("hidden")) renderRoom(state);
 }
 
 // --- wallet ---------------------------------------------------------------
@@ -1455,14 +1467,19 @@ function updateBalanceBars(): void {
   }
 }
 
-/** Live USD price of one token (0 = unknown). Refreshed periodically. */
+/** Live price of one token in USD / SOL (0 = unknown). Refreshed periodically. */
 let tokenUsd = 0;
-/** "≈$1.23" for a token amount, or "" when the price is unknown. */
+let tokenSol = 0;
+/** "≈$1.23" or "≈◎0.0042" for a token amount, in the player's chosen unit
+ *  (Settings → Show value in). "" when that unit's price is unknown. */
 function usdOf(tokens: number): string {
-  if (!tokenUsd || tokens <= 0) return "";
-  const v = tokens * tokenUsd;
+  if (tokens <= 0) return "";
+  const sol = settings.valueUnit === "sol";
+  const rate = sol ? tokenSol : tokenUsd;
+  if (!rate) return "";
+  const v = tokens * rate;
   const s = v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v.toPrecision(2);
-  return ` ≈$${s}`;
+  return sol ? ` ≈◎${s}` : ` ≈$${s}`;
 }
 
 /** Show the in-game (custodial) token balance badge; tap to open the Bank. */
@@ -3305,13 +3322,14 @@ for (const id of ["calc-refs", "calc-matches", "calc-stake"]) {
 }
 setupBackground();
 
-// Live token→USD price for the in-game $ converter (refresh every 60s).
+// Live token→USD/SOL price for the in-game value converter (refresh every 60s).
 function refreshPrice(): void {
-  void fetchPrice().then((usd) => {
+  void fetchPrice().then(({ usd, sol }) => {
     tokenUsd = usd;
-    setTokenUsd(usd); // re-renders the lobby browser
-    // These were likely rendered BEFORE the price loaded, leaving $ blank — redraw
-    // them now that we have a rate: the token-balance badge ≈$ and the room prize.
+    tokenSol = sol;
+    setTokenUsd(usd, sol, settings.valueUnit); // re-renders the lobby browser
+    // These were likely rendered BEFORE the price loaded, leaving the value blank —
+    // redraw now that we have a rate: the token-balance badge and the room prize.
     setTokenBadge(lastTokens);
     if (!document.getElementById("room")?.classList.contains("hidden")) renderRoom(state);
   });

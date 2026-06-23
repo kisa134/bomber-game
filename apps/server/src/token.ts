@@ -144,33 +144,59 @@ export async function isHolder(wallet: string): Promise<boolean> {
   return (await tokenBalance(wallet)) >= HOLDER_MIN;
 }
 
-// --- USD price (Dexscreener, keyless, cached) ------------------------------
+// --- price (Dexscreener, keyless, cached) ----------------------------------
 let priceUsd = 0;
+let priceSol = 0; // price of one whole token in SOL (deepest SOL-quoted pair)
 let priceAt = 0;
 /** USD price of one whole token (0 if unknown). Cached ~60s. */
 // Manual price fallback (USD per whole token). Set TOKEN_PRICE_USD when the token
 // has no DEX liquidity yet (e.g. a fresh/test mint) so the in-game $ values still
 // show. A real DexScreener price always takes precedence once a pool exists.
 const PRICE_OVERRIDE = Number(process.env.TOKEN_PRICE_USD) || 0;
+const PRICE_OVERRIDE_SOL = Number(process.env.TOKEN_PRICE_SOL) || 0;
 
-export async function tokenPriceUsd(): Promise<number> {
-  if (Date.now() - priceAt < 60_000) return priceUsd || PRICE_OVERRIDE;
+/** Refresh the cached USD + SOL price from the deepest-liquidity pair (≤60s). */
+async function refreshPrice(): Promise<void> {
+  if (Date.now() - priceAt < 60_000) return;
   try {
     const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${TOKEN_MINT}`);
-    const j = (await res.json()) as { pairs?: Array<{ priceUsd?: string; liquidity?: { usd?: number } }> };
+    const j = (await res.json()) as {
+      pairs?: Array<{
+        priceUsd?: string;
+        priceNative?: string;
+        liquidity?: { usd?: number };
+        quoteToken?: { symbol?: string };
+      }>;
+    };
     const pairs = (j.pairs ?? []).filter((p) => p.priceUsd);
     // Pick the deepest-liquidity pair for a sane price.
     pairs.sort((a, b) => (b.liquidity?.usd ?? 0) - (a.liquidity?.usd ?? 0));
-    const p = Number(pairs[0]?.priceUsd ?? 0);
+    const top = pairs[0];
+    const p = Number(top?.priceUsd ?? 0);
     if (Number.isFinite(p) && p > 0) {
       priceUsd = p;
       priceAt = Date.now();
+      // priceNative is the token price in the pair's quote token; only trust it
+      // as a SOL price when the pair is actually SOL-quoted.
+      const nat = Number(top?.priceNative ?? 0);
+      const quote = (top?.quoteToken?.symbol ?? "").toUpperCase();
+      if (Number.isFinite(nat) && nat > 0 && (quote === "SOL" || quote === "WSOL")) priceSol = nat;
     }
   } catch (e) {
     console.error("[token] price fetch failed", e);
   }
+}
+
+export async function tokenPriceUsd(): Promise<number> {
+  await refreshPrice();
   // Real market price if we have one, otherwise the manual override (may be 0).
   return priceUsd || PRICE_OVERRIDE;
+}
+
+/** SOL price of one whole token (0 if unknown). */
+export async function tokenPriceSol(): Promise<number> {
+  await refreshPrice();
+  return priceSol || PRICE_OVERRIDE_SOL;
 }
 
 // --- deposit watcher -------------------------------------------------------

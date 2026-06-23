@@ -90,13 +90,13 @@ export async function withdrawTokens(amount: number): Promise<{ signature?: stri
   return res.json();
 }
 
-export async function fetchPrice(): Promise<number> {
+export async function fetchPrice(): Promise<{ usd: number; sol: number }> {
   try {
     const res = await fetch(`${SERVER_HTTP}/price`);
-    const { usd } = (await res.json()) as { usd: number };
-    return Number(usd) || 0;
+    const { usd, sol } = (await res.json()) as { usd: number; sol?: number };
+    return { usd: Number(usd) || 0, sol: Number(sol) || 0 };
   } catch {
-    return 0;
+    return { usd: 0, sol: 0 };
   }
 }
 

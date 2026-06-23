@@ -30,6 +30,7 @@ import {
   claimBySignature,
   buildDepositTx,
   tokenPriceUsd,
+  tokenPriceSol,
 } from "./token.js";
 import type { SendFn } from "./player.js";
 
@@ -776,9 +777,9 @@ app.get("/leaderboard", (res, req) => {
 // Live USD price of the token (for the in-game $ converter).
 app.get("/price", (res) => {
   res.onAborted(() => {});
-  tokenPriceUsd()
-    .then((usd) => sendJson(res, { usd, ticker: TOKEN_TICKER }))
-    .catch(() => sendJson(res, { usd: 0, ticker: TOKEN_TICKER }));
+  Promise.all([tokenPriceUsd(), tokenPriceSol()])
+    .then(([usd, sol]) => sendJson(res, { usd, sol, ticker: TOKEN_TICKER }))
+    .catch(() => sendJson(res, { usd: 0, sol: 0, ticker: TOKEN_TICKER }));
 });
 
 // Custodial bank: where to deposit + current balances + capabilities.

@@ -82,16 +82,23 @@ function cycleBrowse(delta: number): void {
   renderCharacter();
 }
 
-/** Live token→USD price, set from main; 0 = unknown. */
+/** Live token price in USD / SOL + the chosen display unit, set from main. */
 let tokenUsd = 0;
-export function setTokenUsd(v: number): void {
-  tokenUsd = v;
+let tokenSol = 0;
+let valueUnit: "usd" | "sol" = "usd";
+export function setTokenUsd(usd: number, sol = 0, unit: "usd" | "sol" = "usd"): void {
+  tokenUsd = usd;
+  tokenSol = sol;
+  valueUnit = unit;
+  if (lastTables.length) drawTables(); // refresh ≈ values in the open browser
 }
-/** Current exchange rate as "1 $ ≈ N 💎", or "" if the price is unknown. */
+/** Current exchange rate as "1 $ ≈ N 💎" / "1 ◎ ≈ N 💎", or "" if unknown. */
 function rateLine(): string {
-  if (!tokenUsd || tokenUsd <= 0) return "";
-  const perUsd = Math.round(1 / tokenUsd);
-  return `1 $ ≈ ${perUsd.toLocaleString()} 💎`;
+  const sol = valueUnit === "sol";
+  const rate = sol ? tokenSol : tokenUsd;
+  if (!rate || rate <= 0) return "";
+  const per = Math.round(1 / rate);
+  return `1 ${sol ? "◎" : "$"} ≈ ${per.toLocaleString()} 💎`;
 }
 
 /** Whether a wallet is connected (set from main). Drives the 🔒 on staked tables. */
@@ -123,9 +130,13 @@ export function setDurationHandler(fn: (mins: number) => void): void {
   onSetDuration = fn;
 }
 function usdSuffix(tokens: number): string {
-  if (!tokenUsd || tokens <= 0) return "";
-  const v = tokens * tokenUsd;
-  return ` ≈$${v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v.toPrecision(2)}`;
+  if (tokens <= 0) return "";
+  const sol = valueUnit === "sol";
+  const rate = sol ? tokenSol : tokenUsd;
+  if (!rate) return "";
+  const v = tokens * rate;
+  const s = v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v.toPrecision(2);
+  return sol ? ` ≈◎${s}` : ` ≈$${s}`;
 }
 import type { GameState } from "../game/state.js";
 import type { TableInfo } from "../net/socket.js";
