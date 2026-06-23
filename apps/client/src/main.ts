@@ -162,7 +162,7 @@ let prevBombIds = new Set<number>(); // bomb ids last seen, to detect placements
 let iGotFirstBlood = false; // did the local player take first blood this match
 let myPickupStep = 0; // count of bonuses I've collected this match -> rising pickup pitch
 let hitStopUntil = 0; // brief full-view freeze for kill impact (game feel)
-let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean; streak: number } | null = null;
+let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean; streak: number; xpFrom: number; xpTo: number; level: number } | null = null;
 // Handle for the 3s "result screen" timer, so a new match starting within that
 // window can cancel the previous match's deferred result (no overlay/stale data).
 let announceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -589,7 +589,8 @@ function announceResult(winnerId: number): void {
   } else {
     earnText = won ? "+🪙100" : "+🪙20";
   }
-  lastMatch = { won, draw, frags: meFrags, earnText, ratingDelta: 0, firstBlood: iGotFirstBlood, streak: 0 };
+  const prevXp = lastXp;
+  lastMatch = { won, draw, frags: meFrags, earnText, ratingDelta: 0, firstBlood: iGotFirstBlood, streak: 0, xpFrom: prevXp, xpTo: prevXp, level: lastLevel };
   const w = loadWallet();
   const prevRating = lastRating;
   if (w) {
@@ -601,7 +602,11 @@ function announceResult(winnerId: number): void {
         if (lastMatch) {
           lastMatch.ratingDelta = d;
           lastMatch.streak = p.current_streak ?? 0;
+          lastMatch.xpTo = p.xp ?? lastMatch.xpFrom;
+          lastMatch.level = p.level ?? lastMatch.level;
         }
+        lastXp = p.xp ?? lastXp;
+        lastLevel = p.level ?? lastLevel;
         const ratingNote =
           d !== 0 ? `${leagueFor(p.rating).emoji} ${p.rating} (${d > 0 ? "+" : ""}${d})` : "";
         if (note) note.textContent = [chipNote, ratingNote].filter(Boolean).join("  ·  ");
@@ -708,6 +713,47 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
       // Win-streak flex — only when you're actually on a roll (2+ in a row).
       const streak = lastMatch?.streak ?? 0;
       if (won && streak >= 2) rew.append(chip("Win streak", `🔥 ${streak}`, "streak"));
+    }
+    // Per-match extras (apply across modes) as minimal cards.
+    if (lastMatch?.firstBlood) rew.append(chip("First blood", "🩸 yes", "fb"));
+    const xpGain = (lastMatch?.xpTo ?? 0) - (lastMatch?.xpFrom ?? 0);
+    if (xpGain > 0) rew.append(chip("XP earned", `✨ +${xpGain}`, "xp"));
+  }
+
+  // Animated LVL bar: fills from the XP you had to the XP you earned this match,
+  // recomputing within each 200-XP level so a level-up snaps cleanly to a fresh bar.
+  const lvlWrap = document.getElementById("result-lvl");
+  if (lvlWrap) {
+    const from = lastMatch?.xpFrom ?? 0;
+    const to = lastMatch?.xpTo ?? from;
+    if (to > from) {
+      const XP_PER = 200;
+      const startLvl = 1 + Math.floor(from / XP_PER);
+      const startPct = Math.max(3, Math.min(100, ((from % XP_PER) / XP_PER) * 100));
+      lvlWrap.classList.remove("hidden");
+      lvlWrap.innerHTML =
+        `<div class="result-lvl-head"><span class="lvl-badge">LVL <b class="lvl-num">${startLvl}</b></span>` +
+        `<span class="lvl-xp">${from % XP_PER} / ${XP_PER} XP</span></div>` +
+        `<div class="result-prog"><div class="result-progfill lvl" style="width:${startPct}%"></div></div>`;
+      const fill = lvlWrap.querySelector(".result-progfill") as HTMLElement | null;
+      const numEl = lvlWrap.querySelector(".lvl-num") as HTMLElement | null;
+      const xpEl = lvlWrap.querySelector(".lvl-xp") as HTMLElement | null;
+      if (fill) {
+        const t0 = performance.now();
+        const ms = 900;
+        const step = (now: number): void => {
+          const k = Math.min(1, (now - t0) / ms);
+          const eased = 1 - Math.pow(1 - k, 3);
+          const xp = from + (to - from) * eased;
+          fill.style.width = `${Math.max(3, Math.min(100, ((xp % XP_PER) / XP_PER) * 100))}%`;
+          if (numEl) numEl.textContent = String(1 + Math.floor(xp / XP_PER));
+          if (xpEl) xpEl.textContent = `${Math.floor(xp % XP_PER)} / ${XP_PER} XP`;
+          if (k < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+    } else {
+      lvlWrap.classList.add("hidden");
     }
   }
 
@@ -1383,6 +1429,9 @@ function formatPlaytime(sec: number | undefined): string {
 
 /** Last rating we've seen for the local wallet (to show the post-match swing). */
 let lastRating = STARTING_RATING;
+/** Latest known XP / level (for the result screen's animated LVL bar). */
+let lastXp = 0;
+let lastLevel = 1;
 
 /** Update + reveal the rating + chips shown in the menu header. */
 function setStats(chips: number, rating: number): void {
@@ -2606,6 +2655,8 @@ function refreshHub(): void {
 }
 /** Update the level / XP progress bar from a profile (200 XP per level). */
 function setProgress(level: number, xp: number): void {
+  lastLevel = level;
+  lastXp = xp;
   const box = document.getElementById("hub-progress");
   if (!box) return;
   box.classList.remove("hidden");

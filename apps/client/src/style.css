@@ -583,8 +583,44 @@ button.ghost {
   color: #ff9a3d;
   text-shadow: 0 0 10px rgba(255, 120, 40, 0.6);
 }
+.result-rew.fb .result-rew-v {
+  color: #ff6b6b;
+}
+.result-rew.xp .result-rew-v {
+  color: #7fd0ff;
+}
 .rt-delta {
   font-size: 0.85rem;
+}
+/* Animated LVL bar on the result screen (distinct cyan/violet XP fill). */
+.result-lvl-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.result-lvl-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.lvl-badge {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #cbd5ff;
+}
+.lvl-badge b {
+  font-size: 0.95rem;
+  color: #fff;
+}
+.lvl-xp {
+  color: var(--muted);
+}
+.result-progfill.lvl {
+  background: linear-gradient(90deg, #6a8cff, #8a7bff, #7fd0ff, #6a8cff);
+  background-size: 200% 100%;
+  box-shadow: 0 0 10px rgba(122, 140, 255, 0.55);
 }
 .result-prog-wrap {
   display: flex;
