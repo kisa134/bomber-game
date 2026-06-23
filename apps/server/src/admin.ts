@@ -172,8 +172,10 @@ async function poll(){
       ? ev.map(function(e){return '<div class="ev"><time>'+new Date(e.t).toLocaleTimeString()+'</time><span>'+e.icon+' '+e.text+'</span></div>';}).join("")
       : '<div class="empty">No activity yet — actions (joins, deposits, matches, referral payouts) will appear here live.</div>';
     const ld=d.load||{tickMs:0,budgetMs:16.7,busy:false};
+    var soc=d.social||{onlineWallets:0};
     $("#live").innerHTML=
       tile("Players online",fmt(d.online),"app open now")+
+      tile("Signed-in online",fmt(soc.onlineWallets),"wallets (friends presence)")+
       tile("In match",fmt(d.live.humans),fmt(d.live.bots)+" bots")+
       tile("Rooms",fmt(d.live.rooms),fmt(d.live.playing)+" playing · "+fmt(d.live.lobby)+" lobby")+
       tile("Server load",(ld.busy?"⚠ ":"")+ld.tickMs+"ms",(ld.busy?"SATURATED — shedding":"of "+ld.budgetMs+"ms budget"));

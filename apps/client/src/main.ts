@@ -3104,6 +3104,12 @@ loadHubTop(); // "Top this week" module
 setInterval(loadHubTop, 60_000);
 friendsBeat(); // friends list + presence beat
 setInterval(friendsBeat, 15_000);
+// Background tabs throttle setInterval to ~60s, which can stale our presence;
+// beat immediately when the tab becomes visible again so we (and our online
+// friends) refresh without waiting for the next interval tick.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") friendsBeat();
+});
 track("app_loaded", { platform: isTelegram ? "telegram" : "web", ...attribution });
 input.attach();
 void assets.preload();

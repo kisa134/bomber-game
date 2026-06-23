@@ -589,6 +589,7 @@ app.get("/admin/stats", (res, req) => {
           wins: p.wins,
           chips: p.chips,
         })),
+        social: { onlineWallets: onlineWalletCount() },
         referrals: {
           root: REFERRAL_ROOT,
           networkSize: ref.networkSize,
@@ -640,6 +641,7 @@ app.post("/admin/ai-analyze", (res, req) => {
           withdrawals: withdrawalsOn(),
         },
         topPlayers: top.map((p) => ({ name: p.name, rating: p.rating, matches: p.matches, wins: p.wins })),
+        social: { onlineWallets: onlineWalletCount() },
         referrals: {
           networkSize: ref.networkSize,
           totalEarned: fromBaseUnits(ref.totalEarned),
@@ -1028,8 +1030,18 @@ app.post("/profile/name", (res, req) => {
 // --- friends + presence ---
 // Lightweight presence: the client polls GET /friends (which marks it online with
 // its current room), so we know who's online and where without extra WS infra.
-const PRESENCE_WALLET_TTL_MS = 45_000;
+// TTL is generous (90s) vs the client's 15s poll so a single missed beat — e.g.
+// a backgrounded browser tab whose setInterval is throttled to ~60s — does NOT
+// flicker an online friend to offline.
+const PRESENCE_WALLET_TTL_MS = 90_000;
 const onlineWallets = new Map<string, { at: number; room: string; status: string }>();
+/** How many wallets are currently online (for admin/analytics visibility). */
+export function onlineWalletCount(): number {
+  const cutoff = Date.now() - PRESENCE_WALLET_TTL_MS;
+  let n = 0;
+  for (const e of onlineWallets.values()) if (e.at >= cutoff) n++;
+  return n;
+}
 function markOnline(wallet: string, room: string, status: string): void {
   onlineWallets.set(wallet, { at: Date.now(), room: room.slice(0, 8), status: status.slice(0, 8) });
 }

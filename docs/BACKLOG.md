@@ -4,12 +4,12 @@ Tracked task list. `[ ]` = todo, `[~]` = in progress, `[x]` = done. Numbers in
 () = how many times you raised it = priority signal.
 
 ## 🔴 Bugs (fix first)
-- [~] (2) **Ghost free lobby:** empty lobby stays listed/joinable, can't be entered → *fix in progress: hide empty (0-human) rooms from the lobby list; they reap in ≤30s.*
+- [x] (2) **Ghost free lobby:** empty lobby stays listed/joinable, can't be entered → *fixed: `listTables()` lists only rooms with `humanCount > 0 && acceptsPlayers()`; empties reap in ≤30s.* ✅
 - [ ] (2) **Invite on empty seats:** can't invite friends from the room; make a click on a free seat at the table trigger invite.
 - [ ] (1) **[NEW] Room drops on misclick:** after creating a room, an accidental click elsewhere auto-leaves and the room is gone with no way back.
 - [ ] (1) **Co-op/Practice lobby resets:** changing settings in co-op/practice lobby blows the lobby away.
-- [ ] (1) **Kick:** kicking players from the lobby doesn't work.
-- [ ] (1) **Friends online status:** existing friends don't show as online.
+- [ ] (1) **Kick:** kicking players from the lobby doesn't work. *(code path verified correct end-to-end client→server; needs live repro to pinpoint — likely UI/state, not protocol.)*
+- [~] (1) **Friends online status:** existing friends don't show as online → *hardened: presence TTL 45s→90s (survives background-tab timer throttling), beat on tab-visible, online-wallet count exposed to admin (`Signed-in online` tile) + AI snapshot. Needs live confirm.*
 
 ## 🟡 Build before launch — UI/UX
 - [ ] (2) **Bank/winnings display toggle:** menu/settings switch to show room earnings in USD or tokens (auto-convert).
