@@ -106,9 +106,10 @@ body {
   /* Big overscan + scale so the heavy blur never leaks transparent edges. */
   inset: -70px;
   background: #0b070e url("/bg/splash-art.png") center / cover no-repeat;
-  /* spec: blur 40–60px, dimmed to ~65% — a stage, not a texture */
-  filter: blur(44px) saturate(1.08) brightness(0.64);
-  transform: scale(1.1);
+  /* No blur — a SHARP scene pushed deep onto the 3rd plane by heavy dimming,
+     so it reads as a backdrop behind the cards, not a competing texture. */
+  filter: saturate(0.9) brightness(0.34) contrast(1.02);
+  transform: scale(1.04);
 }
 /* A faint warm key-light lifts the centre (lit showcase) while a deep, SOFT
    radial vignette sinks the edges → rgba(0,0,0,0) centre → ~0.75 at the edges,
