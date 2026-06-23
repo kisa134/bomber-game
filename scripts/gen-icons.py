@@ -16,12 +16,25 @@ PUB = ROOT / "apps" / "client" / "public"
 ICONS = PUB / "icons"
 SRC = ICONS / "app-icon-source.png"
 
-src = Image.open(SRC).convert("RGBA")
-# Square it (center-crop) just in case the source isn't perfectly square.
-w, h = src.size
-if w != h:
-    s = min(w, h)
-    src = src.crop(((w - s) // 2, (h - s) // 2, (w - s) // 2 + s, (h - s) // 2 + s))
+# Theme-dark fill for any transparent area (the icon's own bezel is dark, so the
+# rounded corners blend in — and iOS never shows white behind transparency).
+BG = (14, 16, 24, 255)  # #0e1018
+
+raw = Image.open(SRC).convert("RGBA")
+# The art is a rounded app-icon on a transparent field — crop to just the icon
+# (the tight bounding box of all non-transparent pixels).
+bbox = raw.split()[3].getbbox()
+icon = raw.crop(bbox) if bbox else raw
+# Pad to a perfect square (centered) so nothing is distorted when we resize.
+w, h = icon.size
+s = max(w, h)
+square = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+square.paste(icon, ((s - w) // 2, (s - h) // 2), icon)
+# Flatten onto the dark theme color so the final icons are fully opaque,
+# full-bleed, and free of the white halo iOS paints behind transparency.
+flat = Image.new("RGBA", (s, s), BG)
+flat.alpha_composite(square)
+src = flat
 
 
 def resize(size: int) -> Image.Image:
