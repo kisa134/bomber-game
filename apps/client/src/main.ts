@@ -2291,7 +2291,10 @@ function buildCarousel(): void {
     // Rarer = bigger, brighter tier glow halo.
     card.style.setProperty("--glow", `0 0 ${20 + rank * 9}px ${-9 + rank * 2.5}px var(--tier)`);
     card.innerHTML = fighterCardHTML(i);
-    card.addEventListener("click", () => { if (i !== hubBrowseSkin) showFighter(i, true); });
+    card.addEventListener("click", () => {
+      if (dragMoved) return; // a swipe/drag just happened — don't also select
+      if (i !== hubBrowseSkin) showFighter(i, true);
+    });
     wrap.appendChild(card);
   }
   carouselBuilt = true;
@@ -2301,7 +2304,7 @@ function buildCarousel(): void {
 
 // Magic dust: a field of glowing motes whirling AROUND the cards, animated in
 // the same rAF loop and pushed by the cursor.
-interface DustMote { el: HTMLElement; bx: number; by: number; ph: number; sp: number; amp: number; depth: number; tw: number; dim: number; }
+interface DustMote { el: HTMLElement; bx: number; by: number; ph: number; sp: number; amp: number; depth: number; tw: number; dim: number; minPower: number; }
 const dustMotes: DustMote[] = [];
 function buildDustField(): void {
   const field = document.getElementById("fighter-dustfield");
@@ -2331,6 +2334,7 @@ function buildDustField(): void {
       depth: 0.2 + dz * 1.2, // far motes parallax less
       tw: 0.4 + Math.random() * 0.6,
       dim: 0.3 + dz * 0.7, // far motes are fainter
+      minPower: Math.random() * 0.82, // appears only once the tier is rich enough
     });
   }
 }
@@ -2345,6 +2349,7 @@ let mCurX = 0; // eased
 let mCurY = 0;
 let dustTarget = 0.5; // sparkle intensity of the active card's tier
 let dustCur = 0.5; // eased
+let dragMoved = false; // set while a swipe/drag is in progress on the carousel
 function startFighterFloat(): void {
   if (floatStarted) return;
   floatStarted = true;
@@ -2358,6 +2363,18 @@ function startFighterFloat(): void {
     mTargetY = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (r.height / 2)));
   });
   menu.addEventListener("pointerleave", () => { mTargetX = 0; mTargetY = 0; });
+  // Swipe / drag the carousel to browse fighters (works with touch + mouse).
+  let downX = 0;
+  let downAt = 0;
+  wrap.addEventListener("pointerdown", (e) => { downX = e.clientX; downAt = e.timeStamp; dragMoved = false; });
+  wrap.addEventListener("pointermove", (e) => { if (downAt && Math.abs(e.clientX - downX) > 10) dragMoved = true; });
+  wrap.addEventListener("pointerup", (e) => {
+    const dx = e.clientX - downX;
+    downAt = 0;
+    if (Math.abs(dx) > 42) cycleFighter(dx < 0 ? 1 : -1);
+    // keep dragMoved set briefly so the trailing click is suppressed
+    if (Math.abs(dx) > 10) setTimeout(() => { dragMoved = false; }, 0);
+  });
   const tick = (now: number): void => {
     requestAnimationFrame(tick);
     if (menu.classList.contains("hidden")) return;
@@ -2396,8 +2413,13 @@ function startFighterFloat(): void {
         const x = m.bx * W + Math.sin(t * m.sp + m.ph) * m.amp + mCurX * 26 * m.depth;
         const y = m.by * H + Math.cos(t * m.sp * 0.85 + m.ph) * m.amp + mCurY * 26 * m.depth;
         m.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
-        // Brighter on higher-tier active cards; dimmer for far (small) motes.
-        m.el.style.opacity = (m.tw * m.dim * (0.35 + dustCur) * (0.55 + 0.45 * Math.sin(t * 1.5 + m.ph))).toFixed(2);
+        // Rarer cards = MORE dust: each mote only "switches on" once the active
+        // tier's power exceeds its threshold; then brightness scales too.
+        if (dustCur < m.minPower) {
+          m.el.style.opacity = "0";
+          continue;
+        }
+        m.el.style.opacity = (m.tw * m.dim * (0.4 + dustCur) * (0.55 + 0.45 * Math.sin(t * 1.5 + m.ph))).toFixed(2);
       }
     }
   };
