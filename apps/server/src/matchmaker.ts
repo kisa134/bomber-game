@@ -183,7 +183,10 @@ export class Matchmaker {
     for (const r of this.rooms.values()) {
       if (!r.isPublic || r.practice) continue;
       const base = { code: r.id, stake: r.stake, currency: r.currency, players: r.players.size, max: r.maxPlayers };
-      if (r.acceptsPlayers()) out.push({ ...base, live: false });
+      // Joinable only if it actually has a human in it — an empty lobby (creator
+      // left / never bound) must NOT linger in the browser as an un-enterable
+      // ghost; it reaps within EMPTY_ROOM_TTL_MS anyway.
+      if (r.acceptsPlayers() && r.humanCount > 0) out.push({ ...base, live: false });
       else if (r.watchable && r.humanCount > 0) out.push({ ...base, live: true });
     }
     // Joinable first, then live; within each, by stake then fullness.
