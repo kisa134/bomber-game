@@ -71,6 +71,11 @@ body {
   z-index: 0;
   overflow: hidden;
 }
+/* Perf: drop the whole blurred-art layer while in a match — the game canvas
+   covers it anyway, so there's no reason to keep compositing a heavy GPU blur. */
+#app:has(> #game:not(.hidden)) #bg {
+  display: none;
+}
 #bg::after {
   content: "";
   position: absolute;
@@ -99,10 +104,12 @@ body {
   content: "";
   position: absolute;
   /* Big overscan + scale so the heavy blur never leaks transparent edges. */
-  inset: -80px;
+  inset: -70px;
   background: #0b070e url("/bg/splash-art.png") center / cover no-repeat;
-  filter: blur(44px) saturate(1.2) brightness(0.92);
-  transform: scale(1.12);
+  /* blur kept moderate (cheaper GPU layer); scale hides the soft edges */
+  filter: blur(30px) saturate(1.2) brightness(0.92);
+  transform: scale(1.1);
+  will-change: auto;
 }
 /* A soft warm key-light lifts the centre (lit showcase) while a deep — but not
    charcoal — radial vignette sinks the edges so the blurred scene still reads. */
@@ -1937,8 +1944,10 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 /* 3-column grid */
 .room-grid {
   display: grid;
-  grid-template-columns: 1.05fr 1.5fr 1fr;
-  gap: 12px;
+  /* Fixed side rails (character / prize+chat), elastic centre — like the
+     mockup; keeps the fighter card + chat from stretching on wide screens. */
+  grid-template-columns: 244px minmax(0, 1fr) 268px;
+  gap: 14px;
   flex: 1 1 auto;
   min-height: 0;
 }
