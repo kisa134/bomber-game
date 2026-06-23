@@ -5780,12 +5780,15 @@ button.big {
   letter-spacing: 0.16em;
   color: #b9b3c6;
 }
-/* High-contrast side buttons — clearly visible at rest (no hover needed) */
+/* High-contrast side buttons — clearly visible at rest (no hover needed).
+   Equal min-width so GAME MODE and vs Bots are symmetric around PLAY. */
 .hb-mode-btn,
 .hb-practice-btn {
   width: auto;
+  min-width: 162px;
   padding: 12px 16px;
   border-radius: 11px;
+  text-align: center;
   background: #34303f;
   border: 1px solid rgba(255, 255, 255, 0.38);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
