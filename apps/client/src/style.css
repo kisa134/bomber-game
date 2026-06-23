@@ -1229,9 +1229,20 @@ button.ghost {
   gap: 0;
   text-align: center;
 }
-/* Deep dark atmospheric canvas (replaces flat black). */
-/* (Removed the opaque dark canvas that was hiding the #bg scene on the hub —
-   the hub now sits on the same atmospheric background as every other screen.) */
+/* Atmospheric vignette — restores depth WITHOUT hiding the #bg scene.
+   Transparent through the centre (the blurred art shows as a lit showcase) →
+   strong dark frame at the edges/corners for volume. Semi-transparent, sits
+   between #bg (below) and .hub-stage (z-index:1, above); never blocks clicks. */
+.hub-hero-layout::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(92% 56% at 50% 28%, rgba(255,206,120,0.07) 0%, rgba(255,206,120,0) 42%),
+    radial-gradient(105% 96% at 50% 42%, rgba(0,0,0,0) 26%, rgba(8,6,14,0.50) 56%, rgba(4,3,8,0.84) 82%, rgba(0,0,0,0.96) 100%);
+}
 .hub-stage {
   position: relative;
   z-index: 1;
