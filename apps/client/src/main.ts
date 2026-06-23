@@ -2780,11 +2780,20 @@ function wireMenuLinks(): void {
   setupOnboarding();
   // Top-nav (desktop) + brand logo — reuse the existing screen handlers.
   const click = (id: string): void => document.getElementById(id)?.click();
-  document.getElementById("brand-logo")?.addEventListener("click", () => showScreen("menu"));
-  document.getElementById("nav-home")?.addEventListener("click", () => showScreen("menu"));
-  document.getElementById("nav-arena")?.addEventListener("click", () => click("open-play"));
-  document.getElementById("nav-shop")?.addEventListener("click", () => click("open-shop"));
-  document.getElementById("nav-ranks")?.addEventListener("click", () => click("open-leaderboard"));
+  const setNav = (id: string): void => {
+    for (const a of document.querySelectorAll(".hub-nav-link")) a.classList.remove("active");
+    document.getElementById(id)?.classList.add("active");
+  };
+  document.getElementById("brand-logo")?.addEventListener("click", () => { setNav("nav-home"); showScreen("menu"); });
+  document.getElementById("nav-home")?.addEventListener("click", () => { setNav("nav-home"); showScreen("menu"); });
+  document.getElementById("nav-arena")?.addEventListener("click", () => { setNav("nav-arena"); click("open-play"); });
+  document.getElementById("nav-shop")?.addEventListener("click", () => { setNav("nav-shop"); click("open-shop"); });
+  document.getElementById("nav-ranks")?.addEventListener("click", () => { setNav("nav-ranks"); click("open-leaderboard"); });
+  // Click the passport card (not the nickname field) opens the profile.
+  document.querySelector(".passport-card")?.addEventListener("click", (e) => {
+    if ((e.target as HTMLElement).closest("input")) return;
+    void openProfile();
+  });
   document.getElementById("open-profile-chip")?.addEventListener("click", () => void openProfile());
   document.getElementById("open-profile")?.addEventListener("click", () => void openProfile());
   document.getElementById("open-leaderboard")?.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });

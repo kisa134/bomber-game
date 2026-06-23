@@ -1220,14 +1220,8 @@ button.ghost {
   text-align: center;
 }
 /* Deep dark atmospheric canvas (replaces flat black). */
-.hub-hero-layout::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(92% 78% at 50% 36%, #1a1f33 0%, #0c0e18 46%, #05060b 100%);
-}
+/* (Removed the opaque dark canvas that was hiding the #bg scene on the hub —
+   the hub now sits on the same atmospheric background as every other screen.) */
 .hub-stage {
   position: relative;
   z-index: 1;
@@ -5522,6 +5516,7 @@ button.big {
 .passport-card {
   width: min(380px, 100%);
   padding: 14px;
+  cursor: pointer;
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(34, 30, 40, 0.9), rgba(18, 15, 24, 0.9));
   border: 1px solid var(--border);
