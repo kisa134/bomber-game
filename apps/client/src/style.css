@@ -738,19 +738,19 @@ button.ghost {
   padding: calc(var(--chrome-h, 120px) + 6px) 16px calc(14px + var(--sai-bottom));
 }
 .lobby-wrap {
-  width: min(940px, 100%);
+  width: min(1040px, 100%);
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: rgba(13, 16, 26, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
-  padding: 16px;
+  gap: 14px;
+  background: linear-gradient(180deg, rgba(26, 22, 32, 0.62), rgba(13, 11, 18, 0.62));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  padding: 18px 20px;
 }
 .lobby-top {
   display: flex;
@@ -5899,4 +5899,22 @@ button.big {
   .fighter-carousel { height: 372px; }
   .fighter-card { width: 232px; }
   /* arrows are fixed to the screen edges (see .fighter-arrow base) */
+}
+
+/* ====================================================================
+   Unified premium glass for every full-screen panel — consistent purple
+   tint, deep blur + shadow, so all screens match the hub's material.
+   ==================================================================== */
+.room-wrap,
+.result-wrap,
+.shop-wrap,
+.ref-wrap,
+.train-wrap,
+.prof-wrap,
+.panel {
+  background: linear-gradient(180deg, rgba(26, 22, 32, 0.62), rgba(13, 11, 18, 0.62));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
 }
