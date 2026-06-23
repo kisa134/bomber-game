@@ -4,7 +4,17 @@
 // client can never inflate them.
 
 import pg from "pg";
-import { STARTING_CHIPS, STARTING_RATING, DEFAULT_SKINS, eloDeltas } from "@bomberpump/shared";
+import {
+  STARTING_CHIPS,
+  STARTING_RATING,
+  DEFAULT_SKINS,
+  eloDeltas,
+  DAILY_BASE_CHIPS,
+  DAILY_STREAK_CAP,
+  DAILY_LEVEL_BONUS_CHIPS,
+  DAILY_WEEK_BONUS_CHIPS,
+  DAILY_XP_PER_DAY,
+} from "@bomberpump/shared";
 import { alert } from "./alert.js";
 
 export interface Profile {
@@ -30,6 +40,41 @@ export interface Profile {
   referred_by: string; // wallet of the referrer who invited this player ("" if none)
   referral_earned: number; // lifetime referral rewards, in token base units
   playtime_sec: number; // lifetime time spent in real matches, seconds
+  daily_day: number; // UTC day-index of the last claimed daily reward (0 = never)
+  daily_streak: number; // consecutive-day login streak
+}
+
+/** UTC day index (days since epoch) — the unit a daily reward is keyed on. */
+export function utcDayIndex(now = Date.now()): number {
+  return Math.floor(now / 86_400_000);
+}
+
+/** Result of claiming the daily login reward. */
+export interface DailyClaim {
+  already: boolean; // already claimed today (nothing granted)
+  streak: number; // login streak after this claim
+  chips: number; // chips granted
+  xp: number; // xp granted
+  bonus: boolean; // hit a 7-day milestone (extra chips included)
+}
+
+/** Daily reward for a given streak + level: scales with the (capped) streak and
+ *  a small per-level bonus, with a chunky milestone every 7th day. */
+export function dailyReward(streak: number, level: number): { chips: number; xp: number; bonus: boolean } {
+  const capped = Math.min(Math.max(1, streak), DAILY_STREAK_CAP);
+  const bonus = streak > 0 && streak % 7 === 0;
+  const chips =
+    DAILY_BASE_CHIPS * capped + DAILY_LEVEL_BONUS_CHIPS * Math.max(0, level - 1) + (bonus ? DAILY_WEEK_BONUS_CHIPS : 0);
+  const xp = DAILY_XP_PER_DAY * capped;
+  return { chips, xp, bonus };
+}
+
+/** Advance a streak given the last-claimed day and today: +1 if yesterday,
+ *  reset to 1 if a day (or more) was missed, unchanged if already today. */
+function nextDailyStreak(lastDay: number, today: number, prevStreak: number): number {
+  if (lastDay === today) return prevStreak; // already claimed
+  if (lastDay === today - 1) return prevStreak + 1; // consecutive day
+  return 1; // missed a day (or first ever)
 }
 
 /** ISO-8601 week key like "2026-W25" (UTC). Weekly tops reset on the boundary. */
@@ -121,6 +166,9 @@ export interface ProfileStore {
   addXp(wallet: string, amount: number): Promise<void>;
   /** Add to lifetime time-in-match (seconds). Best-effort, never throws. */
   addPlaytime(wallet: string, seconds: number): Promise<void>;
+  /** Claim today's daily login reward (idempotent per UTC day). Advances the
+   *  streak (resets if a day was missed) and grants chips + XP. */
+  claimDaily(wallet: string): Promise<DailyClaim>;
   /** Persist the stakes escrowed for a live staked match, so a hard crash
    *  (SIGKILL/host failure) can refund them on the next boot. Returns false if
    *  the escrow could NOT be durably recorded — the caller must abort the match
@@ -188,6 +236,8 @@ function blankProfile(wallet: string, name: string, skin: number): Profile {
     referred_by: "",
     referral_earned: 0,
     playtime_sec: 0,
+    daily_day: 0,
+    daily_streak: 0,
   };
 }
 
@@ -419,6 +469,23 @@ class InMemoryStore implements ProfileStore {
     const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
     this.map.set(wallet, p);
     p.playtime_sec += Math.round(seconds);
+  }
+
+  async claimDaily(wallet: string): Promise<DailyClaim> {
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    const today = utcDayIndex();
+    if (p.daily_day === today) {
+      return { already: true, streak: p.daily_streak, chips: 0, xp: 0, bonus: false };
+    }
+    const streak = nextDailyStreak(p.daily_day, today, p.daily_streak);
+    const r = dailyReward(streak, p.level);
+    p.daily_day = today;
+    p.daily_streak = streak;
+    p.chips += r.chips;
+    p.xp += r.xp;
+    p.level = 1 + Math.floor(p.xp / 200);
+    return { already: false, streak, chips: r.chips, xp: r.xp, bonus: r.bonus };
   }
 
   private openStakes = new Map<string, Array<{ wallet: string; amount: number; currency: number }>>();
@@ -884,6 +951,33 @@ class SupabaseStore implements ProfileStore {
     }
   }
 
+  async claimDaily(wallet: string): Promise<DailyClaim> {
+    const p = await this.getProfile(wallet);
+    const today = utcDayIndex();
+    const lastDay = p?.daily_day ?? 0;
+    if (lastDay === today) return { already: true, streak: p?.daily_streak ?? 0, chips: 0, xp: 0, bonus: false };
+    const streak = nextDailyStreak(lastDay, today, p?.daily_streak ?? 0);
+    const level = p?.level ?? 1;
+    const r = dailyReward(streak, level);
+    const xp = (p?.xp ?? 0) + r.xp;
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({
+          daily_day: today,
+          daily_streak: streak,
+          chips: (p?.chips ?? STARTING_CHIPS) + r.chips,
+          xp,
+          level: 1 + Math.floor(xp / 200),
+        }),
+      });
+    } catch {
+      /* best-effort */
+    }
+    return { already: false, streak, chips: r.chips, xp: r.xp, bonus: r.bonus };
+  }
+
   // Open-stakes persistence is a Postgres-only feature; production requires
   // Postgres (preflight), so these are no-ops here.
   async recordOpenStakes(): Promise<boolean> {
@@ -1069,6 +1163,9 @@ class PostgresStore implements ProfileStore {
     await this.pool.query(`alter table profiles add column if not exists chips_won bigint not null default 0`);
     // Lifetime time-in-match (seconds), shown on the player card.
     await this.pool.query(`alter table profiles add column if not exists playtime_sec bigint not null default 0`);
+    // Daily login reward: UTC day-index of the last claim + the login streak.
+    await this.pool.query(`alter table profiles add column if not exists daily_day bigint not null default 0`);
+    await this.pool.query(`alter table profiles add column if not exists daily_streak int not null default 0`);
     await this.pool.query(`create index if not exists profiles_referred_by on profiles (referred_by)`);
     await this.pool.query(`
       create table if not exists processed_deposits (
@@ -1177,6 +1274,8 @@ class PostgresStore implements ProfileStore {
       tokens_won: Number(row.tokens_won ?? 0),
       chips_won: Number(row.chips_won ?? 0),
       playtime_sec: Number(row.playtime_sec ?? 0),
+      daily_day: Number(row.daily_day ?? 0),
+      daily_streak: Number(row.daily_streak ?? 0),
     };
   }
 
@@ -1561,6 +1660,42 @@ class PostgresStore implements ProfileStore {
       );
     } catch (e) {
       console.error("[store] pg addPlaytime failed", e);
+    }
+  }
+
+  async claimDaily(wallet: string): Promise<DailyClaim> {
+    const today = utcDayIndex();
+    const client = await this.pool.connect();
+    try {
+      await this.ready;
+      await client.query(`insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`, [wallet]);
+      await client.query("begin");
+      const r = await client.query(
+        `select daily_day, daily_streak, level from profiles where wallet=$1 for update`,
+        [wallet],
+      );
+      const lastDay = Number(r.rows[0]?.daily_day ?? 0);
+      const prevStreak = Number(r.rows[0]?.daily_streak ?? 0);
+      const level = Number(r.rows[0]?.level ?? 1);
+      if (lastDay === today) {
+        await client.query("commit");
+        return { already: true, streak: prevStreak, chips: 0, xp: 0, bonus: false };
+      }
+      const streak = nextDailyStreak(lastDay, today, prevStreak);
+      const reward = dailyReward(streak, level);
+      await client.query(
+        `update profiles set daily_day=$2, daily_streak=$3, chips=chips+$4,
+           xp=xp+$5, level=1+((xp+$5)/200), updated_at=now() where wallet=$1`,
+        [wallet, today, streak, reward.chips, reward.xp],
+      );
+      await client.query("commit");
+      return { already: false, streak, chips: reward.chips, xp: reward.xp, bonus: reward.bonus };
+    } catch (e) {
+      await client.query("rollback").catch(() => {});
+      console.error("[store] pg claimDaily failed", e);
+      return { already: true, streak: 0, chips: 0, xp: 0, bonus: false };
+    } finally {
+      client.release();
     }
   }
 

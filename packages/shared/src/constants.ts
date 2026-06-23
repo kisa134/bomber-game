@@ -91,6 +91,13 @@ export const BOT_PLAY_CHIPS = 5;
 export const BOT_WIN_XP = 15;
 export const BOT_PLAY_XP = 5;
 
+// --- Daily login reward (chips + XP; scales with streak & level) -------------
+export const DAILY_BASE_CHIPS = 50; // day-1 reward; grows with the login streak
+export const DAILY_STREAK_CAP = 7; // reward stops scaling past a 7-day streak
+export const DAILY_LEVEL_BONUS_CHIPS = 10; // extra chips per player level
+export const DAILY_WEEK_BONUS_CHIPS = 500; // milestone bonus on every 7th day
+export const DAILY_XP_PER_DAY = 15; // XP per streak day (capped like chips)
+
 // --- Skins (cosmetic; unlock by leveling up + chips, OR buy with token) -----
 // Index: 0 Shiba, 1 Pepe, 2 Trump, 3 Musk, 4 Doge, 5 Pump, 6 Durov, 7 Vitalik,
 //        8 Troll, 9 Bogdanoff, 10 Gigachad. The cooler/rarer it is, the dearer.
