@@ -3497,7 +3497,16 @@ function leaveToMenu(): void {
   music("lobby");
   setMenuStatus("");
 }
-document.getElementById("leave-room")!.addEventListener("click", leaveToMenu);
+// Leaving the waiting room. If you're the host, an accidental tap would abandon
+// (and reap) the room you just made — and there's no way back — so confirm first.
+// Non-hosts leave freely.
+document.getElementById("leave-room")!.addEventListener("click", () => {
+  if (state.isHost && !confirm("Leave and close this room? Players here will be sent back.")) {
+    track("room_leave_cancelled", { code: state.roomCode });
+    return;
+  }
+  leaveToMenu();
+});
 document.getElementById("result-leave")!.addEventListener("click", leaveToMenu);
 // "Change setup" (bots only): leave the practice room and reopen Training Setup.
 document.getElementById("result-setup")?.addEventListener("click", () => {

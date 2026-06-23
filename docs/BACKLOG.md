@@ -6,8 +6,8 @@ Tracked task list. `[ ]` = todo, `[~]` = in progress, `[x]` = done. Numbers in
 ## 🔴 Bugs (fix first)
 - [x] (2) **Ghost free lobby:** empty lobby stays listed/joinable, can't be entered → *fixed: `listTables()` lists only rooms with `humanCount > 0 && acceptsPlayers()`; empties reap in ≤30s.* ✅
 - [x] (2) **Invite on empty seats:** *fixed: EVERY empty seat is now a clickable "＋ Invite a friend" slot (was only the first) — taps fire the room invite/copy-link.* ✅
-- [ ] (1) **[NEW] Room drops on misclick:** after creating a room, an accidental click elsewhere auto-leaves and the room is gone with no way back.
-- [ ] (1) **Co-op/Practice lobby resets:** changing settings in co-op/practice lobby blows the lobby away.
+- [x] (1) **[NEW] Room drops on misclick:** *guarded: leaving the waiting room as host now confirms ("Leave and close this room?") so an accidental tap can't silently abandon/reap a room with no way back; cancels tracked to analytics.* ✅
+- [~] (1) **Co-op/Practice lobby resets:** *mitigated: same host-leave confirm guards the co-op lobby. Root cause is that room settings are read-only in the waiting room (no in-lobby edit), so changing them means re-creating — proper fix = host-editable in-room settings (feature, see UI/UX below).*
 - [ ] (1) **Kick:** kicking players from the lobby doesn't work. *(code path verified correct end-to-end client→server; needs live repro to pinpoint — likely UI/state, not protocol.)*
 - [~] (1) **Friends online status:** existing friends don't show as online → *hardened: presence TTL 45s→90s (survives background-tab timer throttling), beat on tab-visible, online-wallet count exposed to admin (`Signed-in online` tile) + AI snapshot. Needs live confirm.*
 
