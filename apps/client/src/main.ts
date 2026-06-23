@@ -2387,6 +2387,29 @@ const cardBackHTML = (): string =>
   '<div class="fc-back-seal"><div class="fc-back-bomb">💣</div><div class="fc-back-word">BOMBERMEME</div><div class="fc-back-sub">MEME&nbsp;WARS</div></div>' +
   "</div>";
 
+// Twinkling star sparkles — appear on rare+ cards, more + cooler with rarity.
+// Legendary mixes in tier-colour stars; mythic adds rainbow ones.
+const STAR_RAINBOW = ["#ff5a8a", "#ffd84d", "#5ad27a", "#7fd8ff", "#b07cff"];
+function cardStarsHTML(skin: number): string {
+  const tier = tierRank(skin);
+  if (tier < 1) return ""; // common cards stay clean
+  const n = 3 + tier * 2; // rare 5 … mythic 11
+  const hash = (k: number): number => { const x = Math.sin(k * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+  let out = '<div class="fc-stars" aria-hidden="true">';
+  for (let j = 0; j < n; j++) {
+    const s = skin * 31 + j;
+    const left = (6 + hash(s) * 88).toFixed(1);
+    const top = (6 + hash(s + 99) * 88).toFixed(1);
+    const del = (hash(s + 7) * 3).toFixed(2);
+    const dur = (2 + hash(s + 13) * 2).toFixed(2);
+    let col = "#fff";
+    if (tier === 4 && j % 2 === 0) col = STAR_RAINBOW[j % STAR_RAINBOW.length];
+    else if (tier >= 3 && j % 3 === 0) col = "var(--tier)";
+    out += `<i class="fc-star" style="left:${left}%;top:${top}%;--d:${del}s;--dur:${dur}s;--sc:${col}"></i>`;
+  }
+  return out + "</div>";
+}
+
 /** Inner HTML for one collectible card (static pose; active card animates).
     All visible layers live inside .fc-tilt, which floats + tilts to the cursor. */
 function fighterCardHTML(skin: number): string {
@@ -2410,6 +2433,7 @@ function fighterCardHTML(skin: number): string {
     `<div class="fc-namerow"><div class="fc-name">${SKIN_NAMES[skin] ?? `Skin ${skin}`}</div><div class="fc-gems">${"◆".repeat(GEM_COUNT(skin))}</div></div>` +
     `<div class="fc-badge" aria-hidden="true"><span>${["C", "R", "E", "L", "M"][tierRank(skin)]}</span></div>` +
     '<div class="fc-edge" aria-hidden="true"></div>' +
+    cardStarsHTML(skin) +
     `<div class="fc-lock${skinOwned(skin) ? " hidden" : ""}">🔒</div>` +
     "</div>" +
     cardBackHTML()
@@ -2645,7 +2669,9 @@ function enterDeck(): void {
   const cards = [...wrap.querySelectorAll<HTMLElement>(".fighter-card")];
   cards.forEach((card, k) => {
     const tilt = card.firstElementChild as HTMLElement | null;
-    if (tilt) tilt.style.transform = "none"; // freeze the per-card float
+    if (tilt) { tilt.style.transform = "none"; tilt.style.filter = ""; } // freeze float, clear haze
+    const back = card.querySelector<HTMLElement>(".fc-back");
+    if (back) back.style.filter = "";
     // messy but deterministic stack jitter
     const jx = Math.sin(k * 12.9898) * 16;
     const jy = Math.cos(k * 4.1414) * 12;
@@ -2718,6 +2744,12 @@ function layoutCarousel(active: number): void {
     card.style.opacity = String(f.op);
     card.style.zIndex = String(10 - a);
     card.style.pointerEvents = off === 0 ? "none" : "auto";
+    // Depth haze: cards further from centre sit deeper — softer (blur) + dimmer.
+    const fil = a === 0 ? "" : `blur(${a === 1 ? 4 : 8}px) brightness(${a === 1 ? 0.92 : 0.82}) saturate(0.92)`;
+    const tEl = card.querySelector<HTMLElement>(".fc-tilt");
+    const bEl = card.querySelector<HTMLElement>(".fc-back");
+    if (tEl) tEl.style.filter = fil;
+    if (bEl) bEl.style.filter = fil;
   });
 }
 
