@@ -1920,7 +1920,7 @@ function appendKickAction(body: HTMLElement, wallet: string, name: string): void
     if (!confirm(`Kick ${name || "this player"} from the lobby?`)) return;
     net.sendKick(member.id);
     document.getElementById("pubprofile-modal")?.classList.add("hidden");
-    showBanner(`👢 Kicked ${name || "player"}`);
+    showToast(`👢 Kicked ${name || "player"}`, "info");
   });
   body.append(kick);
 }
@@ -3045,18 +3045,33 @@ setInterval(maybeApplySWUpdate, 15_000); // catch the case where the update arri
 
 // Surface otherwise-invisible failures (esp. on mobile, where there's no
 // console) as a dismissable banner, so "nothing happens" becomes a real message.
-function showBanner(msg: string): void {
-  let b = document.getElementById("err-banner");
-  if (!b) {
-    b = document.createElement("div");
-    b.id = "err-banner";
-    b.style.cssText =
-      "position:fixed;left:0;right:0;top:0;z-index:9999;background:#c0392b;color:#fff;" +
-      "padding:10px 14px;font:600 13px system-ui;text-align:center;cursor:pointer";
-    b.addEventListener("click", () => b!.remove());
-    document.body.appendChild(b);
+/** Glassmorphism toast — a slim, blurred, auto-dismissing card at top-center.
+ *  Replaces the old full-width red banner; `kind` tints the left accent. */
+type ToastKind = "info" | "error" | "success";
+function showToast(msg: string, kind: ToastKind = "info", ms = 3200): void {
+  let stack = document.getElementById("toast-stack");
+  if (!stack) {
+    stack = document.createElement("div");
+    stack.id = "toast-stack";
+    document.body.appendChild(stack);
   }
-  b.textContent = "⚠ " + msg + "  (tap to dismiss)";
+  const t = document.createElement("div");
+  t.className = `toast toast-${kind}`;
+  t.textContent = msg;
+  const dismiss = (): void => {
+    t.classList.add("out");
+    setTimeout(() => t.remove(), 220);
+  };
+  t.addEventListener("click", dismiss);
+  stack.appendChild(t);
+  // Trigger the enter transition on the next frame.
+  requestAnimationFrame(() => t.classList.add("in"));
+  setTimeout(dismiss, ms);
+}
+
+/** Hard errors: a red-tinted toast (was a bulky full-width banner). */
+function showBanner(msg: string): void {
+  showToast(msg, "error", 5000);
 }
 
 /** Staked tables need a wallet. If the player has none, explain it and open the
@@ -3227,7 +3242,7 @@ setKickHandler((playerId) => {
   const name = state.roomPlayers.find((p) => p.id === playerId)?.name ?? "player";
   if (!confirm(`Kick ${name} from the lobby?`)) return;
   net.sendKick(playerId);
-  showBanner(`👢 Kicked ${name}`);
+  showToast(`👢 Kicked ${name}`, "info");
 });
 setDurationHandler((mins) => net.sendSetDuration(mins));
 // Lobby character strip: pick an OWNED skin (applies this match + becomes your
@@ -3499,7 +3514,8 @@ function onStakeVote(msg: {
     banner.classList.add("hidden");
     document.getElementById("propose-picker")!.classList.add("hidden");
     votedProposalKey = null; // ready for the next proposal
-    showBanner(msg.accepted ? `Stake raised to ${stakeSym()}${msg.stake.toLocaleString()}` : "Stake raise declined");
+    if (msg.accepted) showToast(`⬆ Stake raised to ${stakeSym()}${msg.stake.toLocaleString()}`, "success");
+    else showToast("Stake raise declined", "info");
     return;
   }
   const deadline = Date.now() + msg.msLeft;
@@ -3536,7 +3552,7 @@ document.getElementById("propose-stake")?.addEventListener("click", () => {
   const picker = document.getElementById("propose-picker")!;
   if (!picker.classList.contains("hidden")) { picker.classList.add("hidden"); return; }
   const tiers = (state.roomCurrency === 1 ? TOKEN_BET_SIZES : BET_SIZES).filter((v) => v > state.roomStake);
-  if (!tiers.length) { showBanner("Already at the top stake"); return; }
+  if (!tiers.length) { showToast("Already at the top stake", "info"); return; }
   picker.innerHTML = "";
   for (const v of tiers) {
     const b = document.createElement("button");
