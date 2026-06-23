@@ -1223,7 +1223,7 @@ function wireNickname(): void {
     if (!loadWallet()?.session || name.length < 2) return; // anonymous: nothing to claim
     const r = await setNickname(name).catch(() => ({ error: "net" }) as { error: string });
     if (r.error === "name_taken") {
-      setMenuStatus("Этот ник уже занят — выбери другой");
+      setMenuStatus("That nickname is taken — pick another");
       nick.value = lastGoodNick;
     } else if ("ok" in r && r.ok) {
       lastGoodNick = r.name ?? name;
@@ -2835,12 +2835,11 @@ function loadHubTop(): void {
 const ONBOARD_KEY = "bp_onboarded_v1";
 const ONBOARD_TOUCH =
   typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
-const ONBOARD: Array<{ icon: string; title: string; text: string; ru: string; pu?: string[] }> = [
+const ONBOARD: Array<{ icon: string; title: string; text: string; pu?: string[] }> = [
   {
     icon: "🎯",
     title: "Last one standing",
     text: "Blow up your rivals and survive. 2–4 players, 3-minute match.",
-    ru: "Взорви соперников и останься последним. 2–4 игрока, 3 минуты.",
   },
   {
     icon: "🎮",
@@ -2848,28 +2847,22 @@ const ONBOARD: Array<{ icon: string; title: string; text: string; ru: string; pu
     text: ONBOARD_TOUCH
       ? "Joystick / d-pad to move, the bomb button to drop bombs."
       : "Arrows or WASD to move, Space to drop a bomb.",
-    ru: ONBOARD_TOUCH
-      ? "Джойстик/крестовина — движение, кнопка — бомба."
-      : "Стрелки/WASD — движение, Пробел — бомба.",
   },
   {
     icon: "💣",
     title: "Bombs & HP",
     text: "Break crates, catch rivals in the blast. You have 3 ❤️ — a hit costs one.",
-    ru: "Ломай ящики, лови соперников взрывом. 3 ❤️, попадание −1.",
   },
   {
     icon: "⚡",
     title: "Power-ups",
     pu: ["💣 +bomb", "🔥 +range", "👟 speed", "🦵 kick", "👻 ghost", "❤️ +life"],
     text: "Grab them from destroyed crates.",
-    ru: "Выпадают из разрушенных ящиков.",
   },
   {
     icon: "🩸",
     title: "Ready?",
     text: "Hit PLAY NOW for an instant match. First to hit a rival = First Blood!",
-    ru: "Жми PLAY NOW — быстрый матч. Первый, кто заденет — First Blood!",
   },
 ];
 let onboardIdx = 0;
@@ -2879,7 +2872,7 @@ function renderOnboard(): void {
   const pu = c.pu ? `<div class="onboard-pu">${c.pu.map((p) => `<span>${p}</span>`).join("")}</div>` : "";
   document.getElementById("onboard-body")!.innerHTML =
     `<div class="onboard-icon">${c.icon}</div><div class="onboard-title">${c.title}</div>${pu}` +
-    `<div class="onboard-text">${c.text}</div><div class="onboard-text ru">${c.ru}</div>`;
+    `<div class="onboard-text">${c.text}</div>`;
   document.getElementById("onboard-dots")!.innerHTML = ONBOARD.map(
     (_, i) => `<i class="${i === onboardIdx ? "on" : ""}"></i>`,
   ).join("");
@@ -2906,12 +2899,12 @@ function closeOnboarding(): void {
 
 // --- dimmed-UI spotlight tutorial (coachmarks) -----------------------------
 const COACH_KEY = "bp_coach_v1";
-interface CoachStep { sel: string; title: string; ru: string; }
+interface CoachStep { sel: string; title: string; }
 const COACH_STEPS: CoachStep[] = [
-  { sel: "#open-play", title: "Tap to find a ranked match", ru: "Жми — быстрый рейтинговый матч" },
-  { sel: "#open-practice", title: "Or warm up vs bots — earn chips, no rating", ru: "Или разомнись с ботами — чипы, без рейтинга" },
-  { sel: "#hub-friends", title: "Add friends & play together", ru: "Добавляй друзей и играйте вместе" },
-  { sel: "#open-shop", title: "Unlock skins & cards here", ru: "Тут открываются скины и карточки" },
+  { sel: "#open-play", title: "Tap to find a ranked match" },
+  { sel: "#open-practice", title: "Or warm up vs bots — earn chips, no rating" },
+  { sel: "#hub-friends", title: "Add friends & play together" },
+  { sel: "#open-shop", title: "Unlock skins & cards here" },
 ];
 
 /** Run the spotlight tour: dim everything except the current target, show a
@@ -2926,7 +2919,7 @@ function runCoach(steps: CoachStep[]): void {
   overlay.className = "coach-overlay";
   overlay.innerHTML =
     `<div class="coach-spot"></div>` +
-    `<div class="coach-tip"><div class="coach-tip-title"></div><div class="coach-tip-ru"></div>` +
+    `<div class="coach-tip"><div class="coach-tip-title"></div>` +
     `<div class="coach-tip-foot"><span class="coach-step"></span><button class="coach-next"></button></div></div>`;
   document.body.appendChild(overlay);
   const spot = overlay.querySelector(".coach-spot") as HTMLElement;
@@ -2943,7 +2936,6 @@ function runCoach(steps: CoachStep[]): void {
     spot.style.width = `${r.width + pad * 2}px`;
     spot.style.height = `${r.height + pad * 2}px`;
     (overlay.querySelector(".coach-tip-title") as HTMLElement).textContent = s.title;
-    (overlay.querySelector(".coach-tip-ru") as HTMLElement).textContent = s.ru;
     (overlay.querySelector(".coach-step") as HTMLElement).textContent = `${i + 1} / ${live.length}`;
     (overlay.querySelector(".coach-next") as HTMLElement).textContent = i >= live.length - 1 ? "Got it ⚡" : "Next →";
     // Tooltip below the target, or above if it would overflow the viewport.
