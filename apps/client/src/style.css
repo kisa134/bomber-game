@@ -108,7 +108,7 @@ body {
   background: #0b070e url("/bg/splash-art.png") center / cover no-repeat;
   /* No blur — a SHARP scene pushed deep onto the 3rd plane by heavy dimming,
      so it reads as a backdrop behind the cards, not a competing texture. */
-  filter: saturate(0.82) brightness(0.22) contrast(1.06);
+  filter: saturate(0.8) brightness(0.13) contrast(1.06);
   transform: scale(1.04);
 }
 /* A faint warm key-light lifts the centre (lit showcase) while a deep, SOFT
@@ -116,13 +116,12 @@ body {
    so the panels/cards pop and corners stay deep but never charcoal. */
 #bg.art::after {
   background:
-    radial-gradient(ellipse 52% 44% at 50% 42%, rgba(255, 222, 170, 0.08), transparent 60%),
     radial-gradient(
-      ellipse 90% 86% at 50% 45%,
-      rgba(0, 0, 0, 0) 0%,
-      rgba(0, 0, 0, 0) 30%,
-      rgba(0, 0, 0, 0.46) 68%,
-      rgba(0, 0, 0, 0.75) 100%
+      ellipse 75% 62% at 50% 44%,
+      rgba(0, 0, 0, 0.34) 0%,
+      rgba(0, 0, 0, 0.5) 50%,
+      rgba(0, 0, 0, 0.74) 78%,
+      rgba(0, 0, 0, 0.92) 100%
     );
 }
 /* With the static art backdrop the old menu video is hidden. */
