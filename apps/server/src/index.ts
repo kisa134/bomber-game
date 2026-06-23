@@ -1072,7 +1072,7 @@ app.get("/friends", (res, req) => {
         const pr = presenceOf(r.wallet);
         const room = mm.getRoom(pr.room);
         const joinable = pr.online && pr.status === "lobby" && !!room && room.acceptsPlayers();
-        return { wallet: r.wallet, name: r.name, status: r.status, online: pr.online, room: joinable ? pr.room : "" };
+        return { wallet: r.wallet, name: r.name, status: r.status, online: pr.online, room: joinable ? pr.room : "", activity: pr.online ? pr.status : "" };
       };
       sendJson(res, {
         friends: rows.filter((r) => r.status === "friends").map(enrich),

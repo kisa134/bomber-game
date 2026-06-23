@@ -2672,7 +2672,15 @@ function renderFriendsModal(): void {
       });
       row.append(join);
     } else {
-      row.append(el("span", "friend-state", f.online ? "online" : "offline"));
+      // Not one-tap joinable — show what they're up to so you know whether to wait.
+      const label = !f.online
+        ? "offline"
+        : f.activity === "game"
+          ? "⚔️ in a match"
+          : f.activity === "lobby"
+            ? "in a lobby"
+            : "online";
+      row.append(el("span", "friend-state" + (f.online ? " on" : ""), label));
     }
     const rm = document.createElement("button");
     rm.className = "ghost friend-mini";

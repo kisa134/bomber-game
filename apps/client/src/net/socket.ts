@@ -284,6 +284,7 @@ export interface FriendInfo {
   status: string; // "friends" | "in" | "out"
   online: boolean;
   room: string; // joinable lobby code, "" if not joinable
+  activity: string; // "game" | "lobby" | "menu" | "" (what they're doing now)
 }
 export interface FriendsData {
   friends: FriendInfo[];
