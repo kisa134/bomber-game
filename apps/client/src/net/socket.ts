@@ -56,6 +56,7 @@ export interface ProfileData {
   frags: number;
   deaths: number;
   best_streak: number;
+  current_streak?: number; // live win streak (resets on a loss)
   chips: number;
   rating: number;
   week_points: number;

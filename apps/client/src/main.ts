@@ -162,7 +162,7 @@ let prevBombIds = new Set<number>(); // bomb ids last seen, to detect placements
 let iGotFirstBlood = false; // did the local player take first blood this match
 let myPickupStep = 0; // count of bonuses I've collected this match -> rising pickup pitch
 let hitStopUntil = 0; // brief full-view freeze for kill impact (game feel)
-let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean } | null = null;
+let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean; streak: number } | null = null;
 // Handle for the 3s "result screen" timer, so a new match starting within that
 // window can cancel the previous match's deferred result (no overlay/stale data).
 let announceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -589,7 +589,7 @@ function announceResult(winnerId: number): void {
   } else {
     earnText = won ? "+🪙100" : "+🪙20";
   }
-  lastMatch = { won, draw, frags: meFrags, earnText, ratingDelta: 0, firstBlood: iGotFirstBlood };
+  lastMatch = { won, draw, frags: meFrags, earnText, ratingDelta: 0, firstBlood: iGotFirstBlood, streak: 0 };
   const w = loadWallet();
   const prevRating = lastRating;
   if (w) {
@@ -598,7 +598,10 @@ function announceResult(winnerId: number): void {
         setStats(p.chips, p.rating);
         setTokenBadge(p.gameTokens);
         const d = p.rating - prevRating;
-        if (lastMatch) lastMatch.ratingDelta = d;
+        if (lastMatch) {
+          lastMatch.ratingDelta = d;
+          lastMatch.streak = p.current_streak ?? 0;
+        }
         const ratingNote =
           d !== 0 ? `${leagueFor(p.rating).emoji} ${p.rating} (${d > 0 ? "+" : ""}${d})` : "";
         if (note) note.textContent = [chipNote, ratingNote].filter(Boolean).join("  ·  ");
@@ -702,6 +705,9 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
       v.innerHTML = `📈 <span class="rt-num"></span><span class="rt-delta">${deltaTag}</span>`;
       rew.append(ratingChip);
       animateCount(v.querySelector(".rt-num") as HTMLElement, lastRating, lastRating - delta, 800);
+      // Win-streak flex — only when you're actually on a roll (2+ in a row).
+      const streak = lastMatch?.streak ?? 0;
+      if (won && streak >= 2) rew.append(chip("Win streak", `🔥 ${streak}`, "streak"));
     }
   }
 
