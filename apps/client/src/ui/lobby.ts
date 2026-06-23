@@ -126,6 +126,11 @@ export function setKickHandler(fn: (playerId: number) => void): void {
 }
 /* Match-length editing is disabled for now (fixed 3-min rounds); the protocol
    hook stays server-side until the in-lobby control is redesigned. */
+/** Tapping an empty seat opens the friends list to invite someone (wired from main). */
+let onInviteSeat: () => void = () => {};
+export function setInviteSeatHandler(fn: () => void): void {
+  onInviteSeat = fn;
+}
 function usdSuffix(tokens: number): string {
   if (tokens <= 0) return "";
   const sol = valueUnit === "sol";
@@ -676,7 +681,7 @@ export function renderRoom(state: GameState): void {
     li.className = "seat empty invite";
     li.innerHTML = `<div class="seat-empty">＋ Invite a friend</div>`;
     li.title = "Invite a friend to this seat";
-    li.addEventListener("click", () => document.getElementById("copy-invite")?.click());
+    li.addEventListener("click", () => onInviteSeat());
     list.appendChild(li);
   }
 

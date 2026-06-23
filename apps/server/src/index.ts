@@ -1056,6 +1056,45 @@ setInterval(() => {
   for (const [w, e] of onlineWallets) if (now - e.at > PRESENCE_WALLET_TTL_MS) onlineWallets.delete(w);
 }, 60_000).unref?.();
 
+// --- room invites ---------------------------------------------------------
+// A → friend B: "join my room". Stored per-recipient and surfaced in B's next
+// /friends poll (accept = join the code, decline = clear). TTL ~2min.
+const INVITE_TTL_MS = 120_000;
+const roomInvites = new Map<string, Map<string, { from: string; fromName: string; room: string; at: number }>>();
+function addInvite(to: string, from: string, fromName: string, room: string): void {
+  let m = roomInvites.get(to);
+  if (!m) { m = new Map(); roomInvites.set(to, m); }
+  m.set(from, { from, fromName, room, at: Date.now() });
+}
+function invitesFor(wallet: string): Array<{ from: string; name: string; room: string }> {
+  const m = roomInvites.get(wallet);
+  if (!m) return [];
+  const cutoff = Date.now() - INVITE_TTL_MS;
+  const out: Array<{ from: string; name: string; room: string }> = [];
+  for (const [from, e] of m) {
+    if (e.at < cutoff) { m.delete(from); continue; }
+    // Drop invites whose room is gone or no longer joinable.
+    const room = mm.getRoom(e.room);
+    if (!room || !room.acceptsPlayers()) { m.delete(from); continue; }
+    out.push({ from: e.from, name: e.fromName, room: e.room });
+  }
+  if (m.size === 0) roomInvites.delete(wallet);
+  return out;
+}
+function clearInvite(wallet: string, room: string): void {
+  const m = roomInvites.get(wallet);
+  if (!m) return;
+  for (const [from, e] of m) if (e.room === room) m.delete(from);
+  if (m.size === 0) roomInvites.delete(wallet);
+}
+setInterval(() => {
+  const cutoff = Date.now() - INVITE_TTL_MS;
+  for (const [w, m] of roomInvites) {
+    for (const [from, e] of m) if (e.at < cutoff) m.delete(from);
+    if (m.size === 0) roomInvites.delete(w);
+  }
+}, 60_000).unref?.();
+
 // Friends list + presence beat. Marks the caller online (with their current room)
 // and returns their friends/requests enriched with online/room/joinable info.
 app.get("/friends", (res, req) => {
@@ -1079,9 +1118,59 @@ app.get("/friends", (res, req) => {
         friends: rows.filter((r) => r.status === "friends").map(enrich),
         incoming: rows.filter((r) => r.status === "in").map((r) => ({ wallet: r.wallet, name: r.name })),
         outgoing: rows.filter((r) => r.status === "out").map((r) => ({ wallet: r.wallet, name: r.name })),
+        invites: invitesFor(wallet),
       });
     })
-    .catch(() => sendJson(res, { friends: [], incoming: [], outgoing: [] }));
+    .catch(() => sendJson(res, { friends: [], incoming: [], outgoing: [], invites: [] }));
+});
+
+// Invite a friend (by wallet) into a room. Only between confirmed friends.
+app.post("/friends/invite", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    let wallet: string | null = null;
+    let friend = "";
+    let room = "";
+    try {
+      const j = JSON.parse(body || "{}");
+      if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+      if (typeof j.friend === "string") friend = j.friend.trim();
+      if (typeof j.room === "string") room = j.room.trim().toUpperCase().slice(0, 8);
+    } catch {
+      /* ignore */
+    }
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    if (!friend || !room) return sendJson(res, { error: "bad_request" }, "400 Bad Request");
+    const r = mm.getRoom(room);
+    if (!r || !r.acceptsPlayers()) return sendJson(res, { error: "room_closed" }, "409 Conflict");
+    // Must actually be friends (both directions confirmed).
+    const friends = await store.listFriends(wallet);
+    if (!friends.some((f) => f.wallet === friend && f.status === "friends")) {
+      return sendJson(res, { error: "not_friends" }, "403 Forbidden");
+    }
+    const me = await store.getProfile(wallet);
+    addInvite(friend, wallet, me?.name || "A friend", room);
+    sendJson(res, { ok: true });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
+// Dismiss a pending room invite (decline, or after accepting).
+app.post("/friends/invite/clear", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    let wallet: string | null = null;
+    let room = "";
+    try {
+      const j = JSON.parse(body || "{}");
+      if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+      if (typeof j.room === "string") room = j.room.trim().toUpperCase().slice(0, 8);
+    } catch {
+      /* ignore */
+    }
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    clearInvite(wallet, room);
+    sendJson(res, { ok: true });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 
 // Send a friend request by nickname.

@@ -672,8 +672,9 @@ export class Room {
     // Practice room: fill with bots and auto-start the FIRST match as soon as a
     // human is present. After that the player starts each rematch with a button
     // (requestStart) — no more starting itself.
-    // Co-op waits in the lobby so the host can invite a friend and press Start.
-    if (this.practice && !this.coop && this.humanCount >= 1 && !this.practiceStarted) {
+    // Co-op AND always-open casual rooms wait in the lobby so the host can invite
+    // a friend and press Start (they don't auto-start on the first human).
+    if (this.practice && !this.coop && !this.persistent && this.humanCount >= 1 && !this.practiceStarted) {
       this.startPractice();
       return;
     }
@@ -1133,6 +1134,21 @@ export class Room {
       this.broadcast(encodeMatchEnd(this.winnerId));
       this.broadcast(encodeMatchSeed(this.seedCommit, this.seed));
       return; // no pot, stats, or rewards for the sandbox
+    }
+    // Bot rooms: the instant the last human dies, end the match — don't let the
+    // bots keep fighting among themselves. Drop the surviving bots too.
+    if (this.hasBots && this.humanCount > 0 && !timeUp) {
+      const humanAlive = [...this.players.values()].some((p) => !p.isBot && p.alive);
+      if (!humanAlive) {
+        for (const p of this.players.values()) if (p.isBot) p.alive = false;
+        this.winnerId = DRAW_WINNER_ID;
+        this.setPhase(MatchPhase.END);
+        this.broadcast(encodeMatchEnd(this.winnerId));
+        this.broadcast(encodeMatchSeed(this.seedCommit, this.seed));
+        this.recordPlaytime();
+        this.awardPlayRewards();
+        return;
+      }
     }
     const aliveIds: number[] = [];
     for (const p of this.players.values()) if (p.alive) aliveIds.push(p.id);

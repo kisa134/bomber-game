@@ -53,6 +53,8 @@ import {
   addFriend,
   acceptFriend,
   removeFriend,
+  inviteFriend,
+  clearInvite,
   claimDaily,
   type FriendsData,
   type ProfileData,
@@ -72,7 +74,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState, type ScreenName } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setInviteSeatHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState, type ScreenName } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
@@ -2676,6 +2678,18 @@ function setProgress(level: number, xp: number): void {
 let lastFriends: FriendsData = { friends: [], incoming: [], outgoing: [] };
 const friendsModal = () => document.getElementById("friends-modal");
 const friendsModalOpen = (): boolean => !friendsModal()?.classList.contains("hidden");
+// When inviting from a lobby seat, the friends modal shows "Invite" actions that
+// ping the friend to join THIS room.
+let inviteRoomCode = ""; // "" = normal friends view; non-empty = invite mode
+
+/** Open the friends list to invite someone into the current waiting room. */
+function openFriendsForInvite(): void {
+  if (!loadWallet()) { showToast("Connect a wallet to invite friends", "info"); return; }
+  inviteRoomCode = state.roomCode;
+  document.getElementById("friends-status")!.textContent = "Pick a friend to invite to your room";
+  friendsModal()!.classList.remove("hidden");
+  friendsBeat();
+}
 
 /** Where am I right now (for presence shown to friends). */
 function currentPresence(): { room: string; status: string } {
@@ -2692,6 +2706,14 @@ function friendsBeat(): void {
   }
   const { room, status } = currentPresence();
   void fetchFriends(room, status).then((d) => {
+    // Toast newly-arrived game invites so the player notices even with the
+    // friends panel closed (the "your friends panel lights up" ping).
+    const prev = new Set((lastFriends.invites ?? []).map((i) => `${i.from}:${i.room}`));
+    for (const inv of d.invites ?? []) {
+      if (!prev.has(`${inv.from}:${inv.room}`)) {
+        showToast(`🎮 ${inv.name} invited you to play — open Friends to join`, "success", 5000);
+      }
+    }
     lastFriends = d;
     renderFriendsModule();
     if (friendsModalOpen()) renderFriendsModal();
@@ -2709,12 +2731,17 @@ function renderFriendsModule(): void {
   }
   const online = lastFriends.friends.filter((f) => f.online).length;
   const reqs = lastFriends.incoming.length;
+  const invs = (lastFriends.invites ?? []).length;
   count.textContent = online > 0 ? `· ${online} online` : "";
-  sub.textContent = reqs
-    ? `${reqs} friend request${reqs > 1 ? "s" : ""} ▸`
-    : lastFriends.friends.length
-      ? `${lastFriends.friends.length} friends ▸`
-      : "Add friends & play together ▸";
+  sub.textContent = invs
+    ? `🎮 ${invs} game invite${invs > 1 ? "s" : ""} ▸`
+    : reqs
+      ? `${reqs} friend request${reqs > 1 ? "s" : ""} ▸`
+      : lastFriends.friends.length
+        ? `${lastFriends.friends.length} friends ▸`
+        : "Add friends & play together ▸";
+  // Pulse the friends module when something needs attention (invite / request).
+  document.getElementById("hub-friends")?.classList.toggle("has-ping", invs > 0 || reqs > 0);
 }
 
 function renderFriendsModal(): void {
@@ -2723,7 +2750,31 @@ function renderFriendsModal(): void {
   const empty = document.getElementById("friends-empty")!;
   reqBox.innerHTML = "";
   listBox.innerHTML = "";
-  // Incoming requests first.
+  // Game invites first — a friend is asking you to join their room.
+  for (const inv of lastFriends.invites ?? []) {
+    const row = el("div", "friend-row invite-ping", "");
+    row.append(el("span", "friend-name", `🎮 ${inv.name} invited you`));
+    const join = document.createElement("button");
+    join.className = "primary friend-mini";
+    join.textContent = "Join";
+    join.addEventListener("click", () => {
+      friendsModal()?.classList.add("hidden");
+      inviteRoomCode = "";
+      void clearInvite(inv.room);
+      const nm = (localStorage.getItem("bp_nick") || "pumper").trim();
+      practiceMode = false;
+      track("play_start", { mode: "friend_invite" });
+      void connect(() => joinRoom(nm, inv.room, randSkin()));
+    });
+    const decline = document.createElement("button");
+    decline.className = "ghost friend-mini";
+    decline.textContent = "✕";
+    decline.title = "Decline";
+    decline.addEventListener("click", () => void clearInvite(inv.room).then(friendsBeat));
+    row.append(join, decline);
+    reqBox.appendChild(row);
+  }
+  // Incoming friend requests next.
   for (const r of lastFriends.incoming) {
     const row = el("div", "friend-row", "");
     row.append(el("span", "friend-name", r.name));
@@ -2748,6 +2799,23 @@ function renderFriendsModal(): void {
     name.title = "View profile";
     if (f.wallet) name.addEventListener("click", () => void openPublicProfile(f.wallet));
     row.append(dot, name);
+    if (inviteRoomCode) {
+      // Invite mode: ping this friend to join the current room.
+      const inv = document.createElement("button");
+      inv.className = "primary friend-mini";
+      inv.textContent = f.online ? "📨 Invite" : "offline";
+      inv.disabled = !f.online;
+      inv.addEventListener("click", () => {
+        inv.disabled = true;
+        void inviteFriend(f.wallet, inviteRoomCode).then((r) => {
+          if (r.ok) showToast(`📨 Invited ${f.name}`, "success");
+          else showToast("Couldn't invite — try again", "error");
+        });
+      });
+      row.append(inv);
+      listBox.appendChild(row);
+      continue;
+    }
     if (f.room) {
       const join = document.createElement("button");
       join.className = "primary friend-mini";
@@ -3106,13 +3174,15 @@ function wireMenuLinks(): void {
       setMenuStatus("Connect a wallet to add friends");
       return;
     }
+    inviteRoomCode = ""; // normal friends view (not invite mode)
     document.getElementById("friends-status")!.textContent = "";
     friendsModal()!.classList.remove("hidden");
     friendsBeat();
   });
-  document.getElementById("friends-close")?.addEventListener("click", () =>
-    friendsModal()!.classList.add("hidden"),
-  );
+  document.getElementById("friends-close")?.addEventListener("click", () => {
+    inviteRoomCode = "";
+    friendsModal()!.classList.add("hidden");
+  });
   const doAddFriend = (): void => {
     const inp = document.getElementById("friend-add-name") as HTMLInputElement;
     const name = inp.value.trim();
@@ -3392,7 +3462,7 @@ refreshHub(); // hero art + Loadout label
 loadHubTop(); // "Top this week" module
 setInterval(loadHubTop, 60_000);
 friendsBeat(); // friends list + presence beat
-setInterval(friendsBeat, 15_000);
+setInterval(friendsBeat, 8_000); // brisk enough that room invites land quickly
 // Background tabs throttle setInterval to ~60s, which can stale our presence;
 // beat immediately when the tab becomes visible again so we (and our online
 // friends) refresh without waiting for the next interval tick.
@@ -3416,6 +3486,8 @@ setKickHandler((playerId) => {
   net.sendKick(playerId);
   showToast(`👢 Kicked ${name}`, "info");
 });
+// Tapping an empty lobby seat opens the friends list to invite someone here.
+setInviteSeatHandler(() => openFriendsForInvite());
 // Lobby character strip: pick an OWNED skin (applies this match + becomes your
 // default); tapping a LOCKED skin opens the SHOP to unlock it.
 setSkinSelectHandler((skin) => {

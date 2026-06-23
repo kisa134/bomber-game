@@ -182,7 +182,7 @@ export class Matchmaker {
   /** Always-open casual bot rooms: a fixed pool of public, non-ranked, chips-only
    *  rooms (1-2 bots) that never reap, so a player can always drop straight into a
    *  game. Idempotent — only tops the pool up to `count`. */
-  ensureCasualRooms(count = Number(process.env.CASUAL_BOT_ROOMS ?? 2) || 2, botCount = 2): void {
+  ensureCasualRooms(count = Number(process.env.CASUAL_BOT_ROOMS ?? 10) || 10, botCount = 2): void {
     let have = 0;
     for (const r of this.rooms.values()) if (r.persistent) have++;
     for (let i = have; i < count; i++) {

@@ -293,6 +293,7 @@ export interface FriendsData {
   friends: FriendInfo[];
   incoming: Array<{ wallet: string; name: string }>;
   outgoing: Array<{ wallet: string; name: string }>;
+  invites?: Array<{ from: string; name: string; room: string }>; // "join my room" pings
 }
 
 /** Fetch friends/requests AND beat presence (marks you online with `room`). */
@@ -327,6 +328,19 @@ export async function claimDaily(): Promise<DailyResult> {
 }
 export async function removeFriend(wallet: string): Promise<void> {
   await post("/friends/remove", { wallet });
+}
+/** Invite a friend (by wallet) into a room. */
+export async function inviteFriend(friend: string, room: string): Promise<{ ok?: boolean; error?: string }> {
+  try {
+    const r = await post("/friends/invite", { friend, room });
+    return await r.json();
+  } catch {
+    return { error: "net" };
+  }
+}
+/** Dismiss a pending room invite (decline, or after accepting). */
+export async function clearInvite(room: string): Promise<void> {
+  try { await post("/friends/invite/clear", { room }); } catch { /* best-effort */ }
 }
 
 const MAX_RECONNECT_ATTEMPTS = 8;
