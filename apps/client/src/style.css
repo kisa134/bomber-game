@@ -3402,6 +3402,13 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .bal-chip.token {
   color: var(--accent);
 }
+/* Pot on the line — gold, so the prize reads at a glance during the match. */
+.bal-chip.pot {
+  color: #ffcc33;
+  border-color: rgba(255, 204, 51, 0.55);
+  background: rgba(255, 204, 51, 0.12);
+  box-shadow: 0 0 8px rgba(255, 204, 51, 0.25);
+}
 .bal-warn {
   color: #ff7a7e;
   font-weight: 800;
