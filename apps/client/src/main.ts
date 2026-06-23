@@ -2527,6 +2527,94 @@ let mCurY = 0;
 let dustTarget = 0.5; // sparkle intensity of the active card's tier
 let dustCur = 0.5; // eased
 let dragMoved = false; // set while a swipe/drag is in progress on the carousel
+
+/* ── Edge sparks ──────────────────────────────────────────────────────────
+   Press & HOLD the centre card → sparks spray OUT of its edges like a
+   sparkler; the longer you hold, the harder it burns. Colours by rarity:
+   legendary = gold + silver → white the longer; mythic = red + rainbow →
+   holographic the longer. */
+interface Spark { x: number; y: number; px: number; py: number; vx: number; vy: number; life: number; max: number; size: number; col: string; }
+const sparks: Spark[] = [];
+let sparkCanvas: HTMLCanvasElement | null = null;
+let sparkCtx: CanvasRenderingContext2D | null = null;
+let pressActive = false;
+let pressStart = 0;
+let pressTier = 0;
+let pressWasHold = false;
+
+function ensureSparkCanvas(wrap: HTMLElement): void {
+  if (sparkCanvas) return;
+  const c = document.createElement("canvas");
+  c.id = "fighter-sparks";
+  c.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:60";
+  wrap.appendChild(c);
+  sparkCanvas = c;
+  sparkCtx = c.getContext("2d");
+  resizeSparkCanvas();
+}
+function resizeSparkCanvas(): void {
+  if (!sparkCanvas) return;
+  const r = sparkCanvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  sparkCanvas.width = Math.max(1, Math.round(r.width * dpr));
+  sparkCanvas.height = Math.max(1, Math.round(r.height * dpr));
+  sparkCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+function sparkColor(tier: number, ramp: number, t: number, i: number): string {
+  if (tier >= 4) {
+    // mythic: red + rainbow, ever more holographic the longer you hold
+    if (Math.random() < 0.3 + ramp * 0.55) return `hsl(${((t * 140 + i * 53) % 360).toFixed(0)},100%,${(62 + ramp * 16).toFixed(0)}%)`;
+    return `hsl(${(351 + Math.random() * 14).toFixed(0)},92%,${(56 + ramp * 8).toFixed(0)}%)`; // red
+  }
+  if (tier >= 3) {
+    // legendary: gold + silver, whitening the longer you hold
+    const rnd = Math.random();
+    if (rnd < ramp * 0.6) return "#ffffff";
+    return rnd < 0.5 ? "#ffd84d" : "#e6edf6"; // gold / silver
+  }
+  return Math.random() < 0.5 ? "#ffffff" : "#ffe9a8"; // rare/epic: warm white
+}
+function emitSparks(rect: DOMRect, cr: DOMRect, tier: number, ramp: number, t: number): void {
+  const n = Math.floor(2 + ramp * 8);
+  const lx = rect.left - cr.left, ly = rect.top - cr.top, w = rect.width, h = rect.height;
+  for (let i = 0; i < n; i++) {
+    const e = Math.random();
+    let x: number, y: number, nx: number, ny: number;
+    if (e < 0.25) { x = lx + Math.random() * w; y = ly; nx = 0; ny = -1; }
+    else if (e < 0.5) { x = lx + Math.random() * w; y = ly + h; nx = 0; ny = 1; }
+    else if (e < 0.75) { x = lx; y = ly + Math.random() * h; nx = -1; ny = 0; }
+    else { x = lx + w; y = ly + Math.random() * h; nx = 1; ny = 0; }
+    const spd = (1.5 + Math.random() * 2.8) * (0.7 + ramp * 1.6);
+    const ang = Math.atan2(ny, nx) + (Math.random() - 0.5) * 1.15;
+    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 26 + Math.random() * 28, size: 0.8 + Math.random() * 1.7 * (0.85 + ramp), col: sparkColor(tier, ramp, t, i) });
+    if (sparks.length > 380) sparks.shift();
+  }
+}
+function tickSparks(): void {
+  if (!sparkCtx || !sparkCanvas) return;
+  const ctx = sparkCtx;
+  ctx.clearRect(0, 0, sparkCanvas.width, sparkCanvas.height);
+  if (!sparks.length) return;
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineCap = "round";
+  for (let i = sparks.length - 1; i >= 0; i--) {
+    const s = sparks[i];
+    s.px = s.x; s.py = s.y;
+    s.vx *= 0.945; s.vy = s.vy * 0.945 + 0.05; // drag + slight gravity
+    s.x += s.vx; s.y += s.vy;
+    s.life -= 1 / s.max;
+    if (s.life <= 0) { sparks.splice(i, 1); continue; }
+    const a = s.life * (0.7 + 0.3 * Math.random()); // flicker
+    ctx.globalAlpha = Math.max(0, a);
+    ctx.strokeStyle = s.col;
+    ctx.lineWidth = s.size;
+    ctx.beginPath(); ctx.moveTo(s.px, s.py); ctx.lineTo(s.x, s.y); ctx.stroke();
+    ctx.beginPath(); ctx.fillStyle = s.col; ctx.arc(s.x, s.y, s.size * 0.85, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+}
+
 function startFighterFloat(): void {
   if (floatStarted) return;
   floatStarted = true;
@@ -2534,6 +2622,8 @@ function startFighterFloat(): void {
   const menu = document.getElementById("menu");
   const dustField = document.getElementById("fighter-dustfield");
   if (!wrap || !menu) return;
+  ensureSparkCanvas(wrap);
+  window.addEventListener("resize", resizeSparkCanvas);
   menu.addEventListener("pointermove", (e) => {
     const r = wrap.getBoundingClientRect();
     mTargetX = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width / 2)));
@@ -2551,6 +2641,15 @@ function startFighterFloat(): void {
       return;
     }
     downX = e.clientX; downAt = e.timeStamp; dragMoved = false;
+    // press & hold the centre card → start the sparkler
+    const act = wrap.querySelector<HTMLElement>(".fighter-card.active");
+    if (act) {
+      const r = act.getBoundingClientRect();
+      if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+        pressActive = true; pressStart = performance.now(); pressWasHold = false;
+        pressTier = tierRank(hubBrowseSkin >= 0 ? hubBrowseSkin : hubEquipped());
+      }
+    }
   });
   wrap.addEventListener("pointermove", (e) => {
     if (deckDragging) {
@@ -2562,9 +2661,15 @@ function startFighterFloat(): void {
       }
       return;
     }
-    if (downAt && Math.abs(e.clientX - downX) > 10) dragMoved = true;
+    if (downAt && Math.abs(e.clientX - downX) > 10) { dragMoved = true; pressActive = false; }
   });
+  const endPress = (): void => {
+    if (!pressActive) return;
+    if (performance.now() - pressStart > 220) pressWasHold = true; // a real hold, not a tap
+    pressActive = false;
+  };
   wrap.addEventListener("pointerup", (e) => {
+    endPress();
     if (deckDragging) { deckDragging = false; dealOut(); return; }
     const dx = e.clientX - downX;
     downAt = 0;
@@ -2573,8 +2678,11 @@ function startFighterFloat(): void {
     // keep dragMoved set briefly so the trailing click is suppressed
     if (Math.abs(dx) > 10) setTimeout(() => { dragMoved = false; }, 0);
   });
+  wrap.addEventListener("pointercancel", endPress);
+  wrap.addEventListener("pointerleave", endPress);
   // 4 quick clicks on the centre card → gather the deck (easter egg)
   wrap.addEventListener("click", (e) => {
+    if (pressWasHold) { pressWasHold = false; return; } // a hold (sparkler), not a tap
     if (deckState !== 0 || dragMoved) return;
     const act = wrap.querySelector<HTMLElement>(".fighter-card.active");
     if (act) {
@@ -2634,6 +2742,18 @@ function startFighterFloat(): void {
         }
         m.el.style.opacity = (m.tw * m.dim * (0.4 + dustCur) * (0.55 + 0.45 * Math.sin(t * 1.5 + m.ph))).toFixed(2);
       }
+    }
+    // Edge sparks: while the centre card is held, spray sparks from its edges
+    // (intensity ramps with hold time); then let the rest burn out.
+    if (sparkCanvas) {
+      if (pressActive && deckState === 0) {
+        const act = wrap.querySelector<HTMLElement>(".fighter-card.active");
+        if (act) {
+          const ramp = Math.min(1, (now - pressStart) / 1800);
+          emitSparks(act.getBoundingClientRect(), sparkCanvas.getBoundingClientRect(), pressTier, ramp, t);
+        }
+      }
+      tickSparks();
     }
   };
   requestAnimationFrame(tick);
