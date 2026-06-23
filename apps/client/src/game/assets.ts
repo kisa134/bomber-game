@@ -110,8 +110,13 @@ const SOUND_BASE: Record<string, string> = {
 
 const MUSIC_BASE: Record<string, string> = {
   lobby: "music_lobby",
+  lobby2: "music_lobby2",
   battle: "music_battle",
 };
+
+// The hub cycles through these tracks back-to-back (a mini playlist). Any that
+// fail to load are skipped; a single survivor just loops as before.
+const HUB_PLAYLIST = ["lobby", "lobby2"];
 
 const AUDIO_EXTS = [".mp3", ".ogg", ".wav"];
 
@@ -360,17 +365,41 @@ export class Assets {
     }
   }
 
-  /** Switch the looping track (no-op if it's already playing). */
+  /** Tracks that actually loaded, in playlist order. */
+  private hubTracks(): string[] {
+    return HUB_PLAYLIST.filter((k) => this.music.has(k));
+  }
+
+  /** Switch the music. "lobby" selects the hub playlist (two tracks back-to-back);
+   *  if a hub track is already playing, it keeps going rather than restarting. */
   playMusic(key: string, volume = MUSIC_GAIN): void {
-    if (this.desiredMusic === key) {
-      // already selected; ensure it's actually playing if enabled
+    const wantHub = HUB_PLAYLIST.includes(key);
+    // Already on a hub track and the hub is requested → leave it playing.
+    if (wantHub && this.desiredMusic && HUB_PLAYLIST.includes(this.desiredMusic)) {
       if (this.musicEnabled) this.startDesired(volume);
       return;
     }
-    this.desiredMusic = key;
-    for (const [k, a] of this.music) {
-      if (k !== key) a.pause();
+    if (this.desiredMusic === key) {
+      if (this.musicEnabled) this.startDesired(volume);
+      return;
     }
+    const target = wantHub ? (this.hubTracks()[0] ?? key) : key;
+    this.desiredMusic = target;
+    for (const [k, a] of this.music) {
+      if (k !== target) a.pause();
+    }
+    if (this.musicEnabled) this.startDesired(volume);
+  }
+
+  /** A hub track ended → roll to the next one in the playlist (back-to-back). */
+  private advanceHub(volume: number): void {
+    const avail = this.hubTracks();
+    if (avail.length < 2 || !this.desiredMusic) return;
+    const next = avail[(avail.indexOf(this.desiredMusic) + 1) % avail.length];
+    this.desiredMusic = next;
+    for (const [k, a] of this.music) if (k !== next) a.pause();
+    const a = this.music.get(next);
+    if (a) a.currentTime = 0; // start the next song from the top
     if (this.musicEnabled) this.startDesired(volume);
   }
 
@@ -754,7 +783,12 @@ export class Assets {
     if (!this.desiredMusic) return;
     const a = this.music.get(this.desiredMusic);
     if (!a) return;
-    a.loop = true;
+    // Hub tracks chain into each other (loop only if there's a single one);
+    // everything else (battle) loops on its own.
+    const isHub = HUB_PLAYLIST.includes(this.desiredMusic);
+    const multiHub = isHub && this.hubTracks().length > 1;
+    a.loop = isHub ? !multiHub : true;
+    a.onended = multiHub ? () => this.advanceHub(volume) : null;
     if (a.paused) {
       // (Re)starting a paused track — resume from where it left off and fade in
       // smoothly (e.g. the menu theme returning after a match).
