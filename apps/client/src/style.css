@@ -5720,22 +5720,22 @@ button.big {
   background: #ff5a4d;
 }
 
-/* Bottom bar — GAME MODE · PLAY ONLINE · PRACTICE */
-/* Even, symmetric, vertically-centred: [GAME MODE] [ PLAY ] [PRACTICE] */
+/* Bottom bar — GAME MODE · PLAY ONLINE · PRACTICE.
+   FLEX (not grid): grid 1fr tracks can collapse the side columns on some
+   browsers; flex items never collapse. Centred + symmetric. */
 .hub-bottombar {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 16px;
   width: 100%;
-  max-width: 600px;
+  max-width: 640px;
   margin: 0 auto;
 }
-.hb-mode {
-  justify-self: end;
-}
+.hb-mode,
 .hb-practice {
-  justify-self: start;
+  flex: 0 0 auto;
 }
 .hb-side {
   display: flex;
