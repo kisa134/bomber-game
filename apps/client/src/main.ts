@@ -2371,6 +2371,17 @@ const CARD_HUE = [
 ];
 const cardHue = (i: number): string => CARD_HUE[i] ?? "#9aa3b2";
 
+// Crypto-meme texture for the card back (рубашка). A faint chaotic tile of
+// meme glyphs behind a gold-framed BOMBERMEME seal.
+const BACK_MEMES = ("💣🪙🐸🚀💎🔥🎮💀⚡🐶📈🌙🤡🛸💥").repeat(26);
+const cardBackHTML = (): string =>
+  '<div class="fc-back" aria-hidden="true">' +
+  `<div class="fc-back-tile">${BACK_MEMES}</div>` +
+  '<div class="fc-back-glow"></div>' +
+  '<div class="fc-back-frame"></div>' +
+  '<div class="fc-back-seal"><div class="fc-back-bomb">💣</div><div class="fc-back-word">BOMBERMEME</div><div class="fc-back-sub">MEME&nbsp;WARS</div></div>' +
+  "</div>";
+
 /** Inner HTML for one collectible card (static pose; active card animates).
     All visible layers live inside .fc-tilt, which floats + tilts to the cursor. */
 function fighterCardHTML(skin: number): string {
@@ -2395,7 +2406,8 @@ function fighterCardHTML(skin: number): string {
     `<div class="fc-badge" aria-hidden="true"><span>${["C", "R", "E", "L", "M"][tierRank(skin)]}</span></div>` +
     '<div class="fc-edge" aria-hidden="true"></div>' +
     `<div class="fc-lock${skinOwned(skin) ? " hidden" : ""}">🔒</div>` +
-    "</div>"
+    "</div>" +
+    cardBackHTML()
   );
 }
 
@@ -2502,14 +2514,48 @@ function startFighterFloat(): void {
   // Swipe / drag the carousel to browse fighters (works with touch + mouse).
   let downX = 0;
   let downAt = 0;
-  wrap.addEventListener("pointerdown", (e) => { downX = e.clientX; downAt = e.timeStamp; dragMoved = false; });
-  wrap.addEventListener("pointermove", (e) => { if (downAt && Math.abs(e.clientX - downX) > 10) dragMoved = true; });
+  wrap.addEventListener("pointerdown", (e) => {
+    if (deckState === 1) {
+      deckDragging = true; deckDownX = e.clientX; deckDownY = e.clientY;
+      wrap.classList.add("deck-dragging");
+      try { wrap.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      return;
+    }
+    downX = e.clientX; downAt = e.timeStamp; dragMoved = false;
+  });
+  wrap.addEventListener("pointermove", (e) => {
+    if (deckDragging) {
+      const ddx = e.clientX - deckDownX, ddy = e.clientY - deckDownY;
+      for (const card of wrap.querySelectorAll<HTMLElement>(".fighter-card")) {
+        const bx = Number(card.dataset.dx) || 0, by = Number(card.dataset.dy) || 0;
+        const bz = Number(card.dataset.dz) || 0, br = Number(card.dataset.dr) || 180;
+        card.style.transform = cardTf(bx + ddx, by + ddy, bz, br + ddx * 0.035, 0.92);
+      }
+      return;
+    }
+    if (downAt && Math.abs(e.clientX - downX) > 10) dragMoved = true;
+  });
   wrap.addEventListener("pointerup", (e) => {
+    if (deckDragging) { deckDragging = false; dealOut(); return; }
     const dx = e.clientX - downX;
     downAt = 0;
+    if (deckState !== 0) return;
     if (Math.abs(dx) > 42) cycleFighter(dx < 0 ? 1 : -1);
     // keep dragMoved set briefly so the trailing click is suppressed
     if (Math.abs(dx) > 10) setTimeout(() => { dragMoved = false; }, 0);
+  });
+  // 4 quick clicks on the centre card → gather the deck (easter egg)
+  wrap.addEventListener("click", (e) => {
+    if (deckState !== 0 || dragMoved) return;
+    const act = wrap.querySelector<HTMLElement>(".fighter-card.active");
+    if (act) {
+      const r = act.getBoundingClientRect();
+      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) { deckClicks = 0; return; }
+    }
+    deckClicks++;
+    window.clearTimeout(deckClickTimer);
+    deckClickTimer = window.setTimeout(() => { deckClicks = 0; }, 650);
+    if (deckClicks >= 4) { deckClicks = 0; enterDeck(); }
   });
   const tick = (now: number): void => {
     requestAnimationFrame(tick);
@@ -2518,7 +2564,9 @@ function startFighterFloat(): void {
     mCurY += (mTargetY - mCurY) * 0.07;
     dustCur += (dustTarget - dustCur) * 0.04;
     const t = now * 0.001;
-    for (const card of wrap.querySelectorAll<HTMLElement>(".fighter-card")) {
+    // While the deck easter egg owns the cards, don't let the float loop fight
+    // it for the transforms (dust keeps whirling below).
+    if (deckState === 0) for (const card of wrap.querySelectorAll<HTMLElement>(".fighter-card")) {
       if (card.style.visibility === "hidden") continue;
       const tilt = card.firstElementChild as HTMLElement | null;
       if (!tilt) continue;
@@ -2562,12 +2610,80 @@ function startFighterFloat(): void {
   requestAnimationFrame(tick);
 }
 
+// Unified card transform — SAME function list for fan AND deck, so CSS
+// interpolates each part cleanly (a real rotateY spin, not a matrix mush).
+const cardTf = (x: number, y: number, z: number, ry: number, s: number): string =>
+  `translate(-50%, -50%) translateX(${x}px) translateY(${y}px) translateZ(${z}px) rotateY(${ry}deg) scale(${s})`;
+
 // 3D fan offsets by |distance from centre|.
 const FAN = [
   { x: 0, z: 0, ry: 0, s: 1, op: 1 },
   { x: 250, z: -150, ry: 26, s: 0.84, op: 0.92 },
   { x: 432, z: -340, ry: 34, s: 0.66, op: 0.5 },
 ];
+
+/* ── DECK easter egg ──────────────────────────────────────────────────────
+   4 quick clicks on the centre card → every card gathers into a messy deck
+   (backs up), which the user can drag like cutting a deck; on release the
+   pack shuffles and deals back out into the fan, spinning back→front. */
+let deckState = 0; // 0 idle · 1 presented (draggable) · 2 dealing
+let deckClicks = 0;
+let deckClickTimer = 0;
+let deckDragging = false;
+let deckDownX = 0, deckDownY = 0;
+
+function enterDeck(): void {
+  const wrap = document.getElementById("fighter-carousel");
+  if (!wrap || deckState !== 0) return;
+  deckState = 1;
+  wrap.classList.add("deck-mode");
+  const cards = [...wrap.querySelectorAll<HTMLElement>(".fighter-card")];
+  cards.forEach((card, k) => {
+    const tilt = card.firstElementChild as HTMLElement | null;
+    if (tilt) tilt.style.transform = "none"; // freeze the per-card float
+    // messy but deterministic stack jitter
+    const jx = Math.sin(k * 12.9898) * 16;
+    const jy = Math.cos(k * 4.1414) * 12;
+    const jr = 180 + Math.sin(k * 7.77) * 11; // backs to the viewer
+    card.dataset.dx = String(jx);
+    card.dataset.dy = String(jy);
+    card.dataset.dz = String(k * 1.4);
+    card.dataset.dr = String(jr);
+    card.style.visibility = "visible";
+    card.style.opacity = "1";
+    card.style.pointerEvents = "none";
+    card.style.zIndex = String(120 + k);
+    card.style.transitionDelay = `${k * 16}ms`;
+    card.style.transform = cardTf(jx, jy, k * 1.4, jr, 0.92);
+  });
+  window.setTimeout(() => cards.forEach((c) => (c.style.transitionDelay = "")), 380);
+}
+
+function dealOut(): void {
+  const wrap = document.getElementById("fighter-carousel");
+  if (!wrap || deckState !== 1) return;
+  deckState = 2;
+  wrap.classList.remove("deck-mode");
+  wrap.classList.remove("deck-dragging");
+  const active = hubBrowseSkin >= 0 ? hubBrowseSkin : hubEquipped();
+  const cards = [...wrap.querySelectorAll<HTMLElement>(".fighter-card")];
+  // brief riffle, then deal each card to its fan slot (spinning back→front),
+  // staggered out from the centre so it reads as a shuffle-and-fan.
+  cards.forEach((card) => {
+    const i = Number(card.dataset.skin);
+    let off = i - active;
+    if (off > SKIN_COUNT / 2) off -= SKIN_COUNT;
+    if (off < -SKIN_COUNT / 2) off += SKIN_COUNT;
+    card.style.transitionDelay = `${Math.abs(off) * 75}ms`;
+    card.style.zIndex = "";
+  });
+  layoutCarousel(active); // fan transforms (rotateY ~0) → transition spins from 180
+  window.setTimeout(() => {
+    cards.forEach((c) => { c.style.transitionDelay = ""; delete c.dataset.dx; delete c.dataset.dy; delete c.dataset.dz; delete c.dataset.dr; });
+    deckState = 0; // float resumes
+  }, 1000);
+}
+
 function layoutCarousel(active: number): void {
   const cards = document.querySelectorAll<HTMLElement>("#fighter-carousel .fighter-card");
   const n = SKIN_COUNT;
@@ -2593,8 +2709,7 @@ function layoutCarousel(active: number): void {
     const sign = off < 0 ? -1 : 1;
     const f = FAN[a];
     card.style.visibility = "visible";
-    card.style.transform =
-      `translate(-50%, -50%) translateX(${sign * f.x}px) translateZ(${f.z}px) rotateY(${-sign * f.ry}deg) scale(${f.s})`;
+    card.style.transform = cardTf(sign * f.x, 0, f.z, -sign * f.ry, f.s);
     card.style.opacity = String(f.op);
     card.style.zIndex = String(10 - a);
     card.style.pointerEvents = off === 0 ? "none" : "auto";
