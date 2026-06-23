@@ -5429,11 +5429,12 @@ button.big {
 .fighter-arrow:active {
   transform: translateY(-50%) scale(0.86);
 }
+/* Just outside the fan (which spans ~±403px from centre) with a small indent */
 .fighter-arrow.prev {
-  left: clamp(10px, 4vw, 96px);
+  left: max(8px, calc(50% - 490px));
 }
 .fighter-arrow.next {
-  right: clamp(10px, 4vw, 96px);
+  right: max(8px, calc(50% - 490px));
 }
 @media (max-width: 899px) {
   .fighter-arrow {
@@ -5745,21 +5746,24 @@ button.big {
 .hb-label {
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 0.55rem;
+  font-size: 0.58rem;
   letter-spacing: 0.16em;
-  color: var(--muted);
+  color: #b9b3c6;
 }
+/* Clearly-visible side buttons (were too dark on the dark hub) */
 .hb-mode-btn,
 .hb-practice-btn {
   width: auto;
-  padding: 11px 13px;
-  border-radius: 10px;
-  background: rgba(20, 18, 26, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  padding: 12px 15px;
+  border-radius: 11px;
+  background: linear-gradient(180deg, rgba(54, 48, 66, 0.95), rgba(34, 30, 44, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   font-family: var(--font-ui);
   font-weight: 700;
-  font-size: 0.78rem;
-  color: var(--text);
+  font-size: 0.82rem;
+  color: #f2eefa;
+  white-space: nowrap;
 }
 .hb-mode-btn:hover,
 .hb-practice-btn:hover {
