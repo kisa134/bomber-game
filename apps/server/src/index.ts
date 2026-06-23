@@ -13,6 +13,7 @@ import { alert, alertCount, recentAlerts } from "./alert.js";
 import { aiAnalyze, aiInfo } from "./ai.js";
 import { rakeAccrued, treasuryWallets, markBurned } from "./treasury.js";
 import { burnFromTreasury } from "./token.js";
+import { initSentry, captureError } from "./sentry.js";
 import { metrics } from "./metrics.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
@@ -75,8 +76,15 @@ const SERVE_STATIC = existsSync(join(CLIENT_DIST, "index.html"));
 // One bad promise/exception must NOT take down the single instance (that strands
 // every live match). Log loudly instead of letting Node exit on unhandled
 // rejections; on SIGTERM (every Render deploy) refund in-flight staked pots first.
-process.on("unhandledRejection", (reason) => alert(`unhandledRejection: ${String(reason)}`, "unhandledRejection"));
-process.on("uncaughtException", (err) => alert(`uncaughtException: ${err?.message ?? err}`, "uncaughtException"));
+initSentry();
+process.on("unhandledRejection", (reason) => {
+  captureError(reason, { kind: "unhandledRejection" });
+  alert(`unhandledRejection: ${String(reason)}`, "unhandledRejection");
+});
+process.on("uncaughtException", (err) => {
+  captureError(err, { kind: "uncaughtException" });
+  alert(`uncaughtException: ${err?.message ?? err}`, "uncaughtException");
+});
 let shuttingDown = false;
 async function gracefulShutdown(sig: string): Promise<void> {
   if (shuttingDown) return;
@@ -1055,8 +1063,25 @@ friendAction("/friends/remove", (w, f) => store.removeFriend(w, f));
 
 // --- referral ---
 // Bind the inviter for a freshly-connected wallet (one-time, session-verified).
+// Anti-sybil: cap how many NEW referral attachments one IP can create per day,
+// so a single host can't farm a pyramid with throwaway wallets.
+const REF_ATTR_MAX_PER_IP_DAY = Number(process.env.REF_ATTR_MAX_PER_IP_DAY) || 10;
+const refAttrByIp = new Map<string, { day: number; n: number }>();
+function refAttrAllowed(ip: string): boolean {
+  const day = Math.floor(Date.now() / 86_400_000);
+  const e = refAttrByIp.get(ip);
+  return !e || e.day !== day || e.n < REF_ATTR_MAX_PER_IP_DAY;
+}
+function refAttrRecord(ip: string): void {
+  const day = Math.floor(Date.now() / 86_400_000);
+  const e = refAttrByIp.get(ip);
+  if (!e || e.day !== day) refAttrByIp.set(ip, { day, n: 1 });
+  else e.n += 1;
+}
+
 app.post("/referral/attribute", (res, req) => {
   if (!guard(res, req)) return;
+  const ip = clientIp(res, req); // must read req before any await
   void readBody(res).then(async (body) => {
     let wallet: string | null = null;
     let ref = "";
@@ -1072,8 +1097,13 @@ app.post("/referral/attribute", (res, req) => {
     // player joins under the top of the pyramid.
     const effectiveRef = ref || REFERRAL_ROOT;
     if (!effectiveRef || effectiveRef === wallet) return sendJson(res, { ok: false });
+    if (!refAttrAllowed(ip)) {
+      alert(`referral attribution rate-limited for IP ${ip} (sybil guard)`, "ref_sybil");
+      return sendJson(res, { ok: false, error: "rate_limited" }, "429 Too Many Requests");
+    }
     const set = await store.setReferrer(wallet, effectiveRef);
     if (set) {
+      refAttrRecord(ip);
       const underRoot = effectiveRef === REFERRAL_ROOT;
       logEvent("🔗", `${shortWallet(wallet)} joined ${underRoot ? "under root (you)" : "via " + shortWallet(effectiveRef)}`);
     }

@@ -115,6 +115,10 @@ services:
         sync: false
       - key: METRICS_TOKEN # optional: require ?token=… on /metrics (Prometheus). Empty = open
         sync: false
+      - key: SENTRY_DSN # optional: error tracking (no-op when empty)
+        sync: false
+      - key: REF_ATTR_MAX_PER_IP_DAY # anti-sybil: max new referral attaches per IP/day (default 10)
+        sync: false
       # Daily growth targets for the /admin cockpit (optional; defaults 10 / 30).
       - key: GROWTH_TARGET_PAYING # paying players/day goal (default 10)
         sync: false

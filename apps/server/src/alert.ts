@@ -6,6 +6,7 @@
 // you're never blind to failing withdrawals/settlements.
 
 import { logEvent } from "./events.js";
+import { captureMessage } from "./sentry.js";
 
 const WEBHOOK = process.env.ALERT_WEBHOOK ?? "";
 const THROTTLE_MS = 60_000;
@@ -27,6 +28,7 @@ export function alert(msg: string, key = msg): void {
   totalAlerts += 1;
   recent.push({ t: Date.now(), msg });
   if (recent.length > 50) recent.shift();
+  captureMessage(msg); // forward to Sentry (no-op without SENTRY_DSN)
   try {
     logEvent("🚨", msg);
   } catch {

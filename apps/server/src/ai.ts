@@ -106,44 +106,53 @@ async function callWaveSpeed(user: string): Promise<string> {
   const headers = { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };
   const errs: string[] = [];
   const chatPath = process.env.WAVESPEED_CHAT_PATH ?? "/chat/completions";
-  // LLMs on WaveSpeed are OpenAI-compatible. The exact base path isn't published
-  // to us, so try the likely candidates (or just WAVESPEED_BASE if pinned).
+  // OpenAI-compatible. Base path isn't published to us — try likely candidates
+  // (or just WAVESPEED_BASE if pinned).
   const bases = process.env.WAVESPEED_BASE
     ? [process.env.WAVESPEED_BASE]
     : ["https://api.wavespeed.ai/api/v3", "https://api.wavespeed.ai/v3", "https://api.wavespeed.ai/v1"];
-  const body = JSON.stringify({
-    model: MODEL,
-    max_tokens: 1400,
-    temperature: 0.4,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: user },
-    ],
-  });
+  // The exact model id may differ from the website slug ("Model not found").
+  // Try the configured id, then a few common variants (set AI_MODEL to pin it).
+  const models = [...new Set([MODEL, MODEL.split("/").pop() as string, "moonshotai/kimi-k2", "kimi-k2"].filter(Boolean))];
+  const mkBody = (model: string): string =>
+    JSON.stringify({
+      model,
+      max_tokens: 1400,
+      temperature: 0.4,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: user },
+      ],
+    });
   for (const base of bases) {
     const url = `${base}${chatPath}`;
-    try {
-      const r = await fetch(url, { method: "POST", headers, body });
-      const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
-      if (r.ok) {
-        const t =
-          ((j as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content ?? "").trim() ||
-          pickText(j);
-        if (t) return t;
-        errs.push(`${url} → ok but empty`);
-      } else {
-        errs.push(`${url} → ${r.status} ${JSON.stringify(j).slice(0, 160)}`);
-        // A 400 "model not found" means the path is right but the id is wrong —
-        // no point trying other bases with the same id.
-        if (r.status === 400 && /model/i.test(JSON.stringify(j))) break;
+    let pathBad = false;
+    for (const model of models) {
+      try {
+        const r = await fetch(url, { method: "POST", headers, body: mkBody(model) });
+        const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
+        if (r.ok) {
+          const t =
+            ((j as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content ?? "").trim() ||
+            pickText(j);
+          if (t) return t;
+          errs.push(`${url} [${model}] → ok but empty`);
+        } else {
+          errs.push(`${url} [${model}] → ${r.status} ${JSON.stringify(j).slice(0, 120)}`);
+          if (r.status === 404) { pathBad = true; break; } // wrong path → try next base
+          // 400/model-not-found → try the next model id on the same path
+        }
+      } catch (e) {
+        errs.push(`${url} [${model}] → threw ${String(e)}`);
+        pathBad = true;
+        break;
       }
-    } catch (e) {
-      errs.push(`${url} → threw ${String(e)}`);
     }
+    if (!pathBad) break; // path worked (just no model matched) — don't try other bases
   }
   throw new Error(
-    `WaveSpeed LLM call failed for model "${MODEL}". Tried: ${errs.join(" | ")}. ` +
-      `If it's a model-id problem set AI_MODEL; if it's the URL set WAVESPEED_BASE / WAVESPEED_CHAT_PATH (copy from the model's API tab).`,
+    `WaveSpeed LLM failed. Tried: ${errs.join(" | ")}. ` +
+      `Fix: open the model's API/Code tab, copy the exact "model" id, set env AI_MODEL=<id> (no rebuild needed).`,
   );
 }
 
