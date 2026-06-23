@@ -1884,9 +1884,28 @@ async function openPublicProfile(wallet: string): Promise<void> {
     );
     body.append(grid);
     body.append(el("div", "status fair", shortAddr(wallet)));
+    appendKickAction(body, wallet, p.name);
   } catch {
     body.innerHTML = '<p class="status">Failed to load.</p>';
   }
+}
+
+/** If the viewer is the host and this player is a kickable member of the current
+ *  waiting room, add a clear "Kick" button to their profile card — a reliable
+ *  path where the tiny seat ✕ is easy to miss (especially on touch). */
+function appendKickAction(body: HTMLElement, wallet: string, name: string): void {
+  const inRoom = !document.getElementById("room")?.classList.contains("hidden");
+  if (!inRoom || !state.isHost) return;
+  const member = state.roomPlayers.find((rp) => rp.wallet && rp.wallet === wallet);
+  if (!member || member.id === state.hostId || member.id === state.myId) return;
+  const kick = el("button", "ghost kick-card-btn", "👢 Kick from lobby") as HTMLButtonElement;
+  kick.addEventListener("click", () => {
+    if (!confirm(`Kick ${name || "this player"} from the lobby?`)) return;
+    net.sendKick(member.id);
+    document.getElementById("pubprofile-modal")?.classList.add("hidden");
+    showBanner(`👢 Kicked ${name || "player"}`);
+  });
+  body.append(kick);
 }
 
 /** Card for a lobby player. Wallet players show full stats; bots/guests show a
@@ -3187,7 +3206,12 @@ wireWallet();
 wireMenuLinks();
 wireBank();
 setProfileHandler((p) => openPlayerCard(p));
-setKickHandler((playerId) => net.sendKick(playerId));
+setKickHandler((playerId) => {
+  const name = state.roomPlayers.find((p) => p.id === playerId)?.name ?? "player";
+  if (!confirm(`Kick ${name} from the lobby?`)) return;
+  net.sendKick(playerId);
+  showBanner(`👢 Kicked ${name}`);
+});
 setDurationHandler((mins) => net.sendSetDuration(mins));
 // Lobby character strip: pick an OWNED skin (applies this match + becomes your
 // default); tapping a LOCKED skin opens the SHOP to unlock it.

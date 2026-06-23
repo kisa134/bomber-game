@@ -2081,20 +2081,33 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 .seat .kick-btn {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 26px;
-  height: 26px;
+  top: 4px;
+  right: 4px;
+  width: 34px;
+  height: 34px;
   padding: 0;
-  border-radius: 8px;
-  font-size: 0.85rem;
+  border-radius: 9px;
+  font-size: 0.95rem;
   font-weight: 800;
-  background: rgba(255, 90, 95, 0.14);
+  background: rgba(255, 90, 95, 0.16);
   border: 1px solid rgba(255, 90, 95, 0.45);
   color: #ff7a7f;
+  z-index: 3; /* sit above the seat's tap-to-open-profile target */
+  cursor: pointer;
+  touch-action: manipulation;
 }
 .seat .kick-btn:hover {
-  background: rgba(255, 90, 95, 0.28);
+  background: rgba(255, 90, 95, 0.32);
+}
+/* Kick action inside a player's profile card — the reliable, obvious path. */
+.kick-card-btn {
+  margin-top: 10px;
+  width: 100%;
+  color: #ff7a7f;
+  border-color: rgba(255, 90, 95, 0.45);
+}
+.kick-card-btn:hover {
+  background: rgba(255, 90, 95, 0.18);
 }
 /* Match settings */
 .room-settings {
