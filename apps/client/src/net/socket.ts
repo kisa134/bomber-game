@@ -58,6 +58,8 @@ export interface ProfileData {
   deaths: number;
   best_streak: number;
   current_streak?: number; // live win streak (resets on a loss)
+  daily_day?: number; // UTC day-index of the last claimed daily reward
+  daily_streak?: number; // consecutive-day login streak
   chips: number;
   rating: number;
   week_points: number;
@@ -311,6 +313,17 @@ export async function addFriend(name: string): Promise<{ ok?: boolean; result?: 
 }
 export async function acceptFriend(wallet: string): Promise<void> {
   await post("/friends/accept", { wallet });
+}
+
+export interface DailyResult { already: boolean; streak: number; chips: number; xp: number; bonus: boolean; error?: string; }
+/** Claim today's daily login reward (idempotent server-side). */
+export async function claimDaily(): Promise<DailyResult> {
+  try {
+    const r = await post("/daily/claim", {});
+    return (await r.json()) as DailyResult;
+  } catch {
+    return { already: true, streak: 0, chips: 0, xp: 0, bonus: false, error: "net" };
+  }
 }
 export async function removeFriend(wallet: string): Promise<void> {
   await post("/friends/remove", { wallet });

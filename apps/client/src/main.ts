@@ -53,6 +53,7 @@ import {
   addFriend,
   acceptFriend,
   removeFriend,
+  claimDaily,
   type FriendsData,
   type ProfileData,
   type JoinResponse,
@@ -1271,6 +1272,7 @@ function refreshWalletBtn(): void {
         setStats(p.chips, p.rating);
         setTokenBadge(p.gameTokens);
         setProgress(p.level ?? 1, p.xp ?? 0);
+        refreshDaily(p); // show the Daily Reward card if claimable today
         setLobbySkins(p.skins ?? DEFAULT_SKINS, p.level ?? 1); // owned skins for the lobby strip
         loadHubTop(); // re-render now that we know who "you" are (show your own row right away)
         // Show the wallet's claimed (unique) nickname in the field.
@@ -2973,6 +2975,53 @@ function maybeRunCoach(): void {
   setTimeout(() => runCoach(COACH_STEPS), 350);
 }
 
+// --- daily login reward ----------------------------------------------------
+const utcDayIndex = (): number => Math.floor(Date.now() / 86_400_000);
+
+/** Show/refresh the hub's Daily Reward card from a profile (claimable today?). */
+function refreshDaily(p: ProfileData | null): void {
+  const card = document.getElementById("open-daily");
+  if (!card) return;
+  if (!p || !loadWallet()) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  const claimable = (p.daily_day ?? 0) !== utcDayIndex();
+  const streak = p.daily_streak ?? 0;
+  const badge = document.getElementById("daily-badge");
+  const sub = document.getElementById("daily-sub");
+  card.classList.toggle("done", !claimable);
+  if (claimable) {
+    if (badge) { badge.textContent = "CLAIM"; badge.className = "rc-badge ready"; }
+    if (sub) sub.textContent = streak > 0 ? `Streak ${streak} 🔥 · claim today's reward` : "Claim your first daily reward";
+  } else {
+    if (badge) { badge.textContent = "DONE"; badge.className = "rc-badge"; }
+    if (sub) sub.textContent = `Streak ${streak} 🔥 · come back tomorrow`;
+  }
+}
+
+function wireDaily(): void {
+  document.getElementById("open-daily")?.addEventListener("click", () => {
+    const card = document.getElementById("open-daily")!;
+    if (card.classList.contains("done")) { showToast("Daily reward already claimed — come back tomorrow", "info"); return; }
+    void claimDaily().then((r) => {
+      if (r.error) { showToast("Couldn't claim — try again", "error"); return; }
+      if (r.already) {
+        showToast("Already claimed today — come back tomorrow", "info");
+      } else {
+        const bonus = r.bonus ? " · 🎉 7-day bonus!" : "";
+        showToast(`🎁 +${r.chips.toLocaleString()} 🪙 · +${r.xp} XP · streak ${r.streak} 🔥${bonus}`, "success", 4200);
+        assets.play("victory");
+      }
+      const w = loadWallet();
+      if (w) void fetchProfile(w.address).then((p) => {
+        myProfile = p;
+        setStats(p.chips, p.rating);
+        setProgress(p.level ?? 1, p.xp ?? 0);
+        refreshDaily(p);
+      });
+    });
+  });
+}
+
 function setupOnboarding(): void {
   document.getElementById("onboard-next")!.addEventListener("click", () => {
     if (onboardIdx >= ONBOARD.length - 1) closeOnboarding();
@@ -3359,6 +3408,7 @@ wireNickname();
 wireWallet();
 wireMenuLinks();
 wireBank();
+wireDaily();
 setProfileHandler((p) => openPlayerCard(p));
 setKickHandler((playerId) => {
   const name = state.roomPlayers.find((p) => p.id === playerId)?.name ?? "player";

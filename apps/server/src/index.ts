@@ -728,7 +728,7 @@ app.get("/profile", (res, req) => {
   // Balances (real-money custodial + on-chain) are private: only returned when a
   // valid session proves the requester owns this wallet. Public stats otherwise.
   const isOwner = !!session && verifySession(session) === wallet && !!wallet;
-  const blank = { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, skins: DEFAULT_SKINS, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0, token_balance: 0, playtime_sec: 0 };
+  const blank = { wallet, level: 1, xp: 0, matches: 0, wins: 0, frags: 0, deaths: 0, best_streak: 0, name: "", skin: 0, skins: DEFAULT_SKINS, current_streak: 0, chips: STARTING_CHIPS, rating: STARTING_RATING, week_key: "", week_points: 0, token_balance: 0, playtime_sec: 0, daily_day: 0, daily_streak: 0 };
   Promise.all([store.getProfile(wallet), isOwner ? tokenBalance(wallet) : Promise.resolve(0)])
     .then(([p, tok]) => {
       const prof = p ?? blank;
@@ -1130,6 +1130,23 @@ function friendAction(path: string, fn: (wallet: string, friend: string) => Prom
 }
 friendAction("/friends/accept", (w, f) => store.acceptFriend(w, f));
 friendAction("/friends/remove", (w, f) => store.removeFriend(w, f));
+
+// Claim today's daily login reward (session-verified, idempotent per UTC day).
+app.post("/daily/claim", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then(async (body) => {
+    let wallet: string | null = null;
+    try {
+      const j = JSON.parse(body || "{}");
+      if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+    } catch {
+      /* ignore */
+    }
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    const r = await store.claimDaily(wallet);
+    sendJson(res, r);
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
 
 // --- referral ---
 // Bind the inviter for a freshly-connected wallet (one-time, session-verified).

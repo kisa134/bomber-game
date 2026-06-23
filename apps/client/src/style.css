@@ -5964,6 +5964,21 @@ button.big {
 .rc-badge.new {
   background: #ff5a4d;
 }
+/* Daily Reward card — teal accent; dimmed once today's reward is claimed. */
+.rail-card.daily {
+  background: linear-gradient(160deg, rgba(20, 36, 38, 0.92), rgba(11, 18, 20, 0.92));
+  border-color: rgba(95, 209, 217, 0.4);
+}
+.rail-card.daily .rc-title {
+  color: #7fe0e0;
+}
+.rail-card.daily.done {
+  opacity: 0.55;
+  border-color: var(--border);
+}
+.rail-card.daily.done .rc-title {
+  color: var(--muted);
+}
 
 /* Bottom bar — GAME MODE · PLAY ONLINE · PRACTICE.
    FLEX (not grid): grid 1fr tracks can collapse the side columns on some
