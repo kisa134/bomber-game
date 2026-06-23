@@ -205,15 +205,14 @@ export const INITIAL_ALLOCATION_PCT = {
 } as const;
 // Default house rake = 5% (overridable via HOUSE_RAKE_BP env).
 export const HOUSE_RAKE_BP_DEFAULT = 500;
-// How each house rake splits, in basis points of the rake (sum = 10000):
-// Burn 25 · Real Yield 25 · Dev Treasury 24 · 5-Tier Referral 21 · DAO 5.
-// NOTE: `referral` here MUST equal the sum of REFERRAL_LEVEL_BPS (10/5/3/2/1 = 21%).
+// How each house rake splits, in basis points of the rake (sum = 10000).
+// MODEL B (launch): Burn 25 · 5-Tier Referral 21 · Dev Treasury 54.
+// Real Yield + DAO are deferred to Phase 2 (not in code — marketing roadmap only).
+// NOTE: `referral` MUST equal the sum of REFERRAL_LEVEL_BPS (10/5/3/2/1 = 21%).
 export const RAKE_SPLIT_BPS = {
   burn: 2500,
-  realYield: 2500,
-  devTreasury: 2400,
   referral: 2100,
-  daoImpact: 500,
+  devTreasury: 5400,
 } as const;
 // Withdraw bounds (whole tokens) — guardrails on the custodial cash-out.
 export const MIN_WITHDRAW = 1;

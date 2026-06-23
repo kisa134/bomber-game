@@ -23,6 +23,7 @@ import {
   getOrCreateAssociatedTokenAccount,
   createTransferInstruction,
   createTransferCheckedInstruction,
+  createBurnInstruction,
   TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
@@ -435,4 +436,25 @@ export async function withdraw(wallet: string, amountBase: number): Promise<stri
   } finally {
     withdrawInFlight.delete(wallet);
   }
+}
+
+/** Permanently burn `amountBase` of the token from the treasury account (the
+ *  rake "Burn / Deflationary Core" pipe). Irreversible — caller decides when
+ *  (manual sweep from /admin). Returns the on-chain signature. */
+export async function burnFromTreasury(amountBase: number): Promise<string> {
+  await initToken();
+  if (!treasuryKeypair || !treasuryAta) throw new Error("burn_disabled (treasury not configured)");
+  if (!Number.isInteger(amountBase) || amountBase <= 0) throw new Error("bad_amount");
+  const ix = createBurnInstruction(treasuryAta, MINT, treasuryKeypair.publicKey, amountBase, [], tokenProgram);
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash("confirmed");
+  const tx = new Transaction().add(ix);
+  tx.feePayer = treasuryKeypair.publicKey;
+  tx.recentBlockhash = blockhash;
+  tx.lastValidBlockHeight = lastValidBlockHeight;
+  tx.sign(treasuryKeypair);
+  const sig = await connection.sendRawTransaction(tx.serialize(), { skipPreflight: false, maxRetries: 5 });
+  await connection.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, "confirmed");
+  logEvent("🔥", `burned ${fromBaseUnits(amountBase).toLocaleString()} from treasury (${sig})`);
+  console.log(`[token] burned ${fromBaseUnits(amountBase)} (${sig})`);
+  return sig;
 }

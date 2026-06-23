@@ -11,7 +11,8 @@ import { REFERRAL_LEVEL_BPS } from "./referral.js";
 import { logEvent, recentEvents, shortWallet } from "./events.js";
 import { alert, alertCount, recentAlerts } from "./alert.js";
 import { aiAnalyze, aiInfo } from "./ai.js";
-import { rakeAccrued, treasuryWallets } from "./treasury.js";
+import { rakeAccrued, treasuryWallets, markBurned } from "./treasury.js";
+import { burnFromTreasury } from "./token.js";
 import { metrics } from "./metrics.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
@@ -183,10 +184,10 @@ function rakeEngineBlock(): Record<string, unknown> {
       // display units (since restart)
       total: fromBaseUnits(a.total),
       burn: fromBaseUnits(a.burn),
-      realYield: fromBaseUnits(a.realYield),
-      devTreasury: fromBaseUnits(a.devTreasury),
       referral: fromBaseUnits(a.referral),
-      daoImpact: fromBaseUnits(a.daoImpact),
+      devTreasury: fromBaseUnits(a.devTreasury),
+      burnSwept: fromBaseUnits(a.burnSwept),
+      burnSweepable: fromBaseUnits(a.burnSweepable),
       matches: a.matches,
     },
     supply: { total: TOTAL_SUPPLY, buyback: GAME_BUYBACK_TOKENS, allocation: INITIAL_ALLOCATION_PCT },
@@ -619,6 +620,24 @@ app.post("/admin/ai-analyze", (res, req) => {
       sendJson(res, await aiAnalyze(snapshot));
     } catch (e) {
       sendJson(res, { ok: false, reason: `snapshot failed: ${String(e)}` }, "500 Internal Server Error");
+    }
+  })();
+});
+
+// Manual burn sweep — burns the accrued-but-not-yet-burned rake (Burn pipe) from
+// the treasury on-chain. Manual on purpose (full control, no auto-moving funds).
+app.post("/admin/burn-sweep", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  void (async () => {
+    try {
+      const amountBase = rakeAccrued().burnSweepable; // base units
+      if (!(amountBase > 0)) return sendJson(res, { ok: false, reason: "nothing to burn yet" });
+      const sig = await burnFromTreasury(amountBase);
+      markBurned(amountBase);
+      sendJson(res, { ok: true, burned: fromBaseUnits(amountBase), sig });
+    } catch (e) {
+      sendJson(res, { ok: false, reason: String(e) }, "500 Internal Server Error");
     }
   })();
 });

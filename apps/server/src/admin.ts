@@ -73,8 +73,12 @@ export function adminPageHtml(): string {
     <h3>💰 Economy <span class="muted" style="font-weight:400;font-size:.8rem">· circulation &amp; treasury</span></h3>
     <div class="grid" id="economy"></div>
     <div class="cfg" id="toggles"></div>
-    <h3>💸 Rake Engine <span class="muted" style="font-weight:400;font-size:.8rem">· per-match 5% split · accrued since restart</span></h3>
+    <h3>💸 Rake Engine <span class="muted" style="font-weight:400;font-size:.8rem">· Model B: Burn 25 · Referral 21 · Treasury 54 · accrued since restart</span></h3>
     <div class="grid" id="rake"></div>
+    <div style="margin:0 0 16px">
+      <button id="burn-sweep">🔥 Burn now</button>
+      <span id="burn-status" class="muted" style="margin-left:10px"></span>
+    </div>
     <h3>🏦 Treasury &amp; supply <span class="muted" style="font-weight:400;font-size:.8rem">· on-chain transparency</span></h3>
     <div class="grid" id="supply"></div>
     <div id="wallets" class="feed" style="margin:0 0 16px"></div>
@@ -200,16 +204,16 @@ async function poll(){
     var bps=function(b){return (b/100)+"%";};
     $("#rake").innerHTML=
       tile("Rake collected","${TOKEN_TICKER} "+fmt(ra.total),fmt(ra.matches)+" paid matches · "+((re.rakeBp||0)/100)+"%")+
-      tile("🔥 Burn","${TOKEN_TICKER} "+fmt(ra.burn),bps(rs.burn)+" · deflation")+
-      tile("💎 Real Yield","${TOKEN_TICKER} "+fmt(ra.realYield),bps(rs.realYield)+" · staking")+
-      tile("⚙️ Dev Treasury","${TOKEN_TICKER} "+fmt(ra.devTreasury),bps(rs.devTreasury)+" · R&D")+
       tile("👥 Referral","${TOKEN_TICKER} "+fmt(ra.referral),bps(rs.referral)+" · paid out")+
-      tile("🏛️ DAO Impact","${TOKEN_TICKER} "+fmt(ra.daoImpact),bps(rs.daoImpact)+" · community");
+      tile("⚙️ Dev Treasury","${TOKEN_TICKER} "+fmt(ra.devTreasury),bps(rs.devTreasury)+" · house/ops")+
+      tile("🔥 Burn accrued","${TOKEN_TICKER} "+fmt(ra.burn),bps(rs.burn)+" of rake")+
+      tile("🔥 Burned on-chain","${TOKEN_TICKER} "+fmt(ra.burnSwept),"swept (deflation)")+
+      tile("🔥 To burn now","${TOKEN_TICKER} "+fmt(ra.burnSweepable),"pending sweep");
     // Treasury & supply
     var su=re.supply||{allocation:{}}, al=su.allocation||{};
     $("#supply").innerHTML=
       tile("Total supply",fmt(su.total),"$BMB cap")+
-      tile("In-game buyback",fmt(su.buyback),"seeded into the economy")+
+      tile("In-game buyback",fmt(su.buyback),"12% seeded into the economy")+
       tile("Fair launch",(al.freeMarket||0)+"%","free market liquidity")+
       tile("Allocations",(al.gameTreasury||0)+"/"+(al.marketingCex||0)+"/"+(al.devTeam||0)+"%","treasury / mktg / dev (locked)");
     var w=re.wallets||{};
@@ -218,9 +222,9 @@ async function poll(){
       wrow("Game Treasury",w.gameTreasury,"5% · lock")+
       wrow("Marketing/CEX",w.marketingCex,"4% · lock")+
       wrow("Dev Team",w.devTeam,"3% · 3-mo vesting lock")+
-      wrow("Burn",w.burn,"rake 25%")+
-      wrow("Real Yield",w.realYield,"rake 25%")+
-      wrow("DAO Impact",w.daoImpact,"rake 5%");
+      wrow("Burn",w.burn,"rake 25% sink")+
+      '<div class="ev"><time>Real Yield</time><span class="muted">Phase 2 · coming soon</span></div>'+
+      '<div class="ev"><time>DAO</time><span class="muted">Phase 2 · coming soon</span></div>';
     // Lucky Spin tallies
     var sp=d.spins||{spins:0,cost:0,paid:0,skins:0,net:0};
     $("#spins").innerHTML=
@@ -326,6 +330,20 @@ $("#ai-run").onclick=function(){
       btn.disabled=false;st.textContent=d.model?("· "+(d.provider||"")+" "+d.model):"";
       out.textContent=d.ok?d.text:(d.reason||"AI failed.");
       out.style.display="block";
+    })
+    .catch(function(e){btn.disabled=false;st.innerHTML='<span class="err">'+e+'</span>';});
+};
+$("#burn-sweep").onclick=function(){
+  if(!token){return;}
+  if(!confirm("Permanently BURN the pending rake from the treasury on-chain? This is irreversible.")){return;}
+  var btn=$("#burn-sweep"),st=$("#burn-status");
+  btn.disabled=true;st.textContent="Burning…";
+  fetch("/admin/burn-sweep?token="+encodeURIComponent(token),{method:"POST"})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      btn.disabled=false;
+      if(d.ok){st.innerHTML='🔥 Burned '+fmt(d.burned)+' · <a href="https://solscan.io/tx/'+d.sig+'" target="_blank" rel="noopener">tx</a>';poll();}
+      else{st.innerHTML='<span class="err">'+(d.reason||"failed")+'</span>';}
     })
     .catch(function(e){btn.disabled=false;st.innerHTML='<span class="err">'+e+'</span>';});
 };

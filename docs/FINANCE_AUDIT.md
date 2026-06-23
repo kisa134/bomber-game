@@ -1,5 +1,11 @@
 # Financial & referral system — audit + structure
 
+> **RESOLVED (Model B):** the rake split is now **Burn 25% · Referral 21% ·
+> Dev Treasury 54%**. Real Yield + DAO are deferred to Phase 2 (not in code).
+> Burn is accrued per match and swept on-chain manually from /admin (🔥 Burn now).
+> The 5-bucket discussion below is kept for history.
+
+
 What the code **actually does** with money, as a diagram, and how it compares to
 the published tokenomics (`bombermeme-lending.vercel.app/tokenomics`, token **$BMB**).
 
