@@ -281,7 +281,9 @@ export class Matchmaker {
 
   start(): void {
     if (this.loop) return;
-    this.ensureCasualRooms(); // spin up the always-open casual bot rooms
+    // Always-open bot rooms are disabled for now (see ensureCasualRooms). Re-enable
+    // by setting CASUAL_BOT_ROOMS > 0 and uncommenting the call below.
+    if ((Number(process.env.CASUAL_BOT_ROOMS) || 0) > 0) this.ensureCasualRooms(Number(process.env.CASUAL_BOT_ROOMS));
     this.lastTime = Date.now();
     this.acc = 0;
     this.loop = setInterval(() => this.step(), TICK_MS);

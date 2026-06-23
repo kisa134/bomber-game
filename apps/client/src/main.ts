@@ -303,9 +303,14 @@ net.onMessage = (msg) => {
     case ServerMsg.WELCOME:
       clearConnectWatchdog(); // we reached the server — cancel the timeout
       if (msg.protocolVersion !== PROTOCOL_VERSION) {
+        // Stale cached client vs a newer server — the binary protocol differs, so
+        // continuing would desync (you'd see wrong room state). Bust the service
+        // worker cache and reload to the fresh build automatically.
         net.close();
         showScreen("menu");
-        setMenuStatus("Game was updated — please refresh the page (Ctrl/Cmd+R).");
+        setMenuStatus("Updating to the latest version…");
+        try { void updateSW(true); } catch { /* ignore */ }
+        setTimeout(() => location.reload(), 1500);
         return;
       }
       state.myId = msg.playerId;
