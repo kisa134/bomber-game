@@ -2744,12 +2744,15 @@ function layoutCarousel(active: number): void {
     card.style.opacity = String(f.op);
     card.style.zIndex = String(10 - a);
     card.style.pointerEvents = off === 0 ? "none" : "auto";
-    // Depth haze: cards further from centre sit deeper — softer (blur) + dimmer.
-    const fil = a === 0 ? "" : `blur(${a === 1 ? 4 : 8}px) brightness(${a === 1 ? 0.92 : 0.82}) saturate(0.92)`;
+    // Depth haze: cards further from centre sit deeper — a *whisper* of blur
+    // + slight dim, and their sparkles fade, just enough to read as depth.
+    const fil = a === 0 ? "" : `blur(${a === 1 ? 1.1 : 2.2}px) brightness(${a === 1 ? 0.9 : 0.78}) saturate(0.9)`;
     const tEl = card.querySelector<HTMLElement>(".fc-tilt");
     const bEl = card.querySelector<HTMLElement>(".fc-back");
     if (tEl) tEl.style.filter = fil;
     if (bEl) bEl.style.filter = fil;
+    const stars = card.querySelector<HTMLElement>(".fc-stars");
+    if (stars) stars.style.opacity = a === 0 ? "1" : a === 1 ? "0.5" : "0.22";
   });
 }
 
