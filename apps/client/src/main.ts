@@ -2540,6 +2540,7 @@ let sparkCtx: CanvasRenderingContext2D | null = null;
 let pressActive = false;
 let pressStart = 0;
 let pressTier = 0;
+let pressColor = "#ffffff";
 let pressWasHold = false;
 
 function ensureSparkCanvas(wrap: HTMLElement): void {
@@ -2560,22 +2561,25 @@ function resizeSparkCanvas(): void {
   sparkCanvas.height = Math.max(1, Math.round(r.height * dpr));
   sparkCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-function sparkColor(tier: number, ramp: number, t: number, i: number): string {
+function sparkColor(tier: number, ramp: number, t: number, i: number, base: string): string {
   if (tier >= 4) {
     // mythic: red + rainbow, ever more holographic the longer you hold
     if (Math.random() < 0.3 + ramp * 0.55) return `hsl(${((t * 140 + i * 53) % 360).toFixed(0)},100%,${(62 + ramp * 16).toFixed(0)}%)`;
     return `hsl(${(351 + Math.random() * 14).toFixed(0)},92%,${(56 + ramp * 8).toFixed(0)}%)`; // red
   }
-  if (tier >= 3) {
+  if (tier === 3) {
     // legendary: gold + silver, whitening the longer you hold
     const rnd = Math.random();
     if (rnd < ramp * 0.6) return "#ffffff";
     return rnd < 0.5 ? "#ffd84d" : "#e6edf6"; // gold / silver
   }
-  return Math.random() < 0.5 ? "#ffffff" : "#ffe9a8"; // rare/epic: warm white
+  // epic: the card's tier colour, occasionally white-hot
+  return Math.random() < 0.35 ? "#ffffff" : base;
 }
-function emitSparks(rect: DOMRect, cr: DOMRect, tier: number, ramp: number, t: number): void {
-  const n = Math.floor(2 + ramp * 8);
+function emitSparks(rect: DOMRect, cr: DOMRect, tier: number, ramp: number, t: number, base: string): void {
+  // Longer hold → MORE sparks (not faster). Speed stays modest so they burst
+  // right at the card's edge and die before drifting far.
+  const n = Math.floor(2 + ramp * 14);
   const lx = rect.left - cr.left, ly = rect.top - cr.top, w = rect.width, h = rect.height;
   for (let i = 0; i < n; i++) {
     const e = Math.random();
@@ -2584,10 +2588,10 @@ function emitSparks(rect: DOMRect, cr: DOMRect, tier: number, ramp: number, t: n
     else if (e < 0.5) { x = lx + Math.random() * w; y = ly + h; nx = 0; ny = 1; }
     else if (e < 0.75) { x = lx; y = ly + Math.random() * h; nx = -1; ny = 0; }
     else { x = lx + w; y = ly + Math.random() * h; nx = 1; ny = 0; }
-    const spd = (1.5 + Math.random() * 2.8) * (0.7 + ramp * 1.6);
-    const ang = Math.atan2(ny, nx) + (Math.random() - 0.5) * 1.15;
-    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 26 + Math.random() * 28, size: 0.8 + Math.random() * 1.7 * (0.85 + ramp), col: sparkColor(tier, ramp, t, i) });
-    if (sparks.length > 380) sparks.shift();
+    const spd = 0.7 + Math.random() * 1.5; // flat, gentle — stays near the edge
+    const ang = Math.atan2(ny, nx) + (Math.random() - 0.5) * 1.0;
+    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 11 + Math.random() * 15, size: 1.0 + Math.random() * 1.8, col: sparkColor(tier, ramp, t, i, base) });
+    if (sparks.length > 420) sparks.shift();
   }
 }
 function tickSparks(): void {
@@ -2600,16 +2604,26 @@ function tickSparks(): void {
   for (let i = sparks.length - 1; i >= 0; i--) {
     const s = sparks[i];
     s.px = s.x; s.py = s.y;
-    s.vx *= 0.945; s.vy = s.vy * 0.945 + 0.05; // drag + slight gravity
+    s.vx *= 0.9; s.vy = s.vy * 0.9 + 0.04; // strong drag → sparks settle near the edge
     s.x += s.vx; s.y += s.vy;
     s.life -= 1 / s.max;
     if (s.life <= 0) { sparks.splice(i, 1); continue; }
-    const a = s.life * (0.7 + 0.3 * Math.random()); // flicker
-    ctx.globalAlpha = Math.max(0, a);
+    const a = Math.max(0, s.life * s.life * (0.75 + 0.25 * Math.random())); // ease-out fade + flicker
+    // faint streak
+    ctx.globalAlpha = a * 0.5;
     ctx.strokeStyle = s.col;
-    ctx.lineWidth = s.size;
+    ctx.lineWidth = s.size * 0.7;
     ctx.beginPath(); ctx.moveTo(s.px, s.py); ctx.lineTo(s.x, s.y); ctx.stroke();
-    ctx.beginPath(); ctx.fillStyle = s.col; ctx.arc(s.x, s.y, s.size * 0.85, 0, Math.PI * 2); ctx.fill();
+    // glowing ember (soft halo via shadow) + white-hot core
+    ctx.shadowBlur = s.size * 5;
+    ctx.shadowColor = s.col;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = s.col;
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = a * 0.95;
+    ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.size * 0.42, 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
@@ -2648,6 +2662,7 @@ function startFighterFloat(): void {
       if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
         pressActive = true; pressStart = performance.now(); pressWasHold = false;
         pressTier = tierRank(hubBrowseSkin >= 0 ? hubBrowseSkin : hubEquipped());
+        pressColor = getComputedStyle(act).getPropertyValue("--tier").trim() || "#ffffff";
       }
     }
   });
@@ -2746,11 +2761,11 @@ function startFighterFloat(): void {
     // Edge sparks: while the centre card is held, spray sparks from its edges
     // (intensity ramps with hold time); then let the rest burn out.
     if (sparkCanvas) {
-      if (pressActive && deckState === 0) {
+      if (pressActive && deckState === 0 && pressTier >= 2) {
         const act = wrap.querySelector<HTMLElement>(".fighter-card.active");
         if (act) {
           const ramp = Math.min(1, (now - pressStart) / 1800);
-          emitSparks(act.getBoundingClientRect(), sparkCanvas.getBoundingClientRect(), pressTier, ramp, t);
+          emitSparks(act.getBoundingClientRect(), sparkCanvas.getBoundingClientRect(), pressTier, ramp, t, pressColor);
         }
       }
       tickSparks();
