@@ -22,7 +22,7 @@ Tracked task list. `[ ]` = todo, `[~]` = in progress, `[x]` = done. Numbers in
 ## 🟡 Build before launch — Gameplay/content
 - [ ] (2) **Tournaments:** as described on the landing.
 - [ ] (1) **New modes & maps.**
-- [ ] (1) **Always-open bot rooms:** non-ranked, 1-2 bots, chips-only (for skins/cards).
+- [x] (1) **Always-open bot rooms:** *done: a pool of 10 persistent public rooms (CASUAL_BOT_ROOMS), non-ranked, chips-only. They're real waiting lobbies — you enter, can invite friends or ready up to start vs 1-2 bots, and others can join you; the match ends the instant the last human dies (surviving bots dropped). Listed in the browser even when idle.* ✅
 - [ ] (1) **Cards (Season 1):** first drop; polish style (corners/"cool") per refs.
 - [ ] (1) **Side-bets (GTA-style, optional):** spectators/players bet on others; design mechanic + revenue.
 
@@ -31,7 +31,7 @@ Tracked task list. `[ ]` = todo, `[~]` = in progress, `[x]` = done. Numbers in
 - [ ] (1) **Progression economy:** ~1 week of active play to unlock all current cards/skins.
 - [ ] (2) **Dailies & streaks:** daily rewards (scale with level/streak) + 7-day streak reward.
 - [ ] (1) **Onboarding:** dimmed-UI tutorial; grant a starter card set for completing / first game.
-- [ ] (1) **In-game chat:** light popup for quick chat with friends.
+- [~] (1) **In-game chat / social ping:** light popup for quick chat with friends. *(DM chat deferred by request; instead shipped friend → room invites: tap an empty lobby seat to invite a friend, they get a Join/Decline ping + toast and the Friends module pulses.)*
 
 ## 🟡 Auth / integrations
 - [ ] (1) **Telegram:** Solana wallets connect natively to phone apps (not web pages); seamless App→Web→TG.
@@ -59,7 +59,11 @@ Tracked task list. `[ ]` = todo, `[~]` = in progress, `[x]` = done. Numbers in
 > referral sybil cap, security headers, CI, Model B + on-chain burn.
 >
 > Done this session: animated result rating/league bar, in-game pot-on-the-line
-> (≈USD), win-streak chip on result, host-editable match length (2/3/5 min),
-> friend live-activity status + tap-name-to-profile, reliable kick (profile-card
-> button + bigger ✕ + confirm), USD/SOL value-unit toggle, glassmorphism toasts,
-> animated result LVL bar + First Blood/XP stat cards.
+> (≈USD), win-streak chip on result, friend live-activity status +
+> tap-name-to-profile, reliable kick (profile-card button + bigger ✕ + confirm),
+> USD/SOL value-unit toggle, glassmorphism toasts, animated result LVL bar +
+> First Blood/XP stat cards, daily login reward (chips/XP streak + 7-day bonus),
+> onboarding spotlight tutorial, English-only UI pass, always-open bot LOBBIES
+> (invite/start vs bots, end-on-last-human-death, ×10), friend room invites,
+> second hub music track (two-song playlist). Host match-length editing was
+> built then hidden (didn't fit the lobby) — fixed 3-min rounds for now.
