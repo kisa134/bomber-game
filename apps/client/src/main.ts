@@ -2655,7 +2655,10 @@ function renderFriendsModal(): void {
   for (const f of friends) {
     const row = el("div", "friend-row", "");
     const dot = el("span", "friend-dot" + (f.online ? " on" : ""), "");
-    row.append(dot, el("span", "friend-name", f.name));
+    const name = el("span", "friend-name tappable", f.name);
+    name.title = "View profile";
+    if (f.wallet) name.addEventListener("click", () => void openPublicProfile(f.wallet));
+    row.append(dot, name);
     if (f.room) {
       const join = document.createElement("button");
       join.className = "primary friend-mini";

@@ -1873,6 +1873,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .friend-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
 .friend-dot.on { background: #5fd96a; box-shadow: 0 0 6px #5fd96a; }
 .friend-name { flex: 1 1 auto; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friend-name.tappable { cursor: pointer; }
+.friend-name.tappable:hover { color: var(--accent); }
 .friend-state { font-size: 0.74rem; color: var(--muted); }
 .friend-mini { width: auto; padding: 6px 12px; font-size: 0.82rem; }
 
