@@ -68,6 +68,13 @@ export function adminPageHtml(): string {
     <h3>🩺 System health</h3>
     <div class="grid" id="system"></div>
     <div id="err-feed" class="feed" style="margin:0 0 16px"></div>
+    <h3>📊 Load <span class="muted" style="font-weight:400;font-size:.8rem">· live tick load (green) vs 16.7ms budget (red) · benchmark</span></h3>
+    <canvas id="load-canvas" width="640" height="90" style="width:100%;max-width:640px;background:var(--panel);border:1px solid var(--border);border-radius:10px;display:block"></canvas>
+    <div style="margin:8px 0 16px">
+      Bot rooms: <input id="bench-n" type="number" value="30" min="1" max="80" style="width:64px;padding:6px;border-radius:6px;border:1px solid var(--border);background:#0c0e14;color:var(--text)">
+      <button id="bench-run">Run benchmark</button>
+      <span id="bench-status" class="muted" style="margin-left:8px"></span>
+    </div>
     <h3>Live now</h3>
     <div class="grid" id="live"></div>
     <h3>💰 Economy <span class="muted" style="font-weight:400;font-size:.8rem">· circulation &amp; treasury</span></h3>
@@ -127,6 +134,7 @@ let token=localStorage.getItem("bp_admin_token")||"";
 const tile=(label,value,sub)=>'<div class="tile"><div class="label">'+label+'</div><div class="value">'+value+'</div>'+(sub?'<div class="sub">'+sub+'</div>':'')+'</div>';
 const fmt=n=>(n||0).toLocaleString();
 const dur=ms=>{const s=Math.floor(ms/1000);const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return h+"h "+m+"m";};
+function spark(id,vals,budget){var c=document.getElementById(id);if(!c)return;var ctx=c.getContext("2d");var W=c.width,H=c.height;ctx.clearRect(0,0,W,H);if(!vals||!vals.length)return;var max=Math.max(budget||16.7,Math.max.apply(null,vals))*1.15;var by=H-((budget||16.7)/max)*H;ctx.strokeStyle="rgba(255,90,90,.55)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,by);ctx.lineTo(W,by);ctx.stroke();ctx.strokeStyle="#5fd96a";ctx.lineWidth=2;ctx.beginPath();for(var i=0;i<vals.length;i++){var x=(i/((vals.length-1)||1))*W;var y=H-(vals[i]/max)*H;if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.stroke();}
 async function poll(){
   if(!token)return;
   try{
@@ -185,6 +193,7 @@ async function poll(){
     $("#err-feed").innerHTML = errs.length
       ? errs.map(function(e){return '<div class="ev"><time>'+new Date(e.t).toLocaleTimeString()+'</time><span>🚨 '+e.msg+'</span></div>';}).join("")
       : '<div class="empty">No errors logged since boot. ✅</div>';
+    spark("load-canvas",(d.loadHistory||[]).map(function(p){return p.tick;}),d.load?d.load.budgetMs:16.7);
     // Economy — chips/tokens in circulation, treasury flow, live toggles
     var ec=d.economy||{players:0,chips:0,tokens:0};
     $("#economy").innerHTML=
@@ -344,6 +353,22 @@ $("#burn-sweep").onclick=function(){
       btn.disabled=false;
       if(d.ok){st.innerHTML='🔥 Burned '+fmt(d.burned)+' · <a href="https://solscan.io/tx/'+d.sig+'" target="_blank" rel="noopener">tx</a>';poll();}
       else{st.innerHTML='<span class="err">'+(d.reason||"failed")+'</span>';}
+    })
+    .catch(function(e){btn.disabled=false;st.innerHTML='<span class="err">'+e+'</span>';});
+};
+$("#bench-run").onclick=function(){
+  if(!token){return;}
+  if(!confirm("Run a load benchmark? Spawns bot rooms and loads the LIVE server (~8s) — run off-peak.")){return;}
+  var n=Number($("#bench-n").value)||30;var btn=$("#bench-run"),st=$("#bench-status");
+  btn.disabled=true;st.textContent="Running ~8s…";
+  fetch("/admin/loadtest?token="+encodeURIComponent(token)+"&n="+n,{method:"POST"})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      btn.disabled=false;
+      if(d.ok){
+        st.innerHTML="spawned "+d.spawned+"/"+d.requested+" · peak tick "+d.peakTickMs+"ms"+(d.busy?' <span class="err">SATURATED</span>':' ✅');
+        if(d.samples)spark("load-canvas",d.samples.map(function(s){return s.tick;}),d.budgetMs);
+      }else{st.innerHTML='<span class="err">'+(d.reason||"failed")+'</span>';}
     })
     .catch(function(e){btn.disabled=false;st.innerHTML='<span class="err">'+e+'</span>';});
 };

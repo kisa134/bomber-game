@@ -202,6 +202,23 @@ function rakeEngineBlock(): Record<string, unknown> {
     wallets: treasuryWallets(),
   };
 }
+// Rolling load history for the admin live graph + AI (sampled every 3s).
+const loadHist: Array<{ t: number; tick: number; peak: number; rooms: number; online: number }> = [];
+setInterval(() => {
+  try {
+    const l = mm.load;
+    loadHist.push({ t: Date.now(), tick: l.tickMs, peak: l.peakMs, rooms: mm.adminStats.rooms, online: onlineCount() });
+    if (loadHist.length > 120) loadHist.shift();
+  } catch {
+    /* ignore */
+  }
+}, 3000).unref?.();
+function loadHistory(): typeof loadHist {
+  return loadHist.slice(-120);
+}
+let lastBenchmark: Record<string, unknown> | null = null;
+const benchSleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
 /** Technical health for the admin control centre (memory, uptime, errors, WS). */
 function systemHealth(): Record<string, unknown> {
   const mem = process.memoryUsage();
@@ -557,6 +574,8 @@ app.get("/admin/stats", (res, req) => {
         store: store.kind,
         system: systemHealth(),
         rakeEngine: rakeEngineBlock(),
+        loadHistory: loadHistory(),
+        benchmark: lastBenchmark,
         ai: aiInfo(),
         embedUrl: POSTHOG_EMBED_URL,
         gaUrl: GA_DASHBOARD_URL,
@@ -612,6 +631,8 @@ app.post("/admin/ai-analyze", (res, req) => {
         load: mm.load,
         system: systemHealth(),
         rakeEngine: rakeEngineBlock(),
+        loadHistory: loadHistory().slice(-20),
+        benchmark: lastBenchmark,
         config: {
           rakePct: (Number(process.env.HOUSE_RAKE_BP ?? 0) || 0) / 100,
           referralRoot: !!REFERRAL_ROOT,
@@ -628,6 +649,42 @@ app.post("/admin/ai-analyze", (res, req) => {
       sendJson(res, await aiAnalyze(snapshot));
     } catch (e) {
       sendJson(res, { ok: false, reason: `snapshot failed: ${String(e)}` }, "500 Internal Server Error");
+    }
+  })();
+});
+
+// In-server load benchmark — spawn N self-running bot rooms, sample the tick
+// load, then tear them down. Loads the LIVE server (run off-peak). Hard-capped.
+app.post("/admin/loadtest", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const n = Math.max(1, Math.min(Number(new URLSearchParams(req.getQuery()).get("n")) || 30, 80));
+  void (async () => {
+    try {
+      const baseline = mm.adminStats.rooms;
+      const codes = mm.spawnBenchmark(n);
+      const samples: Array<{ t: number; tick: number; rooms: number }> = [];
+      let peak = 0;
+      for (let i = 0; i < 16; i++) {
+        await benchSleep(500);
+        const l = mm.load;
+        peak = Math.max(peak, l.tickMs);
+        samples.push({ t: Date.now(), tick: l.tickMs, rooms: mm.adminStats.rooms });
+      }
+      mm.closeBenchmark(codes);
+      lastBenchmark = {
+        at: Date.now(),
+        requested: n,
+        spawned: codes.length,
+        baselineRooms: baseline,
+        peakTickMs: Math.round(peak * 10) / 10,
+        budgetMs: 16.7,
+        busy: peak > 11.6,
+        samples,
+      };
+      sendJson(res, { ok: true, ...lastBenchmark });
+    } catch (e) {
+      sendJson(res, { ok: false, reason: String(e) }, "500 Internal Server Error");
     }
   })();
 });

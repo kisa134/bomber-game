@@ -106,11 +106,10 @@ async function callWaveSpeed(user: string): Promise<string> {
   const headers = { Authorization: `Bearer ${KEY}`, "Content-Type": "application/json" };
   const errs: string[] = [];
   const chatPath = process.env.WAVESPEED_CHAT_PATH ?? "/chat/completions";
-  // OpenAI-compatible. Base path isn't published to us — try likely candidates
-  // (or just WAVESPEED_BASE if pinned).
+  // OpenAI-compatible. WaveSpeed's LLM API base (from the model's API tab).
   const bases = process.env.WAVESPEED_BASE
     ? [process.env.WAVESPEED_BASE]
-    : ["https://api.wavespeed.ai/api/v3", "https://api.wavespeed.ai/v3", "https://api.wavespeed.ai/v1"];
+    : ["https://llm.wavespeed.ai/v1", "https://api.wavespeed.ai/api/v3"];
   // The exact model id may differ from the website slug ("Model not found").
   // Try the configured id, then a few common variants (set AI_MODEL to pin it).
   const models = [...new Set([MODEL, MODEL.split("/").pop() as string, "moonshotai/kimi-k2", "kimi-k2"].filter(Boolean))];

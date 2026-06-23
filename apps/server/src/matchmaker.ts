@@ -88,6 +88,31 @@ export class Matchmaker {
     return this.reserve(room, name, skin, wallet);
   }
 
+  /** Admin load benchmark: spawn up to `n` self-running practice bot rooms
+   *  (chips, stake 0 → no escrow). Stops early if the server is full. */
+  spawnBenchmark(n: number): string[] {
+    const codes: string[] = [];
+    for (let i = 0; i < n; i++) {
+      try {
+        codes.push(this.practice(`bench${i}`, 0, null, BotDifficulty.NORMAL, 3, false, null, false).code);
+      } catch {
+        break; // ServerFull / busy — stop spawning
+      }
+    }
+    return codes;
+  }
+
+  /** Tear down benchmark rooms (only practice rooms — never touches real/staked). */
+  closeBenchmark(codes: string[]): void {
+    for (const c of codes) {
+      const r = this.rooms.get(c);
+      if (r && r.practice) {
+        r.cleanupReconnect(this.reconnects);
+        this.rooms.delete(c);
+      }
+    }
+  }
+
   /** Join a specific room by its code. Returns null if missing/closed/full. */
   joinByCode(
     code: string,
