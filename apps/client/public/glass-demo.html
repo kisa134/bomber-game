@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Liquid Glass — demo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "Space Grotesk", system-ui, sans-serif;
+    min-height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    background: #0b0a0e url("/bg/splash-art.png") center / cover no-repeat fixed;
+    color: #fff;
+  }
+  /* dim the busy art a touch so the glass reads, like the reference video */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,.15), rgba(0,0,0,.55));
+  }
+  .stage { position: relative; display: flex; flex-direction: column; align-items: center; gap: 38px; }
+
+  /* ── Liquid glass base ─────────────────────────────────────────────────── */
+  .glass {
+    position: relative;
+    border-radius: 26px;
+    isolation: isolate;
+    color: #fff;
+    /* frosted backdrop + saturation pop */
+    backdrop-filter: blur(7px) saturate(180%) brightness(1.08);
+    -webkit-backdrop-filter: blur(7px) saturate(180%) brightness(1.08);
+    background: linear-gradient(135deg, rgba(255,255,255,.18), rgba(255,255,255,.05));
+    /* glass thickness: bright top-left bevel, dark bottom-right, soft cast shadow */
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.65),
+      inset 1px 0 0 rgba(255,255,255,.28),
+      inset 0 -2px 6px rgba(0,0,0,.28),
+      inset 0 -10px 18px rgba(255,255,255,.06),
+      0 12px 32px rgba(0,0,0,.38);
+    border: 1px solid rgba(255,255,255,.22);
+  }
+  /* edge refraction: a thin lens that warps the backdrop just at the border */
+  .glass::after {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1;
+    backdrop-filter: blur(1px);
+    -webkit-backdrop-filter: blur(1px);
+    filter: url(#lg-distort);
+    pointer-events: none;
+  }
+  /* moving specular sheen */
+  .glass::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.35) 47%, rgba(255,255,255,0) 60%);
+    opacity: .7; mix-blend-mode: screen;
+  }
+
+  .nav { display: flex; gap: 16px; align-items: center; }
+  .gbtn {
+    font: 600 16px/1 "Space Grotesk", sans-serif;
+    letter-spacing: .2px;
+    padding: 16px 26px;
+    border-radius: 18px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .25s;
+    text-shadow: 0 1px 2px rgba(0,0,0,.35);
+  }
+  .gbtn:hover { transform: translateY(-2px) scale(1.03); }
+  .gbtn:active { transform: translateY(0) scale(.97); }
+  .gbtn .chev { font-size: 12px; opacity: .85; }
+
+  .gold {
+    background: linear-gradient(135deg, rgba(255,228,150,.5), rgba(240,169,42,.32));
+    border-color: rgba(255,225,150,.5);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.7),
+      inset 0 -2px 6px rgba(120,70,0,.35),
+      0 12px 30px rgba(180,120,0,.42);
+    color: #fff7e6;
+  }
+
+  .panel { width: 290px; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
+  .row {
+    font: 500 17px/1 "Space Grotesk", sans-serif;
+    padding: 16px 18px; border-radius: 14px; cursor: pointer;
+    transition: background .15s; text-shadow: 0 1px 2px rgba(0,0,0,.35);
+  }
+  .row:hover { background: rgba(255,255,255,.16); }
+
+  .big {
+    font: 700 22px/1 "Space Grotesk", sans-serif;
+    padding: 22px 56px; border-radius: 22px;
+    letter-spacing: .5px;
+  }
+  .label { font: 500 13px/1 "Space Grotesk"; letter-spacing: 3px; text-transform: uppercase; opacity: .6; }
+</style>
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute">
+    <filter id="lg-distort" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.012" numOctaves="2" seed="7" result="noise"/>
+      <feGaussianBlur in="noise" stdDeviation="2.2" result="blur"/>
+      <feDisplacementMap in="SourceGraphic" in2="blur" scale="42" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+
+  <div class="stage">
+    <div class="label">Liquid glass buttons</div>
+
+    <div class="nav">
+      <div class="glass gbtn">Product <span class="chev">▾</span></div>
+      <div class="glass gbtn">Resources <span class="chev">▾</span></div>
+      <div class="glass gbtn">Company <span class="chev">▴</span></div>
+    </div>
+
+    <div class="glass panel">
+      <div class="row">About</div>
+      <div class="row">Careers</div>
+      <div class="row">Contact</div>
+    </div>
+
+    <div style="display:flex; gap:20px; align-items:center">
+      <div class="glass gbtn big gold">PLAY ONLINE</div>
+      <div class="glass gbtn big">vs Bots</div>
+    </div>
+  </div>
+</body>
+</html>
