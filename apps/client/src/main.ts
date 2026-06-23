@@ -1253,19 +1253,21 @@ function wireSettings(): void {
   document.getElementById("ctl-dpad")!.addEventListener("click", () => update("controls", "dpad"));
   document.getElementById("unit-usd")?.addEventListener("click", () => { update("valueUnit", "usd"); applyValueUnit(); });
   document.getElementById("unit-sol")?.addEventListener("click", () => { update("valueUnit", "sol"); applyValueUnit(); });
-  // Day / night backdrop theme (persisted in localStorage)
+  // Day / night backdrop theme — a single emoji toggle (persisted)
   const applyTheme = (theme: string): void => {
     const day = theme === "day";
     document.getElementById("bg")?.classList.toggle("day", day);
-    document.getElementById("theme-day")?.classList.toggle("active", day);
-    document.getElementById("theme-night")?.classList.toggle("active", !day);
+    const t = document.getElementById("theme-toggle");
+    if (t) t.textContent = day ? "☀️" : "🌙";
   };
   const setTheme = (theme: string): void => { try { localStorage.setItem("bm-theme", theme); } catch { /* ignore */ } applyTheme(theme); };
   let savedTheme = "night";
   try { savedTheme = localStorage.getItem("bm-theme") || "night"; } catch { /* ignore */ }
   applyTheme(savedTheme);
-  document.getElementById("theme-night")?.addEventListener("click", () => setTheme("night"));
-  document.getElementById("theme-day")?.addEventListener("click", () => setTheme("day"));
+  document.getElementById("theme-toggle")?.addEventListener("click", () => {
+    const day = document.getElementById("bg")?.classList.contains("day");
+    setTheme(day ? "night" : "day");
+  });
 }
 
 /** Re-apply the chosen USD/SOL unit across every live value readout. */
@@ -2651,7 +2653,6 @@ function startFighterFloat(): void {
   if (!wrap || !menu) return;
   ensureSparkCanvas(wrap);
   window.addEventListener("resize", resizeSparkCanvas);
-  const bgEl = document.getElementById("bg");
   menu.addEventListener("pointermove", (e) => {
     const r = wrap.getBoundingClientRect();
     mTargetX = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width / 2)));
@@ -2729,12 +2730,6 @@ function startFighterFloat(): void {
     mCurX += (mTargetX - mCurX) * 0.07;
     mCurY += (mTargetY - mCurY) * 0.07;
     dustCur += (dustTarget - dustCur) * 0.04;
-    // Background parallax — the scene drifts with the cursor so the glass
-    // surfaces have moving content to refract.
-    if (bgEl) {
-      bgEl.style.setProperty("--bgx", (mCurX * 16).toFixed(1) + "px");
-      bgEl.style.setProperty("--bgy", (mCurY * 12).toFixed(1) + "px");
-    }
     const t = now * 0.001;
     // While the deck easter egg owns the cards, don't let the float loop fight
     // it for the transforms (dust keeps whirling below).
