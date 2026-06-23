@@ -149,9 +149,15 @@ async function callWaveSpeed(user: string): Promise<string> {
     }
     if (!pathBad) break; // path worked (just no model matched) — don't try other bases
   }
+  const joined = errs.join(" | ");
+  // Clean, actionable message for the common cases.
+  if (/balance_not_enough|balance not enough/i.test(joined))
+    throw new Error("WaveSpeed account has no balance — top up your WaveSpeed credits, then try again.");
+  if (/401|invalid.*key|unauthorized/i.test(joined))
+    throw new Error("WaveSpeed rejected the API key (401) — check BOMBER_ADMIN.");
   throw new Error(
-    `WaveSpeed LLM failed. Tried: ${errs.join(" | ")}. ` +
-      `Fix: open the model's API/Code tab, copy the exact "model" id, set env AI_MODEL=<id> (no rebuild needed).`,
+    `WaveSpeed LLM failed. Tried: ${joined}. ` +
+      `If it's a model-id problem set AI_MODEL; if it's the URL set WAVESPEED_BASE.`,
   );
 }
 
