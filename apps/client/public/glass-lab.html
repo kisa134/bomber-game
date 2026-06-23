@@ -159,6 +159,23 @@
     }
     apply();
     window.__glassState = state;
+
+    function makeDraggable(el){
+      let drag=false, sx=0, sy=0, ox=0, oy=0;
+      el.style.touchAction="none";
+      el.addEventListener("pointerdown", e=>{
+        drag=true; el.setPointerCapture(e.pointerId);
+        const r=el.getBoundingClientRect();
+        if (el.style.position!=="fixed"){ el.style.position="fixed"; el.style.left=r.left+"px"; el.style.top=r.top+"px"; el.style.margin="0"; el.style.zIndex="50"; }
+        sx=e.clientX; sy=e.clientY; ox=parseFloat(el.style.left); oy=parseFloat(el.style.top);
+        el.style.transition="none"; el.style.cursor="grabbing";
+      });
+      el.addEventListener("pointermove", e=>{ if(!drag) return; el.style.left=(ox+e.clientX-sx)+"px"; el.style.top=(oy+e.clientY-sy)+"px"; });
+      const end=()=>{ drag=false; el.style.transition=""; el.style.cursor=""; };
+      el.addEventListener("pointerup", end);
+      el.addEventListener("pointercancel", end);
+    }
+    document.querySelectorAll(".gbtn").forEach(makeDraggable);
   </script>
 </body>
 </html>

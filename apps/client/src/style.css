@@ -109,7 +109,10 @@ body {
   /* No blur — a SHARP scene pushed deep onto the 3rd plane by heavy dimming,
      so it reads as a backdrop behind the cards, not a competing texture. */
   filter: blur(24px) saturate(0.85) brightness(0.3) contrast(1.04);
-  transform: scale(1.08);
+  /* mouse parallax (set from the hub rAF loop) — gives the glass something to
+     refract as it shifts, so the highlights come alive. */
+  transform: translate(var(--bgx, 0px), var(--bgy, 0px)) scale(1.08);
+  will-change: transform;
 }
 /* A faint warm key-light lifts the centre (lit showcase) while a deep, SOFT
    radial vignette sinks the edges → rgba(0,0,0,0) centre → ~0.75 at the edges,
@@ -123,6 +126,14 @@ body {
       rgba(0, 0, 0, 0.74) 78%,
       rgba(0, 0, 0, 0.92) 100%
     );
+}
+/* ☀ Day mode — same blurred scene, only ~25% of the night dimming. */
+#bg.art.day::before {
+  filter: blur(24px) saturate(0.95) brightness(0.72) contrast(1.02);
+}
+#bg.art.day::after {
+  background:
+    radial-gradient(ellipse 82% 72% at 50% 44%, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.1) 60%, rgba(0, 0, 0, 0.3) 100%);
 }
 /* With the static art backdrop the old menu video is hidden. */
 #bg.art #bg-video {
@@ -236,15 +247,16 @@ button {
   color: var(--text);
   position: relative;
   isolation: isolate;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.045));
-  backdrop-filter: blur(7px) saturate(165%) brightness(1.06);
-  -webkit-backdrop-filter: blur(7px) saturate(165%) brightness(1.06);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 15px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.008));
+  backdrop-filter: blur(2px) saturate(185%) brightness(1.12);
+  -webkit-backdrop-filter: blur(2px) saturate(185%) brightness(1.12);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -2px 6px rgba(0, 0, 0, 0.26),
-    0 10px 26px rgba(0, 0, 0, 0.34);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -2px 7px rgba(0, 0, 0, 0.28),
+    0 12px 30px rgba(0, 0, 0, 0.36);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   transition: transform 0.12s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.2s ease, filter 0.1s ease;
   width: 260px;
 }
@@ -276,13 +288,15 @@ button:disabled {
 }
 /* PRIMARY keeps the gold brand colour — now as a translucent gold glass. */
 button.primary {
-  background: linear-gradient(135deg, rgba(255, 228, 150, 0.42), rgba(240, 169, 42, 0.24));
+  background: linear-gradient(135deg, rgba(255, 228, 150, 0.14), rgba(240, 169, 42, 0.05));
   color: #fff7e6;
-  border: 1px solid rgba(255, 225, 150, 0.5);
+  border: 1px solid rgba(255, 225, 150, 0.55);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 0 23px rgba(255, 205, 90, 0.48),
+    inset 0 0 7px rgba(255, 240, 200, 0.35),
     inset 0 -2px 7px rgba(120, 70, 0, 0.32),
-    0 12px 30px rgba(200, 130, 0, 0.4);
+    0 12px 30px rgba(200, 130, 0, 0.42);
   text-shadow: 0 1px 2px rgba(120, 70, 0, 0.45);
 }
 button.primary:hover {
