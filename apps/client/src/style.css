@@ -573,6 +573,16 @@ button.ghost {
 .result-rew.none {
   opacity: 0.8;
 }
+/* Win streak — fiery border + glow when a player is on a roll. */
+.result-rew.streak {
+  border-color: rgba(255, 138, 61, 0.55);
+  background: linear-gradient(180deg, rgba(60, 34, 20, 0.9), rgba(34, 18, 12, 0.9));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 0 14px rgba(255, 120, 40, 0.35);
+}
+.result-rew.streak .result-rew-v {
+  color: #ff9a3d;
+  text-shadow: 0 0 10px rgba(255, 120, 40, 0.6);
+}
 .rt-delta {
   font-size: 0.85rem;
 }
@@ -1857,6 +1867,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .friend-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
 .friend-dot.on { background: #5fd96a; box-shadow: 0 0 6px #5fd96a; }
 .friend-name { flex: 1 1 auto; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.friend-name.tappable { cursor: pointer; }
+.friend-name.tappable:hover { color: var(--accent); }
 .friend-state { font-size: 0.74rem; color: var(--muted); }
 .friend-mini { width: auto; padding: 6px 12px; font-size: 0.82rem; }
 
@@ -3395,6 +3407,13 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 .bal-chip.token {
   color: var(--accent);
+}
+/* Pot on the line — gold, so the prize reads at a glance during the match. */
+.bal-chip.pot {
+  color: #ffcc33;
+  border-color: rgba(255, 204, 51, 0.55);
+  background: rgba(255, 204, 51, 0.12);
+  box-shadow: 0 0 8px rgba(255, 204, 51, 0.25);
 }
 .bal-warn {
   color: #ff7a7e;

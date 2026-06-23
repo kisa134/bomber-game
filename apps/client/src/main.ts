@@ -162,7 +162,7 @@ let prevBombIds = new Set<number>(); // bomb ids last seen, to detect placements
 let iGotFirstBlood = false; // did the local player take first blood this match
 let myPickupStep = 0; // count of bonuses I've collected this match -> rising pickup pitch
 let hitStopUntil = 0; // brief full-view freeze for kill impact (game feel)
-let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean } | null = null;
+let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean; streak: number } | null = null;
 // Handle for the 3s "result screen" timer, so a new match starting within that
 // window can cancel the previous match's deferred result (no overlay/stale data).
 let announceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -589,7 +589,7 @@ function announceResult(winnerId: number): void {
   } else {
     earnText = won ? "+🪙100" : "+🪙20";
   }
-  lastMatch = { won, draw, frags: meFrags, earnText, ratingDelta: 0, firstBlood: iGotFirstBlood };
+  lastMatch = { won, draw, frags: meFrags, earnText, ratingDelta: 0, firstBlood: iGotFirstBlood, streak: 0 };
   const w = loadWallet();
   const prevRating = lastRating;
   if (w) {
@@ -598,7 +598,10 @@ function announceResult(winnerId: number): void {
         setStats(p.chips, p.rating);
         setTokenBadge(p.gameTokens);
         const d = p.rating - prevRating;
-        if (lastMatch) lastMatch.ratingDelta = d;
+        if (lastMatch) {
+          lastMatch.ratingDelta = d;
+          lastMatch.streak = p.current_streak ?? 0;
+        }
         const ratingNote =
           d !== 0 ? `${leagueFor(p.rating).emoji} ${p.rating} (${d > 0 ? "+" : ""}${d})` : "";
         if (note) note.textContent = [chipNote, ratingNote].filter(Boolean).join("  ·  ");
@@ -618,6 +621,28 @@ function animateCount(elx: HTMLElement, to: number, from = 0, ms = 700): void {
     const k = Math.min(1, (now - t0) / ms);
     const eased = 1 - Math.pow(1 - k, 3);
     elx.textContent = Math.round(from + (to - from) * eased).toLocaleString();
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/** Grow the league progress bar from one rating to another, recomputing the fill
+ *  (and the "X to next league" caption) each frame so it stays in sync with the
+ *  rating count-up — and snaps cleanly if the match crossed a league boundary. */
+function animateProgressBar(
+  fill: HTMLElement,
+  sub: HTMLElement | null,
+  from: number,
+  to: number,
+  ms: number,
+): void {
+  const t0 = performance.now();
+  const step = (now: number): void => {
+    const k = Math.min(1, (now - t0) / ms);
+    const eased = 1 - Math.pow(1 - k, 3);
+    const pr = leagueProgress(from + (to - from) * eased);
+    fill.style.width = `${pr.pct}%`;
+    if (sub) sub.textContent = pr.label;
     if (k < 1) requestAnimationFrame(step);
   };
   requestAnimationFrame(step);
@@ -680,6 +705,9 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
       v.innerHTML = `📈 <span class="rt-num"></span><span class="rt-delta">${deltaTag}</span>`;
       rew.append(ratingChip);
       animateCount(v.querySelector(".rt-num") as HTMLElement, lastRating, lastRating - delta, 800);
+      // Win-streak flex — only when you're actually on a roll (2+ in a row).
+      const streak = lastMatch?.streak ?? 0;
+      if (won && streak >= 2) rew.append(chip("Win streak", `🔥 ${streak}`, "streak"));
     }
   }
 
@@ -687,11 +715,19 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
   const progWrap = document.getElementById("result-prog");
   if (progWrap) {
     if (!practiceMode) {
-      const pr = leagueProgress(lastRating);
+      // Bar fills from where the rating WAS to where it landed, in lock-step with
+      // the rating count-up above — so the number and the bar grow together.
+      const delta = lastMatch?.ratingDelta ?? 0;
+      const fromRating = lastRating - delta;
+      const startPr = leagueProgress(fromRating);
+      const endPr = leagueProgress(lastRating);
       progWrap.classList.remove("hidden");
       progWrap.innerHTML =
-        `<div class="result-prog"><div class="result-progfill" style="width:${pr.pct}%"></div></div>` +
-        `<div class="prof-sub">${pr.label}</div>`;
+        `<div class="result-prog"><div class="result-progfill" style="width:${startPr.pct}%"></div></div>` +
+        `<div class="prof-sub">${endPr.label}</div>`;
+      const fill = progWrap.querySelector(".result-progfill") as HTMLElement | null;
+      const sub = progWrap.querySelector(".prof-sub") as HTMLElement | null;
+      if (fill && delta !== 0) animateProgressBar(fill, sub, fromRating, lastRating, 800);
     } else {
       progWrap.classList.add("hidden");
     }
@@ -1399,11 +1435,22 @@ function updateBalanceBars(): void {
       warn = `<span class="bal-warn">⚠ Not enough — need ${isToken ? "💎" : "🪙"}${stake.toLocaleString()}, top up in Bank</span>`;
   }
   const html = parts.join("") + warn;
+  // Pot on the line — shown in the in-game HUD only (the waiting room already has
+  // the big PRIZE POOL panel). Lets a player see what they're fighting for mid-match.
+  let potChip = "";
+  if (stake > 0) {
+    const isToken = state.roomCurrency === 1;
+    const sym = isToken ? "💎" : "🪙";
+    const pot = stake * Math.max(state.roomPlayers.length, 1);
+    const usd = isToken ? usdOf(pot) : "";
+    potChip = `<span class="bal-chip pot">🏆 ${sym}${pot.toLocaleString()}${usd}</span>`;
+  }
   for (const id of ["bal-room", "bal-hud"]) {
     const el = document.getElementById(id);
     if (!el) continue;
-    el.innerHTML = html;
-    el.classList.toggle("hidden", parts.length === 0);
+    const extra = id === "bal-hud" ? potChip : "";
+    el.innerHTML = html + extra;
+    el.classList.toggle("hidden", parts.length === 0 && extra === "");
     el.classList.toggle("low", warn !== "");
   }
 }
@@ -2608,7 +2655,10 @@ function renderFriendsModal(): void {
   for (const f of friends) {
     const row = el("div", "friend-row", "");
     const dot = el("span", "friend-dot" + (f.online ? " on" : ""), "");
-    row.append(dot, el("span", "friend-name", f.name));
+    const name = el("span", "friend-name tappable", f.name);
+    name.title = "View profile";
+    if (f.wallet) name.addEventListener("click", () => void openPublicProfile(f.wallet));
+    row.append(dot, name);
     if (f.room) {
       const join = document.createElement("button");
       join.className = "primary friend-mini";
