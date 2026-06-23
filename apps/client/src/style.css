@@ -3868,6 +3868,64 @@ button.big {
   padding: 16px;
   background: rgba(8, 10, 16, 0.84);
 }
+
+/* Dimmed-UI spotlight tutorial: one transparent rect whose giant box-shadow
+   dims everything else, plus a glass tooltip. */
+.coach-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  cursor: pointer;
+}
+.coach-spot {
+  position: absolute;
+  border-radius: 14px;
+  box-shadow: 0 0 0 9999px rgba(8, 10, 16, 0.78);
+  border: 2px solid var(--accent);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+.coach-tip {
+  position: absolute;
+  max-width: min(86vw, 320px);
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(28, 24, 36, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+  transition: top 0.25s ease, left 0.25s ease;
+}
+.coach-tip-title {
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+.coach-tip-ru {
+  margin-top: 3px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.coach-tip-foot {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.coach-step {
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+}
+.coach-next {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #1a1320;
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+}
 #onboard.hidden {
   display: none;
 }

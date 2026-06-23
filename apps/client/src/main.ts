@@ -2900,6 +2900,85 @@ function closeOnboarding(): void {
   } catch {
     // ignore (private mode)
   }
+  // First-timers get a quick dimmed-UI spotlight tour of the hub after the intro.
+  maybeRunCoach();
+}
+
+// --- dimmed-UI spotlight tutorial (coachmarks) -----------------------------
+const COACH_KEY = "bp_coach_v1";
+interface CoachStep { sel: string; title: string; ru: string; }
+const COACH_STEPS: CoachStep[] = [
+  { sel: "#open-play", title: "Tap to find a ranked match", ru: "Жми — быстрый рейтинговый матч" },
+  { sel: "#open-practice", title: "Or warm up vs bots — earn chips, no rating", ru: "Или разомнись с ботами — чипы, без рейтинга" },
+  { sel: "#hub-friends", title: "Add friends & play together", ru: "Добавляй друзей и играйте вместе" },
+  { sel: "#open-shop", title: "Unlock skins & cards here", ru: "Тут открываются скины и карточки" },
+];
+
+/** Run the spotlight tour: dim everything except the current target, show a
+ *  tooltip, advance on tap. Skips any target that isn't on screen. */
+function runCoach(steps: CoachStep[]): void {
+  const live = steps.filter((s) => {
+    const el = document.querySelector(s.sel) as HTMLElement | null;
+    return el && el.offsetParent !== null; // visible (not display:none)
+  });
+  if (!live.length) return;
+  const overlay = document.createElement("div");
+  overlay.className = "coach-overlay";
+  overlay.innerHTML =
+    `<div class="coach-spot"></div>` +
+    `<div class="coach-tip"><div class="coach-tip-title"></div><div class="coach-tip-ru"></div>` +
+    `<div class="coach-tip-foot"><span class="coach-step"></span><button class="coach-next"></button></div></div>`;
+  document.body.appendChild(overlay);
+  const spot = overlay.querySelector(".coach-spot") as HTMLElement;
+  const tip = overlay.querySelector(".coach-tip") as HTMLElement;
+  let i = 0;
+  const place = (): void => {
+    const s = live[i];
+    const el = document.querySelector(s.sel) as HTMLElement | null;
+    if (!el) { next(); return; }
+    const r = el.getBoundingClientRect();
+    const pad = 8;
+    spot.style.left = `${r.left - pad}px`;
+    spot.style.top = `${r.top - pad}px`;
+    spot.style.width = `${r.width + pad * 2}px`;
+    spot.style.height = `${r.height + pad * 2}px`;
+    (overlay.querySelector(".coach-tip-title") as HTMLElement).textContent = s.title;
+    (overlay.querySelector(".coach-tip-ru") as HTMLElement).textContent = s.ru;
+    (overlay.querySelector(".coach-step") as HTMLElement).textContent = `${i + 1} / ${live.length}`;
+    (overlay.querySelector(".coach-next") as HTMLElement).textContent = i >= live.length - 1 ? "Got it ⚡" : "Next →";
+    // Tooltip below the target, or above if it would overflow the viewport.
+    const below = r.bottom + 12;
+    const above = r.top - tip.offsetHeight - 12;
+    const useAbove = below + 120 > window.innerHeight && above > 0;
+    tip.style.top = `${useAbove ? Math.max(8, above) : below}px`;
+    tip.style.left = `${Math.max(8, Math.min(window.innerWidth - tip.offsetWidth - 8, r.left + r.width / 2 - tip.offsetWidth / 2))}px`;
+  };
+  const next = (): void => {
+    i++;
+    if (i >= live.length) { finish(); return; }
+    place();
+  };
+  const finish = (): void => {
+    window.removeEventListener("resize", place);
+    overlay.remove();
+    try { localStorage.setItem(COACH_KEY, "1"); } catch { /* ignore */ }
+  };
+  overlay.addEventListener("click", (e) => {
+    // Tapping the highlighted control should still advance the tour (not click through).
+    e.preventDefault();
+    next();
+  });
+  window.addEventListener("resize", place);
+  place();
+}
+
+function maybeRunCoach(): void {
+  let seen = false;
+  try { seen = !!localStorage.getItem(COACH_KEY); } catch { /* ignore */ }
+  if (seen) return;
+  // Only on the hub, and let the layout settle first.
+  if (document.getElementById("menu")?.classList.contains("hidden")) return;
+  setTimeout(() => runCoach(COACH_STEPS), 350);
 }
 
 function setupOnboarding(): void {
