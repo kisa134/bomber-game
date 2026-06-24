@@ -2448,7 +2448,7 @@ function fighterCardHTML(skin: number): string {
     '<span class="fc-corner tl"></span><span class="fc-corner tr"></span><span class="fc-corner bl"></span><span class="fc-corner br"></span>' +
     `<div class="fc-toprow"><span class="fc-rarity">${r.name.toUpperCase()}</span><span class="fc-no">${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}</span></div>` +
     `<div class="fc-namerow"><div class="fc-name">${SKIN_NAMES[skin] ?? `Skin ${skin}`}</div><div class="fc-gems">${"◆".repeat(GEM_COUNT(skin))}</div></div>` +
-    `<div class="fc-badge" aria-hidden="true"><span>${["C", "R", "E", "L", "M"][tierRank(skin)]}</span></div>` +
+    '<div class="fc-stamp" aria-hidden="true"></div>' +
     '<div class="fc-edge" aria-hidden="true"></div>' +
     cardStarsHTML(skin) +
     `<div class="fc-lock${skinOwned(skin) ? " hidden" : ""}">🔒</div>` +
@@ -2507,7 +2507,7 @@ const dustMotes: DustMote[] = [];
 function buildDustField(): void {
   const field = document.getElementById("fighter-dustfield");
   if (!field || dustMotes.length) return;
-  const N = 112;
+  const N = 132;
   for (let i = 0; i < N; i++) {
     const el = document.createElement("span");
     el.className = "dust-mote";
@@ -2775,9 +2775,17 @@ function startFighterFloat(): void {
       const pop = active ? ` translateZ(${(hoverCur * 38).toFixed(1)}px) scale(${(1 + hoverCur * 0.06).toFixed(3)})` : "";
       tilt.style.transform =
         `translate3d(${sway}px, ${bob}px, 0) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg)${pop}`;
+      // Foil reflects the card's viewing angle: each card's fan tilt shifts its
+      // foil differently (a fixed light bouncing off angled cards) + a cursor
+      // nudge that's strongest on the active card.
+      const holo = tilt.querySelector<HTMLElement>(".fc-holo");
+      if (holo) {
+        const fanry = Number(card.dataset.fanry) || 0;
+        const fx = 50 + fanry * 1.25 + mCurX * (active ? 24 : 9);
+        const fy = 50 + mCurY * (active ? 24 : 7);
+        holo.style.backgroundPosition = `${fx.toFixed(1)}% ${fy.toFixed(1)}%`;
+      }
       if (active) {
-        const holo = tilt.querySelector<HTMLElement>(".fc-holo");
-        if (holo) holo.style.backgroundPosition = `${(50 + mCurX * 35).toFixed(1)}% ${(50 + mCurY * 35).toFixed(1)}%`;
         // the key-light rolls across the surface as the card tilts → 3D relief
         const light = tilt.querySelector<HTMLElement>(".fc-light");
         if (light) {
@@ -2908,11 +2916,6 @@ function layoutCarousel(active: number): void {
     if (off < -n / 2) off += n;
     const a = Math.abs(off);
     card.classList.toggle("active", off === 0);
-    // Only the active card's foil is cursor-driven; let the rest auto-shimmer.
-    if (off !== 0) {
-      const holo = card.querySelector<HTMLElement>(".fc-holo");
-      if (holo) holo.style.backgroundPosition = "";
-    }
     if (a > 2 || (mobile && a > 0)) {
       card.style.opacity = "0";
       card.style.visibility = "hidden";
@@ -2921,6 +2924,7 @@ function layoutCarousel(active: number): void {
     }
     const sign = off < 0 ? -1 : 1;
     const f = FAN[a];
+    card.dataset.fanry = String(-sign * f.ry); // viewing angle → drives the foil
     card.style.visibility = "visible";
     card.style.transform = cardTf(sign * f.x, 0, f.z, -sign * f.ry, f.s);
     card.style.opacity = String(f.op);
