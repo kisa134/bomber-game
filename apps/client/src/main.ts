@@ -3984,7 +3984,16 @@ function addFireflies(btn: HTMLElement, n: number): void {
     btn.appendChild(f);
   }
 }
-document.querySelectorAll<HTMLElement>(".glass-btn").forEach((b) => addFireflies(b, 18));
+document.querySelectorAll<HTMLElement>(".glass-btn").forEach((b) => {
+  addFireflies(b, 18);
+  // The highlight follows the cursor across the glass (natural reflection).
+  b.addEventListener("pointermove", (e) => {
+    const r = b.getBoundingClientRect();
+    b.style.setProperty("--mx", `${(((e.clientX - r.left) / r.width) * 100).toFixed(1)}%`);
+    b.style.setProperty("--my", `${(((e.clientY - r.top) / r.height) * 100).toFixed(1)}%`);
+  });
+  b.addEventListener("pointerleave", () => b.style.setProperty("--my", "-30%"));
+});
 
 // Stylish warm-spark burst when the main PLAY button is pressed.
 function burstButton(btn: HTMLElement): void {

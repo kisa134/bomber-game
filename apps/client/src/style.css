@@ -297,20 +297,24 @@ button.glass-btn {
 }
 /* Our soft physical glint back on the glass (eases back and forth, no one-way
    running bar). The warm yellow inner glow lives in the box-shadow below. */
-/* Our soft physical glint — IDENTICAL to the cards' .fc-sheen (heavily blurred,
-   eases back and forth, no hard edges). The same shine everywhere. */
+/* No running band. A soft reflection that FOLLOWS THE CURSOR (light catches the
+   glass where you point) plus a faint fixed top gloss. Brightens on hover. */
 button.glass-btn::before {
   content: "";
   position: absolute;
-  inset: -8%;
+  inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(100deg, transparent 33%, rgba(255, 255, 255, 0.5) 50%, transparent 67%);
-  background-size: 235% 100%;
-  filter: blur(13px);
+  background:
+    radial-gradient(150px 110px at var(--mx, 50%) var(--my, -30%), rgba(255, 255, 255, 0.5), transparent 72%),
+    linear-gradient(158deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.03) 22%, transparent 44%);
   mix-blend-mode: screen;
   opacity: 0.5;
-  animation: fcGlint 5.5s ease-in-out infinite alternate;
+  transition: opacity 0.3s ease;
+}
+button.glass-btn:hover::before { opacity: 1; }
+button.glass-btn:hover {
+  transform: translateY(-2px);
 }
 /* Fireflies drifting inside the jar — injected into .glass-btn by main.ts. */
 .glass-firefly {
