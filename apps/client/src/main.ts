@@ -2414,7 +2414,7 @@ const cardBackHTML = (skin: number): string => {
     '<div class="fc-back-frame"></div>' +
     '<div class="fc-back-seal">' +
     '<div class="fc-back-ring"></div>' +
-    '<div class="fc-back-bomb">💣</div>' +
+    `<img class="fc-back-bomb" src="/sprites/bomb.webp?v=${ASSET_VER}" alt="" aria-hidden="true" />` +
     '<div class="fc-back-word">BOMBERMEME</div>' +
     '<div class="fc-back-sub">VAULT&nbsp;·&nbsp;MEME&nbsp;WARS</div>' +
     "</div>" +
