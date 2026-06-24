@@ -3964,12 +3964,13 @@ button.big {
 #chrome.hidden {
   display: none;
 }
-/* Global status bar wrapper (under the alpha banner). */
+/* Global status bar wrapper (under the alpha banner). Side insets keep the
+   brand/stats/icons clear of a notch or Dynamic Island in landscape. */
 .topbar {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px calc(16px + env(safe-area-inset-right)) 8px calc(16px + env(safe-area-inset-left));
 }
 /* Pre-launch alpha / test-token banner (first row of the chrome). */
 #alpha-banner {
