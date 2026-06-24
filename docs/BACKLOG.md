@@ -15,22 +15,22 @@ Tracked task list. `[ ]` = todo, `[~]` = in progress, `[x]` = done. Numbers in
 - [x] (2) **Bank/winnings display toggle:** *done: Settings → "Show value in" toggles USD $ / SOL ◎; all token-worth readouts (balance badge, HUD pot, prize pool, table browser, result earnings) convert in the chosen unit and update instantly. /price now returns USD + SOL.* ✅
 - [x] (1) **Stake indication:** *done: stake-raise / kick / error notices are slim, blurred, auto-dismissing glassmorphism toasts (success/info/error accents) instead of the full-width red banner; the live vote panel got a matching backdrop blur.* ✅
 - [x] (1) **Match result screen:** *done: animated LVL/XP bar fills from your pre-match XP to what you earned (level-up snaps to a fresh bar, distinct cyan/violet fill vs the league bar); reward strip gained First Blood + XP-earned cards on top of the existing animated league bar + win-streak chip.* ✅
-- [ ] (1) **Mobile:** bring the main game screen to the final concept; check all screens.
+- [ ] (1) **Mobile:** bring the main game screen to the final concept; check all screens. *(needs the final concept reference; safe polish + new-element mobile checks done.)*
 - [ ] (1) **Web design:** port design to the landing + full integration.
-- [ ] (1) **Lobby UX:** Invite button fires directly on the lobby grid.
+- [x] (1) **Lobby UX:** *done: every empty seat invites — opens the friends list (invite mode) or copies a share link.* ✅
 
 ## 🟡 Build before launch — Gameplay/content
 - [ ] (2) **Tournaments:** as described on the landing.
 - [ ] (1) **New modes & maps.**
-- [x] (1) **Always-open bot rooms:** *done: a pool of 10 persistent public rooms (CASUAL_BOT_ROOMS), non-ranked, chips-only. They're real waiting lobbies — you enter, can invite friends or ready up to start vs 1-2 bots, and others can join you; the match ends the instant the last human dies (surviving bots dropped). Listed in the browser even when idle.* ✅
+- [x] (1) **Always-open bot rooms:** *built (persistent public, non-ranked, chips-only; real lobbies you invite into / start vs 1-2 bots; match ends when the last human dies). **Currently DISABLED** (CASUAL_BOT_ROOMS=0) by request until the lobby flow is happy — flip the env var to re-enable.* ⏸️
 - [ ] (1) **Cards (Season 1):** first drop; polish style (corners/"cool") per refs.
 - [ ] (1) **Side-bets (GTA-style, optional):** spectators/players bet on others; design mechanic + revenue.
 
 ## 🟡 Progression / onboarding / social
 - [ ] (1) **Ranked reward:** small extra token reward for ranked wins (continuous progression beyond LVL).
 - [ ] (1) **Progression economy:** ~1 week of active play to unlock all current cards/skins.
-- [ ] (2) **Dailies & streaks:** daily rewards (scale with level/streak) + 7-day streak reward.
-- [ ] (1) **Onboarding:** dimmed-UI tutorial; grant a starter card set for completing / first game.
+- [x] (2) **Dailies & streaks:** *done: daily login reward (chips + XP) scaling with the login streak & level, plus a 7-day milestone bonus; 🎁 popup + pulsing top-bar icon shown only when claimable. (Real-token rewards intentionally NOT included — needs your numbers.)* ✅
+- [~] (1) **Onboarding:** *done: dimmed-UI spotlight tutorial after the intro slides (Play / vs Bots / Friends / Shop). Remaining: grant a starter card set on first game.*
 - [~] (1) **In-game chat / social ping:** light popup for quick chat with friends. *(DM chat deferred by request; instead shipped friend → room invites: tap an empty lobby seat to invite a friend, they get a Join/Decline ping + toast and the Friends module pulses.)*
 
 ## 🟡 Auth / integrations
