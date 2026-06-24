@@ -353,6 +353,55 @@ class TournamentStore {
     return this.mem.players.get(`${id}:${wallet}`) ?? null;
   }
 
+  // --- pod matches ---------------------------------------------------------
+  async addMatch(m: TournamentMatch): Promise<void> {
+    if (this.pool) {
+      await this.pool.query(
+        `insert into tournament_matches (tournament_id,round,pod,room_code,players,result,status)
+         values ($1,$2,$3,$4,$5,$6,$7) on conflict (tournament_id,round,pod) do update set room_code=$4, players=$5, status=$7`,
+        [m.tournamentId, m.round, m.pod, m.roomCode, JSON.stringify(m.players), JSON.stringify(m.result), m.status],
+      );
+    } else {
+      this.mem.matches.push(m);
+    }
+  }
+
+  async matchByRoom(roomCode: string): Promise<TournamentMatch | null> {
+    if (this.pool) {
+      const r = await this.pool.query("select * from tournament_matches where room_code=$1 limit 1", [roomCode]);
+      return r.rows[0] ? rowToMatch(r.rows[0]) : null;
+    }
+    return this.mem.matches.find((m) => m.roomCode === roomCode) ?? null;
+  }
+
+  async matches(tid: string): Promise<TournamentMatch[]> {
+    if (this.pool) {
+      const r = await this.pool.query("select * from tournament_matches where tournament_id=$1 order by round,pod", [tid]);
+      return r.rows.map(rowToMatch);
+    }
+    return this.mem.matches.filter((m) => m.tournamentId === tid).sort((a, b) => a.round - b.round || a.pod - b.pod);
+  }
+
+  async setMatchResult(tid: string, round: number, pod: number, result: string[], status: TournamentMatch["status"]): Promise<void> {
+    if (this.pool) {
+      await this.pool.query("update tournament_matches set result=$4, status=$5 where tournament_id=$1 and round=$2 and pod=$3", [tid, round, pod, JSON.stringify(result), status]);
+    } else {
+      const m = this.mem.matches.find((x) => x.tournamentId === tid && x.round === round && x.pod === pod);
+      if (m) { m.result = result; m.status = status; }
+    }
+  }
+
+  /** The live pod this wallet is currently assigned to (for "Join your match"). */
+  async liveMatchFor(tid: string, wallet: string): Promise<TournamentMatch | null> {
+    const ms = await this.matches(tid);
+    return ms.find((m) => m.status === "live" && m.players.includes(wallet)) ?? null;
+  }
+
+  async nextRound(tid: string): Promise<number> {
+    const ms = await this.matches(tid);
+    return ms.length ? Math.max(...ms.map((m) => m.round)) + 1 : 1;
+  }
+
   // --- announcements (single active push shown in-game) --------------------
   async setAnnouncement(a: Omit<Announcement, "id" | "createdAt">, now: number): Promise<Announcement> {
     const ann: Announcement = { ...a, id: rid(), createdAt: now };
@@ -400,6 +449,18 @@ function rowToPlayer(r: Record<string, unknown>): TournamentPlayer {
   };
 }
 
+function rowToMatch(r: Record<string, unknown>): TournamentMatch {
+  return {
+    tournamentId: String(r.tournament_id),
+    round: Number(r.round ?? 0),
+    pod: Number(r.pod ?? 0),
+    roomCode: String(r.room_code ?? ""),
+    players: safeArr<string>(r.players, []),
+    result: safeArr<string>(r.result, []),
+    status: (r.status as TournamentMatch["status"]) ?? "pending",
+  };
+}
+
 function safeArr<T>(v: unknown, fallback: T[]): T[] {
   try {
     if (typeof v === "string") return JSON.parse(v) as T[];
@@ -431,3 +492,71 @@ export function sanitizeConfig(input: Partial<TournamentConfig>): TournamentConf
 }
 
 export const tournaments = new TournamentStore();
+
+/** Shuffle (Fisher-Yates). */
+function shuffle<T>(a: T[]): T[] {
+  const r = [...a];
+  for (let i = r.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [r[i], r[j]] = [r[j], r[i]];
+  }
+  return r;
+}
+
+/** Seed the next round: group eligible players into pods, create a room per pod
+ *  (via the injected createRoom), record the matches, mark players active.
+ *  Returns the pods so the caller can tell players which room to join. */
+export async function seedTournament(
+  id: string,
+  createRoom: (tournamentId: string) => string | null,
+  now: number,
+): Promise<{ round: number; pods: Array<{ pod: number; roomCode: string; players: string[] }> } | null> {
+  const t = await tournaments.get(id);
+  if (!t) return null;
+  // Eligible = still in it (not eliminated). Registered/checked_in/active all play.
+  const all = await tournaments.players(id);
+  const eligible = all.filter((p) => p.status === "registered" || p.status === "checked_in" || p.status === "active");
+  if (eligible.length < 2) return { round: await tournaments.nextRound(id), pods: [] };
+  const round = await tournaments.nextRound(id);
+  const groups = chunk(shuffle(eligible.map((p) => p.wallet)), t.podSize);
+  const pods: Array<{ pod: number; roomCode: string; players: string[] }> = [];
+  for (let i = 0; i < groups.length; i++) {
+    const players = groups[i];
+    const roomCode = createRoom(id);
+    if (!roomCode) continue; // server full — skip (admin can retry)
+    await tournaments.addMatch({ tournamentId: id, round, pod: i, roomCode, players, result: [], status: "live" });
+    for (const w of players) await tournaments.setPlayer(id, w, { status: "active" });
+    pods.push({ pod: i, roomCode, players });
+  }
+  await tournaments.update(id, { status: "live", startedAt: t.startedAt || now });
+  return { round, pods };
+}
+
+/** A pod finished — award points (points-race) or advance (bracket). */
+export async function reportTournamentMatch(tournamentId: string, roomCode: string, finishWallets: string[], _now: number): Promise<void> {
+  const m = await tournaments.matchByRoom(roomCode);
+  if (!m || m.tournamentId !== tournamentId || m.status === "done") return;
+  await tournaments.setMatchResult(tournamentId, m.round, m.pod, finishWallets, "done");
+  const t = await tournaments.get(tournamentId);
+  if (!t) return;
+  if (t.format === "points") {
+    for (let i = 0; i < finishWallets.length; i++) {
+      const w = finishWallets[i];
+      const add = t.pointsTable[i] ?? 0;
+      const cur = await tournaments.isRegistered(tournamentId, w);
+      await tournaments.setPlayer(tournamentId, w, { points: (cur?.points ?? 0) + add, status: "active" });
+    }
+  } else {
+    // bracket: top `podsAdvance` advance, the rest are eliminated.
+    for (let i = 0; i < finishWallets.length; i++) {
+      const w = finishWallets[i];
+      await tournaments.setPlayer(tournamentId, w, { status: i < t.podsAdvance ? "active" : "eliminated" });
+    }
+  }
+}
+
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}

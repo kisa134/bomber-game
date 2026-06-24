@@ -86,6 +86,7 @@ import { store, type MatchResult } from "./store.js";
 const BOT_NAMES = ["Botzilla", "Fuse", "Boomer", "Sparky", "Dynamo", "Kral"];
 
 const EMPTY_ROOM_TTL_MS = 30_000; // reap rooms with no human for this long
+const TOURNEY_EMPTY_TTL_MS = 5 * 60_000; // tournament pods wait longer for players to join
 const RECONNECT_GRACE_MS = 60_000; // hold a dropped player's slot this long
 const REGION = process.env.REGION_ID ?? ""; // scopes crash-refund reconciliation
 // Spam is welcome (reactions scatter), but keep a tiny floor so one client
@@ -97,6 +98,13 @@ const CHAT_COOLDOWN_MS = 800; // per-player anti-spam for chat
 const READY_COUNTDOWN_MS = 10_000;
 // (generous: mobile browsers suspend a locked/backgrounded tab, so give it
 // plenty of time to come back before freeing the slot and ending the round)
+
+/** Wired from index.ts → tournaments.reportMatch. Called when a tournament pod
+ *  finishes, with wallets in finishing order (winner first). */
+let tournamentMatchEnd: ((tournamentId: string, roomCode: string, finishWallets: string[]) => void) | null = null;
+export function setTournamentMatchEnd(fn: (tournamentId: string, roomCode: string, finishWallets: string[]) => void): void {
+  tournamentMatchEnd = fn;
+}
 
 export class Room {
   readonly id: string; // also used as the shareable room code
@@ -151,6 +159,8 @@ export class Room {
   private seed = "";
   private seedCommit = "";
   private rng: () => number = Math.random;
+  /** Non-empty when this room is a tournament pod — drives the match-end report. */
+  tournamentId = "";
 
   dead = false;
 
@@ -633,7 +643,7 @@ export class Room {
     if (this.dead) return;
 
     if (this.humanCount > 0) this.lastHumanAtMs = Date.now();
-    else if (!this.persistent && Date.now() - this.lastHumanAtMs > EMPTY_ROOM_TTL_MS) {
+    else if (!this.persistent && Date.now() - this.lastHumanAtMs > (this.tournamentId ? TOURNEY_EMPTY_TTL_MS : EMPTY_ROOM_TTL_MS)) {
       this.dead = true;
       return;
     }
@@ -1182,6 +1192,17 @@ export class Room {
       this.recordStats();
       this.recordPlaytime();
       this.awardPlayRewards();
+      // Tournament pod finished → report the finishing order (winner first) so
+      // the tournament module can award points / advance the bracket.
+      if (this.tournamentId && tournamentMatchEnd) {
+        const order = [...this.players.values()]
+          .filter((p) => !p.isBot && p.wallet)
+          .sort((a, b) =>
+            a.id === this.winnerId ? -1 : b.id === this.winnerId ? 1 : Number(b.alive) - Number(a.alive) || b.frags - a.frags,
+          )
+          .map((p) => p.wallet as string);
+        tournamentMatchEnd(this.tournamentId, this.id, order);
+      }
       analytics.matchCompleted({
         winner: winner && !winner.isBot ? winner.wallet : null,
         players: this.humanCount,

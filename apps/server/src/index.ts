@@ -17,7 +17,8 @@ import { initSentry, captureError } from "./sentry.js";
 import { metrics } from "./metrics.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
-import { tournaments, sanitizeConfig, type TStatus } from "./tournament.js";
+import { tournaments, sanitizeConfig, seedTournament, reportTournamentMatch, type TStatus } from "./tournament.js";
+import { setTournamentMatchEnd } from "./room.js";
 import {
   tokenBalance,
   withdraw,
@@ -1264,10 +1265,10 @@ app.get("/tournament", (res, req) => {
   const q = new URLSearchParams(req.getQuery());
   const id = q.get("id") ?? "";
   const wallet = verifySession(q.get("session") ?? "");
-  void Promise.all([tournaments.get(id), tournaments.players(id), wallet ? tournaments.isRegistered(id, wallet) : Promise.resolve(null)])
-    .then(([t, players, mine]) => {
+  void Promise.all([tournaments.get(id), tournaments.players(id), wallet ? tournaments.isRegistered(id, wallet) : Promise.resolve(null), wallet ? tournaments.liveMatchFor(id, wallet) : Promise.resolve(null)])
+    .then(([t, players, mine, liveMatch]) => {
       if (!t) return sendJson(res, { error: "not_found" }, "404 Not Found");
-      sendJson(res, { tournament: t, players, you: mine });
+      sendJson(res, { tournament: t, players, you: mine, yourMatch: liveMatch });
     })
     .catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
@@ -1355,6 +1356,11 @@ adminTourneyPost("/admin/tournament/announce", (j) => tournaments.setAnnouncemen
   until: Math.max(0, Number(j.until) || 0),
 }, Date.now()));
 adminTourneyPost("/admin/tournament/announce/clear", async () => { await tournaments.clearAnnouncement(); return "ok"; });
+// Seed the next round: build pods, create pod rooms, mark players active. Returns
+// the pods (room codes) so players can be pointed at their match.
+adminTourneyPost("/admin/tournament/seed", (j) => seedTournament(String(j.id ?? ""), (tid) => mm.createTournamentRoom(tid), Date.now()));
+// Wire pod match-end → tournament scoring/advance.
+setTournamentMatchEnd((tid, code, order) => void reportTournamentMatch(tid, code, order, Date.now()));
 
 // --- referral ---
 // Bind the inviter for a freshly-connected wallet (one-time, session-verified).

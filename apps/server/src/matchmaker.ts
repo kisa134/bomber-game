@@ -72,6 +72,19 @@ export class Matchmaker {
     return this.reserve(room, name, skin, wallet);
   }
 
+  /** Create a private pod room for a tournament; the assigned players join it by
+   *  the returned code. Tagged with tournamentId so the match-end hook reports
+   *  the finishing order back to the bracket/standings. Returns null if full. */
+  createTournamentRoom(tournamentId: string): string | null {
+    try {
+      const room = this.newRoom(false); // private, free; buy-in escrow handled at registration
+      room.tournamentId = tournamentId;
+      return room.id;
+    } catch {
+      return null; // ServerFull / load-shed
+    }
+  }
+
   /** Solo practice room: fills with bots and auto-starts. Never staked.
    *  competitive = a fair bots match that grants tiny rewards (vs sandbox). */
   practice(
