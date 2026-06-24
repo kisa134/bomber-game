@@ -99,17 +99,18 @@ body {
 #bg.art {
   background: #0b070e;
 }
-/* The game art as a deeply-blurred, dimmed STAGE (not a texture). */
+/* The game art as a deeply-blurred, dimmed STAGE (not a texture).
+   The blur is BAKED into a tiny pre-blurred webp (4KB) instead of a per-frame
+   GPU filter — same look, near-zero cost, no FPS hit when sparks/cards animate. */
 #bg.art::before {
   content: "";
   position: absolute;
-  /* Big overscan + scale so the heavy blur never leaks transparent edges. */
-  inset: -70px;
-  background: #0b070e url("/bg/splash-art.png") center / cover no-repeat;
-  /* No blur — a SHARP scene pushed deep onto the 3rd plane by heavy dimming,
-     so it reads as a backdrop behind the cards, not a competing texture. */
-  filter: blur(24px) saturate(0.85) brightness(0.3) contrast(1.04);
-  transform: scale(1.08);
+  /* Small overscan + scale to hide the low-res webp edges (no live blur to leak). */
+  inset: -16px;
+  background: #0b070e url("/bg/splash-blur.webp") center / cover no-repeat;
+  /* Cheap colour filters only (no convolution) — lets day/night re-tone for free. */
+  filter: saturate(0.85) brightness(0.3) contrast(1.04);
+  transform: scale(1.04);
 }
 /* A faint warm key-light lifts the centre (lit showcase) while a deep, SOFT
    radial vignette sinks the edges → rgba(0,0,0,0) centre → ~0.75 at the edges,
@@ -120,9 +121,10 @@ body {
     radial-gradient(105% 96% at 50% 42%, rgba(0, 0, 0, 0) 26%, rgba(8, 6, 14, 0.5) 56%, rgba(4, 3, 8, 0.84) 82%, rgba(0, 0, 0, 0.96) 100%),
     radial-gradient(ellipse 75% 62% at 50% 44%, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.5) 50%, rgba(0, 0, 0, 0.74) 78%, rgba(0, 0, 0, 0.92) 100%);
 }
-/* ☀ Day mode — lighter dimming AND less blur (sharper scene). */
+/* ☀ Day mode — lighter dimming AND a sharper (lighter-blur) baked scene. */
 #bg.art.day::before {
-  filter: blur(10px) saturate(1) brightness(0.72) contrast(1.03);
+  background: #0b070e url("/bg/splash-blur-day.webp") center / cover no-repeat;
+  filter: saturate(1) brightness(0.72) contrast(1.03);
 }
 #bg.art.day::after {
   background:
@@ -378,7 +380,7 @@ button.glass-btn.primary:hover {
 .lite .fc-ray,
 .lite .fc-light,
 .lite .fc-back-tile { display: none !important; }
-.lite #bg.art::before { filter: brightness(0.32) saturate(0.85) !important; }
+/* (bg blur is now a baked static webp — lite mode no longer needs to touch it) */
 
 .divider {
   width: 260px;

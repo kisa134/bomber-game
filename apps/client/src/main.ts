@@ -2768,14 +2768,19 @@ function startFighterFloat(): void {
   const tick = (now: number): void => {
     requestAnimationFrame(tick);
     if (menu.classList.contains("hidden")) return;
-    // FPS watchdog → drop to lite after a sustained low frame-rate
+    // FPS watchdog → drop to lite only after a SUSTAINED low frame-rate.
+    // Tuned conservative: a 1-sec spark spike must not trip it (the heavy bg blur
+    // that used to cause real drops is now a baked static image, so genuine load
+    // is rare). Backgrounded tabs throttle rAF → fake "low fps"; we skip those.
     if (!liteMode) {
-      if (fpsLast) { fpsAcc += now - fpsLast; fpsFrames++; }
+      const dt = fpsLast ? now - fpsLast : 0;
       fpsLast = now;
+      if (dt > 0 && dt < 500) { fpsAcc += dt; fpsFrames++; } // ignore stalls/throttles
+      else if (dt >= 500) { fpsAcc = 0; fpsFrames = 0; lowFpsStreak = 0; } // tab was hidden — reset
       if (fpsAcc >= 1000) {
         const fps = (fpsFrames * 1000) / fpsAcc;
-        lowFpsStreak = fps < 45 ? lowFpsStreak + 1 : 0;
-        if (lowFpsStreak >= 3) goLite();
+        lowFpsStreak = fps < 40 ? lowFpsStreak + 1 : 0;
+        if (lowFpsStreak >= 5) goLite(); // ~5s genuinely below 40fps
         fpsAcc = 0; fpsFrames = 0;
       }
     }
