@@ -3988,15 +3988,33 @@ function addFireflies(btn: HTMLElement, n: number): void {
     btn.appendChild(f);
   }
 }
+// A small, classy spark spray from the button (a few on hover, more on click).
+function sparkBurst(btn: HTMLElement, count: number): void {
+  const r = btn.getBoundingClientRect();
+  if (!r.width) return;
+  const cont = document.createElement("div");
+  cont.style.cssText = `position:fixed;left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px;z-index:9999;pointer-events:none`;
+  document.body.appendChild(cont);
+  const cols = ["#ffffff", "#fff3c0", "#ffd84d", "#ffb24a"];
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement("span");
+    const col = cols[i % cols.length];
+    const a = Math.random() * Math.PI * 2;
+    const dist = 18 + Math.random() * (r.width * 0.5);
+    const size = 1.5 + Math.random() * 2.5;
+    p.style.cssText = `position:absolute;left:0;top:0;width:${size}px;height:${size}px;border-radius:50%;background:${col};box-shadow:0 0 6px 1px ${col}`;
+    cont.appendChild(p);
+    p.animate([
+      { transform: "translate(-50%,-50%) scale(1)", opacity: 1 },
+      { transform: `translate(calc(-50% + ${(Math.cos(a) * dist).toFixed(0)}px), calc(-50% + ${(Math.sin(a) * dist).toFixed(0)}px)) scale(0)`, opacity: 0 },
+    ], { duration: 420 + Math.random() * 320, easing: "cubic-bezier(0.15,0.7,0.2,1)" });
+  }
+  window.setTimeout(() => cont.remove(), 820);
+}
 document.querySelectorAll<HTMLElement>(".glass-btn").forEach((b) => {
   addFireflies(b, 18);
-  // The highlight follows the cursor across the glass (natural reflection).
-  b.addEventListener("pointermove", (e) => {
-    const r = b.getBoundingClientRect();
-    b.style.setProperty("--mx", `${(((e.clientX - r.left) / r.width) * 100).toFixed(1)}%`);
-    b.style.setProperty("--my", `${(((e.clientY - r.top) / r.height) * 100).toFixed(1)}%`);
-  });
-  b.addEventListener("pointerleave", () => b.style.setProperty("--my", "-30%"));
+  b.addEventListener("pointerenter", () => sparkBurst(b, 9));
+  b.addEventListener("click", () => sparkBurst(b, 20));
 });
 
 // Stylish warm-spark burst when the main PLAY button is pressed.

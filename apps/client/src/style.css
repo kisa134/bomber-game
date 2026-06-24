@@ -265,9 +265,13 @@ button.ghost {
 /* ── Liquid-glass material — OPT-IN via .glass-btn (kept for A/B comparison) ──
    Add the class to any <button> to make it frosted translucent glass with an
    edge-refraction lens (#lg-distort). Brand colours preserved on .primary. */
+/* ── Glass button — ONE clean set (no running / cursor glints) ───────────────
+   Glass material + edge refraction + drifting fireflies. The shine is the glass
+   itself; the only "reaction" is a hover lift/brighten and a spark burst (JS). */
 button.glass-btn {
   position: relative;
   isolation: isolate;
+  overflow: hidden;
   border-radius: 16px;
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.015), rgba(255, 255, 255, 0.004));
   backdrop-filter: blur(6.5px) saturate(185%) brightness(1.37);
@@ -280,6 +284,7 @@ button.glass-btn {
     0 12px 30px rgba(0, 0, 0, 0.36);
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+  transition: transform 0.15s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.2s ease, filter 0.15s ease;
 }
 button.glass-btn::after {
   content: "";
@@ -292,31 +297,12 @@ button.glass-btn::after {
   -webkit-backdrop-filter: blur(1px);
   filter: url(#lg-distort);
 }
-button.glass-btn {
-  overflow: hidden;
-}
-/* Our soft physical glint back on the glass (eases back and forth, no one-way
-   running bar). The warm yellow inner glow lives in the box-shadow below. */
-/* No running band. A soft reflection that FOLLOWS THE CURSOR (light catches the
-   glass where you point) plus a faint fixed top gloss. Brightens on hover. */
-button.glass-btn::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    radial-gradient(150px 110px at var(--mx, 50%) var(--my, -30%), rgba(255, 255, 255, 0.5), transparent 72%),
-    linear-gradient(158deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.03) 22%, transparent 44%);
-  mix-blend-mode: screen;
-  opacity: 0.5;
-  transition: opacity 0.3s ease;
-}
-button.glass-btn:hover::before { opacity: 1; }
 button.glass-btn:hover {
   transform: translateY(-2px);
+  filter: brightness(1.07);
 }
-/* Fireflies drifting inside the jar — injected into .glass-btn by main.ts. */
+button.glass-btn:active { transform: scale(0.97); }
+/* Fireflies drifting inside the glass — injected into .glass-btn by main.ts. */
 .glass-firefly {
   position: absolute;
   width: 4px;
@@ -335,20 +321,26 @@ button.glass-btn:hover {
   80%  { opacity: 0.95; }
   100% { opacity: 0;   transform: translate(var(--x2), var(--y2)) scale(0.5); }
 }
-button.glass-btn:hover {
-  transform: translateY(-1px);
-  filter: none;
-}
+/* PRIMARY = the bright glass PLAY button — the loudest CTA on the screen. */
 button.glass-btn.primary {
-  background: linear-gradient(135deg, rgba(255, 221, 96, 0.62), rgba(242, 174, 50, 0.5));
-  color: #4a2d06;
-  border: 1px solid rgba(255, 231, 140, 0.7);
+  background: linear-gradient(180deg, rgba(255, 231, 156, 0.86), rgba(246, 189, 58, 0.82) 46%, rgba(224, 154, 28, 0.84));
+  color: #2a1c02;
+  border: 1px solid rgba(255, 231, 150, 0.9);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.8),
-    inset 0 0 26px rgba(255, 214, 90, 0.5),
-    inset 0 -2px 7px rgba(150, 90, 0, 0.35),
-    0 12px 32px rgba(220, 150, 20, 0.5);
-  text-shadow: 0 1px 0 rgba(255, 240, 180, 0.5);
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 0 28px rgba(255, 221, 110, 0.55),
+    inset 0 -2px 7px rgba(150, 90, 0, 0.4),
+    0 12px 34px rgba(220, 150, 20, 0.55),
+    0 0 26px rgba(255, 190, 60, 0.3);
+  text-shadow: 0 1px 0 rgba(255, 240, 180, 0.55);
+}
+button.glass-btn.primary:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 0 34px rgba(255, 225, 120, 0.7),
+    inset 0 -2px 7px rgba(150, 90, 0, 0.4),
+    0 14px 38px rgba(220, 150, 20, 0.6),
+    0 0 42px rgba(255, 200, 70, 0.45);
 }
 
 .divider {
@@ -1592,18 +1584,8 @@ button.glass-btn.primary {
     inset 0 -2px 6px rgba(150, 90, 0, 0.4),
     0 8px 20px rgba(0, 0, 0, 0.4);
 }
-.hub-play::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 45%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
-  transform: translateX(-130%) skewX(-18deg);
-  animation: ctaSweep 3.8s ease-in-out infinite;
-  pointer-events: none;
-}
+/* (Removed the old left-to-right CTA sweep band — the glass material + spark
+   burst carry the button now.) */
 /* Secondary action — a quiet text link (no icon, no glow). */
 .hub-practice-link {
   width: auto;
