@@ -549,6 +549,13 @@ app.get("/presence", (res, req) => {
   });
 });
 
+// Public live online count (read-only) — shown on the hub info panel.
+app.get("/online", (res, req) => {
+  res.onAborted(() => {});
+  void req;
+  sendJson(res, { online: onlineCount() });
+});
+
 // Live JSON metrics for the dashboard. Polled by /admin.
 app.get("/admin/stats", (res, req) => {
   res.onAborted(() => {});

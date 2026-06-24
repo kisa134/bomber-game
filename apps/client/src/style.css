@@ -116,13 +116,9 @@ body {
    so the panels/cards pop and corners stay deep but never charcoal. */
 #bg.art::after {
   background:
-    radial-gradient(
-      ellipse 75% 62% at 50% 44%,
-      rgba(0, 0, 0, 0.34) 0%,
-      rgba(0, 0, 0, 0.5) 50%,
-      rgba(0, 0, 0, 0.74) 78%,
-      rgba(0, 0, 0, 0.92) 100%
-    );
+    radial-gradient(92% 56% at 50% 28%, rgba(255, 206, 120, 0.07) 0%, rgba(255, 206, 120, 0) 42%),
+    radial-gradient(105% 96% at 50% 42%, rgba(0, 0, 0, 0) 26%, rgba(8, 6, 14, 0.5) 56%, rgba(4, 3, 8, 0.84) 82%, rgba(0, 0, 0, 0.96) 100%),
+    radial-gradient(ellipse 75% 62% at 50% 44%, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.5) 50%, rgba(0, 0, 0, 0.74) 78%, rgba(0, 0, 0, 0.92) 100%);
 }
 /* ☀ Day mode — lighter dimming AND less blur (sharper scene). */
 #bg.art.day::before {
@@ -279,6 +275,7 @@ button.glass-btn {
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.64),
+    inset 0 0 20px rgba(255, 200, 90, 0.16),
     inset 0 -2px 7px rgba(0, 0, 0, 0.26),
     0 12px 30px rgba(0, 0, 0, 0.36);
   color: #fff;
@@ -295,19 +292,42 @@ button.glass-btn::after {
   -webkit-backdrop-filter: blur(1px);
   filter: url(#lg-distort);
 }
-/* Same soft auto glint sweeping the glass surface. */
+button.glass-btn {
+  overflow: hidden;
+}
+/* Our soft physical glint back on the glass (eases back and forth, no one-way
+   running bar). The warm yellow inner glow lives in the box-shadow below. */
 button.glass-btn::before {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(100deg, transparent 37%, rgba(255, 255, 255, 0.34) 50%, transparent 63%);
+  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.32) 50%, transparent 65%);
   background-size: 240% 100%;
-  filter: blur(5px);
+  filter: blur(6px);
   mix-blend-mode: screen;
   opacity: 0.6;
   animation: fcGlint 5.5s ease-in-out infinite alternate;
+}
+/* Fireflies drifting inside the jar — injected into .glass-btn by main.ts. */
+.glass-firefly {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff7d0 0%, #f3c54a 45%, transparent 72%);
+  box-shadow: 0 0 6px 1px rgba(255, 210, 90, 0.85);
+  pointer-events: none;
+  opacity: 0;
+  animation: fireflyDrift var(--ff-dur, 6s) ease-in-out var(--ff-delay, 0s) infinite;
+}
+@keyframes fireflyDrift {
+  0%   { opacity: 0;   transform: translate(var(--x0), var(--y0)) scale(0.5); }
+  20%  { opacity: 0.95; }
+  50%  { opacity: 0.6; transform: translate(var(--x1), var(--y1)) scale(1); }
+  80%  { opacity: 0.95; }
+  100% { opacity: 0;   transform: translate(var(--x2), var(--y2)) scale(0.5); }
 }
 button.glass-btn:hover {
   transform: translateY(-1px);
@@ -1335,20 +1355,8 @@ button.glass-btn.primary {
   gap: 0;
   text-align: center;
 }
-/* Atmospheric vignette — restores depth WITHOUT hiding the #bg scene.
-   Transparent through the centre (the blurred art shows as a lit showcase) →
-   strong dark frame at the edges/corners for volume. Semi-transparent, sits
-   between #bg (below) and .hub-stage (z-index:1, above); never blocks clicks. */
-.hub-hero-layout::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(92% 56% at 50% 28%, rgba(255,206,120,0.07) 0%, rgba(255,206,120,0) 42%),
-    radial-gradient(105% 96% at 50% 42%, rgba(0,0,0,0) 26%, rgba(8,6,14,0.50) 56%, rgba(4,3,8,0.84) 82%, rgba(0,0,0,0.96) 100%);
-}
+/* (The hub vignette now lives on #bg.art::after so it's IDENTICAL on every
+   screen — no visible change when navigating away from the hub.) */
 .hub-stage {
   position: relative;
   z-index: 1;
@@ -5168,17 +5176,8 @@ button.big {
   position: relative;
   overflow: hidden;
 }
-.splash-card .primary::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 70px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
-  animation: splash-sheen 3.6s ease-in-out infinite;
-  pointer-events: none;
-}
+/* (Removed the left-to-right running sheen bar on splash buttons.) */
+.splash-card .primary::after { display: none; }
 @keyframes splash-sheen {
   0% {
     transform: translateX(-130%) skewX(-18deg);
@@ -5586,11 +5585,8 @@ button.big {
   mix-blend-mode: screen;
   opacity: var(--holo);
   pointer-events: none;
-  animation: foilShift 9s linear infinite;
-}
-@keyframes foilShift {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
+  /* No auto-run sweep — the foil is static; the active card's foil tracks the
+     cursor (set in main.ts) for a physical, hand-held shimmer. */
 }
 /* Silver chameleon (common) — cool metallic blue-white shift */
 .finish-silver .fc-holo {
@@ -5632,25 +5628,23 @@ button.big {
   opacity: 0.5;
   pointer-events: none;
 }
-/* Specular glint — a soft, heavily-smeared diagonal highlight with NO visible
-   edges that glides smoothly back and forth across every card (ease-in-out
-   ALTERNATE = no hard jump). Each card is phase-offset so the fan doesn't glint
-   in unison; the active card shines brightest. */
+/* Our soft physical glint — heavily blurred, no edges, eases back and forth
+   (ALTERNATE, no hard one-way run). Active card shines brightest. */
 .fc-sheen {
   position: absolute;
   inset: -8%;
-  background: linear-gradient(100deg, transparent 33%, rgba(255, 255, 255, 0.55) 50%, transparent 67%);
+  background: linear-gradient(100deg, transparent 33%, rgba(255, 255, 255, 0.5) 50%, transparent 67%);
   background-size: 235% 100%;
   filter: blur(13px);
   mix-blend-mode: screen;
-  opacity: 0.42;
+  opacity: 0.4;
   pointer-events: none;
   animation: fcGlint 5.5s ease-in-out infinite alternate;
 }
-.fighter-card.active .fc-sheen { opacity: 0.85; }
+.fighter-card.active .fc-sheen { opacity: 0.8; }
 @keyframes fcGlint {
-  from { background-position: 130% 0; }
-  to   { background-position: -30% 0; }
+  from { background-position: 128% 0; }
+  to   { background-position: -28% 0; }
 }
 .fc-frame {
   position: absolute;
@@ -5970,6 +5964,72 @@ button.big {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
+
+/* Game-wide info panel — mirrors the passport card on the opposite side. */
+.info-card {
+  width: min(380px, 100%);
+  padding: 14px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(34, 30, 40, 0.9), rgba(18, 15, 24, 0.9));
+  border: 1px solid var(--border);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.ic-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 11px;
+}
+.ic-title {
+  font-family: var(--font-disp);
+  font-weight: 800;
+  font-size: 0.98rem;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #ffe9a8, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.ic-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  color: #6fe39a;
+  background: rgba(90, 210, 122, 0.12);
+  border: 1px solid rgba(90, 210, 122, 0.3);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+.ic-badge .ro-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #5ad27a;
+  box-shadow: 0 0 7px #5ad27a;
+}
+.ic-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ic-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+}
+.ic-k { color: var(--muted); }
+.ic-v {
+  font-weight: 700;
+  color: var(--text);
+  font-family: var(--font-mono);
+}
+.ic-v.live { color: #6fe39a; }
 .pc-head {
   display: flex;
   align-items: center;
@@ -6318,8 +6378,9 @@ button.big {
 .passport-card { order: 1; }
 .hub-stage { order: 2; width: 100%; }
 .hub-bottombar { order: 3; }
-.hub-rail-right { order: 4; }
-.hub-rail-left { order: 5; }
+.info-card { order: 4; width: min(380px, 100%); }
+.hub-rail-right { order: 5; }
+.hub-rail-left { order: 6; }
 @media (max-width: 899px) {
   #menu {
     justify-content: flex-start;
@@ -6359,8 +6420,8 @@ button.big {
     grid-template-columns: 244px minmax(0, 1fr) 244px;
     grid-template-rows: auto minmax(0, 1fr) auto;
     grid-template-areas:
-      "pass   center right"
-      "social center right"
+      "pass   center info"
+      "social center dest"
       "bottom bottom bottom";
     gap: 14px 18px;
     align-content: center;
@@ -6371,7 +6432,8 @@ button.big {
   .passport-card { grid-area: pass; width: 100%; }
   .hub-rail-left { grid-area: social; width: 100%; align-self: start; }
   .hub-stage { grid-area: center; width: 100%; justify-content: center; gap: 12px; }
-  .hub-rail-right { grid-area: right; width: 100%; align-self: start; }
+  .info-card { grid-area: info; width: 100%; align-self: start; }
+  .hub-rail-right { grid-area: dest; width: 100%; align-self: start; }
   .hub-bottombar { grid-area: bottom; width: 100%; max-width: 600px; justify-self: center; margin-top: 6px; }
   .fighter-carousel { height: 372px; }
   .fighter-card { width: 232px; }

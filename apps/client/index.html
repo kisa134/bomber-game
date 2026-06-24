@@ -152,9 +152,9 @@
             <button id="open-leaderboard" class="rail-chip">
               <span class="rc-k">🏆 Leaderboard</span><span class="rc-v">Top →</span>
             </button>
-            <div class="rail-chip dashed">
-              <span class="rc-k">★ Season 1</span><span class="rc-v">SOON</span>
-            </div>
+            <button id="open-wheel" class="rail-chip">
+              <span class="rc-k">🎰 Daily Spin</span><span class="rc-v ready">READY</span>
+            </button>
           </div>
 
           <!-- CENTER: holographic fighter carousel -->
@@ -176,13 +176,20 @@
             <p id="menu-status" class="status"></p>
           </div>
 
-          <!-- RIGHT: destinations -->
+          <!-- RIGHT (top): game-wide info panel — symmetric to the passport -->
+          <div class="info-card">
+            <div class="ic-head">
+              <span class="ic-title">★ SEASON 1</span>
+              <span class="ic-badge"><span class="ro-dot" aria-hidden="true"></span>LIVE</span>
+            </div>
+            <div class="ic-rows">
+              <div class="ic-row"><span class="ic-k">🟢 Online now</span><span id="hub-online" class="ic-v">—</span></div>
+              <div class="ic-row"><span class="ic-k">💰 $1 in $BOMB</span><span id="hub-price" class="ic-v">—</span></div>
+            </div>
+          </div>
+
+          <!-- RIGHT (bottom): destinations -->
           <div class="hub-rail hub-rail-right">
-            <div class="rail-online"><span class="ro-dot" aria-hidden="true"></span><span id="hub-online">ARENA LIVE</span></div>
-            <button id="open-wheel" class="rail-card spin">
-              <div class="rc-top"><span class="rc-title">🎰 Daily Spin</span><span class="rc-badge ready">READY</span></div>
-              <div class="rc-sub">Free spin · every spin wins</div>
-            </button>
             <button id="open-shop" class="rail-card">
               <div class="rc-top"><span class="rc-title">🛒 Shop</span><span class="rc-badge new">NEW</span></div>
               <div class="rc-sub">11 collectible skins</div>

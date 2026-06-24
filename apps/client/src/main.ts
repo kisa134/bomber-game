@@ -60,6 +60,7 @@ import {
   type ProfileData,
   type JoinResponse,
 } from "./net/socket.js";
+import { SERVER_HTTP } from "./config.js";
 import { GameState } from "./game/state.js";
 import { Renderer, PLAYER_COLORS, skinAvatar } from "./game/renderer.js";
 import { Input } from "./game/input.js";
@@ -2607,10 +2608,10 @@ function emitSparks(rect: DOMRect, cr: DOMRect, tier: number, ramp: number, t: n
     else if (e < 0.5) { x = lx + Math.random() * w; y = ly + h; nx = 0; ny = 1; }
     else if (e < 0.75) { x = lx; y = ly + Math.random() * h; nx = -1; ny = 0; }
     else { x = lx + w; y = ly + Math.random() * h; nx = 1; ny = 0; }
-    const spd = 0.7 + Math.random() * 1.5; // flat, gentle — stays near the edge
-    const ang = Math.atan2(ny, nx) + (Math.random() - 0.5) * 1.0;
-    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 11 + Math.random() * 15, size: 1.0 + Math.random() * 1.8, col: sparkColor(tier, ramp, t, i, base) });
-    if (sparks.length > 420) sparks.shift();
+    const spd = 0.5 + Math.random() * 2.1; // very varied → chaotic
+    const ang = Math.atan2(ny, nx) + (Math.random() - 0.5) * 1.9; // wide spray
+    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 9 + Math.random() * 17, size: 0.35 + Math.random() * 0.65, col: sparkColor(tier, ramp, t, i, base) });
+    if (sparks.length > 460) sparks.shift();
   }
 }
 function tickSparks(): void {
@@ -2623,7 +2624,9 @@ function tickSparks(): void {
   for (let i = sparks.length - 1; i >= 0; i--) {
     const s = sparks[i];
     s.px = s.x; s.py = s.y;
-    s.vx *= 0.9; s.vy = s.vy * 0.9 + 0.04; // strong drag → sparks settle near the edge
+    // strong drag + per-frame turbulence → real-spark chaotic flicker
+    s.vx = s.vx * 0.9 + (Math.random() - 0.5) * 0.28;
+    s.vy = s.vy * 0.9 + 0.05 + (Math.random() - 0.5) * 0.28;
     s.x += s.vx; s.y += s.vy;
     s.life -= 1 / s.max;
     if (s.life <= 0) { sparks.splice(i, 1); continue; }
@@ -3915,12 +3918,48 @@ function refreshPrice(): void {
     tokenUsd = usd;
     tokenSol = sol;
     setTokenUsd(usd, sol, settings.valueUnit); // re-renders the lobby browser
+    // Hub info panel: "$1 in $BOMB" = how many tokens one dollar buys.
+    const priceEl = document.getElementById("hub-price");
+    if (priceEl) priceEl.textContent = usd > 0 ? `${Math.round(1 / usd).toLocaleString("en-US")} $BOMB` : "—";
     // These were likely rendered BEFORE the price loaded, leaving the value blank —
     // redraw now that we have a rate: the token-balance badge and the room prize.
     setTokenBadge(lastTokens);
     if (!document.getElementById("room")?.classList.contains("hidden")) renderRoom(state);
   });
 }
+
+// Live "online now" count for the hub info panel (refresh every 30s).
+function refreshOnline(): void {
+  void fetch(`${SERVER_HTTP}/online`).then((r) => r.json()).then((d: { online?: number }) => {
+    const el = document.getElementById("hub-online");
+    if (el && typeof d.online === "number") el.textContent = d.online.toLocaleString("en-US");
+  }).catch(() => { /* offline — leave the placeholder */ });
+}
+refreshOnline();
+setInterval(refreshOnline, 30_000);
+
+// Fireflies drifting inside the glass buttons (like bugs in a jar).
+function addFireflies(btn: HTMLElement, n: number): void {
+  if (btn.querySelector(".glass-firefly")) return;
+  const w = btn.offsetWidth || 220, h = btn.offsetHeight || 64;
+  const rnd = (): number => Math.random() * 2 - 1;
+  for (let i = 0; i < n; i++) {
+    const f = document.createElement("span");
+    f.className = "glass-firefly";
+    f.style.left = `${(12 + Math.random() * 76).toFixed(0)}%`;
+    f.style.top = `${(18 + Math.random() * 64).toFixed(0)}%`;
+    f.style.setProperty("--x0", `${(rnd() * w * 0.28).toFixed(0)}px`);
+    f.style.setProperty("--y0", `${(rnd() * h * 0.5).toFixed(0)}px`);
+    f.style.setProperty("--x1", `${(rnd() * w * 0.28).toFixed(0)}px`);
+    f.style.setProperty("--y1", `${(rnd() * h * 0.5).toFixed(0)}px`);
+    f.style.setProperty("--x2", `${(rnd() * w * 0.28).toFixed(0)}px`);
+    f.style.setProperty("--y2", `${(rnd() * h * 0.5).toFixed(0)}px`);
+    f.style.setProperty("--ff-dur", `${(4 + Math.random() * 4).toFixed(1)}s`);
+    f.style.setProperty("--ff-delay", `${(-Math.random() * 6).toFixed(1)}s`);
+    btn.appendChild(f);
+  }
+}
+document.querySelectorAll<HTMLElement>(".glass-btn").forEach((b) => addFireflies(b, 18));
 refreshPrice();
 setInterval(refreshPrice, 60_000);
 // Keep chips + token balance fresh on the menu (e.g. after a deposit credits a
