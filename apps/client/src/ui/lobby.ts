@@ -178,9 +178,10 @@ export function showScreen(name: ScreenName): void {
     document.getElementById(id)?.classList.toggle("hidden", id !== name);
   }
   // Persistent top chrome (alpha notice + global status bar + XP): on every
-  // screen except the in-game view (Canvas with its own HUD) and the splash
-  // entry screen (a clean, chrome-less welcome).
-  document.getElementById("chrome")?.classList.toggle("hidden", name === "game" || name === "splash");
+  // screen except the in-game view (Canvas with its own HUD), the splash entry
+  // screen, AND the waiting room — so the hub nav (HOME/SHOP/…) can't be tapped
+  // by accident and silently yank you out of a lobby you can't get back into.
+  document.getElementById("chrome")?.classList.toggle("hidden", name === "game" || name === "splash" || name === "room");
   syncChrome();
   // Global background video runs everywhere except in-game (CPU/battery) and the
   // splash screen (which has its own video backdrop covering it).

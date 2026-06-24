@@ -711,7 +711,8 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
           : chip("Reward", "⚪ practice", "none"),
       );
     } else {
-      rew.append(chip("Match", lastMatch?.earnText || "—", "earn"));
+      // (The token win/loss amount is shown per-player in the standings below, so
+      //  it's not repeated as a top chip where big token numbers overflowed.)
       const delta = lastMatch?.ratingDelta ?? 0;
       const ratingChip = chip("Rating", "", delta > 0 ? "up" : delta < 0 ? "down" : "");
       const v = ratingChip.querySelector(".result-rew-v") as HTMLElement;
