@@ -2792,7 +2792,8 @@ function startFighterFloat(): void {
     deckClicks++;
     window.clearTimeout(deckClickTimer);
     deckClickTimer = window.setTimeout(() => { deckClicks = 0; }, 650);
-    if (deckClicks >= 4) { deckClicks = 0; enterDeck(); }
+    if (deckClicks >= 6) { deckClicks = 0; enterDeck(); }      // 6 → gather the deck
+    else if (deckClicks === 3) flipActiveCard();               // 3 → flip the centre card
   });
   const tick = (now: number): void => {
     requestAnimationFrame(tick);
@@ -2919,18 +2920,44 @@ const FAN = [
 ];
 
 /* ── DECK easter egg ──────────────────────────────────────────────────────
-   4 quick clicks on the centre card → every card gathers into a messy deck
-   (backs up), which the user can drag like cutting a deck; on release the
-   pack shuffles and deals back out into the fan, spinning back→front. */
+   3 quick clicks on the centre card → it flips over to show its back (rubashka).
+   6 quick clicks → every card gathers into a messy deck (backs up), draggable
+   like cutting a deck; on release it shuffles and deals back out into the fan. */
 let deckState = 0; // 0 idle · 1 presented (draggable) · 2 dealing
 let deckClicks = 0;
 let deckClickTimer = 0;
 let deckDragging = false;
 let deckDownX = 0, deckDownY = 0;
+let activeFlipped = false; // single-card flip (3-click) — centre card shows its back
+let flipResetTimer = 0;
+
+/** Flip the centre card over to reveal its back, or flip it face-up again.
+    Pure transform + opacity cross-fade (the float loop drives only the inner
+    .fc-tilt, so setting the OUTER card transform here isn't fought over). */
+function flipActiveCard(): void {
+  const wrap = document.getElementById("fighter-carousel");
+  if (!wrap || deckState !== 0) return;
+  const act = wrap.querySelector<HTMLElement>(".fighter-card.active");
+  if (!act) return;
+  activeFlipped = !activeFlipped;
+  // Springy flip with a touch of overshoot so it feels physical, not robotic.
+  act.style.transition = "transform 0.6s cubic-bezier(0.34, 1.28, 0.4, 1)";
+  act.style.transform = cardTf(0, 0, 0, activeFlipped ? 180 : 0, 1); // FAN[0] pose ± 180
+  act.classList.toggle("show-back", activeFlipped);
+  window.clearTimeout(flipResetTimer);
+  flipResetTimer = window.setTimeout(() => { act.style.transition = ""; }, 620);
+}
+/** Drop any single-card flip (called when the fan re-lays out / user navigates). */
+function clearActiveFlip(): void {
+  if (!activeFlipped) return;
+  activeFlipped = false;
+  document.querySelectorAll("#fighter-carousel .fighter-card.show-back").forEach((c) => c.classList.remove("show-back"));
+}
 
 function enterDeck(): void {
   const wrap = document.getElementById("fighter-carousel");
   if (!wrap || deckState !== 0) return;
+  activeFlipped = false; // the deck supersedes any single-card flip
   deckState = 1;
   wrap.classList.add("deck-mode");
   const cards = [...wrap.querySelectorAll<HTMLElement>(".fighter-card")];
@@ -2985,6 +3012,7 @@ function dealOut(): void {
 }
 
 function layoutCarousel(active: number): void {
+  clearActiveFlip(); // re-fanning (navigate / deal-out) drops any single-card flip
   const cards = document.querySelectorAll<HTMLElement>("#fighter-carousel .fighter-card");
   const n = SKIN_COUNT;
   const mobile = window.innerWidth < 900; // phones show only the active card

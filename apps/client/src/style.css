@@ -5485,10 +5485,10 @@ button.big {
   /* --glow scales with rarity; --shadow is the live cast shadow (set per frame
      in main.ts) so the card floats with a moving shadow. */
   box-shadow: var(--shadow, 0 18px 44px rgba(0, 0, 0, 0.5)), var(--glow, 0 0 26px -6px var(--tier));
-  /* FLAT face (not preserve-3d): an overflow:hidden + preserve-3d element is
-     contradictory and makes Chrome mis-cull its backface — the front would stay
-     visible (mirrored) instead of hiding to reveal the back. Flat → clean flip. */
-  backface-visibility: hidden;
+  /* Flat face. Visibility is driven ENTIRELY by the opacity cross-fade below —
+     NOT backface-visibility, which is unreliable on these composited cards and
+     was culling the back mid-flip (leaving the mirrored front showing). */
+  backface-visibility: visible;
   will-change: transform;
 }
 .fighter-card.active .fc-tilt {
@@ -5506,7 +5506,7 @@ button.big {
   inset: 0;
   border-radius: 16px;
   overflow: hidden;
-  backface-visibility: hidden;
+  backface-visibility: visible; /* visibility = opacity cross-fade only (see above) */
   transform: rotateY(180deg);
   border: 2px solid var(--tier);
   background:
