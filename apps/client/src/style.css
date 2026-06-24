@@ -5495,6 +5495,15 @@ button.big {
   box-shadow: var(--shadow, 0 24px 58px rgba(0, 0, 0, 0.58)), var(--glow, 0 0 40px -6px var(--tier)),
     var(--glow, 0 0 40px -6px var(--tier));
 }
+/* Mythic card pulses with its own light while you HOLD it (charging the sparks).
+   Box-shadow halo on the OUTER card → glow only, no filter (keeps the 3D tilt). */
+.fighter-card.charging-mythic {
+  animation: mythicCharge 0.66s ease-in-out infinite;
+}
+@keyframes mythicCharge {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 70, 120, 0); }
+  50%      { box-shadow: 0 0 34px 3px rgba(255, 70, 120, 0.5), 0 0 64px 10px rgba(176, 124, 255, 0.34); }
+}
 
 /* ── Card backs (рубашки) — the card's DNA of origin. A premium security-print
    back: guilloché weave + faint meme-glyph tile + central Vault seal + serial +

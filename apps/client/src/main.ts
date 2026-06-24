@@ -2640,32 +2640,49 @@ function resizeSparkCanvas(): void {
   sparkCanvas.height = Math.max(1, Math.round(r.height * dpr));
   sparkCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-// Pre-rendered ember sprite (white-hot core → soft warm halo), drawn ONCE.
-// Each particle is a cheap drawImage of this — so we never pay a per-frame
-// canvas shadowBlur (the old per-particle Gaussian was the real FPS killer).
-let emberSprite: HTMLCanvasElement | null = null;
-function ensureEmberSprite(): HTMLCanvasElement {
-  if (emberSprite) return emberSprite;
-  const s = document.createElement("canvas");
+// Pre-rendered ember sprites, cached per colour — a white-hot core fading into a
+// coloured halo. Drawn with a cheap drawImage (no per-particle shadowBlur, the
+// old FPS killer). The bright white centre keeps even tiny sparks from looking
+// dull in the middle.
+const emberSprites = new Map<string, HTMLCanvasElement>();
+function hexA(hex: string, a: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+function emberSprite(col: string): HTMLCanvasElement {
+  let s = emberSprites.get(col);
+  if (s) return s;
+  s = document.createElement("canvas");
   s.width = s.height = 64;
   const g = s.getContext("2d")!;
   const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
-  grd.addColorStop(0.0, "rgba(255,255,255,1)");
-  grd.addColorStop(0.16, "rgba(255,255,255,0.9)");
-  grd.addColorStop(0.4, "rgba(255,244,214,0.3)");
-  grd.addColorStop(1.0, "rgba(255,240,205,0)");
+  grd.addColorStop(0.0, "rgba(255,255,255,1)");    // white-hot core (bright centre)
+  grd.addColorStop(0.2, "rgba(255,255,255,0.97)");
+  grd.addColorStop(0.42, hexA(col, 0.6));          // coloured halo
+  grd.addColorStop(1.0, hexA(col, 0));
   g.fillStyle = grd;
   g.beginPath(); g.arc(32, 32, 32, 0, Math.PI * 2); g.fill();
-  emberSprite = s;
+  emberSprites.set(col, s);
   return s;
 }
-function sparkColor(): string {
-  // White sparks with a faint warm/cool flicker.
+// Spark colours by rarity tier; the longer you hold (ramp 0→1) the "hotter" the
+// finish: epic/legendary gold+silver → white, mythic red+rainbow → white.
+const SPARK_RAINBOW = ["#ff4d6d", "#ffae3b", "#ffe24a", "#5ad27a", "#4ad3ff", "#b07cff"];
+function sparkColor(tier: number, ramp: number): string {
   const r = Math.random();
-  return r < 0.74 ? "#ffffff" : r < 0.88 ? "#fff4dc" : "#e8f1ff";
+  if (tier >= 4) {
+    // Mythic: red + rainbow, shifting more rainbow/white as it charges.
+    if (r < 0.42 - ramp * 0.22) return "#ff2e4d"; // hot red
+    if (r < 0.9 - ramp * 0.18) return SPARK_RAINBOW[(Math.random() * SPARK_RAINBOW.length) | 0]; // rainbow
+    return "#ffffff"; // white sparkle
+  }
+  // Epic / Legendary: gold + silver, more white-hot the longer you hold.
+  if (r < 0.3 + ramp * 0.4) return "#ffffff"; // white-hot
+  if (r < 0.68) return "#ffd76a";             // gold
+  return "#e6edf7";                           // silver
 }
 function emitSparks(rect: DOMRect, cr: DOMRect, ramp: number): void {
-  // Lots of tiny white sparks — more the longer you hold (fewer on lite).
+  // Smaller, brighter sparks; more of them the longer you hold (fewer on lite).
   const n = Math.floor((4 + ramp * 22) * (liteMode ? 0.45 : 1));
   const lx = rect.left - cr.left, ly = rect.top - cr.top, w = rect.width, h = rect.height;
   for (let i = 0; i < n; i++) {
@@ -2677,7 +2694,7 @@ function emitSparks(rect: DOMRect, cr: DOMRect, ramp: number): void {
     else { x = lx + w; y = ly + Math.random() * h; nx = 1; ny = 0; }
     const spd = 1.0 + Math.random() * 3.0; // energetic burst out of the edge
     const ang = Math.atan2(ny, nx) + (Math.random() - 0.5) * 2.4; // very wide, chaotic
-    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 28 + Math.random() * 36, size: 0.22 + Math.random() * 0.5, col: sparkColor() });
+    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 26 + Math.random() * 34, size: 0.16 + Math.random() * 0.4, col: sparkColor(pressTier, ramp) });
     if (sparks.length > (liteMode ? 120 : 300)) sparks.shift();
   }
 }
@@ -2686,7 +2703,6 @@ function tickSparks(): void {
   const ctx = sparkCtx;
   ctx.clearRect(0, 0, sparkCanvas.width, sparkCanvas.height);
   if (!sparks.length) return;
-  const spr = ensureEmberSprite();
   ctx.globalCompositeOperation = "lighter";
   for (let i = sparks.length - 1; i >= 0; i--) {
     const s = sparks[i];
@@ -2698,12 +2714,11 @@ function tickSparks(): void {
     s.x += s.vx; s.y += s.vy;
     s.life -= 1 / s.max;
     if (s.life <= 0) { sparks.splice(i, 1); continue; }
-    const a = Math.max(0, s.life * s.life * (0.75 + 0.25 * Math.random())); // ease-out fade + flicker
-    // One cheap blit of the cached glow sprite — carries halo + white-hot core,
-    // a tiny flicker in scale keeps them alive. No shadowBlur, no arcs.
-    const rad = s.size * (6 + a * 1.5);
-    ctx.globalAlpha = a;
-    ctx.drawImage(spr, s.x - rad, s.y - rad, rad * 2, rad * 2);
+    const a = Math.max(0, s.life * s.life * (0.78 + 0.22 * Math.random())); // ease-out + flicker
+    // Smaller blit + a brightness boost so the centre reads white-hot, not dull.
+    const rad = s.size * (5 + a * 1.4);
+    ctx.globalAlpha = Math.min(1, a * 1.2);
+    ctx.drawImage(emberSprite(s.col), s.x - rad, s.y - rad, rad * 2, rad * 2);
   }
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
@@ -2748,6 +2763,7 @@ function startFighterFloat(): void {
       if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
         pressActive = true; pressStart = performance.now(); pressWasHold = false;
         pressTier = tierRank(hubBrowseSkin >= 0 ? hubBrowseSkin : hubEquipped());
+        if (pressTier >= 4) act.classList.add("charging-mythic"); // mythic pulses with its own light
       }
     }
   });
@@ -2764,6 +2780,8 @@ function startFighterFloat(): void {
     if (downAt && Math.abs(e.clientX - downX) > 10) { dragMoved = true; pressActive = false; }
   });
   const endPress = (): void => {
+    // Stop the mythic charge pulse first — pressActive may already be false (drag).
+    wrap.querySelector(".charging-mythic")?.classList.remove("charging-mythic");
     if (!pressActive) return;
     if (performance.now() - pressStart > 220) pressWasHold = true; // a real hold, not a tap
     pressActive = false;
@@ -2997,11 +3015,12 @@ function enterDeck(): void {
     card.style.opacity = "1";
     card.style.pointerEvents = "none";
     card.style.zIndex = String(120 + k);
-    card.style.transitionDelay = `${k * 16}ms`;
+    // Springy "slam into the pile" — a little overshoot + settle, staggered.
+    card.style.transition = `transform 0.52s cubic-bezier(0.34, 1.34, 0.5, 1) ${k * 14}ms, opacity 0.4s ease`;
     card.style.transform = cardTf(jx, jy, k * 1.4, jr, 0.92);
     card.classList.add("show-back"); // cross-fade front→back at the flip midpoint
   });
-  window.setTimeout(() => cards.forEach((c) => (c.style.transitionDelay = "")), 380);
+  window.setTimeout(() => cards.forEach((c) => (c.style.transition = "")), 560);
 }
 
 function dealOut(): void {
@@ -3019,15 +3038,17 @@ function dealOut(): void {
     let off = i - active;
     if (off > SKIN_COUNT / 2) off -= SKIN_COUNT;
     if (off < -SKIN_COUNT / 2) off += SKIN_COUNT;
-    card.style.transitionDelay = `${Math.abs(off) * 75}ms`;
+    // Springy deal-out: each card spins to its fan slot with a little settle,
+    // staggered out from the centre so it reads as a shuffle-and-fan.
+    card.style.transition = `transform 0.62s cubic-bezier(0.3, 1.2, 0.45, 1) ${Math.abs(off) * 72}ms, opacity 0.45s ease`;
     card.style.zIndex = "";
     card.classList.remove("show-back"); // cross-fade back→front as they deal out
   });
   layoutCarousel(active); // fan transforms (rotateY ~0) → transition spins from 180
   window.setTimeout(() => {
-    cards.forEach((c) => { c.style.transitionDelay = ""; delete c.dataset.dx; delete c.dataset.dy; delete c.dataset.dz; delete c.dataset.dr; });
+    cards.forEach((c) => { c.style.transition = ""; delete c.dataset.dx; delete c.dataset.dy; delete c.dataset.dz; delete c.dataset.dr; });
     deckState = 0; // float resumes
-  }, 1000);
+  }, 1050);
 }
 
 function layoutCarousel(active: number): void {
