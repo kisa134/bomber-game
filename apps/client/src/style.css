@@ -295,6 +295,20 @@ button.glass-btn::after {
   -webkit-backdrop-filter: blur(1px);
   filter: url(#lg-distort);
 }
+/* Same soft auto glint sweeping the glass surface. */
+button.glass-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 37%, rgba(255, 255, 255, 0.34) 50%, transparent 63%);
+  background-size: 240% 100%;
+  filter: blur(5px);
+  mix-blend-mode: screen;
+  opacity: 0.6;
+  animation: fcGlint 5.5s ease-in-out infinite alternate;
+}
 button.glass-btn:hover {
   transform: translateY(-1px);
   filter: none;
@@ -5618,21 +5632,26 @@ button.big {
   opacity: 0.5;
   pointer-events: none;
 }
-/* Specular glint — a big, heavily-smeared highlight with NO visible edges that
-   only lives on the active card and GLIDES with the cursor (set from the rAF
-   loop). Still on non-active cards but invisible (opacity 0). */
+/* Specular glint — a soft, heavily-smeared diagonal highlight with NO visible
+   edges that glides smoothly back and forth across every card (ease-in-out
+   ALTERNATE = no hard jump). Each card is phase-offset so the fan doesn't glint
+   in unison; the active card shines brightest. */
 .fc-sheen {
   position: absolute;
-  inset: 0;
-  background: radial-gradient(50% 64% at var(--sx, 50%) var(--sy, 36%),
-    rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.16) 26%, transparent 58%);
-  filter: blur(11px);
+  inset: -8%;
+  background: linear-gradient(100deg, transparent 33%, rgba(255, 255, 255, 0.55) 50%, transparent 67%);
+  background-size: 235% 100%;
+  filter: blur(13px);
   mix-blend-mode: screen;
-  opacity: 0;
+  opacity: 0.42;
   pointer-events: none;
-  transition: opacity 0.4s ease;
+  animation: fcGlint 5.5s ease-in-out infinite alternate;
 }
-.fighter-card.active .fc-sheen { opacity: 0.95; }
+.fighter-card.active .fc-sheen { opacity: 0.85; }
+@keyframes fcGlint {
+  from { background-position: 130% 0; }
+  to   { background-position: -30% 0; }
+}
 .fc-frame {
   position: absolute;
   inset: 6px;
