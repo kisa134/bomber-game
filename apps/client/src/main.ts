@@ -2392,16 +2392,37 @@ const CARD_HUE = [
 ];
 const cardHue = (i: number): string => CARD_HUE[i] ?? "#9aa3b2";
 
-// Crypto-meme texture for the card back (рубашка). A faint chaotic tile of
-// meme glyphs behind a gold-framed BOMBERMEME seal.
+// ── Card backs (рубашки) — the card's "DNA of origin". Six families exist; the
+// starter set assigns them by rarity tier (the only origin signal we have yet).
+// Per-card SETS will later override via CARD_BACK[skin] (e.g. circuit/pantheon).
+//   classic  — Vault Classic (Common/Rare): bombs+coins weave + Vault seal
+//   foil     — Vault Foil   (Epic+):        same geometry + metallic sweep
+//   circuit · pantheon · founder · season — reserved (need set metadata)
+const BACK_FAMILY_BY_TIER = ["classic", "classic", "foil", "foil", "foil"];
+const CARD_BACK: Record<number, string> = {};
+const backFamily = (i: number): string => CARD_BACK[i] ?? BACK_FAMILY_BY_TIER[tierRank(i)];
+// Faint meme-DNA glyph tile (bombs/coins/frogs) drifting behind the seal.
 const BACK_MEMES = ("💣🪙🐸🚀💎🔥🎮💀⚡🐶📈🌙🤡🛸💥").repeat(26);
-const cardBackHTML = (): string =>
-  '<div class="fc-back" aria-hidden="true">' +
-  `<div class="fc-back-tile">${BACK_MEMES}</div>` +
-  '<div class="fc-back-glow"></div>' +
-  '<div class="fc-back-frame"></div>' +
-  '<div class="fc-back-seal"><div class="fc-back-bomb">💣</div><div class="fc-back-word">BOMBERMEME</div><div class="fc-back-sub">MEME&nbsp;WARS</div></div>' +
-  "</div>";
+const cardBackHTML = (skin: number): string => {
+  const fam = backFamily(skin);
+  const serial = `${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}`;
+  return (
+    `<div class="fc-back fam-${fam}" aria-hidden="true">` +
+    '<div class="fc-back-weave"></div>' +
+    `<div class="fc-back-glyphs">${BACK_MEMES}</div>` +
+    '<div class="fc-back-foil"></div>' +
+    '<div class="fc-back-frame"></div>' +
+    '<div class="fc-back-seal">' +
+    '<div class="fc-back-ring"></div>' +
+    '<div class="fc-back-bomb">💣</div>' +
+    '<div class="fc-back-word">BOMBERMEME</div>' +
+    '<div class="fc-back-sub">VAULT&nbsp;·&nbsp;MEME&nbsp;WARS</div>' +
+    "</div>" +
+    `<div class="fc-back-serial">No.&nbsp;${serial}</div>` +
+    '<div class="fc-back-s1">S1</div>' +
+    "</div>"
+  );
+};
 
 // Twinkling star sparkles — appear on rare+ cards, more + cooler with rarity.
 // Legendary mixes in tier-colour stars; mythic adds rainbow ones.
@@ -2453,7 +2474,7 @@ function fighterCardHTML(skin: number): string {
     cardStarsHTML(skin) +
     `<div class="fc-lock${skinOwned(skin) ? " hidden" : ""}">🔒</div>` +
     "</div>" +
-    cardBackHTML()
+    cardBackHTML(skin)
   );
 }
 
@@ -2614,10 +2635,29 @@ function ensureSparkCanvas(wrap: HTMLElement): void {
 function resizeSparkCanvas(): void {
   if (!sparkCanvas) return;
   const r = sparkCanvas.getBoundingClientRect();
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, 1.5); // soft sparks don't need full DPR
   sparkCanvas.width = Math.max(1, Math.round(r.width * dpr));
   sparkCanvas.height = Math.max(1, Math.round(r.height * dpr));
   sparkCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+// Pre-rendered ember sprite (white-hot core → soft warm halo), drawn ONCE.
+// Each particle is a cheap drawImage of this — so we never pay a per-frame
+// canvas shadowBlur (the old per-particle Gaussian was the real FPS killer).
+let emberSprite: HTMLCanvasElement | null = null;
+function ensureEmberSprite(): HTMLCanvasElement {
+  if (emberSprite) return emberSprite;
+  const s = document.createElement("canvas");
+  s.width = s.height = 64;
+  const g = s.getContext("2d")!;
+  const grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0.0, "rgba(255,255,255,1)");
+  grd.addColorStop(0.16, "rgba(255,255,255,0.9)");
+  grd.addColorStop(0.4, "rgba(255,244,214,0.3)");
+  grd.addColorStop(1.0, "rgba(255,240,205,0)");
+  g.fillStyle = grd;
+  g.beginPath(); g.arc(32, 32, 32, 0, Math.PI * 2); g.fill();
+  emberSprite = s;
+  return s;
 }
 function sparkColor(): string {
   // White sparks with a faint warm/cool flicker.
@@ -2625,8 +2665,8 @@ function sparkColor(): string {
   return r < 0.74 ? "#ffffff" : r < 0.88 ? "#fff4dc" : "#e8f1ff";
 }
 function emitSparks(rect: DOMRect, cr: DOMRect, ramp: number): void {
-  // Lots of tiny white sparks — more the longer you hold.
-  const n = Math.floor(4 + ramp * 22);
+  // Lots of tiny white sparks — more the longer you hold (fewer on lite).
+  const n = Math.floor((4 + ramp * 22) * (liteMode ? 0.45 : 1));
   const lx = rect.left - cr.left, ly = rect.top - cr.top, w = rect.width, h = rect.height;
   for (let i = 0; i < n; i++) {
     const e = Math.random();
@@ -2638,7 +2678,7 @@ function emitSparks(rect: DOMRect, cr: DOMRect, ramp: number): void {
     const spd = 1.0 + Math.random() * 3.0; // energetic burst out of the edge
     const ang = Math.atan2(ny, nx) + (Math.random() - 0.5) * 2.4; // very wide, chaotic
     sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 28 + Math.random() * 36, size: 0.22 + Math.random() * 0.5, col: sparkColor() });
-    if (sparks.length > 700) sparks.shift();
+    if (sparks.length > (liteMode ? 120 : 300)) sparks.shift();
   }
 }
 function tickSparks(): void {
@@ -2646,11 +2686,10 @@ function tickSparks(): void {
   const ctx = sparkCtx;
   ctx.clearRect(0, 0, sparkCanvas.width, sparkCanvas.height);
   if (!sparks.length) return;
+  const spr = ensureEmberSprite();
   ctx.globalCompositeOperation = "lighter";
-  ctx.lineCap = "round";
   for (let i = sparks.length - 1; i >= 0; i--) {
     const s = sparks[i];
-    s.px = s.x; s.py = s.y;
     // Zero-G: barely any drag (they keep drifting outward to the dust), no
     // gravity, gentle brownian turbulence (chaotic float), and a soft lean in
     // the eased-cursor direction — so the mouse "wafts" the weightless sparks.
@@ -2660,21 +2699,11 @@ function tickSparks(): void {
     s.life -= 1 / s.max;
     if (s.life <= 0) { sparks.splice(i, 1); continue; }
     const a = Math.max(0, s.life * s.life * (0.75 + 0.25 * Math.random())); // ease-out fade + flicker
-    // faint streak
-    ctx.globalAlpha = a * 0.5;
-    ctx.strokeStyle = s.col;
-    ctx.lineWidth = s.size * 0.7;
-    ctx.beginPath(); ctx.moveTo(s.px, s.py); ctx.lineTo(s.x, s.y); ctx.stroke();
-    // glowing ember (soft halo via shadow) + white-hot core
-    ctx.shadowBlur = s.size * 5;
-    ctx.shadowColor = s.col;
+    // One cheap blit of the cached glow sprite — carries halo + white-hot core,
+    // a tiny flicker in scale keeps them alive. No shadowBlur, no arcs.
+    const rad = s.size * (6 + a * 1.5);
     ctx.globalAlpha = a;
-    ctx.fillStyle = s.col;
-    ctx.beginPath(); ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2); ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = a * 0.95;
-    ctx.fillStyle = "#fff";
-    ctx.beginPath(); ctx.arc(s.x, s.y, s.size * 0.42, 0, Math.PI * 2); ctx.fill();
+    ctx.drawImage(spr, s.x - rad, s.y - rad, rad * 2, rad * 2);
   }
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
@@ -2924,6 +2953,7 @@ function enterDeck(): void {
     card.style.zIndex = String(120 + k);
     card.style.transitionDelay = `${k * 16}ms`;
     card.style.transform = cardTf(jx, jy, k * 1.4, jr, 0.92);
+    card.classList.add("show-back"); // cross-fade front→back at the flip midpoint
   });
   window.setTimeout(() => cards.forEach((c) => (c.style.transitionDelay = "")), 380);
 }
@@ -2945,6 +2975,7 @@ function dealOut(): void {
     if (off < -SKIN_COUNT / 2) off += SKIN_COUNT;
     card.style.transitionDelay = `${Math.abs(off) * 75}ms`;
     card.style.zIndex = "";
+    card.classList.remove("show-back"); // cross-fade back→front as they deal out
   });
   layoutCarousel(active); // fan transforms (rotateY ~0) → transition spins from 180
   window.setTimeout(() => {

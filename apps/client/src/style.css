@@ -379,7 +379,8 @@ button.glass-btn.primary:hover {
 .lite .fc-grain,
 .lite .fc-ray,
 .lite .fc-light,
-.lite .fc-back-tile { display: none !important; }
+.lite .fc-back-glyphs,
+.lite .fc-back-foil { display: none !important; }
 /* (bg blur is now a baked static webp — lite mode no longer needs to touch it) */
 
 .divider {
@@ -5484,7 +5485,10 @@ button.big {
   /* --glow scales with rarity; --shadow is the live cast shadow (set per frame
      in main.ts) so the card floats with a moving shadow. */
   box-shadow: var(--shadow, 0 18px 44px rgba(0, 0, 0, 0.5)), var(--glow, 0 0 26px -6px var(--tier));
-  transform-style: preserve-3d;
+  /* FLAT face (not preserve-3d): an overflow:hidden + preserve-3d element is
+     contradictory and makes Chrome mis-cull its backface — the front would stay
+     visible (mirrored) instead of hiding to reveal the back. Flat → clean flip. */
+  backface-visibility: hidden;
   will-change: transform;
 }
 .fighter-card.active .fc-tilt {
@@ -5492,10 +5496,11 @@ button.big {
     var(--glow, 0 0 40px -6px var(--tier));
 }
 
-/* ── Card back (рубашка) — crypto-meme collage behind a gold BOMBERMEME seal.
-   The front (.fc-tilt) and back (.fc-back) are two faces of one card; the
-   outer .fighter-card's rotateY decides which one you see. ──────────────── */
-.fc-tilt { backface-visibility: hidden; }
+/* ── Card backs (рубашки) — the card's DNA of origin. A premium security-print
+   back: guilloché weave + faint meme-glyph tile + central Vault seal + serial +
+   season seal. Family class picks the motif; fam-foil adds a metallic sweep that
+   ONLY animates while the deck is active (zero idle cost). Fully procedural —
+   no image loads, so flipping the deck costs nothing extra to fetch. ───────── */
 .fc-back {
   position: absolute;
   inset: 0;
@@ -5505,32 +5510,58 @@ button.big {
   transform: rotateY(180deg);
   border: 2px solid var(--tier);
   background:
-    radial-gradient(120% 86% at 50% 16%, color-mix(in srgb, var(--tier) 30%, transparent), transparent 58%),
-    linear-gradient(165deg, #2a1d12 0%, #1a1020 50%, #0a0710 100%);
+    radial-gradient(120% 80% at 50% 14%, color-mix(in srgb, var(--tier) 26%, transparent), transparent 56%),
+    linear-gradient(165deg, #181320 0%, #120d1a 52%, #0a0710 100%);
   box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), var(--glow, 0 0 26px -6px var(--tier));
 }
-.fc-back-tile {
+/* Deck flip = explicit face cross-fade. backface-visibility is unreliable on
+   these richly-composited cards (will-change / overflow / filters spawn layers
+   that defeat the parent's 3D cull). The opacity swap is delayed to land at the
+   ~90° edge-on midpoint of the card's 0.5s rotateY, so it reads as a true flip. */
+.fc-tilt { transition: opacity 0.13s linear 0.18s; }
+.fc-back { opacity: 0; transition: opacity 0.13s linear 0.18s; }
+.fighter-card.show-back .fc-tilt { opacity: 0; }
+.fighter-card.show-back .fc-back { opacity: 1; }
+/* Guilloché security weave — fine tier-tinted cross-hatch (banknote feel). */
+.fc-back-weave {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background:
+    repeating-linear-gradient(45deg, color-mix(in srgb, var(--tier) 22%, transparent) 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(-45deg, color-mix(in srgb, var(--tier) 14%, transparent) 0 1px, transparent 1px 9px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 14px);
+  -webkit-mask: radial-gradient(115% 115% at 50% 50%, #000 60%, transparent 92%);
+          mask: radial-gradient(115% 115% at 50% 50%, #000 60%, transparent 92%);
+}
+.fc-back-glyphs {
   position: absolute;
   inset: -22%;
-  font-size: 27px;
-  line-height: 1.18;
-  letter-spacing: 5px;
+  font-size: 26px;
+  line-height: 1.2;
+  letter-spacing: 6px;
   text-align: center;
   word-break: break-word;
   overflow: hidden;
-  opacity: 0.16;
-  filter: saturate(1.15) contrast(1.05);
-  transform: rotate(-14deg) scale(1.3);
+  opacity: 0.11;
+  filter: saturate(1.1) contrast(1.05);
+  transform: rotate(-13deg) scale(1.3);
   user-select: none;
   -webkit-user-select: none;
   pointer-events: none;
 }
-.fc-back-glow {
+/* Metallic foil sweep — Epic+ only; animated only in deck mode (see below). */
+.fc-back-foil {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: radial-gradient(60% 44% at 50% 50%, rgba(255, 190, 80, 0.18), transparent 70%);
+  display: none;
+  opacity: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255, 255, 255, 0.5) 47%, rgba(255, 235, 180, 0.7) 50%, rgba(255, 255, 255, 0.5) 53%, transparent 70%);
+  mix-blend-mode: overlay;
 }
+.fc-back.fam-foil .fc-back-foil { display: block; opacity: 0.45; }
 .fc-back-frame {
   position: absolute;
   inset: 8px;
@@ -5547,10 +5578,21 @@ button.big {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
+}
+/* Embossed guilloché ring behind the bomb seal. */
+.fc-back-ring {
+  position: absolute;
+  width: 118px;
+  height: 118px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, color-mix(in srgb, var(--tier) 30%, transparent) 0deg 4deg, transparent 4deg 8deg);
+  -webkit-mask: radial-gradient(circle, transparent 46%, #000 48%, #000 60%, transparent 62%);
+          mask: radial-gradient(circle, transparent 46%, #000 48%, #000 60%, transparent 62%);
+  opacity: 0.5;
 }
 .fc-back-bomb {
-  font-size: 62px;
+  font-size: 60px;
   line-height: 1;
   filter: drop-shadow(0 5px 14px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 16px rgba(255, 170, 60, 0.5));
   animation: fcBackBomb 3.4s ease-in-out infinite;
@@ -5568,13 +5610,51 @@ button.big {
 }
 .fc-back-sub {
   font-family: var(--font-mono, monospace);
-  font-size: 8px;
+  font-size: 7.5px;
   letter-spacing: 3px;
   color: rgba(255, 220, 150, 0.6);
+}
+/* Serial line (graded-slab provenance) + corner season seal. */
+.fc-back-serial {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 13px;
+  text-align: center;
+  font-family: var(--font-mono, monospace);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: rgba(255, 225, 160, 0.5);
+}
+.fc-back-s1 {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 8px;
+  color: #2a1c02;
+  background: radial-gradient(circle at 38% 32%, #ffe9a8, #f0a92a 62%, #b06e14);
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 2px rgba(255, 235, 180, 0.6), 0 2px 5px rgba(0, 0, 0, 0.5);
 }
 @keyframes fcBackBomb {
   0%, 100% { transform: translateY(0) rotate(-5deg); }
   50%      { transform: translateY(-5px) rotate(5deg); }
+}
+/* Foil sweep animates ONLY while the deck is presented/dragging (idle = 0 cost). */
+.fighter-carousel.deck-mode .fc-back.fam-foil .fc-back-foil,
+.fighter-carousel.deck-dragging .fc-back.fam-foil .fc-back-foil {
+  animation: fcBackFoil 2.4s linear infinite;
+}
+@keyframes fcBackFoil {
+  0%   { transform: translateX(-60%) skewX(-12deg); }
+  100% { transform: translateX(60%) skewX(-12deg); }
 }
 /* Deck easter-egg cursors + lag-free dragging */
 .fighter-carousel.deck-mode { cursor: grab; }
@@ -5654,10 +5734,10 @@ button.big {
   object-fit: contain;
   object-position: center bottom;
   image-rendering: pixelated;
-  /* A whisper of lift — the glare still passes under the hero, but the
-     separation is subtle (no "peeled-off" look). */
-  transform: translateZ(7px);
-  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.42));
+  /* A whisper of lift via a 2D nudge + drop-shadow (the face is now flat for a
+     clean card-flip, so the old translateZ relief would be a no-op anyway). */
+  transform: translateY(-2px);
+  filter: drop-shadow(0 6px 9px rgba(0, 0, 0, 0.45));
 }
 /* ===== Foil finishes — diagonal (no convergence point), shift with cursor =====
    The active card's foil tracks the pointer (set in main.ts); the rest drift on
