@@ -2784,16 +2784,32 @@ function startFighterFloat(): void {
   wrap.addEventListener("click", (e) => {
     if (pressWasHold) { pressWasHold = false; return; } // a hold (sparkler), not a tap
     if (deckState !== 0 || dragMoved) return;
+    const hit = (el: HTMLElement | null): boolean => {
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    };
     const act = wrap.querySelector<HTMLElement>(".fighter-card.active");
-    if (act) {
-      const r = act.getBoundingClientRect();
-      if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) { deckClicks = 0; return; }
+    if (hit(act)) {
+      // 3 clicks ON the centre card → flip it over.
+      deckClicks = 0;
+      flipClicks++;
+      window.clearTimeout(flipClickTimer);
+      flipClickTimer = window.setTimeout(() => { flipClicks = 0; }, 650);
+      if (flipClicks >= 3) { flipClicks = 0; flipActiveCard(); }
+      return;
     }
+    // A tap on a SIDE card isn't "empty space" — ignore it (swipe handles browse).
+    for (const c of wrap.querySelectorAll<HTMLElement>(".fighter-card")) {
+      if (c === act || c.style.visibility === "hidden") continue;
+      if (hit(c)) { flipClicks = 0; deckClicks = 0; return; }
+    }
+    // 3 clicks on EMPTY space (off any card) → gather the deck.
+    flipClicks = 0;
     deckClicks++;
     window.clearTimeout(deckClickTimer);
     deckClickTimer = window.setTimeout(() => { deckClicks = 0; }, 650);
-    if (deckClicks >= 6) { deckClicks = 0; enterDeck(); }      // 6 → gather the deck
-    else if (deckClicks === 3) flipActiveCard();               // 3 → flip the centre card
+    if (deckClicks >= 3) { deckClicks = 0; enterDeck(); }
   });
   const tick = (now: number): void => {
     requestAnimationFrame(tick);
@@ -2920,12 +2936,15 @@ const FAN = [
 ];
 
 /* ── DECK easter egg ──────────────────────────────────────────────────────
-   3 quick clicks on the centre card → it flips over to show its back (rubashka).
-   6 quick clicks → every card gathers into a messy deck (backs up), draggable
-   like cutting a deck; on release it shuffles and deals back out into the fan. */
+   3 quick clicks ON the centre card → it flips over to show its back (rubashka).
+   3 quick clicks on EMPTY space (off any card) → every card gathers into a messy
+   deck (backs up), draggable like cutting a deck; on release it shuffles + deals
+   back out into the fan. (Two separate gestures so they never get confused.) */
 let deckState = 0; // 0 idle · 1 presented (draggable) · 2 dealing
-let deckClicks = 0;
+let deckClicks = 0; // empty-space clicks → gather the deck
 let deckClickTimer = 0;
+let flipClicks = 0; // centre-card clicks → flip it over
+let flipClickTimer = 0;
 let deckDragging = false;
 let deckDownX = 0, deckDownY = 0;
 let activeFlipped = false; // single-card flip (3-click) — centre card shows its back
