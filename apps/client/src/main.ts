@@ -2775,6 +2775,13 @@ function startFighterFloat(): void {
       const pop = active ? ` translateZ(${(hoverCur * 38).toFixed(1)}px) scale(${(1 + hoverCur * 0.06).toFixed(3)})` : "";
       tilt.style.transform =
         `translate3d(${sway}px, ${bob}px, 0) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg)${pop}`;
+      // Live cast shadow: drifts with the tilt/bob and drops further + softens as
+      // the centre card lifts toward us (real height above the scene).
+      const hv = active ? hoverCur : 0;
+      tilt.style.setProperty(
+        "--shadow",
+        `${(mCurX * 16 * depth - sway * 0.5).toFixed(0)}px ${(18 + hv * 28 - bob * 0.4).toFixed(0)}px ${(44 + hv * 36).toFixed(0)}px rgba(0,0,0,${(0.5 + hv * 0.12).toFixed(2)})`,
+      );
       // Foil reflects the card's viewing angle: each card's fan tilt shifts its
       // foil differently (a fixed light bouncing off angled cards) + a cursor
       // nudge that's strongest on the active card.

@@ -5384,13 +5384,14 @@ button.big {
   overflow: hidden;
   background: linear-gradient(165deg, #211d2a, #0c0b11);
   border: 2px solid var(--tier);
-  /* --glow scales with rarity (set per card in main.ts) */
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.5), var(--glow, 0 0 26px -6px var(--tier));
+  /* --glow scales with rarity; --shadow is the live cast shadow (set per frame
+     in main.ts) so the card floats with a moving shadow. */
+  box-shadow: var(--shadow, 0 18px 44px rgba(0, 0, 0, 0.5)), var(--glow, 0 0 26px -6px var(--tier));
   transform-style: preserve-3d;
   will-change: transform;
 }
 .fighter-card.active .fc-tilt {
-  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.58), var(--glow, 0 0 40px -6px var(--tier)),
+  box-shadow: var(--shadow, 0 24px 58px rgba(0, 0, 0, 0.58)), var(--glow, 0 0 40px -6px var(--tier)),
     var(--glow, 0 0 40px -6px var(--tier));
 }
 
