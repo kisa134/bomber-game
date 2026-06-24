@@ -2546,6 +2546,8 @@ let mCurX = 0; // eased
 let mCurY = 0;
 let dustTarget = 0.5; // sparkle intensity of the active card's tier
 let dustCur = 0.5; // eased
+let hoverTarget = 0; // 1 while the cursor is over the carousel
+let hoverCur = 0; // eased → active card grows + lifts toward the viewer
 let dragMoved = false; // set while a swipe/drag is in progress on the carousel
 
 /* ── Edge sparks ──────────────────────────────────────────────────────────
@@ -2664,8 +2666,9 @@ function startFighterFloat(): void {
     const r = wrap.getBoundingClientRect();
     mTargetX = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width / 2)));
     mTargetY = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (r.height / 2)));
+    hoverTarget = 1;
   });
-  menu.addEventListener("pointerleave", () => { mTargetX = 0; mTargetY = 0; });
+  menu.addEventListener("pointerleave", () => { mTargetX = 0; mTargetY = 0; hoverTarget = 0; });
   // Swipe / drag the carousel to browse fighters (works with touch + mouse).
   let downX = 0;
   let downAt = 0;
@@ -2737,6 +2740,7 @@ function startFighterFloat(): void {
     mCurX += (mTargetX - mCurX) * 0.07;
     mCurY += (mTargetY - mCurY) * 0.07;
     dustCur += (dustTarget - dustCur) * 0.04;
+    hoverCur += (hoverTarget - hoverCur) * 0.1;
     const t = now * 0.001;
     // While the deck easter egg owns the cards, don't let the float loop fight
     // it for the transforms (dust keeps whirling below).
@@ -2754,8 +2758,10 @@ function startFighterFloat(): void {
       const depth = active ? 1 : 0.45;
       const ry = mCurX * 13 * depth;
       const rx = -mCurY * 10 * depth;
+      // Tactile pop: on hover the centre card grows a touch and lifts toward us.
+      const pop = active ? ` translateZ(${(hoverCur * 38).toFixed(1)}px) scale(${(1 + hoverCur * 0.06).toFixed(3)})` : "";
       tilt.style.transform =
-        `translate3d(${sway}px, ${bob}px, 0) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg)`;
+        `translate3d(${sway}px, ${bob}px, 0) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg)${pop}`;
       if (active) {
         const holo = tilt.querySelector<HTMLElement>(".fc-holo");
         if (holo) holo.style.backgroundPosition = `${(50 + mCurX * 35).toFixed(1)}% ${(50 + mCurY * 35).toFixed(1)}%`;
@@ -2768,8 +2774,8 @@ function startFighterFloat(): void {
       const W = fr.width;
       const H = fr.height;
       for (const m of dustMotes) {
-        const x = m.bx * W + Math.sin(t * m.sp + m.ph) * m.amp + mCurX * 26 * m.depth;
-        const y = m.by * H + Math.cos(t * m.sp * 0.85 + m.ph) * m.amp + mCurY * 26 * m.depth;
+        const x = m.bx * W + Math.sin(t * m.sp + m.ph) * m.amp + mCurX * 11 * m.depth;
+        const y = m.by * H + Math.cos(t * m.sp * 0.85 + m.ph) * m.amp + mCurY * 11 * m.depth;
         m.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px)`;
         // Rarer cards = MORE dust: each mote only "switches on" once the active
         // tier's power exceeds its threshold; then brightness scales too.
