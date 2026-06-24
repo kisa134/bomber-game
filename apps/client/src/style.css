@@ -160,6 +160,8 @@ body {
   width: min(360px, calc(100% - 28px));
   max-height: calc(100dvh - 28px - var(--sai-top) - var(--sai-bottom));
   overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y; /* vertical-only — never drag sideways */
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 24px 22px;
@@ -1263,8 +1265,10 @@ button.glass-btn.primary:hover {
   .hub-nav {
     display: none;
   }
-  .hub-brand {
-    font-size: 0.98rem;
+  /* The brand logo collides with the iPhone clock / Dynamic Island top-left —
+     drop it on phones (the chrome keeps the balances + actions on the right). */
+  #brand-logo {
+    display: none;
   }
 }
 .hub-top-actions {
@@ -3358,12 +3362,14 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
     border: 0;
     border-radius: 8px;
   }
-  /* The right gutter now holds only the emotes (players moved to the left). */
-  #hud-right #game-emotes {
-    pointer-events: auto;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 4px;
+  /* Clean reference look: rows show name + frags only (your lives live in the kit
+     pill), and the match isn't cluttered with emotes / the balance pill. */
+  #hud-left #players .pcard-lives {
+    display: none;
+  }
+  #hud-right,
+  #bal-hud {
+    display: none;
   }
 
   /* LEFT HALF of the screen = the floating joystick: touch ANYWHERE here and the
@@ -3422,39 +3428,47 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
     transform-origin: bottom left;
   }
 
-  /* Visible round "TAP" bomb button, pinned bottom-right (the hint). */
-  #bomb-btn {
+  /* Round "TAP" bomb button, bottom-right. Nearly transparent so it doesn't
+     cover the board, and it FADES OUT on press (the whole right half is the real
+     tap-zone). `#touch-controls #bomb-btn` raises specificity so it beats the
+     base red desktop rule that's defined later in the file. */
+  #touch-controls #bomb-btn {
     right: calc(20px + env(safe-area-inset-right));
     bottom: calc(22px + env(safe-area-inset-bottom));
     left: auto;
     top: auto;
     margin: 0;
-    width: 92px;
-    height: 92px;
+    width: 86px;
+    height: 86px;
     border-radius: 50%;
-    font-size: 2rem;
+    font-size: 1.7rem;
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 1;
-    background: rgba(14, 16, 24, 0.5);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    backdrop-filter: blur(10px) saturate(140%);
-    -webkit-backdrop-filter: blur(10px) saturate(140%);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    opacity: 0.42;
+    background: rgba(14, 16, 24, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    box-shadow: none;
+    transition: opacity 0.1s ease;
   }
-  #bomb-btn::after {
+  #touch-controls #bomb-btn:active {
+    opacity: 0; /* disappears under your thumb on tap — never blocks the view */
+  }
+  #touch-controls #bomb-btn::after {
     content: "TAP";
     position: absolute;
-    bottom: 13px;
+    bottom: 11px;
     left: 0;
     right: 0;
     text-align: center;
     font-family: var(--font-mono, monospace);
-    font-size: 0.5rem;
+    font-size: 0.48rem;
     font-weight: 700;
     letter-spacing: 0.14em;
-    color: rgba(255, 255, 255, 0.65);
+    color: rgba(255, 255, 255, 0.6);
   }
   /* The WHOLE right half is also a (transparent) bomb tap-zone, so you can drop a
      bomb without aiming for the button. It sits under the HUD/emotes so those
@@ -3974,13 +3988,17 @@ button.big {
 #chrome.hidden {
   display: none;
 }
-/* Global status bar wrapper (under the alpha banner). Side insets keep the
-   brand/stats/icons clear of a notch or Dynamic Island in landscape. */
+/* Global status bar wrapper (under the alpha banner). Top inset clears the
+   Dynamic Island; side insets clear a notch in landscape; the opaque backdrop
+   stops scrolled content from showing through the fixed bar. */
 .topbar {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 8px calc(16px + env(safe-area-inset-right)) 8px calc(16px + env(safe-area-inset-left));
+  padding: calc(8px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 8px calc(16px + env(safe-area-inset-left));
+  background: rgba(8, 10, 16, 0.82);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 /* Pre-launch alpha / test-token banner (first row of the chrome). */
 #alpha-banner {
@@ -5454,6 +5472,7 @@ button.big {
   width: 100%;
   height: min(348px, 46vh);
   perspective: 1300px;
+  touch-action: none; /* JS handles the horizontal swipe; page stays vertical-only */
 }
 /* Outer = fan position (CSS transition). Inner .fc-tilt = the visible card,
    which floats + tilts to the cursor (driven each frame by main.ts). */
@@ -6732,6 +6751,9 @@ button.big {
   #menu {
     justify-content: flex-start;
     overflow-y: auto;
+    overflow-x: hidden; /* never pan sideways — feel like a native app, not a page */
+    overscroll-behavior: none; /* no rubber-band / scroll-chaining */
+    touch-action: pan-y; /* only vertical swipes scroll; horizontal is ignored */
     -webkit-overflow-scrolling: touch;
   }
   .hub.hub-hero-layout {

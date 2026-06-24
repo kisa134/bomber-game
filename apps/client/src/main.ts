@@ -1017,6 +1017,7 @@ function updateHud(): void {
     card.appendChild(score);
 
     const lives = document.createElement("span");
+    lives.className = "pcard-lives";
     lives.textContent = p.lives > 0 ? "❤️".repeat(p.lives) : "💀";
     card.appendChild(lives);
 
