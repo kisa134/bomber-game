@@ -1547,12 +1547,12 @@ let tokenSol = 0;
 /** "≈$1.23" or "≈◎0.0042" for a token amount, in the player's chosen unit
  *  (Settings → Show value in). "" when that unit's price is unknown. */
 function usdOf(tokens: number): string {
-  if (tokens <= 0) return "";
+  if (tokens < 0) return "";
   const sol = settings.valueUnit === "sol";
   const rate = sol ? tokenSol : tokenUsd;
   if (!rate) return "";
   const v = tokens * rate;
-  const s = v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v.toPrecision(2);
+  const s = v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v > 0 ? v.toPrecision(2) : "0.00";
   return sol ? ` ≈◎${s}` : ` ≈$${s}`;
 }
 
@@ -4051,12 +4051,14 @@ setupBackground();
 // Live token→USD/SOL price for the in-game value converter (refresh every 60s).
 function refreshPrice(): void {
   void fetchPrice().then(({ usd, sol }) => {
-    tokenUsd = usd;
-    tokenSol = sol;
-    setTokenUsd(usd, sol, settings.valueUnit); // re-renders the lobby browser
+    // Keep the last GOOD price — a transient 0 from the feed must never blank the
+    // conversion everywhere (the test token isn't always on DexScreener).
+    if (usd > 0) tokenUsd = usd;
+    if (sol > 0) tokenSol = sol;
+    setTokenUsd(tokenUsd, tokenSol, settings.valueUnit); // re-renders the lobby browser
     // Hub info panel: "$1 in $BOMB" = how many tokens one dollar buys.
     const priceEl = document.getElementById("hub-price");
-    if (priceEl) priceEl.textContent = usd > 0 ? `${Math.round(1 / usd).toLocaleString("en-US")} $BOMB` : "—";
+    if (priceEl && tokenUsd > 0) priceEl.textContent = `${Math.round(1 / tokenUsd).toLocaleString("en-US")} $BOMB`;
     // These were likely rendered BEFORE the price loaded, leaving the value blank —
     // redraw now that we have a rate: the token-balance badge and the room prize.
     setTokenBadge(lastTokens);

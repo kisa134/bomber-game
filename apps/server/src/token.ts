@@ -28,7 +28,7 @@ import {
   TOKEN_2022_PROGRAM_ID,
 } from "@solana/spl-token";
 import bs58 from "bs58";
-import { TOKEN_MINT, TOKEN_DECIMALS, HOLDER_MIN } from "@bomberpump/shared";
+import { TOKEN_MINT, TOKEN_DECIMALS, HOLDER_MIN, TOKEN_PRICE_USD_FALLBACK, TOKEN_PRICE_SOL_FALLBACK } from "@bomberpump/shared";
 import { store } from "./store.js";
 import { analytics } from "./analytics.js";
 import { logEvent, shortWallet } from "./events.js";
@@ -189,14 +189,15 @@ async function refreshPrice(): Promise<void> {
 
 export async function tokenPriceUsd(): Promise<number> {
   await refreshPrice();
-  // Real market price if we have one, otherwise the manual override (may be 0).
-  return priceUsd || PRICE_OVERRIDE;
+  // Live DEX price → env override → code fallback. Never 0, so the in-game $/SOL
+  // conversion never blanks (the test token isn't always listed on DexScreener).
+  return priceUsd || PRICE_OVERRIDE || TOKEN_PRICE_USD_FALLBACK;
 }
 
-/** SOL price of one whole token (0 if unknown). */
+/** SOL price of one whole token (live → override → fallback). */
 export async function tokenPriceSol(): Promise<number> {
   await refreshPrice();
-  return priceSol || PRICE_OVERRIDE_SOL;
+  return priceSol || PRICE_OVERRIDE_SOL || TOKEN_PRICE_SOL_FALLBACK;
 }
 
 // --- deposit watcher -------------------------------------------------------

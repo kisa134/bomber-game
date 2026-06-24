@@ -132,12 +132,12 @@ export function setInviteSeatHandler(fn: () => void): void {
   onInviteSeat = fn;
 }
 function usdSuffix(tokens: number): string {
-  if (tokens <= 0) return "";
+  if (tokens < 0) return "";
   const sol = valueUnit === "sol";
   const rate = sol ? tokenSol : tokenUsd;
   if (!rate) return "";
   const v = tokens * rate;
-  const s = v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v.toPrecision(2);
+  const s = v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v > 0 ? v.toPrecision(2) : "0.00";
   return sol ? ` ≈◎${s}` : ` ≈$${s}`;
 }
 import type { GameState } from "../game/state.js";

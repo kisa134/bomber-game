@@ -202,6 +202,12 @@ export const TOKEN_MINT = "2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump";
 export const TOKEN_TICKER = "BGDF";
 export const TOKEN_DECIMALS = 6; // pump.fun tokens use 6 decimals
 export const HOLDER_MIN = 1; // min token balance (ui amount) to count as a holder
+/** Last-resort price (USD / SOL per whole token) used ONLY when there's no live
+ *  DEX price AND no TOKEN_PRICE_* env override — so the in-game value conversion
+ *  never blanks (a pre-graduation pump.fun token isn't always on DexScreener).
+ *  A real DEX price (or the env override) always takes precedence. Tune freely. */
+export const TOKEN_PRICE_USD_FALLBACK = 0.000004; // ≈ 250k tokens per $1
+export const TOKEN_PRICE_SOL_FALLBACK = 0.000000027;
 
 // --- Tokenomics (single source of truth; mirrors the public tokenomics page) -
 // $BMB · Solana · 1,000,000,000 cap. Keep these in lockstep with the website.
