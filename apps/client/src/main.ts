@@ -2756,8 +2756,10 @@ function startFighterFloat(): void {
       const sway = Math.cos(tt * 0.8 + ph) * 5; // left/right (→ small orbit)
       const rz = Math.sin(tt * 0.6 + ph) * 2.2; // gentle roll
       const depth = active ? 1 : 0.45;
-      const ry = mCurX * 13 * depth;
-      const rx = -mCurY * 10 * depth;
+      // Push AWAY from the cursor: the edge you point at tilts back (not toward
+      // you), so the card feels like it's being pressed into its little space.
+      const ry = -mCurX * 15 * depth;
+      const rx = mCurY * 12 * depth;
       // Tactile pop: on hover the centre card grows a touch and lifts toward us.
       const pop = active ? ` translateZ(${(hoverCur * 38).toFixed(1)}px) scale(${(1 + hoverCur * 0.06).toFixed(3)})` : "";
       tilt.style.transform =
