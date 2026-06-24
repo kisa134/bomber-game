@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Card corner — variants</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 20px 60px;
+    background: #0b0a0e url("/bg/splash-art.png") center / cover fixed no-repeat;
+    color: #eef0f5; font-family: "Space Grotesk", system-ui, sans-serif;
+  }
+  body::before { content:""; position:fixed; inset:0; background:rgba(8,6,12,.78); pointer-events:none; }
+  h1 { position:relative; text-align:center; font:700 20px "Cinzel", serif; color:#ffd84d; letter-spacing:1px; margin:0 0 6px; }
+  .sub { position:relative; text-align:center; color:#8b8696; font-size:13px; margin-bottom:26px; }
+  .grid { position:relative; display:grid; grid-template-columns:repeat(4,1fr); gap:22px; max-width:920px; margin:0 auto; }
+  @media(max-width:780px){ .grid{ grid-template-columns:repeat(2,1fr);} }
+  .cell { display:flex; flex-direction:column; align-items:center; gap:10px; }
+  .mini {
+    position:relative; width:100%; aspect-ratio:236/332; border-radius:14px;
+    background:linear-gradient(165deg,#211d2a,#0c0b11);
+    border:2px solid #c98e2e; box-shadow:0 14px 32px rgba(0,0,0,.55), 0 0 22px -8px #ffd84d;
+    overflow:hidden; cursor:pointer; transition:transform .15s;
+  }
+  .mini:hover{ transform:translateY(-4px) scale(1.03); }
+  .art { position:absolute; inset:9px 9px 34px; border-radius:9px;
+    background:radial-gradient(125% 95% at 50% 26%, #4a4258, transparent 62%), radial-gradient(90% 70% at 50% 90%, #2a2336, transparent 70%); }
+  .nm { position:absolute; bottom:8px; left:10px; font:800 13px "Cinzel",serif; color:#fbf7ec; text-shadow:0 2px 6px #000; }
+  .corner { position:absolute; bottom:9px; right:9px; display:flex; align-items:center; justify-content:center; }
+  .lab { font:600 12px "Space Mono", monospace; letter-spacing:.5px; color:#eef0f5; }
+  .lab b { color:#ffd84d; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @keyframes pulseGlow { 0%,100%{ filter:drop-shadow(0 0 3px rgba(255,200,90,.5)); } 50%{ filter:drop-shadow(0 0 10px rgba(255,200,90,.95)); } }
+  @keyframes hue { to { filter:hue-rotate(360deg); } }
+  @keyframes twinkle { 0%,100%{ opacity:.4; transform:scale(.85);} 50%{ opacity:1; transform:scale(1.1);} }
+
+  /* 1 — faceted gem */
+  .b-gem{ width:27px;height:27px; clip-path:polygon(50% 0,100% 33%,82% 100%,18% 100%,0 33%);
+    background:linear-gradient(135deg,#ffffff 0%,#ffe27a 42%,#f0a92a 70%,#c97e12 100%);
+    box-shadow:0 0 9px rgba(255,200,80,.65); position:relative; animation:pulseGlow 2.6s ease-in-out infinite; }
+  .b-gem::after{ content:""; position:absolute; inset:0; clip-path:inherit; background:linear-gradient(140deg,rgba(255,255,255,.85),transparent 48%); }
+
+  /* 2 — wax seal */
+  .b-wax{ width:31px;height:31px;border-radius:50%;
+    background:radial-gradient(circle at 38% 34%, #f0b23a, #b06e14 62%, #6e3f08);
+    box-shadow:inset 0 -3px 5px rgba(0,0,0,.55), inset 0 2px 3px rgba(255,225,160,.6), 0 2px 6px rgba(0,0,0,.5);
+    display:flex;align-items:center;justify-content:center; font:800 14px "Cinzel",serif; color:#5a3608; text-shadow:0 1px 0 rgba(255,225,160,.5); }
+
+  /* 3 — crest / sigil */
+  .b-crest{ width:27px;height:31px; clip-path:polygon(50% 0,100% 17%,100% 68%,50% 100%,0 68%,0 17%);
+    background:linear-gradient(160deg,#ffe9a8,#f0a92a 55%,#9a5e10);
+    display:flex;align-items:center;justify-content:center; color:#4a2d06; font:800 12px "Cinzel",serif;
+    animation:pulseGlow 2s ease-in-out infinite; }
+
+  /* 4 — holographic foil stamp */
+  .b-holo{ width:31px;height:31px;border-radius:50%;
+    background:conic-gradient(from 0deg,#ff4d6d,#ffd84d,#5ad27a,#4ad3ff,#b07cff,#ff4d6d);
+    animation:spin 5s linear infinite; box-shadow:0 0 11px rgba(255,255,255,.45); position:relative; }
+  .b-holo::after{ content:"L"; position:absolute; inset:4px; border-radius:50%; background:#16121c;
+    display:flex;align-items:center;justify-content:center; font:800 12px "Cinzel",serif; color:#fff; animation:spin 5s linear infinite reverse; }
+
+  /* 5 — power level */
+  .b-power{ display:flex; flex-direction:column; align-items:flex-end; line-height:1; }
+  .b-power .v{ font:800 15px "Space Mono",monospace; color:#ffd84d; text-shadow:0 0 7px rgba(255,200,80,.55); }
+  .b-power .k{ font:700 7px "Space Mono",monospace; letter-spacing:2px; color:#8b8696; }
+
+  /* 6 — gems row */
+  .b-gems{ display:flex; gap:3px; }
+  .b-gems i{ width:8px;height:8px; transform:rotate(45deg);
+    background:linear-gradient(135deg,#fff,#ffd84d 55%,#c97e12); box-shadow:0 0 5px rgba(255,200,80,.65); }
+
+  /* 7 — rotating ring */
+  .b-ring{ width:31px;height:31px;border-radius:50%; position:relative; display:flex;align-items:center;justify-content:center; }
+  .b-ring::before{ content:""; position:absolute; inset:0; border-radius:50%;
+    background:conic-gradient(from 0deg,transparent 0,#ffd84d 25%,transparent 55%);
+    animation:spin 3s linear infinite; -webkit-mask:radial-gradient(transparent 58%,#000 60%); mask:radial-gradient(transparent 58%,#000 60%); }
+  .b-ring span{ font:800 13px "Cinzel",serif; color:#ffd84d; }
+
+  /* 8 — mythic prism */
+  .b-prism{ width:29px;height:26px; clip-path:polygon(50% 0,100% 100%,0 100%);
+    background:conic-gradient(from 200deg,#ff4d6d,#ffae3b,#ffe24a,#5ad27a,#4ad3ff,#b07cff,#ff4d6d);
+    animation:hue 4s linear infinite; box-shadow:0 0 13px rgba(255,255,255,.55); position:relative; }
+  .b-prism::after{ content:"✦"; position:absolute; top:-7px; right:-5px; font-size:9px; color:#fff; animation:twinkle 1.6s ease-in-out infinite; }
+</style>
+</head>
+<body>
+  <h1>★ Card corner — 8 variants</h1>
+  <div class="sub">Hover to lift. Pick the number you like (mix &amp; match per rarity is fine).</div>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const V = [
+      ["1 · Faceted gem",     '<div class="b-gem"></div>'],
+      ["2 · Wax seal",        '<div class="b-wax">B</div>'],
+      ["3 · Crest / sigil",   '<div class="b-crest">L</div>'],
+      ["4 · Holo foil stamp", '<div class="b-holo"></div>'],
+      ["5 · Power level",     '<div class="b-power"><span class="v">9420</span><span class="k">POWER</span></div>'],
+      ["6 · Gems row",        '<div class="b-gems"><i></i><i></i><i></i><i></i></div>'],
+      ["7 · Rotating ring",   '<div class="b-ring"><span>L</span></div>'],
+      ["8 · Mythic prism",    '<div class="b-prism"></div>'],
+    ];
+    document.getElementById("grid").innerHTML = V.map(([name, badge]) => `
+      <div class="cell">
+        <div class="mini"><div class="art"></div><div class="nm">BOGDAN</div><div class="corner">${badge}</div></div>
+        <div class="lab"><b>${name.split(" · ")[0]}</b> · ${name.split(" · ")[1]}</div>
+      </div>`).join("");
+  </script>
+</body>
+</html>
