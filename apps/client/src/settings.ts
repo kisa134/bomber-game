@@ -3,6 +3,8 @@
 export type ControlScheme = "joystick" | "dpad";
 /** Which fiat/crypto unit token values are converted to for display. */
 export type ValueUnit = "usd" | "sol";
+/** How balances read: token amount with an ≈ conversion, or purely the money value. */
+export type ValueMode = "token" | "fiat";
 
 export interface Settings {
   music: boolean;
@@ -10,6 +12,7 @@ export interface Settings {
   controls: ControlScheme;
   gore: boolean; // false -> deaths spill gold coins instead of blood/guts
   valueUnit: ValueUnit; // show token worth in USD ($) or SOL (◎)
+  valueMode: ValueMode; // "token" = 💎1,000 ≈$x · "fiat" = show the $/◎ value as primary
 }
 
 const KEY = "bp_settings";
@@ -22,6 +25,7 @@ const DEFAULTS: Settings = {
   controls: isTouch ? "joystick" : "dpad",
   gore: true,
   valueUnit: "usd",
+  valueMode: "token",
 };
 
 export function loadSettings(): Settings {

@@ -1214,6 +1214,8 @@ function syncSettingsUI(): void {
   document.getElementById("ctl-dpad")!.classList.toggle("active", settings.controls === "dpad");
   document.getElementById("unit-usd")?.classList.toggle("active", settings.valueUnit === "usd");
   document.getElementById("unit-sol")?.classList.toggle("active", settings.valueUnit === "sol");
+  document.getElementById("mode-token")?.classList.toggle("active", settings.valueMode === "token");
+  document.getElementById("mode-fiat")?.classList.toggle("active", settings.valueMode === "fiat");
 }
 
 function update<K extends keyof Settings>(key: K, value: Settings[K]): void {
@@ -1254,6 +1256,8 @@ function wireSettings(): void {
   document.getElementById("ctl-dpad")!.addEventListener("click", () => update("controls", "dpad"));
   document.getElementById("unit-usd")?.addEventListener("click", () => { update("valueUnit", "usd"); applyValueUnit(); });
   document.getElementById("unit-sol")?.addEventListener("click", () => { update("valueUnit", "sol"); applyValueUnit(); });
+  document.getElementById("mode-token")?.addEventListener("click", () => { update("valueMode", "token"); applyValueUnit(); });
+  document.getElementById("mode-fiat")?.addEventListener("click", () => { update("valueMode", "fiat"); applyValueUnit(); });
   // Day / night backdrop theme — a single emoji toggle (persisted)
   const applyTheme = (theme: string): void => {
     const day = theme === "day";
@@ -1508,10 +1512,13 @@ function updateBalanceBars(): void {
   const parts: string[] = [];
   if (lastChips !== undefined)
     parts.push(`<span class="bal-chip">🪙 ${lastChips.toLocaleString()}</span>`);
-  if (lastTokens !== undefined)
-    parts.push(
-      `<span class="bal-chip token">💎 ${lastTokens.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${TOKEN_TICKER}</span>`,
-    );
+  if (lastTokens !== undefined) {
+    const fiat = settings.valueMode === "fiat" && (settings.valueUnit === "sol" ? tokenSol : tokenUsd) > 0;
+    const tok = fiat
+      ? `💎 ${moneyOf(lastTokens)}`
+      : `💎 ${lastTokens.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${TOKEN_TICKER}`;
+    parts.push(`<span class="bal-chip token">${tok}</span>`);
+  }
   let warn = "";
   const stake = state.roomStake;
   if (stake > 0) {
@@ -1556,6 +1563,18 @@ function usdOf(tokens: number): string {
   return sol ? ` ≈◎${s}` : ` ≈$${s}`;
 }
 
+/** The bare money value of a token amount ("$0.10" / "◎0.004"), no ≈ prefix —
+ *  used in "fiat" balance mode where the money value IS the primary readout. */
+function moneyOf(tokens: number): string {
+  if (tokens < 0) return "";
+  const sol = settings.valueUnit === "sol";
+  const rate = sol ? tokenSol : tokenUsd;
+  if (!rate) return "";
+  const v = tokens * rate;
+  const s = v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v > 0 ? v.toPrecision(2) : "0.00";
+  return sol ? `◎${s}` : `$${s}`;
+}
+
 /** Show the in-game (custodial) token balance badge; tap to open the Bank. */
 function setTokenBadge(balance: number | undefined): void {
   const badge = document.getElementById("token-badge") as HTMLAnchorElement | null;
@@ -1567,12 +1586,20 @@ function setTokenBadge(balance: number | undefined): void {
     return;
   }
   const amt = document.getElementById("token-amount");
-  const tick = document.getElementById("token-ticker");
-  if (amt) amt.textContent = balance.toLocaleString(undefined, { maximumFractionDigits: 2 });
-  if (tick) tick.textContent = `$${TOKEN_TICKER}`;
-  // Show the live USD value of the balance next to it (blank if no price yet).
   const usd = document.getElementById("token-usd");
-  if (usd) usd.textContent = usdOf(balance);
+  const cap = badge.querySelector(".stat-cap") as HTMLElement | null;
+  // "fiat" mode: the money value IS the balance (💎 $0.10) — hide the ticker + ≈.
+  // "token" mode: token amount + $TICKER + an ≈ conversion next to it.
+  const fiat = settings.valueMode === "fiat" && (settings.valueUnit === "sol" ? tokenSol : tokenUsd) > 0;
+  if (fiat) {
+    if (amt) amt.textContent = moneyOf(balance);
+    cap?.classList.add("hidden");
+    if (usd) usd.textContent = "";
+  } else {
+    if (amt) amt.textContent = balance.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    cap?.classList.remove("hidden");
+    if (usd) usd.textContent = usdOf(balance);
+  }
   badge.classList.remove("hidden");
   syncChrome();
 }
