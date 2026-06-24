@@ -2542,8 +2542,10 @@ function buildDustField(): void {
 let floatStarted = false;
 let mTargetX = 0; // cursor offset from carousel centre, -1..1
 let mTargetY = 0;
-let mCurX = 0; // eased
+let mCurX = 0; // eased (spring)
 let mCurY = 0;
+let mVelX = 0; // spring velocity → weightless float/overshoot
+let mVelY = 0;
 let dustTarget = 0.5; // sparkle intensity of the active card's tier
 let dustCur = 0.5; // eased
 let hoverTarget = 0; // 1 while the cursor is over the carousel
@@ -2746,8 +2748,10 @@ function startFighterFloat(): void {
   const tick = (now: number): void => {
     requestAnimationFrame(tick);
     if (menu.classList.contains("hidden")) return;
-    mCurX += (mTargetX - mCurX) * 0.07;
-    mCurY += (mTargetY - mCurY) * 0.07;
+    // Weightless spring follow (inertia + slight overshoot, then it settles) —
+    // the whole fan drifts toward the cursor like it's floating in zero-G.
+    mVelX += (mTargetX - mCurX) * 0.015; mVelX *= 0.86; mCurX += mVelX;
+    mVelY += (mTargetY - mCurY) * 0.015; mVelY *= 0.86; mCurY += mVelY;
     dustCur += (dustTarget - dustCur) * 0.04;
     hoverCur += (hoverTarget - hoverCur) * 0.05;
     const t = now * 0.001;

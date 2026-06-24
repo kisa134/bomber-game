@@ -37,6 +37,11 @@
         <feGaussianBlur in="noise" stdDeviation="3.4" result="blur"/>
         <feDisplacementMap in="SourceGraphic" in2="blur" scale="78" xChannelSelector="R" yChannelSelector="G"/>
       </filter>
+      <filter id="lg-distort-32" x="-25%" y="-25%" width="150%" height="150%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.008 0.009" numOctaves="2" seed="7" result="noise"/>
+        <feGaussianBlur in="noise" stdDeviation="3.4" result="blur"/>
+        <feDisplacementMap in="SourceGraphic" in2="blur" scale="32" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
     </svg>
     <div id="app">
       <!-- Animated background (video loop with gradient fallback) -->

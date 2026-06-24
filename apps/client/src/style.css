@@ -6249,6 +6249,53 @@ button.big {
 .rail-card:hover {
   border-color: rgba(255, 204, 51, 0.4);
 }
+
+/* ── Liquid-glass hub panels (tuned values) ─────────────────────────────────
+   Top (passport + info): blur 1 · transp 0 · bevel .75 · radius 11.
+   Lower rails (chip/card): blur 3.5 · transp .08 · bevel .38 · radius 11.
+   Both refract the backdrop via #lg-distort-32 (rim 0). */
+.passport-card,
+.info-card {
+  background: rgba(255, 255, 255, 0);
+  backdrop-filter: blur(1px) saturate(200%) brightness(1.1);
+  -webkit-backdrop-filter: blur(1px) saturate(200%) brightness(1.1);
+  border: 1px solid rgba(255, 255, 255, 0);
+  border-radius: 11px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    inset 0 -2px 8px rgba(0, 0, 0, 0.22),
+    0 14px 34px rgba(0, 0, 0, 0.34);
+  position: relative;
+  isolation: isolate;
+}
+.rail-chip,
+.rail-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.136), rgba(255, 255, 255, 0.032));
+  backdrop-filter: blur(3.5px) saturate(200%) brightness(1.1);
+  -webkit-backdrop-filter: blur(3.5px) saturate(200%) brightness(1.1);
+  border: 1px solid rgba(255, 255, 255, 0);
+  border-radius: 11px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.38),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.2),
+    0 8px 22px rgba(0, 0, 0, 0.3);
+  position: relative;
+  isolation: isolate;
+}
+.passport-card::after,
+.info-card::after,
+.rail-chip::after,
+.rail-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  filter: url(#lg-distort-32);
+}
 .rail-card.spin {
   background: linear-gradient(160deg, rgba(40, 32, 20, 0.92), rgba(20, 15, 11, 0.92));
   border-color: rgba(255, 204, 51, 0.35);
