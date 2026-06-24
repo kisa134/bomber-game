@@ -349,7 +349,9 @@ button.glass-btn.primary:hover {
 .lite .passport-card,
 .lite .info-card,
 .lite .rail-chip,
-.lite .rail-card {
+.lite .rail-card,
+.lite .hb-mode-btn,
+.lite .hb-practice-btn {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
@@ -357,7 +359,11 @@ button.glass-btn.primary:hover {
 .lite .passport-card::after,
 .lite .info-card::after,
 .lite .rail-chip::after,
-.lite .rail-card::after { display: none !important; }
+.lite .rail-card::after,
+.lite .hb-mode-btn::after,
+.lite .hb-practice-btn::after { display: none !important; }
+.lite .hb-mode-btn,
+.lite .hb-practice-btn { background: rgba(40, 36, 50, 0.82) !important; }
 .lite .passport-card,
 .lite .info-card { background: rgba(20, 17, 26, 0.82) !important; }
 .lite .rail-chip,
@@ -6532,14 +6538,34 @@ button.big {
   padding: 12px 16px;
   border-radius: 11px;
   text-align: center;
-  background: #34303f;
-  border: 1px solid rgba(255, 255, 255, 0.38);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  /* Dim glass (3rd hub texture): blur 6 · transp .01 · sat 185 · bright 1.26 ·
+     rim .08 · bevel .04 · refraction 64 — both sides identical (symmetric). */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.017), rgba(255, 255, 255, 0.004));
+  backdrop-filter: blur(6px) saturate(185%) brightness(1.26);
+  -webkit-backdrop-filter: blur(6px) saturate(185%) brightness(1.26);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 8px 20px rgba(0, 0, 0, 0.34);
   font-family: var(--font-ui);
   font-weight: 700;
   font-size: 0.82rem;
   color: #f4f1fb;
   white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
+}
+.hb-mode-btn::after,
+.hb-practice-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  filter: url(#lg-distort-64);
 }
 .hb-mode-btn:hover,
 .hb-practice-btn:hover {
