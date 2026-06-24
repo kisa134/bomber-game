@@ -2666,7 +2666,12 @@ function startFighterFloat(): void {
     const r = wrap.getBoundingClientRect();
     mTargetX = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width / 2)) / (r.width / 2)));
     mTargetY = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height / 2)) / (r.height / 2)));
-    hoverTarget = 1;
+    // The tactile pop fires ONLY when the cursor is genuinely over the centre card.
+    const act = wrap.querySelector<HTMLElement>(".fighter-card.active");
+    if (act) {
+      const ar = act.getBoundingClientRect();
+      hoverTarget = (e.clientX >= ar.left && e.clientX <= ar.right && e.clientY >= ar.top && e.clientY <= ar.bottom) ? 1 : 0;
+    }
   });
   menu.addEventListener("pointerleave", () => { mTargetX = 0; mTargetY = 0; hoverTarget = 0; });
   // Swipe / drag the carousel to browse fighters (works with touch + mouse).
@@ -2740,7 +2745,7 @@ function startFighterFloat(): void {
     mCurX += (mTargetX - mCurX) * 0.07;
     mCurY += (mTargetY - mCurY) * 0.07;
     dustCur += (dustTarget - dustCur) * 0.04;
-    hoverCur += (hoverTarget - hoverCur) * 0.1;
+    hoverCur += (hoverTarget - hoverCur) * 0.05;
     const t = now * 0.001;
     // While the deck easter egg owns the cards, don't let the float loop fight
     // it for the transforms (dust keeps whirling below).
