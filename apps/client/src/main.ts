@@ -2502,18 +2502,27 @@ function buildCarousel(): void {
 
 // Magic dust: a field of glowing motes whirling AROUND the cards, animated in
 // the same rAF loop and pushed by the cursor.
-interface DustMote { el: HTMLElement; bx: number; by: number; ph: number; sp: number; amp: number; depth: number; tw: number; dim: number; minPower: number; }
+interface DustMote { el: HTMLElement; bx: number; by: number; ph: number; sp: number; amp: number; depth: number; tw: number; dim: number; minPower: number; zw: number; }
 const dustMotes: DustMote[] = [];
 function buildDustField(): void {
   const field = document.getElementById("fighter-dustfield");
   if (!field || dustMotes.length) return;
-  const N = 96;
+  const N = 112;
   for (let i = 0; i < N; i++) {
     const el = document.createElement("span");
     el.className = "dust-mote";
     // Depth: dz≈0 = far (tiny, dim, drifts slowly → space depth), dz≈1 = near.
     const dz = Math.random();
-    const size = 0.5 + dz * 2.4;
+    // Cluster the motes around each visible fan slot, thinning with distance:
+    // a little cloud hugs the centre card (dense/bright), the side cards get a
+    // smaller, dimmer one, the far cards just a whisper.
+    const zr = Math.random();
+    let cx: number, zw: number;
+    if (zr < 0.44) { cx = 0.5; zw = 1; }                                       // centre
+    else if (zr < 0.74) { cx = Math.random() < 0.5 ? 0.30 : 0.70; zw = 0.56; } // a = 1
+    else { cx = Math.random() < 0.5 ? 0.13 : 0.87; zw = 0.32; }               // a = 2
+    const bx = Math.min(1, Math.max(0, cx + (Math.random() - 0.5) * 0.15));
+    const size = (0.5 + dz * 2.4) * (0.55 + zw * 0.5); // far slots → smaller motes
     el.style.width = el.style.height = `${size.toFixed(1)}px`;
     const gold = Math.random() < 0.62;
     el.style.background = gold
@@ -2524,15 +2533,16 @@ function buildDustField(): void {
     field.appendChild(el);
     dustMotes.push({
       el,
-      bx: Math.random(),
-      by: Math.random(),
+      bx,
+      by: 0.12 + Math.random() * 0.76,
       ph: Math.random() * Math.PI * 2,
       sp: 0.22 + dz * 0.6,
       amp: 6 + dz * 20,
       depth: 0.2 + dz * 1.2, // far motes parallax less
       tw: 0.4 + Math.random() * 0.6,
-      dim: 0.3 + dz * 0.7, // far motes are fainter
+      dim: (0.3 + dz * 0.7) * zw, // depth slots are fainter
       minPower: Math.random() * 0.82, // appears only once the tier is rich enough
+      zw,
     });
   }
 }
