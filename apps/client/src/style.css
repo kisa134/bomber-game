@@ -300,15 +300,15 @@ button.glass-btn {
 button.glass-btn::before {
   content: "";
   position: absolute;
-  inset: 0;
+  inset: -40%; /* big overscan so the blurred band's edges live off the button */
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(100deg, transparent 35%, rgba(255, 255, 255, 0.32) 50%, transparent 65%);
-  background-size: 240% 100%;
-  filter: blur(6px);
+  background: linear-gradient(100deg, transparent 26%, rgba(255, 255, 255, 0.24) 50%, transparent 74%);
+  background-size: 260% 100%;
+  filter: blur(17px); /* heavily smeared — no visible edges */
   mix-blend-mode: screen;
-  opacity: 0.6;
-  animation: fcGlint 5.5s ease-in-out infinite alternate;
+  opacity: 0.5;
+  animation: fcGlint 6s ease-in-out infinite alternate;
 }
 /* Fireflies drifting inside the jar — injected into .glass-btn by main.ts. */
 .glass-firefly {
