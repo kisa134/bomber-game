@@ -3966,6 +3966,35 @@ function addFireflies(btn: HTMLElement, n: number): void {
   }
 }
 document.querySelectorAll<HTMLElement>(".glass-btn").forEach((b) => addFireflies(b, 18));
+
+// Stylish warm-spark burst when the main PLAY button is pressed.
+function burstButton(btn: HTMLElement): void {
+  const r = btn.getBoundingClientRect();
+  if (!r.width) return;
+  const cont = document.createElement("div");
+  cont.style.cssText = `position:fixed;left:${r.left + r.width / 2}px;top:${r.top + r.height / 2}px;z-index:9999;pointer-events:none`;
+  document.body.appendChild(cont);
+  const colors = ["#fff3c0", "#ffe27a", "#ffb24a", "#ff7a30", "#ff4d4d"];
+  const flash = document.createElement("div");
+  flash.style.cssText = `position:absolute;left:0;top:0;width:${r.width}px;height:${r.height}px;transform:translate(-50%,-50%);border-radius:18px;background:radial-gradient(circle,rgba(255,210,120,0.55),transparent 70%)`;
+  cont.appendChild(flash);
+  flash.animate([{ opacity: 0.9, transform: "translate(-50%,-50%) scale(0.8)" }, { opacity: 0, transform: "translate(-50%,-50%) scale(1.6)" }], { duration: 420, easing: "ease-out" });
+  for (let i = 0; i < 36; i++) {
+    const p = document.createElement("span");
+    const col = colors[i % colors.length];
+    const a = Math.random() * Math.PI * 2;
+    const dist = 28 + Math.random() * (r.width * 0.6);
+    const size = 2 + Math.random() * 4;
+    p.style.cssText = `position:absolute;left:0;top:0;width:${size}px;height:${size}px;border-radius:50%;background:${col};box-shadow:0 0 8px 1px ${col}`;
+    cont.appendChild(p);
+    p.animate([
+      { transform: "translate(-50%,-50%) scale(1)", opacity: 1 },
+      { transform: `translate(calc(-50% + ${(Math.cos(a) * dist).toFixed(0)}px), calc(-50% + ${(Math.sin(a) * dist).toFixed(0)}px)) scale(0)`, opacity: 0 },
+    ], { duration: 480 + Math.random() * 360, easing: "cubic-bezier(0.15,0.7,0.2,1)" });
+  }
+  window.setTimeout(() => cont.remove(), 950);
+}
+document.getElementById("open-play")?.addEventListener("click", (e) => burstButton(e.currentTarget as HTMLElement));
 refreshPrice();
 setInterval(refreshPrice, 60_000);
 // Keep chips + token balance fresh on the menu (e.g. after a deposit credits a
