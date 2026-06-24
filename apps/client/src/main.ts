@@ -2752,6 +2752,12 @@ function startFighterFloat(): void {
       if (active) {
         const holo = tilt.querySelector<HTMLElement>(".fc-holo");
         if (holo) holo.style.backgroundPosition = `${(50 + mCurX * 35).toFixed(1)}% ${(50 + mCurY * 35).toFixed(1)}%`;
+        // glint glides with the cursor (and the card's tilt) — realistic shine
+        const sheen = tilt.querySelector<HTMLElement>(".fc-sheen");
+        if (sheen) {
+          sheen.style.setProperty("--sx", (50 + mCurX * 42).toFixed(1) + "%");
+          sheen.style.setProperty("--sy", (36 + mCurY * 26).toFixed(1) + "%");
+        }
       }
     }
     // Magic dust whirling around ALL the cards (wide field), nudged by the

@@ -5618,16 +5618,21 @@ button.big {
   opacity: 0.5;
   pointer-events: none;
 }
+/* Specular glint — a big, heavily-smeared highlight with NO visible edges that
+   only lives on the active card and GLIDES with the cursor (set from the rAF
+   loop). Still on non-active cards but invisible (opacity 0). */
 .fc-sheen {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 60px;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
-  animation: splash-sheen 4.2s ease-in-out infinite;
+  inset: 0;
+  background: radial-gradient(50% 64% at var(--sx, 50%) var(--sy, 36%),
+    rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.16) 26%, transparent 58%);
+  filter: blur(11px);
+  mix-blend-mode: screen;
+  opacity: 0;
   pointer-events: none;
+  transition: opacity 0.4s ease;
 }
+.fighter-card.active .fc-sheen { opacity: 0.95; }
 .fc-frame {
   position: absolute;
   inset: 6px;
