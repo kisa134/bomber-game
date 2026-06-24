@@ -12,7 +12,30 @@ const KEY_DIR: Record<string, Direction> = {
   KeyD: Direction.RIGHT,
 };
 
-const JOY_DEADZONE = 14; // px
+const JOY_DEADZONE = 12; // px — below this the current direction is held (no flicker)
+const JOY_TRAVEL = 52; // px — thumb max offset; past it the base trails the finger
+const JOY_SWITCH = 1.3; // hysteresis: a new axis must beat the current one by this much
+
+/** Snap an analog vector to one of 4 grid directions with angular hysteresis:
+ *  once a direction is committed, the finger must clearly cross past the diagonal
+ *  to switch — so movement along a row/column never flickers into a turn. */
+function snap4(dx: number, dy: number, cur: Direction): Direction {
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  let horiz = ax >= ay;
+  const curHoriz = cur === Direction.LEFT || cur === Direction.RIGHT;
+  const curVert = cur === Direction.UP || cur === Direction.DOWN;
+  // Sticky: don't flip axes unless the new axis dominates by JOY_SWITCH.
+  if (horiz && curVert && ax < ay * JOY_SWITCH) horiz = false;
+  else if (!horiz && curHoriz && ay < ax * JOY_SWITCH) horiz = true;
+  return horiz
+    ? dx >= 0
+      ? Direction.RIGHT
+      : Direction.LEFT
+    : dy >= 0
+      ? Direction.DOWN
+      : Direction.UP;
+}
 
 /** True when the key event targets a text field — don't hijack those keys. */
 function typingInField(e: KeyboardEvent): boolean {
@@ -139,8 +162,14 @@ export class Input {
     this.thumb.style.opacity = "0";
   }
 
-  /** Floating virtual joystick: the WHOLE left zone is the stick — touch anywhere
-   *  and it spawns right under your finger; release and it vanishes. */
+  /** Floating "dynamic" virtual joystick — the pro mobile pattern:
+   *   • the WHOLE left zone is live; touch anywhere and the stick spawns under
+   *     your finger (it's invisible until then, so nothing's parked on screen);
+   *   • CLUTCH: drag past the ring and the base trails your finger, so direction
+   *     stays finger-relative and you can never run out of travel / lose control;
+   *   • a small dead-zone + axis hysteresis keep grid movement rock-steady (no
+   *     flicker into a turn when you're running straight);
+   *   • tracks one specific finger by id, so the bomb hand never interferes. */
   private attachJoystick(): void {
     const zone = document.getElementById("joystick");
     const base = document.getElementById("joy-base");
@@ -149,50 +178,55 @@ export class Input {
     this.base = base;
     this.thumb = thumb;
 
-    const MAX_TRAVEL = 56;
-    let active = false;
+    let pid = -1; // the finger currently driving the stick (-1 = none)
     let ox = 0;
     let oy = 0;
+    const placeBase = (): void => {
+      base.style.left = `${ox}px`;
+      base.style.top = `${oy}px`;
+    };
 
     zone.addEventListener("pointerdown", (e) => {
-      active = true;
-      // Spawn the stick exactly where the finger landed (anywhere in the zone).
+      if (pid !== -1) return; // already tracking a finger — ignore extra touches
+      pid = e.pointerId;
       ox = e.clientX;
       oy = e.clientY;
-      base.style.left = thumb.style.left = `${ox}px`;
-      base.style.top = thumb.style.top = `${oy}px`;
-      base.style.opacity = "0.85";
-      thumb.style.opacity = "1";
+      placeBase();
+      thumb.style.left = `${ox}px`;
+      thumb.style.top = `${oy}px`;
+      base.style.opacity = "0.6";
+      thumb.style.opacity = "0.95";
       zone.setPointerCapture(e.pointerId);
       e.preventDefault();
     });
     zone.addEventListener("pointermove", (e) => {
-      if (!active) return;
-      const dx = e.clientX - ox;
-      const dy = e.clientY - oy;
-      const mag = Math.hypot(dx, dy);
-      const clamp = Math.min(mag, MAX_TRAVEL);
-      const ang = Math.atan2(dy, dx);
-      thumb.style.left = `${ox + Math.cos(ang) * clamp}px`;
-      thumb.style.top = `${oy + Math.sin(ang) * clamp}px`;
-      // Inside the deadzone: KEEP the current direction (don't flip to NONE) so
-      // the player doesn't stop-and-go flicker while the thumb hovers near center.
+      if (e.pointerId !== pid) return;
+      let dx = e.clientX - ox;
+      let dy = e.clientY - oy;
+      let mag = Math.hypot(dx, dy);
+      // Clutch: once the finger is past the ring, slide the base toward it so it
+      // trails at exactly JOY_TRAVEL away — the stick "follows" and never pins.
+      if (mag > JOY_TRAVEL) {
+        const k = (mag - JOY_TRAVEL) / mag;
+        ox += dx * k;
+        oy += dy * k;
+        placeBase();
+        dx = e.clientX - ox;
+        dy = e.clientY - oy;
+        mag = JOY_TRAVEL;
+      }
+      thumb.style.left = `${ox + dx}px`;
+      thumb.style.top = `${oy + dy}px`;
+      // Near centre: hold the current direction (no stop-and-go flicker).
       if (mag < JOY_DEADZONE) return;
-      this.setJoy(
-        Math.abs(dx) > Math.abs(dy)
-          ? dx > 0
-            ? Direction.RIGHT
-            : Direction.LEFT
-          : dy > 0
-            ? Direction.DOWN
-            : Direction.UP,
-      );
+      this.setJoy(snap4(dx, dy, this.joyDir));
+      e.preventDefault();
     });
-    const end = (e: Event) => {
-      active = false;
+    const end = (e: PointerEvent): void => {
+      if (e.pointerId !== pid) return;
+      pid = -1;
       this.setJoy(Direction.NONE);
       this.hideJoy();
-      e.preventDefault();
     };
     zone.addEventListener("pointerup", end);
     zone.addEventListener("pointercancel", end);

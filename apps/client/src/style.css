@@ -3305,8 +3305,9 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
     padding: calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) 0 6px;
   }
   /* --- Glass HUD panels (mockup look): timer+lives, kit pill, player list --- */
+  /* NOTE: no pointer-events here — the whole left half must stay a joystick zone
+     (the panels are display-only during a match), so touches pass through. */
   #hud-left > * {
-    pointer-events: auto;
     background: rgba(14, 16, 24, 0.58);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 12px;
@@ -5021,28 +5022,35 @@ button.big {
   height: 78%;
   touch-action: none;
 }
-/* The floating stick is no longer drawn — the left half is an invisible drag
-   zone with a static arrow hint (#move-hint) instead. */
+/* Floating joystick: hidden until you touch the left zone, then it appears under
+   your finger (left/top set by JS = the centre point) and trails it as you drag.
+   Visual only — pointer-events stay on the #joystick zone. */
 #joy-base,
 #joy-thumb {
-  display: none;
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  z-index: 6;
+  will-change: left, top, opacity;
 }
-/* Static minimal movement hint (a faint 4-arrow cross) shown in the left zone. */
 #move-hint {
   display: none;
 }
 #joy-base {
-  width: 132px;
-  height: 132px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 3px solid rgba(255, 255, 255, 0.22);
-  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.3);
+  width: 128px;
+  height: 128px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.35), 0 4px 18px rgba(0, 0, 0, 0.4);
 }
 #joy-thumb {
-  width: 64px;
-  height: 64px;
+  width: 58px;
+  height: 58px;
   background: radial-gradient(circle at 35% 30%, #ffe08a, #ffcc33);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
 /* --- Rotate-to-landscape prompt (portrait phones only, while in game) --- */
