@@ -2569,7 +2569,9 @@ function ensureSparkCanvas(wrap: HTMLElement): void {
   if (sparkCanvas) return;
   const c = document.createElement("canvas");
   c.id = "fighter-sparks";
-  c.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:60";
+  // Big overscan so sparks can fluff out far; z-index BEHIND the cards so they
+  // spray out from UNDER the card and blend into the magic dust.
+  c.style.cssText = "position:absolute;inset:-45%;width:190%;height:190%;pointer-events:none;z-index:0";
   wrap.appendChild(c);
   sparkCanvas = c;
   sparkCtx = c.getContext("2d");
@@ -2610,10 +2612,10 @@ function emitSparks(rect: DOMRect, cr: DOMRect, tier: number, ramp: number, t: n
     else if (e < 0.5) { x = lx + Math.random() * w; y = ly + h; nx = 0; ny = 1; }
     else if (e < 0.75) { x = lx; y = ly + Math.random() * h; nx = -1; ny = 0; }
     else { x = lx + w; y = ly + Math.random() * h; nx = 1; ny = 0; }
-    const spd = 0.5 + Math.random() * 2.1; // very varied → chaotic
-    const ang = Math.atan2(ny, nx) + (Math.random() - 0.5) * 1.9; // wide spray
-    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 9 + Math.random() * 17, size: 0.35 + Math.random() * 0.65, col: sparkColor(tier, ramp, t, i, base) });
-    if (sparks.length > 460) sparks.shift();
+    const spd = 1.0 + Math.random() * 3.0; // energetic burst out of the edge
+    const ang = Math.atan2(ny, nx) + (Math.random() - 0.5) * 2.4; // very wide, chaotic
+    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 28 + Math.random() * 36, size: 0.4 + Math.random() * 0.7, col: sparkColor(tier, ramp, t, i, base) });
+    if (sparks.length > 520) sparks.shift();
   }
 }
 function tickSparks(): void {
@@ -2626,9 +2628,11 @@ function tickSparks(): void {
   for (let i = sparks.length - 1; i >= 0; i--) {
     const s = sparks[i];
     s.px = s.x; s.py = s.y;
-    // strong drag + per-frame turbulence → real-spark chaotic flicker
-    s.vx = s.vx * 0.9 + (Math.random() - 0.5) * 0.28;
-    s.vy = s.vy * 0.9 + 0.05 + (Math.random() - 0.5) * 0.28;
+    // Zero-G: barely any drag (they keep drifting outward to the dust), no
+    // gravity, gentle brownian turbulence (chaotic float), and a soft lean in
+    // the eased-cursor direction — so the mouse "wafts" the weightless sparks.
+    s.vx = s.vx * 0.978 + (Math.random() - 0.5) * 0.2 + mCurX * 0.04;
+    s.vy = s.vy * 0.978 + (Math.random() - 0.5) * 0.2 + mCurY * 0.04;
     s.x += s.vx; s.y += s.vy;
     s.life -= 1 / s.max;
     if (s.life <= 0) { sparks.splice(i, 1); continue; }
