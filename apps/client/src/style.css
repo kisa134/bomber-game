@@ -100,31 +100,30 @@ body {
   background: #0b070e;
 }
 /* The game art as a deeply-blurred, dimmed STAGE (not a texture).
-   The blur is BAKED into a tiny pre-blurred webp (4KB) instead of a per-frame
-   GPU filter — same look, near-zero cost, no FPS hit when sparks/cards animate. */
+   LIVE GPU blur on normal devices (sparks are sprite-cheap now, so it no longer
+   tanks FPS) — the blur bleeds light up into the header zone so the top chrome
+   reads as transparent. Weak devices fall back to a baked static webp (see the
+   .lite override below). Big overscan + scale so the blur never leaks edges. */
 #bg.art::before {
   content: "";
   position: absolute;
-  /* Small overscan + scale to hide the low-res webp edges (no live blur to leak). */
-  inset: -16px;
-  background: #0b070e url("/bg/splash-blur.webp") center / cover no-repeat;
-  /* Cheap colour filters only (no convolution) — lets day/night re-tone for free. */
-  filter: saturate(0.85) brightness(0.3) contrast(1.04);
-  transform: scale(1.04);
+  inset: -70px;
+  background: #0b070e url("/bg/splash-art.png") center / cover no-repeat;
+  filter: blur(24px) saturate(0.92) brightness(0.4) contrast(1.04);
+  transform: scale(1.08);
 }
 /* A faint warm key-light lifts the centre (lit showcase) while a deep, SOFT
    radial vignette sinks the edges → rgba(0,0,0,0) centre → ~0.75 at the edges,
    so the panels/cards pop and corners stay deep but never charcoal. */
 #bg.art::after {
   background:
-    radial-gradient(92% 56% at 50% 28%, rgba(255, 206, 120, 0.07) 0%, rgba(255, 206, 120, 0) 42%),
-    radial-gradient(105% 96% at 50% 42%, rgba(0, 0, 0, 0) 26%, rgba(8, 6, 14, 0.5) 56%, rgba(4, 3, 8, 0.84) 82%, rgba(0, 0, 0, 0.96) 100%),
-    radial-gradient(ellipse 75% 62% at 50% 44%, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.5) 50%, rgba(0, 0, 0, 0.74) 78%, rgba(0, 0, 0, 0.92) 100%);
+    radial-gradient(92% 56% at 50% 26%, rgba(255, 206, 120, 0.08) 0%, rgba(255, 206, 120, 0) 44%),
+    radial-gradient(108% 102% at 50% 44%, rgba(0, 0, 0, 0) 34%, rgba(8, 6, 14, 0.36) 64%, rgba(4, 3, 8, 0.64) 86%, rgba(0, 0, 0, 0.8) 100%),
+    radial-gradient(ellipse 80% 68% at 50% 46%, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.38) 56%, rgba(0, 0, 0, 0.58) 82%, rgba(0, 0, 0, 0.76) 100%);
 }
-/* ☀ Day mode — lighter dimming AND a sharper (lighter-blur) baked scene. */
+/* ☀ Day mode — lighter dimming AND a lighter live blur (sharper scene). */
 #bg.art.day::before {
-  background: #0b070e url("/bg/splash-blur-day.webp") center / cover no-repeat;
-  filter: saturate(1) brightness(0.72) contrast(1.03);
+  filter: blur(10px) saturate(1) brightness(0.78) contrast(1.03);
 }
 #bg.art.day::after {
   background:
@@ -383,7 +382,19 @@ button.glass-btn.primary:hover {
 .lite .fc-light,
 .lite .fc-back-glyphs,
 .lite .fc-back-foil { display: none !important; }
-/* (bg blur is now a baked static webp — lite mode no longer needs to touch it) */
+/* Weak devices: swap the LIVE GPU blur for the baked static webp (no convolution
+   per frame) — a touch brighter so the header still reads transparent. The swap
+   normal→lite is blur→blur, so it's barely noticeable. */
+.lite #bg.art::before {
+  inset: -16px;
+  background-image: url("/bg/splash-blur.webp") !important;
+  filter: saturate(0.92) brightness(0.46) contrast(1.04) !important;
+  transform: scale(1.04);
+}
+.lite #bg.art.day::before {
+  background-image: url("/bg/splash-blur-day.webp") !important;
+  filter: saturate(1) brightness(0.82) contrast(1.03) !important;
+}
 
 .divider {
   width: 260px;
