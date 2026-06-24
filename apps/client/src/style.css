@@ -124,9 +124,9 @@ body {
       rgba(0, 0, 0, 0.92) 100%
     );
 }
-/* ☀ Day mode — same blurred scene, only ~25% of the night dimming. */
+/* ☀ Day mode — lighter dimming AND less blur (sharper scene). */
 #bg.art.day::before {
-  filter: blur(24px) saturate(0.95) brightness(0.72) contrast(1.02);
+  filter: blur(10px) saturate(1) brightness(0.72) contrast(1.03);
 }
 #bg.art.day::after {
   background:
@@ -230,18 +230,46 @@ input:focus {
   border-color: var(--accent);
 }
 
-/* ── Liquid-glass buttons ───────────────────────────────────────────────────
-   Frosted, translucent "glass" material: backdrop blur + saturation, a bright
-   top bevel, a soft cast shadow, and an edge-refraction layer (::after warps
-   the backdrop through the SVG #lg-distort filter). Brand colours are kept —
-   only the material changed. */
+/* ── Buttons (original solid style) ─────────────────────────────────────── */
 button {
   cursor: pointer;
-  border-radius: 14px;
+  border: none;
+  border-radius: 12px;
   padding: 13px 22px;
   font-size: 1rem;
   font-weight: 700;
+  background: var(--panel);
   color: var(--text);
+  border: 1px solid var(--border);
+  transition: transform 0.05s ease, filter 0.1s ease;
+  width: 260px;
+}
+button:active {
+  transform: scale(0.97);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+button.primary {
+  background: linear-gradient(180deg, var(--accent-lite), var(--accent) 55%, #c97e12);
+  color: #3a2406;
+  border: 1px solid #8a5a10;
+  box-shadow: 0 10px 26px rgba(240, 160, 30, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+button.primary:hover {
+  filter: brightness(1.05);
+}
+button.ghost {
+  background: transparent;
+  color: var(--muted);
+}
+
+/* ── Liquid-glass material — OPT-IN via .glass-btn (kept for A/B comparison) ──
+   Add the class to any <button> to make it frosted translucent glass with an
+   edge-refraction lens (#lg-distort). Brand colours preserved on .primary. */
+button.glass-btn {
   position: relative;
   isolation: isolate;
   border-radius: 16px;
@@ -253,12 +281,10 @@ button {
     inset 0 1px 0 rgba(255, 255, 255, 0.64),
     inset 0 -2px 7px rgba(0, 0, 0, 0.26),
     0 12px 30px rgba(0, 0, 0, 0.36);
+  color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
-  transition: transform 0.12s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.2s ease, filter 0.1s ease;
-  width: 260px;
 }
-/* edge refraction — a thin lens that bends the backdrop at the border */
-button::after {
+button.glass-btn::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -269,22 +295,11 @@ button::after {
   -webkit-backdrop-filter: blur(1px);
   filter: url(#lg-distort);
 }
-button:hover {
+button.glass-btn:hover {
   transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 -2px 6px rgba(0, 0, 0, 0.26),
-    0 14px 32px rgba(0, 0, 0, 0.4);
+  filter: none;
 }
-button:active {
-  transform: scale(0.97);
-}
-button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-/* PRIMARY keeps the gold brand colour — now as a translucent gold glass. */
-button.primary {
+button.glass-btn.primary {
   background: linear-gradient(135deg, rgba(255, 228, 150, 0.14), rgba(240, 169, 42, 0.05));
   color: #fff7e6;
   border: 1px solid rgba(255, 225, 150, 0.23);
@@ -296,19 +311,6 @@ button.primary {
     0 12px 30px rgba(200, 130, 0, 0.42);
   text-shadow: 0 1px 2px rgba(120, 70, 0, 0.45);
 }
-button.primary:hover {
-  filter: brightness(1.06);
-}
-button.ghost {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border-color: transparent;
-  box-shadow: none;
-  color: var(--muted);
-  text-shadow: none;
-}
-button.ghost::after { display: none; }
 
 .divider {
   width: 260px;
