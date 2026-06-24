@@ -2443,6 +2443,7 @@ function fighterCardHTML(skin: number): string {
     '<div class="fc-grain"></div>' +
     // The character is raised above the surface (translateZ) → tactile relief.
     `<img class="fc-hero" src="/sprites/skin_${skin}_down_1.webp?v=${ASSET_VER}" alt="" />` +
+    '<div class="fc-light"></div>' +
     '<div class="fc-frame"></div>' +
     '<span class="fc-corner tl"></span><span class="fc-corner tr"></span><span class="fc-corner bl"></span><span class="fc-corner br"></span>' +
     `<div class="fc-toprow"><span class="fc-rarity">${r.name.toUpperCase()}</span><span class="fc-no">${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}</span></div>` +
@@ -2564,7 +2565,6 @@ let sparkCtx: CanvasRenderingContext2D | null = null;
 let pressActive = false;
 let pressStart = 0;
 let pressTier = 0;
-let pressColor = "#ffffff";
 let pressWasHold = false;
 
 function ensureSparkCanvas(wrap: HTMLElement): void {
@@ -2587,25 +2587,14 @@ function resizeSparkCanvas(): void {
   sparkCanvas.height = Math.max(1, Math.round(r.height * dpr));
   sparkCtx?.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
-function sparkColor(tier: number, ramp: number, t: number, i: number, base: string): string {
-  if (tier >= 4) {
-    // mythic: red + rainbow, ever more holographic the longer you hold
-    if (Math.random() < 0.3 + ramp * 0.55) return `hsl(${((t * 140 + i * 53) % 360).toFixed(0)},100%,${(62 + ramp * 16).toFixed(0)}%)`;
-    return `hsl(${(351 + Math.random() * 14).toFixed(0)},92%,${(56 + ramp * 8).toFixed(0)}%)`; // red
-  }
-  if (tier === 3) {
-    // legendary: gold + silver, whitening the longer you hold
-    const rnd = Math.random();
-    if (rnd < ramp * 0.6) return "#ffffff";
-    return rnd < 0.5 ? "#ffd84d" : "#e6edf6"; // gold / silver
-  }
-  // epic: the card's tier colour, occasionally white-hot
-  return Math.random() < 0.35 ? "#ffffff" : base;
+function sparkColor(): string {
+  // White sparks with a faint warm/cool flicker.
+  const r = Math.random();
+  return r < 0.74 ? "#ffffff" : r < 0.88 ? "#fff4dc" : "#e8f1ff";
 }
-function emitSparks(rect: DOMRect, cr: DOMRect, tier: number, ramp: number, t: number, base: string): void {
-  // Longer hold → MORE sparks (not faster). Speed stays modest so they burst
-  // right at the card's edge and die before drifting far.
-  const n = Math.floor(2 + ramp * 14);
+function emitSparks(rect: DOMRect, cr: DOMRect, ramp: number): void {
+  // Lots of tiny white sparks — more the longer you hold.
+  const n = Math.floor(4 + ramp * 22);
   const lx = rect.left - cr.left, ly = rect.top - cr.top, w = rect.width, h = rect.height;
   for (let i = 0; i < n; i++) {
     const e = Math.random();
@@ -2616,8 +2605,8 @@ function emitSparks(rect: DOMRect, cr: DOMRect, tier: number, ramp: number, t: n
     else { x = lx + w; y = ly + Math.random() * h; nx = 1; ny = 0; }
     const spd = 1.0 + Math.random() * 3.0; // energetic burst out of the edge
     const ang = Math.atan2(ny, nx) + (Math.random() - 0.5) * 2.4; // very wide, chaotic
-    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 28 + Math.random() * 36, size: 0.4 + Math.random() * 0.7, col: sparkColor(tier, ramp, t, i, base) });
-    if (sparks.length > 520) sparks.shift();
+    sparks.push({ x, y, px: x, py: y, vx: Math.cos(ang) * spd, vy: Math.sin(ang) * spd, life: 1, max: 28 + Math.random() * 36, size: 0.22 + Math.random() * 0.5, col: sparkColor() });
+    if (sparks.length > 700) sparks.shift();
   }
 }
 function tickSparks(): void {
@@ -2698,7 +2687,6 @@ function startFighterFloat(): void {
       if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
         pressActive = true; pressStart = performance.now(); pressWasHold = false;
         pressTier = tierRank(hubBrowseSkin >= 0 ? hubBrowseSkin : hubEquipped());
-        pressColor = getComputedStyle(act).getPropertyValue("--tier").trim() || "#ffffff";
       }
     }
   });
@@ -2780,6 +2768,12 @@ function startFighterFloat(): void {
       if (active) {
         const holo = tilt.querySelector<HTMLElement>(".fc-holo");
         if (holo) holo.style.backgroundPosition = `${(50 + mCurX * 35).toFixed(1)}% ${(50 + mCurY * 35).toFixed(1)}%`;
+        // the key-light rolls across the surface as the card tilts → 3D relief
+        const light = tilt.querySelector<HTMLElement>(".fc-light");
+        if (light) {
+          light.style.setProperty("--lx", `${(50 - mCurX * 42).toFixed(1)}%`);
+          light.style.setProperty("--ly", `${(26 - mCurY * 30).toFixed(1)}%`);
+        }
       }
     }
     // Magic dust whirling around ALL the cards (wide field), nudged by the
@@ -2808,7 +2802,7 @@ function startFighterFloat(): void {
         const act = wrap.querySelector<HTMLElement>(".fighter-card.active");
         if (act) {
           const ramp = Math.min(1, (now - pressStart) / 1800);
-          emitSparks(act.getBoundingClientRect(), sparkCanvas.getBoundingClientRect(), pressTier, ramp, t, pressColor);
+          emitSparks(act.getBoundingClientRect(), sparkCanvas.getBoundingClientRect(), ramp);
         }
       }
       tickSparks();
@@ -4009,7 +4003,7 @@ function burstButton(btn: HTMLElement): void {
   }
   window.setTimeout(() => cont.remove(), 950);
 }
-document.getElementById("open-play")?.addEventListener("click", (e) => burstButton(e.currentTarget as HTMLElement));
+void burstButton; // (silly explosion removed — kept for potential reuse)
 refreshPrice();
 setInterval(refreshPrice, 60_000);
 // Keep chips + token balance fresh on the menu (e.g. after a deposit credits a
