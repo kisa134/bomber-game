@@ -343,6 +343,37 @@ button.glass-btn.primary:hover {
     0 0 42px rgba(255, 200, 70, 0.45);
 }
 
+/* ── Lite mode (weak device / low FPS): drop the heavy GPU effects, keep the
+   layout + colours + core feel. Toggled by adding `.lite` to <html>. ──────── */
+.lite button.glass-btn,
+.lite .passport-card,
+.lite .info-card,
+.lite .rail-chip,
+.lite .rail-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+.lite button.glass-btn::after,
+.lite .passport-card::after,
+.lite .info-card::after,
+.lite .rail-chip::after,
+.lite .rail-card::after { display: none !important; }
+.lite .passport-card,
+.lite .info-card { background: rgba(20, 17, 26, 0.82) !important; }
+.lite .rail-chip,
+.lite .rail-card { background: rgba(30, 26, 38, 0.85) !important; }
+.lite button.glass-btn { background: rgba(28, 24, 36, 0.9) !important; }
+.lite button.glass-btn.primary {
+  background: linear-gradient(180deg, #ffe79c, #f6bd3a 46%, #e09a1c) !important;
+  color: #2a1c02 !important;
+}
+.lite .glass-firefly,
+.lite .fc-grain,
+.lite .fc-ray,
+.lite .fc-light,
+.lite .fc-back-tile { display: none !important; }
+.lite #bg.art::before { filter: brightness(0.32) saturate(0.85) !important; }
+
 .divider {
   width: 260px;
   text-align: center;

@@ -2504,10 +2504,31 @@ function buildCarousel(): void {
 // the same rAF loop and pushed by the cursor.
 interface DustMote { el: HTMLElement; bx: number; by: number; ph: number; sp: number; amp: number; depth: number; tw: number; dim: number; minPower: number; zw: number; }
 const dustMotes: DustMote[] = [];
+
+/* ── Performance: auto "lite" mode ─────────────────────────────────────────
+   Weak devices (few cores / little RAM) or a sustained low frame-rate switch to
+   a lighter render — backdrop-blur, SVG refraction, fireflies and most dust are
+   dropped (CSS .lite), keeping the layout, colours and core feel intact. */
+let liteMode = false;
+function goLite(): void {
+  if (liteMode) return;
+  liteMode = true;
+  document.documentElement.classList.add("lite");
+  document.querySelectorAll<HTMLElement>(".glass-firefly").forEach((f) => f.remove());
+  dustMotes.slice(44).forEach((m) => { m.el.style.display = "none"; });
+}
+function weakDevice(): boolean {
+  const cores = navigator.hardwareConcurrency || 4;
+  const mem = (navigator as { deviceMemory?: number }).deviceMemory ?? 4;
+  const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  return cores <= 2 || mem <= 2 || (mobile && cores <= 4 && mem <= 3);
+}
+if (weakDevice()) goLite();
+
 function buildDustField(): void {
   const field = document.getElementById("fighter-dustfield");
   if (!field || dustMotes.length) return;
-  const N = 132;
+  const N = liteMode ? 44 : 132;
   for (let i = 0; i < N; i++) {
     const el = document.createElement("span");
     el.className = "dust-mote";
@@ -2562,6 +2583,7 @@ let dustCur = 0.5; // eased
 let hoverTarget = 0; // 1 while the cursor is over the carousel
 let hoverCur = 0; // eased → active card grows + lifts toward the viewer
 let dragMoved = false; // set while a swipe/drag is in progress on the carousel
+let fpsLast = 0, fpsAcc = 0, fpsFrames = 0, lowFpsStreak = 0; // perf watchdog
 
 /* ── Edge sparks ──────────────────────────────────────────────────────────
    Press & HOLD the centre card → sparks spray OUT of its edges like a
@@ -2746,6 +2768,17 @@ function startFighterFloat(): void {
   const tick = (now: number): void => {
     requestAnimationFrame(tick);
     if (menu.classList.contains("hidden")) return;
+    // FPS watchdog → drop to lite after a sustained low frame-rate
+    if (!liteMode) {
+      if (fpsLast) { fpsAcc += now - fpsLast; fpsFrames++; }
+      fpsLast = now;
+      if (fpsAcc >= 1000) {
+        const fps = (fpsFrames * 1000) / fpsAcc;
+        lowFpsStreak = fps < 45 ? lowFpsStreak + 1 : 0;
+        if (lowFpsStreak >= 3) goLite();
+        fpsAcc = 0; fpsFrames = 0;
+      }
+    }
     // Weightless spring follow (inertia + slight overshoot, then it settles) —
     // the whole fan drifts toward the cursor like it's floating in zero-G.
     mVelX += (mTargetX - mCurX) * 0.015; mVelX *= 0.86; mCurX += mVelX;
@@ -2776,12 +2809,15 @@ function startFighterFloat(): void {
       tilt.style.transform =
         `translate3d(${sway}px, ${bob}px, 0) rotateX(${rx.toFixed(2)}deg) rotateY(${ry.toFixed(2)}deg) rotateZ(${rz.toFixed(2)}deg)${pop}`;
       // Live cast shadow: drifts with the tilt/bob and drops further + softens as
-      // the centre card lifts toward us (real height above the scene).
-      const hv = active ? hoverCur : 0;
-      tilt.style.setProperty(
-        "--shadow",
-        `${(mCurX * 16 * depth - sway * 0.5).toFixed(0)}px ${(18 + hv * 28 - bob * 0.4).toFixed(0)}px ${(44 + hv * 36).toFixed(0)}px rgba(0,0,0,${(0.5 + hv * 0.12).toFixed(2)})`,
-      );
+      // the centre card lifts toward us (real height above the scene). Skipped in
+      // lite mode (per-frame box-shadow repaints are costly).
+      if (!liteMode) {
+        const hv = active ? hoverCur : 0;
+        tilt.style.setProperty(
+          "--shadow",
+          `${(mCurX * 16 * depth - sway * 0.5).toFixed(0)}px ${(18 + hv * 28 - bob * 0.4).toFixed(0)}px ${(44 + hv * 36).toFixed(0)}px rgba(0,0,0,${(0.5 + hv * 0.12).toFixed(2)})`,
+        );
+      }
       // Foil reflects the card's viewing angle: each card's fan tilt shifts its
       // foil differently (a fixed light bouncing off angled cards) + a cursor
       // nudge that's strongest on the active card.
@@ -3976,7 +4012,7 @@ setInterval(refreshOnline, 30_000);
 
 // Fireflies drifting inside the glass buttons (like bugs in a jar).
 function addFireflies(btn: HTMLElement, n: number): void {
-  if (btn.querySelector(".glass-firefly")) return;
+  if (liteMode || btn.querySelector(".glass-firefly")) return;
   const w = btn.offsetWidth || 220, h = btn.offsetHeight || 64;
   const rnd = (): number => Math.random() * 2 - 1;
   for (let i = 0; i < n; i++) {
