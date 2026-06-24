@@ -17,6 +17,7 @@ import { initSentry, captureError } from "./sentry.js";
 import { metrics } from "./metrics.js";
 import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
+import { tournaments, sanitizeConfig, type TStatus } from "./tournament.js";
 import {
   tokenBalance,
   withdraw,
@@ -1243,6 +1244,117 @@ app.post("/daily/claim", (res, req) => {
     sendJson(res, r);
   }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
+
+// --- tournaments ---------------------------------------------------------
+// Public: the Season menu lists visible tournaments + the active announcement.
+app.get("/tournaments", (res) => {
+  res.onAborted(() => {});
+  void tournaments
+    .list()
+    .then((all) => {
+      // Hide drafts/cancelled from players; admins see everything via /admin.
+      const visible = all.filter((t) => t.status !== "draft" && t.status !== "cancelled");
+      sendJson(res, { tournaments: visible });
+    })
+    .catch(() => sendJson(res, { tournaments: [] }));
+});
+
+app.get("/tournament", (res, req) => {
+  res.onAborted(() => {});
+  const q = new URLSearchParams(req.getQuery());
+  const id = q.get("id") ?? "";
+  const wallet = verifySession(q.get("session") ?? "");
+  void Promise.all([tournaments.get(id), tournaments.players(id), wallet ? tournaments.isRegistered(id, wallet) : Promise.resolve(null)])
+    .then(([t, players, mine]) => {
+      if (!t) return sendJson(res, { error: "not_found" }, "404 Not Found");
+      sendJson(res, { tournament: t, players, you: mine });
+    })
+    .catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
+app.get("/announcement", (res) => {
+  res.onAborted(() => {});
+  void tournaments.getAnnouncement(Date.now()).then((a) => sendJson(res, { announcement: a })).catch(() => sendJson(res, { announcement: null }));
+});
+
+// Player register / check-in / leave (session-verified).
+function tourneyPlayerAction(path: string, fn: (id: string, wallet: string, name: string) => Promise<unknown>): void {
+  app.post(path, (res, req) => {
+    if (!guard(res, req)) return;
+    void readBody(res).then(async (body) => {
+      let wallet: string | null = null;
+      let id = "";
+      try {
+        const j = JSON.parse(body || "{}");
+        if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
+        if (typeof j.id === "string") id = j.id;
+      } catch {
+        /* ignore */
+      }
+      if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+      if (!id) return sendJson(res, { error: "bad_request" }, "400 Bad Request");
+      const prof = await store.getProfile(wallet);
+      const r = await fn(id, wallet, prof?.name || shortWallet(wallet));
+      sendJson(res, { ok: true, result: r });
+    }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+  });
+}
+tourneyPlayerAction("/tournament/register", (id, wallet, name) => tournaments.register(id, wallet, name, Date.now()));
+tourneyPlayerAction("/tournament/checkin", async (id, wallet) => {
+  await tournaments.setPlayer(id, wallet, { status: "checked_in" });
+  return "ok";
+});
+tourneyPlayerAction("/tournament/leave", async (id, wallet) => {
+  await tournaments.unregister(id, wallet);
+  return "ok";
+});
+
+// Admin: full control (token-gated, same ADMIN_TOKEN as the rest of /admin).
+app.get("/admin/tournaments", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  void tournaments.list().then((all) => sendJson(res, { tournaments: all })).catch(() => sendJson(res, { tournaments: [] }));
+});
+app.get("/admin/tournament", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const id = new URLSearchParams(req.getQuery()).get("id") ?? "";
+  void Promise.all([tournaments.get(id), tournaments.players(id)])
+    .then(([t, players]) => sendJson(res, t ? { tournament: t, players } : { error: "not_found" }, t ? "200 OK" : "404 Not Found"))
+    .catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+function adminTourneyPost(path: string, fn: (body: Record<string, unknown>) => Promise<unknown>): void {
+  app.post(path, (res, req) => {
+    res.onAborted(() => {});
+    if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+    void readBody(res).then(async (body) => {
+      let j: Record<string, unknown> = {};
+      try { j = JSON.parse(body || "{}"); } catch { /* ignore */ }
+      const r = await fn(j);
+      sendJson(res, { ok: true, result: r });
+    }).catch((e) => sendJson(res, { error: String(e) }, "500 Internal Server Error"));
+  });
+}
+adminTourneyPost("/admin/tournament/create", (j) => tournaments.create(sanitizeConfig(j), "admin", Date.now()));
+adminTourneyPost("/admin/tournament/update", (j) => tournaments.update(String(j.id ?? ""), { ...sanitizeConfig(j), status: j.status as TStatus | undefined }));
+adminTourneyPost("/admin/tournament/status", (j) => tournaments.update(String(j.id ?? ""), {
+  status: j.status as TStatus,
+  ...(j.status === "live" ? { startedAt: Date.now() } : {}),
+  ...(j.status === "done" ? { endedAt: Date.now(), winners: Array.isArray(j.winners) ? (j.winners as string[]) : undefined } : {}),
+}));
+adminTourneyPost("/admin/tournament/player", (j) => tournaments.setPlayer(String(j.id ?? ""), String(j.wallet ?? ""), {
+  status: j.status as never,
+  points: j.points as number | undefined,
+  placement: j.placement as number | undefined,
+  prizePaid: j.prizePaid as number | undefined,
+}));
+adminTourneyPost("/admin/tournament/announce", (j) => tournaments.setAnnouncement({
+  text: String(j.text ?? "").slice(0, 240),
+  tournamentId: String(j.tournamentId ?? ""),
+  cta: String(j.cta ?? "").slice(0, 40),
+  until: Math.max(0, Number(j.until) || 0),
+}, Date.now()));
+adminTourneyPost("/admin/tournament/announce/clear", async () => { await tournaments.clearAnnouncement(); return "ok"; });
 
 // --- referral ---
 // Bind the inviter for a freshly-connected wallet (one-time, session-verified).
