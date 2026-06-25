@@ -5956,16 +5956,17 @@ button.big {
   align-items: center;
   gap: 13px;
 }
-.splash-actions .glass-btn { width: 100%; }
+/* All splash buttons share ONE corner radius (14px). */
+.splash-actions .glass-btn { width: 100%; border-radius: 14px; }
 .splash-actions .glass-btn.primary { min-height: 58px; font-size: 1.04rem; }
 .splash-actions .glass-btn:not(.primary) { min-height: 52px; }
-/* About — a capsule LINK, not a third CTA (reads as secondary info). */
+/* How to play — a slim secondary button (same radius as the rest). */
 .splash-about {
   margin-top: 5px;
   width: auto;
-  min-height: 38px;
+  min-height: 40px;
   padding: 0 22px;
-  border-radius: 999px;
+  border-radius: 14px;
   background: rgba(18, 27, 45, 0.42);
   border: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(231, 236, 248, 0.86);

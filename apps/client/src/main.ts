@@ -1459,8 +1459,6 @@ function refreshWalletBtn(): void {
   updateSplashButtons(); // hide "Connect wallet" on the splash once connected
 }
 
-/** Landing site for the splash "About" button. */
-const LANDING_URL = "https://bombermeme.fun";
 /** The splash "Connect wallet" button only shows when no wallet is connected. */
 function updateSplashButtons(): void {
   document.getElementById("splash-connect")?.classList.toggle("hidden", !!loadWallet());
@@ -4989,6 +4987,7 @@ document.getElementById("profile-share")?.addEventListener("click", () => void o
 
 // Splash entry screen: Enter game · Connect wallet (if none) · About → landing.
 document.getElementById("splash-enter")?.addEventListener("click", () => {
+  localStorage.setItem("bp_entered", "1"); // returning visitors skip the splash next time
   showScreen("menu");
   music("lobby");
 });
@@ -4996,7 +4995,7 @@ document.getElementById("splash-connect")?.addEventListener("click", () => {
   document.getElementById("wallet-btn")?.click(); // reuse the connect flow
 });
 document.getElementById("splash-about")?.addEventListener("click", () => {
-  window.open(LANDING_URL, "_blank", "noopener");
+  showOnboarding(); // "How to play" — open the how-to-play onboarding
 });
 
 // Deep link: ?room=CODE auto-joins with the saved nick/skin.
@@ -5018,9 +5017,11 @@ document.addEventListener("pointerdown", (e) => {
 });
 document.addEventListener("pointerdown", () => assets.playMusic(currentTrack), { once: true });
 
-// Deep links jump straight in (connect() drives the screen); otherwise we open
-// the splash entry screen (▶ Enter game → hub).
+// Deep links jump straight in (connect() drives the screen); otherwise show the
+// splash ONLY to first-time visitors — returning players (entered before, or a
+// wallet already connected) go straight to the hub. (Like top games.)
 updateSplashButtons();
-if (!autoJoined) showScreen("splash");
+const returningVisitor = !!localStorage.getItem("bp_entered") || !!loadWallet();
+if (!autoJoined) showScreen(returningVisitor ? "menu" : "splash");
 music("lobby");
 requestAnimationFrame(frame);
