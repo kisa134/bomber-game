@@ -4028,13 +4028,8 @@ function setupOnboarding(): void {
   });
   document.getElementById("onboard-skip")!.addEventListener("click", closeOnboarding);
   document.getElementById("open-help")!.addEventListener("click", showOnboarding);
-  let seen = false;
-  try {
-    seen = !!localStorage.getItem(ONBOARD_KEY);
-  } catch {
-    // ignore
-  }
-  if (!seen) showOnboarding();
+  // First-run onboarding now opens AFTER the splash "Enter game" (see splash-enter),
+  // not on page load — so a brand-new browser shows the entry screen first.
 }
 
 function wireMenuLinks(): void {
@@ -5155,7 +5150,11 @@ document.getElementById("profile-share")?.addEventListener("click", () => void o
 document.getElementById("splash-enter")?.addEventListener("click", () => {
   localStorage.setItem("bp_entered", "1"); // returning visitors skip the splash next time
   showScreen("menu");
-  music("lobby");
+  music("lobby"); // music starts once you're in the hub, not on the splash
+  // First-time players get the how-to-play right after entering.
+  let onbSeen = false;
+  try { onbSeen = !!localStorage.getItem(ONBOARD_KEY); } catch { /* ignore */ }
+  if (!onbSeen) showOnboarding();
 });
 document.getElementById("splash-connect")?.addEventListener("click", () => {
   document.getElementById("wallet-btn")?.click(); // reuse the connect flow
@@ -5181,7 +5180,13 @@ document.addEventListener("pointerdown", (e) => {
   const el = e.target as HTMLElement;
   if (el.closest("button") && !el.closest("#touch-controls")) assets.play("ui");
 });
-document.addEventListener("pointerdown", () => assets.playMusic(currentTrack), { once: true });
+// Autoplay-unlock fallback: start music on the first gesture AFTER we've left the
+// splash (so nothing plays on the entry screen — music belongs to the hub onward).
+document.addEventListener("pointerdown", function startMusicOnce() {
+  if (!document.getElementById("splash")?.classList.contains("hidden")) return; // still on splash
+  assets.playMusic(currentTrack);
+  document.removeEventListener("pointerdown", startMusicOnce);
+});
 
 // Deep links jump straight in (connect() drives the screen); otherwise show the
 // splash ONLY to first-time visitors — returning players (entered before, or a

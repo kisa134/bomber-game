@@ -220,7 +220,8 @@ export function showScreen(name: ScreenName): void {
   // splash screen (which has its own video backdrop covering it).
   const bg = document.getElementById("bg");
   const video = document.getElementById("bg-video") as HTMLVideoElement | null;
-  const showBg = name !== "game" && name !== "splash";
+  // The splash now uses the standard blurred background too (no separate video).
+  const showBg = name !== "game";
   if (bg) bg.style.display = showBg ? "" : "none";
   if (video) {
     if (showBg) void video.play().catch(() => {});
