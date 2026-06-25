@@ -3290,7 +3290,7 @@ function showFighter(skin: number, equip = false): void {
     ra.textContent = `${r.name.toUpperCase()} · ${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}`;
     ra.style.color = r.color;
   }
-  const avSrc = `/sprites/skin_${hubEquipped()}.webp?v=${ASSET_VER}`;
+  const avSrc = `/sprites/skin_${hubEquipped()}_down_1.webp?v=${ASSET_VER}`;
   const av = document.getElementById("hub-passport-av") as HTMLImageElement | null;
   if (av) av.src = avSrc;
   const chipAv = document.getElementById("hub-chip-av") as HTMLImageElement | null;
@@ -4586,6 +4586,9 @@ const lobbyName = (): string =>
 // Use the player's equipped character (Loadout) for every match; random only if
 // none chosen yet. (The lobby room still lets you override per-match via SET_SKIN.)
 const randSkin = (): number => {
+  // The card you're looking at in the hub IS your fighter (works on mobile too,
+  // where equip-on-swipe can be flaky) — fall back to bp_skin, then random.
+  if (hubBrowseSkin >= 0 && hubBrowseSkin < SKIN_COUNT && skinOwned(hubBrowseSkin)) return hubBrowseSkin;
   const s = Number(localStorage.getItem("bp_skin"));
   return Number.isInteger(s) && s >= 0 && s < SKIN_COUNT ? s : Math.floor(Math.random() * SKIN_COUNT);
 };
@@ -4772,9 +4775,15 @@ function showEmote(playerId: number, emote: number): void {
   if (!inGame(state.phase)) {
     const pop = document.createElement("div");
     pop.className = "emote-pop";
-    pop.textContent = `${state.nameOf(playerId)} ${e}`;
-    pop.style.left = `${12 + Math.random() * 70}%`; // scatter horizontally
-    pop.style.setProperty("--drift", `${(Math.random() * 2 - 1) * 44}px`);
+    const emoji = document.createElement("span");
+    emoji.className = "ep-emoji";
+    emoji.textContent = e;
+    const nm = document.createElement("span");
+    nm.className = "ep-name";
+    nm.textContent = state.nameOf(playerId); // emote sits ABOVE the name
+    pop.append(emoji, nm);
+    pop.style.left = `${8 + Math.random() * 84}%`; // wider scatter = chaotic on spam
+    pop.style.setProperty("--drift", `${(Math.random() * 2 - 1) * 80}px`);
     document.getElementById("room")?.appendChild(pop);
     setTimeout(() => pop.remove(), 2200);
   }

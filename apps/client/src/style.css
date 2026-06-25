@@ -2572,9 +2572,11 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   border-color: rgba(95, 217, 106, 0.55);
   box-shadow: inset 0 0 22px rgba(95, 217, 106, 0.1);
 }
+/* YOUR seat — glows your player colour INWARD (no white/gold outline). */
 .seat.you {
-  outline: 2px solid rgba(255, 204, 51, 0.4);
-  outline-offset: -2px;
+  box-shadow:
+    inset 0 0 0 1.5px var(--seat-color, rgba(255, 255, 255, 0.4)),
+    inset 0 0 24px -3px color-mix(in srgb, var(--seat-color, #fff) 55%, transparent);
 }
 .seat .seat-av {
   width: 56px;
@@ -3671,34 +3673,50 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   100% { transform: scale(1); }
 }
 .emote-bar.in-game {
+  display: flex;
   flex: 0 0 auto;
   gap: 4px;
+  flex-wrap: wrap;
 }
 .emote-bar.in-game .emote-btn {
   width: 34px;
   height: 34px;
   font-size: 1.05rem;
-  background: var(--panel);
 }
 .emote-pop {
   position: fixed; /* viewport-relative → visible even while the room scrolls (mobile) */
   left: 50%;
   bottom: 30%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.7);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 6px 14px;
-  font-weight: 700;
   z-index: 40;
   pointer-events: none;
-  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
   animation: emote-rise 2.2s ease-out forwards;
 }
+.ep-emoji {
+  font-size: 1.9rem;
+  line-height: 1;
+  filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.7));
+}
+.ep-name {
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: #e6e9f2;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+  text-shadow: 0 1px 2px #000;
+}
+/* Pop in (overshoot), then float up + drift (scatters chaotically on spam). */
 @keyframes emote-rise {
-  0% { opacity: 0; transform: translate(-50%, 12px) scale(0.8); }
-  12% { opacity: 1; transform: translate(-50%, 0) scale(1); }
-  100% { opacity: 0; transform: translate(calc(-50% + var(--drift, 0px)), -170px) scale(1); }
+  0%   { opacity: 0; transform: translate(-50%, 14px) scale(0.5); }
+  12%  { opacity: 1; transform: translate(-50%, 0) scale(1.25); }
+  22%  { transform: translate(-50%, -4px) scale(1); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--drift, 0px)), -190px) scale(0.9); }
 }
 
 /* Game — column layout: play area on top, info panel below it */

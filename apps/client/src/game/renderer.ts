@@ -28,7 +28,9 @@ export function skinAvatar(skin: number, color?: string): HTMLElement {
   wrap.className = "avatar";
   if (color) wrap.style.boxShadow = `inset 0 0 0 2px ${color}`;
   const img = document.createElement("img");
-  img.src = `/sprites/skin_${skin}.webp?v=${ASSET_VER}`;
+  // Use the current frontal animation frame (skin_N.webp portraits were stale for
+  // some skins) so avatars always match the live character.
+  img.src = `/sprites/skin_${skin}_down_1.webp?v=${ASSET_VER}`;
   img.alt = SKIN_EMOJI[skin % SKIN_EMOJI.length];
   img.onerror = () => {
     const s = document.createElement("span");
