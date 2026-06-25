@@ -1495,6 +1495,11 @@ button.glass-btn.lobby-create {
 }
 .hub-top-actions .stat-badge.token {
   color: #dfe3ea;
+  /* no box behind the token in the chrome — just the number + ≈value */
+  width: auto;
+  margin-top: 0;
+  background: none;
+  border: none;
 }
 /* mockup shows just the number — drop the CHIPS / $BGDF caps in the chrome */
 .hub-top-actions .stat-cap {
@@ -2913,6 +2918,7 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   width: auto;
   height: 44px;
   padding: 0 22px;
+  border-radius: 12px; /* match all other buttons (override glass-btn's 16px) */
   font-weight: 800;
 }
 /* Stack the room zones on narrow screens */

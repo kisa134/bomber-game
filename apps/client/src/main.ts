@@ -3921,7 +3921,6 @@ function wireMenuLinks(): void {
   document.getElementById("nav-home")?.addEventListener("click", () => { setNav("nav-home"); showScreen("menu"); });
   document.getElementById("nav-arena")?.addEventListener("click", () => { setNav("nav-arena"); click("open-play"); });
   document.getElementById("nav-shop")?.addEventListener("click", () => { setNav("nav-shop"); click("open-shop"); });
-  document.getElementById("nav-ranks")?.addEventListener("click", () => { setNav("nav-ranks"); click("open-leaderboard"); });
   // Click the passport card (not the nickname field) opens the profile.
   document.querySelector(".passport-card")?.addEventListener("click", (e) => {
     if ((e.target as HTMLElement).closest("input")) return;

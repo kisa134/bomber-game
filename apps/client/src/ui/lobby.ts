@@ -206,6 +206,11 @@ export function showScreen(name: ScreenName): void {
     document.getElementById(id)?.classList.toggle("hidden", id !== name);
   }
   refreshReturnRoom();
+  // Sync the top-nav highlight to the screen: HOME on the hub, ARENA in the
+  // lobby/room (room search + waiting room), SHOP in the shop.
+  const navFor: Partial<Record<ScreenName, string>> = { menu: "nav-home", lobby: "nav-arena", room: "nav-arena", shop: "nav-shop" };
+  const navId = navFor[name];
+  document.querySelectorAll(".hub-nav-link").forEach((a) => a.classList.toggle("active", a.id === navId));
   // Persistent top chrome (alpha notice + global status bar + XP): shown on every
   // screen — including the waiting room — except the in-game canvas (own HUD) and
   // the splash entry screen. (#room reserves --chrome-h top padding for it.)

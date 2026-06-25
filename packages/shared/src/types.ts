@@ -80,7 +80,7 @@ export enum CalloutType {
 }
 
 /** Quick lobby/in-game reactions (no free text). */
-export const EMOTES = ["👍", "🔥", "😂", "💣", "😎", "😭"] as const;
+export const EMOTES = ["👍", "🔥", "😂", "💣", "😎", "😭", "🤡", "🚀", "🐸", "💎", "🤑", "❤️", "🎉", "👀", "🤝", "😱"] as const;
 
 /** Practice bot difficulty (sent to the server when opening a practice room). */
 export enum BotDifficulty {
