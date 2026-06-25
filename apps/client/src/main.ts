@@ -235,10 +235,22 @@ const RADIO: Record<string, { title: string; artist: string }> = {
 const npEl = document.getElementById("now-playing");
 const npTitleEl = document.getElementById("np-title");
 const npArtistEl = document.getElementById("np-artist");
+const npNextBtn = document.getElementById("np-next");
+const npRepeatBtn = document.getElementById("np-repeat");
 let npHideTimer: ReturnType<typeof setTimeout> | null = null;
+let npHovered = false; // keep the chip open while the cursor is on it
 // Treat any touch device as mobile — the chip is desktop-only by request.
 const isTouchDevice =
   "ontouchstart" in window || navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches;
+
+const NP_SHOW_MS = 8000; // how long the chip lingers before fading out
+
+function scheduleNpHide(ms = NP_SHOW_MS): void {
+  if (npHideTimer) clearTimeout(npHideTimer);
+  npHideTimer = setTimeout(() => {
+    if (!npHovered) npEl?.classList.remove("show");
+  }, ms);
+}
 
 function showNowPlaying(key: string): void {
   const el = npEl;
@@ -249,12 +261,42 @@ function showNowPlaying(key: string): void {
   npArtistEl.textContent = meta.artist;
   el.classList.remove("hidden");
   requestAnimationFrame(() => el.classList.add("show"));
-  if (npHideTimer) clearTimeout(npHideTimer);
-  npHideTimer = setTimeout(() => el.classList.remove("show"), 6000);
+  scheduleNpHide();
 }
 
-if (!isTouchDevice) {
+function syncRepeatBtn(): void {
+  npRepeatBtn?.classList.toggle("active", settings.repeatOne);
+  npRepeatBtn?.setAttribute("aria-pressed", String(settings.repeatOne));
+}
+
+if (!isTouchDevice && npEl) {
   assets.onTrackChange = (key) => showNowPlaying(key);
+  // Restore the persisted repeat preference on the engine + button.
+  assets.setRepeat(settings.repeatOne);
+  syncRepeatBtn();
+
+  // Hover keeps the chip open; leaving it starts a short fade-out timer.
+  npEl.addEventListener("mouseenter", () => {
+    npHovered = true;
+    if (npHideTimer) clearTimeout(npHideTimer);
+    npEl.classList.add("show");
+  });
+  npEl.addEventListener("mouseleave", () => {
+    npHovered = false;
+    scheduleNpHide(2000);
+  });
+
+  npNextBtn?.addEventListener("click", () => {
+    assets.skipNext();
+    scheduleNpHide();
+  });
+  npRepeatBtn?.addEventListener("click", () => {
+    settings.repeatOne = !settings.repeatOne;
+    saveSettings(settings);
+    assets.setRepeat(settings.repeatOne);
+    syncRepeatBtn();
+    scheduleNpHide();
+  });
 }
 
 // --- networking -----------------------------------------------------------

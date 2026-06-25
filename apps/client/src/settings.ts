@@ -13,6 +13,7 @@ export interface Settings {
   gore: boolean; // false -> deaths spill gold coins instead of blood/guts
   valueUnit: ValueUnit; // show token worth in USD ($) or SOL (◎)
   valueMode: ValueMode; // "token" = 💎1,000 ≈$x · "fiat" = show the $/◎ value as primary
+  repeatOne: boolean; // BOMBERMEME FM: loop the current lobby track instead of shuffling on
 }
 
 const KEY = "bp_settings";
@@ -26,6 +27,7 @@ const DEFAULTS: Settings = {
   gore: true,
   valueUnit: "usd",
   valueMode: "token",
+  repeatOne: false,
 };
 
 export function loadSettings(): Settings {

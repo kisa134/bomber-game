@@ -172,6 +172,7 @@ export class Assets {
   // radio chip in the UI. Set by the consumer; null = nobody listening.
   onTrackChange: ((key: string) => void) | null = null;
   private announcedTrack: string | null = null; // dedupe so we announce each track once
+  private repeatOne = false; // radio 🔁: loop the current hub track instead of shuffling on
 
   // Music mixer: sustained scale (e.g. faded under the Shepard tone) * transient
   // sidechain duck (snaps down on a blast, recovers). Effective vol = base*scale*duck.
@@ -455,6 +456,26 @@ export class Assets {
     const a = this.music.get(next);
     if (a) a.currentTime = 0; // start the next song from the top
     if (this.musicEnabled) this.startDesired(volume);
+  }
+
+  /** Radio ⏭ — skip to the next hub track right now. No-op outside the hub or with
+   *  a single track. Works regardless of the repeat flag (it's an explicit skip). */
+  skipNext(): void {
+    if (!this.desiredMusic || !HUB_PLAYLIST.includes(this.desiredMusic)) return;
+    this.advanceHub(MUSIC_GAIN);
+  }
+
+  /** Radio 🔁 — loop the current hub track instead of advancing. Applies to the
+   *  track playing right now, and persists for subsequent tracks until toggled off. */
+  setRepeat(on: boolean): void {
+    this.repeatOne = on;
+    const cur = this.desiredMusic;
+    if (!cur || !HUB_PLAYLIST.includes(cur)) return;
+    const a = this.music.get(cur);
+    if (!a) return;
+    const multiHub = this.hubTracks().length > 1;
+    a.loop = on ? true : !multiHub;
+    a.onended = on ? null : multiHub ? () => this.advanceHub(MUSIC_GAIN) : null;
   }
 
   stopMusic(): void {
@@ -842,8 +863,14 @@ export class Assets {
     // everything else (battle) loops on its own.
     const isHub = HUB_PLAYLIST.includes(this.desiredMusic);
     const multiHub = isHub && this.hubTracks().length > 1;
-    a.loop = isHub ? !multiHub : true;
-    a.onended = multiHub ? () => this.advanceHub(volume) : null;
+    if (isHub && this.repeatOne) {
+      // Radio "repeat one": loop this track, don't advance to the next.
+      a.loop = true;
+      a.onended = null;
+    } else {
+      a.loop = isHub ? !multiHub : true;
+      a.onended = multiHub ? () => this.advanceHub(volume) : null;
+    }
     if (a.paused) {
       // (Re)starting a paused track — resume from where it left off and fade in
       // smoothly (e.g. the menu theme returning after a match).

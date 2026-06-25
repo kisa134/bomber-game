@@ -7425,37 +7425,74 @@ button.big {
 
 /* BOMBERMEME FM "now playing" chip — ultra-minimal: white text only, no box,
    bottom-left corner. A soft shadow keeps it legible over any background. It
-   fades in/out via the .show class (toggled from main.ts), desktop only. */
+   fades in/out via the .show class (toggled from main.ts), desktop only.
+   On hover, tiny ⏭/🔁 controls reveal; the resting state stays pure text. */
 #now-playing {
   position: fixed;
   left: calc(18px + env(safe-area-inset-left));
   bottom: calc(16px + env(safe-area-inset-bottom));
   z-index: 9998;
-  pointer-events: none;
+  pointer-events: none; /* never blocks the lobby UI while hidden */
   color: #fff;
   font-family: var(--font, system-ui);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 14px rgba(0, 0, 0, 0.55);
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity 0.5s ease, transform 0.5s ease;
+  transition: opacity 0.9s ease, transform 0.9s ease;
 }
 #now-playing.show {
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto; /* interactive only while visible */
 }
 #now-playing .np-station {
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   opacity: 0.72;
 }
 #now-playing .np-track {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   margin-top: 2px;
 }
 #now-playing .np-track #np-artist {
   font-weight: 500;
   opacity: 0.82;
+}
+/* Hover controls — hidden by default so the chip stays pure text at rest. */
+#now-playing .np-controls {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  pointer-events: none;
+}
+#now-playing.show:hover .np-controls {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+#now-playing .np-controls button {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  color: #fff;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+#now-playing .np-controls button:hover {
+  opacity: 1;
+  transform: scale(1.18);
+}
+#now-playing .np-controls #np-repeat.active {
+  opacity: 1;
+  text-shadow: 0 0 9px rgba(255, 255, 255, 0.75);
 }
