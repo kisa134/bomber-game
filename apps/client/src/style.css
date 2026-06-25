@@ -7571,7 +7571,7 @@ button.big {
 #now-playing .np-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   opacity: 0;
   transform: translateX(-4px);
   transition: opacity 0.25s ease, transform 0.25s ease;
@@ -7582,13 +7582,18 @@ button.big {
   transform: translateX(0);
   pointer-events: auto;
 }
+/* NB: reset the global `button { width: 260px; padding: ... }` — without this the
+   icon buttons stay 260px wide and shove each other across the screen. */
 #now-playing .np-controls button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: auto;
+  min-width: 0;
   background: none;
   border: none;
-  padding: 0;
+  border-radius: 4px;
+  padding: 1px;
   margin: 0;
   cursor: pointer;
   color: #fff;
