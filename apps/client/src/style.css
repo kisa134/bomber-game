@@ -3096,7 +3096,6 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .table-row:hover {
-  transform: translateY(-2px);
   border-color: rgba(255, 255, 255, 0.18);
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
 }
