@@ -162,6 +162,9 @@ export class Assets {
   private sfxEnabled = true;
   private musicEnabled = true;
   private desiredMusic: string | null = null;
+  // Remembers which hub track was playing so returning from a match resumes that
+  // same track (from its paused position) instead of jumping back to the first.
+  private lastHubTrack: string | null = null;
 
   // Music mixer: sustained scale (e.g. faded under the Shepard tone) * transient
   // sidechain duck (snaps down on a blast, recovers). Effective vol = base*scale*duck.
@@ -386,8 +389,13 @@ export class Assets {
       if (this.musicEnabled) this.startDesired(volume);
       return;
     }
-    const target = wantHub ? (this.hubTracks()[0] ?? key) : key;
+    // For the hub, resume the last-played hub track (if still loaded) so returning
+    // from a match continues the same song; otherwise start at the playlist head.
+    const resumeHub =
+      this.lastHubTrack && this.hubTracks().includes(this.lastHubTrack) ? this.lastHubTrack : this.hubTracks()[0];
+    const target = wantHub ? (resumeHub ?? key) : key;
     this.desiredMusic = target;
+    if (wantHub) this.lastHubTrack = target;
     for (const [k, a] of this.music) {
       if (k !== target) a.pause();
     }
@@ -400,6 +408,7 @@ export class Assets {
     if (avail.length < 2 || !this.desiredMusic) return;
     const next = avail[(avail.indexOf(this.desiredMusic) + 1) % avail.length];
     this.desiredMusic = next;
+    this.lastHubTrack = next;
     for (const [k, a] of this.music) if (k !== next) a.pause();
     const a = this.music.get(next);
     if (a) a.currentTime = 0; // start the next song from the top
