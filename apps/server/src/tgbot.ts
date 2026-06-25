@@ -8,7 +8,8 @@ const TOKEN = process.env.TG_BOT_TOKEN ?? "";
 const API = TOKEN ? `https://api.telegram.org/bot${TOKEN}` : "";
 const WEBHOOK_SECRET = process.env.TG_WEBHOOK_SECRET ?? "bombermeme-webhook";
 const PUBLIC_URL = (process.env.PUBLIC_URL ?? process.env.RENDER_EXTERNAL_URL ?? "https://bomberpump.onrender.com").replace(/\/+$/, "");
-const APP_URL = PUBLIC_URL; // the Mini App is the game, served at the same origin
+// The marketing landing owns the root; the game (Mini App) lives at /play.
+const APP_URL = `${PUBLIC_URL}/play`;
 
 async function tg(method: string, params: unknown): Promise<void> {
   if (!API) return;

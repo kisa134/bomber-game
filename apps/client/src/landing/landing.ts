@@ -22,6 +22,7 @@ import {
   MAX_PLAYERS_PER_ROOM,
 } from "@bomberpump/shared";
 import { SERVER_HTTP } from "../config.js";
+import { initAnalytics, captureAttribution, track, initErrorTracking } from "../analytics.js";
 import "./landing.css";
 
 const PUMP_URL = `https://pump.fun/coin/${TOKEN_MINT}`;
@@ -365,6 +366,22 @@ function refQuery(): string {
 
 // --- boot -------------------------------------------------------------------
 function boot(): void {
+  // Old root-level room links (/?room=CODE) predate the /play move — bounce them
+  // straight into the game so they still auto-join. (New links already use /play.)
+  if (new URLSearchParams(location.search).get("room")) {
+    location.replace(`/play${location.search}`);
+    return;
+  }
+
+  // Analytics: the landing is the TOP of the funnel now, so first-touch
+  // attribution + pageview fire here. Same backends as the game (PostHog/GA/
+  // Clarity); same origin → the visitor's id carries through to /play, so the
+  // funnel landing → play → wallet-connect is one person.
+  const attribution = captureAttribution();
+  initAnalytics({ platform: "web", surface: "landing", ...attribution });
+  initErrorTracking();
+  track("landing_view", { ...attribution });
+
   // Capture an inviter (?ref) into localStorage now (the game reads it on connect).
   const rq = refQuery();
 
@@ -382,7 +399,10 @@ function boot(): void {
       head.innerHTML = `<span class="strip-no">${String(blk.no).padStart(2, "0")}</span><span class="strip-ic">${blk.icon}</span><span class="strip-txt"><span class="strip-title">${blk.title}</span><span class="strip-line">${blk.line}</span></span><span class="strip-chev">›</span>`;
       const body = el("div", "strip-body");
       let filled = false;
-      head.addEventListener("click", () => { const open = sec.classList.toggle("open"); if (open && !filled) { blk.build(body); filled = true; } });
+      head.addEventListener("click", () => {
+        const open = sec.classList.toggle("open");
+        if (open) { track("landing_strip_open", { block: blk.no, title: blk.title }); if (!filled) { blk.build(body); filled = true; } }
+      });
       sec.appendChild(head); sec.appendChild(body);
       strips.appendChild(sec);
     }
@@ -405,7 +425,18 @@ function boot(): void {
   }
 
   // Forward the inviter (?ref) onto every /play CTA built above + in the shell.
-  if (rq) document.querySelectorAll<HTMLAnchorElement>('a[href="/play"]').forEach((a) => { a.href = `/play${rq}`; });
+  if (rq) document.querySelectorAll<HTMLAnchorElement>('a[href^="/play"]').forEach((a) => { a.href = `/play${rq}`; });
+
+  // Funnel events: PostHog autocaptures clicks, but explicit names make the
+  // landing → /play conversion easy to read. One delegated listener covers all.
+  document.addEventListener("click", (e) => {
+    const a = (e.target as HTMLElement).closest("a,button");
+    if (!a) return;
+    const href = (a as HTMLAnchorElement).getAttribute?.("href") ?? "";
+    if (href.startsWith("/play")) track("landing_play_click", { label: a.textContent?.trim().slice(0, 40) });
+    else if (href.includes("pump.fun")) track("landing_buy_click");
+    else if (href.includes("t.me")) track("landing_telegram_click");
+  });
 
   void loadStats();
   setInterval(() => void loadStats(), 30_000);
