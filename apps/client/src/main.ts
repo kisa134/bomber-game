@@ -1428,7 +1428,6 @@ function setWalletBtnText(): void {
 }
 window.addEventListener("resize", setWalletBtnText);
 function refreshWalletBtn(): void {
-  const btn = document.getElementById("wallet-btn")!;
   const w = loadWallet();
   setWalletState(!!w); // drives the 🔒 on staked tables in the browser
   setWalletBtnText();
