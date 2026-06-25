@@ -12,9 +12,10 @@ export default defineConfig({
     target: "esnext",
     sourcemap: false, // don't ship source maps publicly (re-enable as "hidden" once Sentry uploads them)
     rollupOptions: {
-      // Multi-page: the game (index.html) + the character-cards tool embedded
-      // inside the admin dashboard (cards.html).
-      input: { main: r("./index.html"), cards: r("./cards.html") },
+      // Multi-page: the marketing landing (landing.html, served at "/"), the
+      // game app (index.html, served at "/play"), and the character-cards tool
+      // embedded inside the admin dashboard (cards.html).
+      input: { landing: r("./landing.html"), main: r("./index.html"), cards: r("./cards.html") },
     },
   },
   plugins: [
@@ -30,7 +31,9 @@ export default defineConfig({
         orientation: "landscape",
         background_color: "#0e1018",
         theme_color: "#0e1018",
-        start_url: "/",
+        // The installable app IS the game, which now lives under /play (the root
+        // is the marketing landing). Launching the PWA jumps straight into play.
+        start_url: "/play",
         scope: "/",
         icons: [
           { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
@@ -48,7 +51,11 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
-          /^\/(auth|deposit|withdraw|profile|leaderboard|bank|price|tables|watch|health|ws|tg|admin)\b/,
+          // Root + marketing landing must hit the network (server serves the
+          // landing there) — never the cached game shell.
+          /^\/$/,
+          /^\/landing\b/,
+          /^\/(auth|deposit|withdraw|profile|leaderboard|bank|price|tables|watch|health|ws|tg|admin|stats|online)\b/,
         ],
         runtimeCaching: [
           {

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>BomberMeme.fun — Pure skill. Massive stakes. No luck.</title>
+    <meta name="theme-color" content="#0b0a0e" />
+    <meta
+      name="description"
+      content="BomberMeme.fun — a real-time PvP bomber arena on Solana. Winner takes the pot. Free to play, browser-native, provably fair."
+    />
+    <!-- Open Graph / social cards -->
+    <meta property="og:title" content="BomberMeme.fun — Winner takes the pot." />
+    <meta property="og:description" content="Pure skill. Massive stakes. No luck. A real-time PvP bomber arena on Solana." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://bombermeme.fun" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/icons/icon-180.png" />
+    <script src="/runtime-config.js"></script>
+    <!-- landing.css is imported from src/landing/landing.ts so Vite bundles &
+         hashes it (a raw /src link would survive into dist and 404). -->
+  </head>
+  <body>
+    <!-- Liquid-glass edge refraction (same filter the game hub uses) -->
+    <svg aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden">
+      <filter id="lg-distort" x="-25%" y="-25%" width="150%" height="150%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.008 0.009" numOctaves="2" seed="7" result="noise" />
+        <feGaussianBlur in="noise" stdDeviation="3.4" result="blur" />
+        <feDisplacementMap in="SourceGraphic" in2="blur" scale="64" xChannelSelector="R" yChannelSelector="G" />
+      </filter>
+    </svg>
+
+    <!-- Ambient background: gradient wash + drifting embers (CSS only) -->
+    <div id="bg" aria-hidden="true">
+      <div class="bg-grad"></div>
+      <div class="bg-vignette"></div>
+      <div class="bg-embers"></div>
+    </div>
+
+    <!-- Top nav -->
+    <header id="nav">
+      <a class="brand" href="/" aria-label="BomberMeme home">
+        <span class="brand-mark">💣</span>
+        <span class="brand-name">BOMBERMEME</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#block-3">Ranked</a>
+        <a href="#block-4">Economy</a>
+        <a href="#block-7">Fairness</a>
+        <a href="#block-8">Token</a>
+      </nav>
+      <a class="btn btn-primary nav-play" href="/play">▶ Play</a>
+    </header>
+
+    <main id="page">
+      <!-- ====================== HERO (L0 manifesto) ====================== -->
+      <section id="hero">
+        <div class="hero-badge" id="hero-season">SEASON 1 · LIVE</div>
+        <h1 class="hero-title">
+          Pure skill.<br /><span class="grad">Massive stakes.</span><br />No luck.
+        </h1>
+        <p class="hero-sub">
+          A real-time PvP bomber arena on Solana. Last bomber standing
+          <b>takes the pot</b>. Free to play, browser-native, provably fair.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary btn-lg" href="/play">▶ Find a match</a>
+          <a class="btn btn-ghost btn-lg" href="/play#ranked">Enter ranked</a>
+          <a class="btn btn-buy btn-lg" id="hero-buy" href="#block-8" target="_blank" rel="noopener">Buy <span class="tk">$BMB</span></a>
+        </div>
+        <ul class="hero-markers">
+          <li>🌐 Browser-native</li>
+          <li>⬇️ No download</li>
+          <li>◎ Solana-native</li>
+          <li>⚡ Instant payout</li>
+          <li>🔒 Provably fair</li>
+          <li>👥 2–8 players</li>
+        </ul>
+        <!-- live ticker strip -->
+        <div class="hero-live" id="hero-live">
+          <span class="dot"></span>
+          <span id="hero-online">—</span> online ·
+          <span id="hero-pot">—</span> in play ·
+          <span id="hero-matches">—</span> matches
+        </div>
+      </section>
+
+      <!-- ====================== STRIPS (one per block) ====================== -->
+      <div id="strips"><!-- built by landing.ts --></div>
+    </main>
+
+    <footer id="footer">
+      <div class="foot-cols">
+        <div class="foot-brand">
+          <div class="brand"><span class="brand-mark">💣</span><span class="brand-name">BOMBERMEME</span></div>
+          <p class="foot-tag">Built on Solana · Powered by Pump.fun · SHA256 Provably Fair</p>
+        </div>
+        <nav class="foot-nav" id="foot-socials"><!-- built by landing.ts --></nav>
+      </div>
+      <p class="foot-risk">
+        Crypto involves risk. $BMB is a community memecoin with no intrinsic value or
+        expectation of profit. Play and trade responsibly; only stake what you can afford to lose.
+      </p>
+    </footer>
+
+    <script type="module" src="/src/landing/landing.ts"></script>
+  </body>
+</html>

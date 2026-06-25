@@ -331,12 +331,16 @@ const MIME: Record<string, string> = {
 function serveStatic(res: uWS.HttpResponse, urlPath: string): void {
   res.onAborted(() => {});
   let rel = decodeURIComponent(urlPath.split("?")[0]);
-  if (rel === "/" || rel === "") rel = "/index.html";
+  // The marketing LANDING owns the root; the GAME app lives under /play.
+  if (rel === "/" || rel === "") rel = "/landing.html";
+  else if (rel === "/play" || rel === "/play/" || rel.startsWith("/play/")) rel = "/index.html";
   const full = normalize(join(CLIENT_DIST, rel));
-  // SPA fallback + path-traversal guard.
+  // SPA fallback + path-traversal guard. Unknown routes fall back to the game
+  // shell ONLY under /play; everything else (root, marketing paths) → landing.
+  const fallback = rel.startsWith("/play") ? "/index.html" : "/landing.html";
   const safe = full.startsWith(CLIENT_DIST) && existsSync(full) && statSync(full).isFile()
     ? full
-    : join(CLIENT_DIST, "index.html");
+    : join(CLIENT_DIST, fallback);
   const dot = safe.lastIndexOf(".");
   const type = MIME[safe.slice(dot)] ?? "application/octet-stream";
   // Vite assets are content-hashed -> cache forever. Everything else
@@ -559,6 +563,46 @@ app.get("/online", (res, req) => {
   res.onAborted(() => {});
   void req;
   sendJson(res, { online: onlineCount() });
+});
+
+// Public landing stats — safe aggregate numbers for the marketing site (no PII).
+// Cached ~10s so the landing can poll cheaply. Everything here is REAL; numbers
+// the backend doesn't track yet are simply omitted (the landing shows "Soon").
+let statsCache: { at: number; body: Record<string, unknown> } | null = null;
+app.get("/stats", (res, req) => {
+  res.onAborted(() => {
+    (res as ResWithAbort).aborted = true;
+  });
+  void req;
+  const now = Date.now();
+  if (statsCache && now - statsCache.at < 10_000) return sendJson(res, statsCache.body);
+  void Promise.all([store.leaderboard(8, "rating"), store.leaderboard(8, "tokens"), store.economyStats(), tokenPriceUsd()])
+    .then(([topRating, topTokens, econ, priceUsd]) => {
+      const a = analytics.snapshot();
+      const tokens = fromBaseUnits(econ.tokenBase); // custodial tokens in play
+      const body = {
+        online: onlineCount(),
+        players: econ.players, // total registered wallets
+        matches: a.matches, // matches completed since this server booted
+        tokensInPlay: tokens, // custodial token balances held by the treasury
+        tokensInPlayUsd: priceUsd ? tokens * priceUsd : 0,
+        depositVolume: a.depositVolume, // tokens deposited since boot
+        prizePaid: a.withdrawVolume, // tokens withdrawn (paid out) since boot
+        topMmr: topRating[0]?.rating ?? 0,
+        ticker: TOKEN_TICKER,
+        mint: TOKEN_MINT,
+        priceUsd: priceUsd || 0,
+        uptimeMs: a.uptimeMs,
+        // Public leaderboard preview (name + key stat only — no wallets).
+        top: topRating.map((p) => ({ name: p.name, rating: p.rating, wins: p.wins, matches: p.matches })),
+        champions: topTokens
+          .filter((p) => (p.tokens_won ?? 0) > 0)
+          .map((p) => ({ name: p.name, won: fromBaseUnits(p.tokens_won ?? 0) })),
+      };
+      statsCache = { at: now, body };
+      sendJson(res, body);
+    })
+    .catch(() => sendJson(res, { online: onlineCount(), ticker: TOKEN_TICKER, mint: TOKEN_MINT }));
 });
 
 // Live JSON metrics for the dashboard. Polled by /admin.

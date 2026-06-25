@@ -4267,7 +4267,9 @@ function updateCalc(): void {
 
 function referralLink(): string {
   const w = loadWallet();
-  return w ? `${location.origin}/?ref=${w.address}` : location.origin;
+  // Point referrals straight at the game (/play) — the root is the marketing
+  // landing, which forwards ?ref too, but a direct /play link converts fastest.
+  return w ? `${location.origin}/play?ref=${w.address}` : `${location.origin}/play`;
 }
 function shareText(): string {
   return `💣 Play BomberMeme.fun — blow up your friends & win $${TOKEN_TICKER}! Join me:`;
