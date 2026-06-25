@@ -585,7 +585,6 @@
                 <button id="copy-invite" class="room-copy">👥 Invite friends</button>
               </div>
             </div>
-            <button id="room-visibility" class="ghost room-vis hidden" title="Who can join this lobby">🌐 Public</button>
             <span id="room-region" class="room-region"></span>
           </div>
 
@@ -608,6 +607,10 @@
             <div class="room-center">
               <div class="zone-label">Players <span id="room-seatcount" class="seatcount"></span></div>
               <ul id="room-players" class="seat-grid"></ul>
+              <!-- Match parameters + who-can-join control -->
+              <div class="zone-label">Match</div>
+              <div id="room-match-info" class="room-match-info"></div>
+              <button id="room-visibility" class="room-vis-btn hidden" title="Who can join this lobby">🌐 Public · anyone can join</button>
               <!-- Match-settings strip hidden for now (fixed 3-min rounds). -->
               <div id="room-settings-label" class="zone-label hidden">Match settings</div>
               <div id="room-settings" class="room-settings hidden"></div>
@@ -615,6 +618,7 @@
 
             <!-- Right rail: prize + reactions/chat -->
             <div class="room-rail room-side">
+              <div class="zone-label">💰 Prize pool</div>
               <div id="room-prize" class="room-prize"></div>
               <div class="room-social">
                 <div class="zone-label">💬 Chat</div>

@@ -2503,11 +2503,16 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 14px;
-  border-radius: 14px;
-  background: radial-gradient(circle at 50% 65%, rgba(255, 204, 51, 0.12), transparent 70%),
-    rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 16px 14px;
+  border-radius: 16px;
+  /* Card-style backdrop + tier glow (matches the hub fighter card feel). */
+  background:
+    radial-gradient(circle at 50% 56%, rgba(255, 204, 51, 0.2), transparent 64%),
+    linear-gradient(180deg, rgba(34, 30, 40, 0.62), rgba(18, 15, 24, 0.64));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 32px rgba(255, 170, 30, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 /* Locked character: dim + grayscale the animated hero, show a lock. */
 .skin-hero.locked img.skin-big {
@@ -2596,6 +2601,51 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   align-items: center;
   justify-content: center;
   font-size: 0.9rem;
+}
+/* Match parameters list (under the players). */
+.room-match-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.mi-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.84rem;
+}
+.mi-row span { color: var(--muted); }
+.mi-row b { color: var(--text); font-weight: 800; }
+/* Public/private — an explicit button (not a tiny chip). */
+.room-vis-btn {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  text-align: center;
+  border-radius: 11px;
+  font-weight: 700;
+  font-size: 0.84rem;
+  background: rgba(95, 209, 217, 0.08);
+  border: 1px solid rgba(95, 209, 217, 0.3);
+  color: #bfeef2;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.room-vis-btn:hover:not(:disabled) {
+  background: rgba(95, 209, 217, 0.16);
+  border-color: rgba(95, 209, 217, 0.5);
+}
+.room-vis-btn.vis-private {
+  background: rgba(255, 120, 120, 0.08);
+  border-color: rgba(255, 120, 120, 0.4);
+  color: #ff9a9a;
+}
+.room-vis-btn:disabled {
+  opacity: 0.8;
+  cursor: default;
 }
 /* Prize hero */
 .room-prize {
@@ -2726,11 +2776,18 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   .room-grid {
     grid-template-columns: 1fr;
   }
-  /* Priority order on mobile: seats → prize → character → settings. */
+  /* Priority order on mobile: seats → prize → chat. */
   .room-center { order: 1; }
   .room-side { order: 2; }
-  .room-character { order: 3; flex-direction: row; flex-wrap: wrap; align-items: center; }
-  .room-character .skin-stage { flex: 1 1 auto; }
+  /* Simplify: no character picking on mobile (your equipped skin is used). */
+  .room-character { display: none; }
+  /* Top bar wraps cleanly — nothing slides off horizontally. */
+  .room-top { flex-wrap: wrap; }
+  .room-id { flex: 1 1 100%; }
+  .room-region { margin-left: 0; order: 5; }
+  .room-actions { flex-direction: column; align-items: stretch; }
+  .room-actions-btns { width: 100%; }
+  .room-actions-btns button { flex: 1 1 auto; }
 }
 
 /* --- Invite & Earn hub (KPIs · share · how-it-works · network · estimate) --- */

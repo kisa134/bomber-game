@@ -625,10 +625,26 @@ export function renderRoom(state: GameState): void {
   // Server label in the top-right corner.
   const regionEl = document.getElementById("room-region");
   if (regionEl) regionEl.textContent = "⚡ Global server";
-  // Visibility chip: host can tap to toggle public/private; others just see it.
+  // Match parameters list (under the players).
+  const infoEl = document.getElementById("room-match-info");
+  if (infoEl) {
+    const mode = state.roomStake > 0 ? (isToken ? "Token Arena" : "Chips Table") : "Casual";
+    const buyin = state.roomStake > 0 ? `${sym} ${state.roomStake.toLocaleString()}` : "Free";
+    const rows: Array<[string, string]> = [
+      ["Mode", mode],
+      ["Buy-in", buyin],
+      ["Players", `up to ${MAX_PLAYERS_PER_ROOM}`],
+      ["Round", "3 min"],
+    ];
+    infoEl.innerHTML = rows
+      .map(([k, v]) => `<div class="mi-row"><span>${k}</span><b>${v}</b></div>`)
+      .join("");
+  }
+  // Public/private control (now a clear button under the players). Host taps to
+  // toggle; everyone else sees the current state (disabled).
   const visEl = document.getElementById("room-visibility") as HTMLButtonElement | null;
   if (visEl) {
-    visEl.textContent = state.roomIsPublic ? "🌐 Public" : "🔒 Private";
+    visEl.textContent = state.roomIsPublic ? "🌐 Public · anyone can join" : "🔒 Private · code only";
     visEl.classList.remove("hidden");
     visEl.classList.toggle("vis-private", !state.roomIsPublic);
     visEl.disabled = !state.isHost;
