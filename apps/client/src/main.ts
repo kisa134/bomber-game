@@ -878,7 +878,7 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
     // Rating delta (PvP only).
     if (!practiceMode) {
       const delta = lastMatch?.ratingDelta ?? 0;
-      const rc = statCard("Rating", delta > 0 ? "up" : delta < 0 ? "down" : "");
+      const rc = statCard("Rating", `minor ${delta > 0 ? "up" : delta < 0 ? "down" : ""}`);
       vOf(rc).innerHTML = `📈 <span class="rt-num"></span><span class="rt-delta">${
         delta ? ` (${delta > 0 ? "+" : ""}${delta})` : ""
       }</span>`;
@@ -886,13 +886,13 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
       animateCount(rc.querySelector(".rt-num") as HTMLElement, lastRating, lastRating - delta, 850);
       const streak = lastMatch?.streak ?? 0;
       if (won && streak >= 2) {
-        const sc = statCard("Win streak", "streak");
+        const sc = statCard("Win streak", "minor streak");
         vOf(sc).textContent = `🔥 ${streak}`;
         rew.append(sc);
       }
     }
     if (lastMatch?.firstBlood) {
-      const fb = statCard("First blood", "fb");
+      const fb = statCard("First blood", "minor fb");
       vOf(fb).textContent = "🩸 yes";
       rew.append(fb);
     }
@@ -1184,29 +1184,47 @@ function updateHud(): void {
   hudSig = sig;
 
   playersEl.innerHTML = "";
+  // OTHER players only — your own kit + lives live in the left HUD (no duplication).
+  // Compact 2-line chip: top = colour dot + name, bottom = lives + frags.
   for (const p of ordered) {
+    if (p.id === state.myId) continue;
     const card = document.createElement("div");
     card.className = "pcard" + (p.alive ? "" : " dead");
 
+    const top = document.createElement("div");
+    top.className = "pcard-top";
     const dot = document.createElement("span");
     dot.className = "pdot";
     dot.style.background = PLAYER_COLORS[state.colorOf(p.id) % PLAYER_COLORS.length];
-    card.appendChild(dot);
-
     const name = document.createElement("span");
-    name.textContent = `${state.nameOf(p.id)}${p.id === state.myId ? " (you)" : ""}`;
-    card.appendChild(name);
+    name.className = "pcard-name";
+    name.textContent = state.nameOf(p.id);
+    top.append(dot, name);
 
-    const score = document.createElement("span");
-    score.textContent = `☠️${p.frags}`;
-    card.appendChild(score);
-
+    const bot = document.createElement("div");
+    bot.className = "pcard-bot";
     const lives = document.createElement("span");
     lives.className = "pcard-lives";
     lives.textContent = p.lives > 0 ? "❤️".repeat(p.lives) : "💀";
-    card.appendChild(lives);
+    const score = document.createElement("span");
+    score.className = "pcard-frags";
+    score.textContent = `☠️${p.frags}`;
+    bot.append(lives, score);
 
+    card.append(top, bot);
     playersEl.appendChild(card);
+  }
+
+  // What's on the line right now (pot) — staked tables only.
+  const stakeEl = document.getElementById("hud-stake");
+  if (stakeEl) {
+    if (state.roomStake > 0) {
+      const sym = state.roomCurrency === 1 ? "💎" : "🪙";
+      stakeEl.textContent = `🏆 ${sym}${(state.roomStake * snap.players.length).toLocaleString()}`;
+      stakeEl.classList.remove("hidden");
+    } else {
+      stakeEl.classList.add("hidden");
+    }
   }
 }
 
@@ -4798,16 +4816,22 @@ function onStakeVote(msg: {
   }
   const deadline = Date.now() + msg.msLeft;
   const mine = msg.by === state.myId;
-  const who = mine ? "You propose" : `${state.nameOf(msg.by)} proposes`;
+  const sym = stakeSym();
+  const whoName = mine ? "You" : state.nameOf(msg.by);
   const render = (): void => {
     const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
     // Show Accept/Decline only to non-proposers who haven't voted yet; once you
     // vote the buttons vanish and you just see the live tally.
     const canVote = !mine && votedProposalKey !== key;
     const voted = !mine && votedProposalKey === key;
+    const pot = msg.stake * Math.max(1, state.roomPlayers.length);
     banner.innerHTML =
-      `<div class="sv-text">${who} raising to <b>${stakeSym()}${msg.stake.toLocaleString()}</b> · ${left}s · ${msg.yes}/${msg.total} ✅${voted ? " · you voted ✓" : ""}</div>` +
-      (canVote ? `<div class="sv-actions"><button id="sv-yes" class="primary glass-btn">Accept</button><button id="sv-no" class="ghost">Decline</button></div>` : "");
+      `<div class="sv-text">` +
+        `<div class="sv-head"><b>${whoName}</b> ${mine ? "want" : "wants"} to raise the buy-in to <b class="sv-amt">${sym}${msg.stake.toLocaleString()}</b></div>` +
+        `<div class="sv-pot">Pot becomes <b>${sym}${pot.toLocaleString()}</b></div>` +
+        `<div class="sv-meta">${left}s left · ${msg.yes}/${msg.total} agreed${voted ? " · you voted ✓" : ""}</div>` +
+      `</div>` +
+      (canVote ? `<div class="sv-actions"><button id="sv-yes" class="primary glass-btn">Accept</button><button id="sv-no" class="ghost sv-no">Decline</button></div>` : "");
     const vote = (accept: boolean): void => {
       net.sendVoteStake(accept);
       votedProposalKey = key; // remember so buttons don't return on the next update
