@@ -7422,3 +7422,40 @@ button.big {
 }
 .announce-cta.hidden { display: none; }
 .announce-x { color: var(--muted); padding: 0 2px; font-weight: 800; }
+
+/* BOMBERMEME FM "now playing" chip — ultra-minimal: white text only, no box,
+   bottom-left corner. A soft shadow keeps it legible over any background. It
+   fades in/out via the .show class (toggled from main.ts), desktop only. */
+#now-playing {
+  position: fixed;
+  left: calc(18px + env(safe-area-inset-left));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 9998;
+  pointer-events: none;
+  color: #fff;
+  font-family: var(--font, system-ui);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 14px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+#now-playing.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+#now-playing .np-station {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+#now-playing .np-track {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+#now-playing .np-track #np-artist {
+  font-weight: 500;
+  opacity: 0.82;
+}

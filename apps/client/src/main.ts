@@ -221,6 +221,42 @@ function music(track: "lobby" | "battle"): void {
   assets.playMusic(track);
 }
 
+// --- BOMBERMEME FM radio (desktop only) -----------------------------------
+// Fictional station/track names for the hub playlist. A tiny "now playing" chip
+// fades in (white text only, bottom-left) whenever the lobby track changes.
+const RADIO: Record<string, { title: string; artist: string }> = {
+  lobby: { title: "Last Block Standing", artist: "Crate Daddy" },
+  lobby2: { title: "Fuse Lit", artist: "The Pixel Bandits" },
+  lobby3: { title: "Diamond Hands Boogie", artist: "Wojak & The Holders" },
+  lobby4: { title: "Rugpull Riddim", artist: "DJ Liquidity" },
+  lobby5: { title: "To The Moon (Slight Return)", artist: "Ser Pumpalot" },
+};
+
+const npEl = document.getElementById("now-playing");
+const npTitleEl = document.getElementById("np-title");
+const npArtistEl = document.getElementById("np-artist");
+let npHideTimer: ReturnType<typeof setTimeout> | null = null;
+// Treat any touch device as mobile — the chip is desktop-only by request.
+const isTouchDevice =
+  "ontouchstart" in window || navigator.maxTouchPoints > 0 || window.matchMedia("(pointer: coarse)").matches;
+
+function showNowPlaying(key: string): void {
+  const el = npEl;
+  if (!el || !npTitleEl || !npArtistEl) return;
+  const meta = RADIO[key];
+  if (!meta) return; // unknown track (e.g. future additions) — stay silent
+  npTitleEl.textContent = meta.title;
+  npArtistEl.textContent = meta.artist;
+  el.classList.remove("hidden");
+  requestAnimationFrame(() => el.classList.add("show"));
+  if (npHideTimer) clearTimeout(npHideTimer);
+  npHideTimer = setTimeout(() => el.classList.remove("show"), 6000);
+}
+
+if (!isTouchDevice) {
+  assets.onTrackChange = (key) => showNowPlaying(key);
+}
+
 // --- networking -----------------------------------------------------------
 
 let connectWatchdog: ReturnType<typeof setTimeout> | null = null;

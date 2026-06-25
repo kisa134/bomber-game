@@ -165,6 +165,13 @@ export class Assets {
   // Remembers which hub track was playing so returning from a match resumes that
   // same track (from its paused position) instead of jumping back to the first.
   private lastHubTrack: string | null = null;
+  // Shuffle bag of upcoming hub tracks (drained, then reshuffled) so the playlist
+  // order varies each cycle instead of looping in a fixed sequence.
+  private hubBag: string[] = [];
+  // Fires when a new hub track actually starts playing — drives the "now playing"
+  // radio chip in the UI. Set by the consumer; null = nobody listening.
+  onTrackChange: ((key: string) => void) | null = null;
+  private announcedTrack: string | null = null; // dedupe so we announce each track once
 
   // Music mixer: sustained scale (e.g. faded under the Shepard tone) * transient
   // sidechain duck (snaps down on a blast, recovers). Effective vol = base*scale*duck.
@@ -376,6 +383,30 @@ export class Assets {
     return HUB_PLAYLIST.filter((k) => this.music.has(k));
   }
 
+  /** Fisher–Yates copy — returns a freshly shuffled array (input untouched). */
+  private shuffled(arr: string[]): string[] {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  /** Next hub track from a shuffle bag: each track plays once per cycle, then the
+   *  bag reshuffles. Avoids replaying the just-ended track at the cycle seam. */
+  private nextHubTrack(current: string): string {
+    const tracks = this.hubTracks();
+    if (tracks.length < 2) return current;
+    if (this.hubBag.length === 0) {
+      this.hubBag = this.shuffled(tracks);
+      if (this.hubBag[0] === current && this.hubBag.length > 1) {
+        [this.hubBag[0], this.hubBag[1]] = [this.hubBag[1], this.hubBag[0]];
+      }
+    }
+    return this.hubBag.shift() ?? current;
+  }
+
   /** Switch the music. "lobby" selects the hub playlist (two tracks back-to-back);
    *  if a hub track is already playing, it keeps going rather than restarting. */
   playMusic(key: string, volume = MUSIC_GAIN): void {
@@ -389,13 +420,25 @@ export class Assets {
       if (this.musicEnabled) this.startDesired(volume);
       return;
     }
-    // For the hub, resume the last-played hub track (if still loaded) so returning
-    // from a match continues the same song; otherwise start at the playlist head.
-    const resumeHub =
-      this.lastHubTrack && this.hubTracks().includes(this.lastHubTrack) ? this.lastHubTrack : this.hubTracks()[0];
-    const target = wantHub ? (resumeHub ?? key) : key;
+    // Pick the hub track: resume the last-played one when returning from a match
+    // (continues the same song from its paused spot); otherwise pick at random so
+    // the station doesn't always open on the same track.
+    let target: string;
+    if (wantHub) {
+      const tracks = this.hubTracks();
+      if (this.lastHubTrack && tracks.includes(this.lastHubTrack)) {
+        target = this.lastHubTrack;
+      } else if (tracks.length) {
+        target = tracks[Math.floor(Math.random() * tracks.length)];
+      } else {
+        target = key;
+      }
+      this.lastHubTrack = target;
+    } else {
+      target = key;
+      this.announcedTrack = null; // leaving the hub (e.g. battle) — re-announce on return
+    }
     this.desiredMusic = target;
-    if (wantHub) this.lastHubTrack = target;
     for (const [k, a] of this.music) {
       if (k !== target) a.pause();
     }
@@ -404,9 +447,8 @@ export class Assets {
 
   /** A hub track ended → roll to the next one in the playlist (back-to-back). */
   private advanceHub(volume: number): void {
-    const avail = this.hubTracks();
-    if (avail.length < 2 || !this.desiredMusic) return;
-    const next = avail[(avail.indexOf(this.desiredMusic) + 1) % avail.length];
+    if (this.hubTracks().length < 2 || !this.desiredMusic) return;
+    const next = this.nextHubTrack(this.desiredMusic);
     this.desiredMusic = next;
     this.lastHubTrack = next;
     for (const [k, a] of this.music) if (k !== next) a.pause();
@@ -417,6 +459,7 @@ export class Assets {
 
   stopMusic(): void {
     this.desiredMusic = null;
+    this.announcedTrack = null;
     for (const a of this.music.values()) a.pause();
   }
 
@@ -807,7 +850,15 @@ export class Assets {
       a.volume = 0;
       void a
         .play()
-        .then(() => this.fadeVolume(a, volume, 1200))
+        .then(() => {
+          this.fadeVolume(a, volume, 1200);
+          // Announce only once the track truly starts (autoplay may defer it to the
+          // first tap), and only for hub tracks — this feeds the "now playing" chip.
+          if (isHub && this.desiredMusic && this.desiredMusic !== this.announcedTrack) {
+            this.announcedTrack = this.desiredMusic;
+            this.onTrackChange?.(this.desiredMusic);
+          }
+        })
         .catch(() => {});
     } else {
       a.volume = volume; // already playing — keep it steady
