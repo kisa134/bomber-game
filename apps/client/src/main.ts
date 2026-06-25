@@ -3927,6 +3927,15 @@ function wireMenuLinks(): void {
     document.getElementById(id)?.classList.add("active");
   };
   document.getElementById("brand-logo")?.addEventListener("click", () => { setNav("nav-home"); showScreen("menu"); });
+  // Easter egg: double-click the logo → the bomb ignites (flash + shake).
+  document.getElementById("brand-logo")?.addEventListener("dblclick", () => {
+    const b = document.getElementById("brand-logo");
+    if (!b) return;
+    b.classList.remove("igniting");
+    void b.offsetWidth; // restart the animation if double-clicked again
+    b.classList.add("igniting");
+    setTimeout(() => b.classList.remove("igniting"), 650);
+  });
   document.getElementById("nav-home")?.addEventListener("click", () => { setNav("nav-home"); showScreen("menu"); });
   document.getElementById("nav-arena")?.addEventListener("click", () => { setNav("nav-arena"); click("open-play"); });
   document.getElementById("nav-shop")?.addEventListener("click", () => { setNav("nav-shop"); click("open-shop"); });

@@ -1412,17 +1412,47 @@ button.glass-btn.lobby-create {
   background: none;
   border: none;
 }
+/* Metallic gold tile holding our bomb asset; glows with the wordmark on hover,
+   and IGNITES (flash + shake) on a double-click. */
 .brand-bomb {
   width: 30px;
   height: 30px;
   flex: none;
   border-radius: 8px;
-  background: radial-gradient(circle at 40% 30%, #ffe27a, #c97e12);
+  background: radial-gradient(circle at 38% 28%, #fff0b0, #f0a92a 55%, #c97e12);
   border: 1px solid #8a5a10;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), inset 0 -2px 4px rgba(120, 70, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.95rem;
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.brand-bomb-img {
+  width: 21px;
+  height: 21px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.5));
+}
+.hub-brand { transition: filter 0.18s ease; }
+.hub-brand-btn:hover .brand-bomb {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 16px rgba(255, 190, 60, 0.75);
+}
+.hub-brand-btn:hover .hub-brand {
+  filter: drop-shadow(0 0 10px rgba(255, 190, 60, 0.55)) brightness(1.1);
+}
+.hub-brand-btn.igniting .brand-bomb { animation: brandIgnite 0.6s ease; }
+.hub-brand-btn.igniting .hub-brand { animation: brandIgniteText 0.6s ease; }
+@keyframes brandIgnite {
+  0%   { box-shadow: 0 0 0 rgba(255, 140, 40, 0); transform: scale(1) rotate(0); }
+  20%  { box-shadow: 0 0 26px 7px rgba(255, 140, 40, 0.95); transform: scale(1.2) rotate(-7deg); }
+  45%  { transform: scale(1.1) rotate(6deg); box-shadow: 0 0 30px 8px rgba(255, 90, 40, 0.85); }
+  70%  { transform: scale(1.14) rotate(-3deg); }
+  100% { box-shadow: 0 0 0 rgba(255, 140, 40, 0); transform: scale(1) rotate(0); }
+}
+@keyframes brandIgniteText {
+  0%, 100% { filter: none; }
+  35%      { filter: drop-shadow(0 0 16px rgba(255, 150, 50, 0.95)) brightness(1.35); }
 }
 .hub-brand {
   font-family: var(--font-disp);
@@ -1517,7 +1547,8 @@ button.glass-btn.lobby-create {
   align-items: center;
   gap: 8px;
   width: auto;
-  padding: 5px 11px 5px 5px;
+  height: 34px; /* match the wallet / settings height — not taller */
+  padding: 0 11px 0 5px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.14);
@@ -1526,8 +1557,8 @@ button.glass-btn.lobby-create {
   border-color: rgba(255, 204, 51, 0.5);
 }
 .hpc-av {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   flex: none;
   border-radius: 7px;
   background: #1a1620;
@@ -1556,19 +1587,24 @@ button.glass-btn.lobby-create {
 /* Connect = gold-outline pill (mockup) */
 .hub-top-actions #wallet-btn {
   width: auto;
-  padding: 8px 14px;
+  height: 34px;
+  padding: 0 12px;
   font-family: var(--font-ui);
   font-size: 0.78rem;
   font-weight: 700;
   border-radius: 10px;
   white-space: nowrap; /* never wrap the address to a 2nd line */
-  background: rgba(255, 204, 51, 0.08);
-  border: 1px solid rgba(255, 204, 51, 0.32);
-  color: #ffe9a8;
+  /* same neutral plate as the profile chip + settings; glows only on hover */
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e8e6ef;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 .hub-top-actions #wallet-btn:hover {
   background: rgba(255, 204, 51, 0.14);
-  border-color: rgba(255, 204, 51, 0.65);
+  border-color: rgba(255, 204, 51, 0.6);
+  color: #ffe9a8;
+  box-shadow: 0 0 14px rgba(255, 170, 30, 0.32);
 }
 /* ⚙ / ❓ = dark rounded squares (mockup) */
 .hub-top .icon-btn {
