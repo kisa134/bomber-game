@@ -1525,7 +1525,7 @@ adminTourneyPost("/admin/tournament/announce", (j) => tournaments.setAnnouncemen
 adminTourneyPost("/admin/tournament/announce/clear", async () => { await tournaments.clearAnnouncement(); return "ok"; });
 // Seed the next round: build pods, create pod rooms, mark players active. Returns
 // the pods (room codes) so players can be pointed at their match.
-adminTourneyPost("/admin/tournament/seed", (j) => seedTournament(String(j.id ?? ""), (tid) => mm.createTournamentRoom(tid), Date.now()));
+adminTourneyPost("/admin/tournament/seed", (j) => seedTournament(String(j.id ?? ""), (tid, fill) => mm.createTournamentRoom(tid, fill), Date.now()));
 // Wire pod match-end → tournament scoring/advance.
 setTournamentMatchEnd((tid, code, order) => void reportTournamentMatch(tid, code, order, Date.now()));
 // Tournament reminder DMs (T-24h / T-1h / starting now) via linked Telegram.

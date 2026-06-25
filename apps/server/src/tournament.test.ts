@@ -27,6 +27,31 @@ test("sanitizeConfig clamps any admin input to safe values", () => {
   assert.ok(c.pointsTable.length > 0); // empty → default
 });
 
+test("test mode: one organizer can seed solo and pods request bot-fill", async () => {
+  const t = await tournaments.create(sanitizeConfig({ name: "DryRun", format: "points", podSize: 4, testFillBots: true }), "admin", Date.now());
+  assert.equal(t.testFillBots, true);
+  assert.equal(await tournaments.register(t.id, "SOLO", "Solo", Date.now()), "ok");
+  // Only ONE player, but test mode lets it seed; the pod room is told to fill to
+  // podSize with bots (captured here from the createRoom hook).
+  let fillTo = -1;
+  const seeded = await seedTournament(t.id, (_id, fill) => { fillTo = fill; return "TROOM"; }, Date.now());
+  assert.ok(seeded);
+  assert.equal(seeded.pods.length, 1);
+  assert.equal(fillTo, 4); // room asked to top up to podSize with bots
+  // Reporting only the real wallet still scores correctly (bots never appear).
+  await reportTournamentMatch(t.id, "TROOM", ["SOLO"], Date.now());
+  const me = (await tournaments.players(t.id)).find((p) => p.wallet === "SOLO");
+  assert.equal(me?.points, 10);
+});
+
+test("normal mode still needs ≥2 players to seed", async () => {
+  const t = await tournaments.create(sanitizeConfig({ name: "RealCup", format: "points", podSize: 4 }), "admin", Date.now());
+  assert.equal(t.testFillBots, false);
+  await tournaments.register(t.id, "ONLY", "Only", Date.now());
+  const seeded = await seedTournament(t.id, () => "NOPE", Date.now());
+  assert.equal(seeded?.pods.length, 0); // <2 eligible → no pods
+});
+
 test("points-race: register → seed → report awards placement points", async () => {
   const t = await tournaments.create(sanitizeConfig({ name: "PointsCup", format: "points", pointsTable: [10, 6, 3, 1], podSize: 4 }), "admin", Date.now());
   for (const w of ["A", "B", "C", "D"]) assert.equal(await tournaments.register(t.id, w, w, Date.now()), "ok");

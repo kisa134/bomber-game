@@ -30,6 +30,8 @@ export interface TournamentConfig {
   matchesPerPlayer: number; // points-race: how many games each player gets (0 = until window ends)
   startAt: number; // unix ms when the contest begins (0 = TBD)
   regOpen: boolean; // open registration immediately on create
+  testFillBots: boolean; // TEST mode: pad pods with bots + auto-start, so one
+  // organizer can dry-run a whole tournament solo (bots never score/advance).
 }
 
 export interface Tournament extends Omit<TournamentConfig, "regOpen"> {
@@ -89,6 +91,7 @@ const DEFAULTS: Omit<TournamentConfig, "name"> = {
   matchesPerPlayer: 5,
   startAt: 0,
   regOpen: true,
+  testFillBots: false,
 };
 
 function rid(): string {
@@ -156,6 +159,8 @@ class TournamentStore {
           created_by text not null default 'admin',
           created_at bigint not null default 0
         )`);
+      // Additive migration: test-mode bot-fill flag (safe on existing tables).
+      await this.pool.query(`alter table tournaments add column if not exists test_fill_bots boolean not null default false`);
       await this.pool.query(`
         create table if not exists tournament_players (
           tournament_id text not null,
@@ -216,6 +221,7 @@ class TournamentStore {
       winners: safeArr<string>(r.winners, []),
       createdBy: String(r.created_by ?? "admin"),
       createdAt: Number(r.created_at ?? 0),
+      testFillBots: r.test_fill_bots === true,
       registered,
     };
   }
@@ -236,9 +242,9 @@ class TournamentStore {
     if (this.pool) {
       await this.ready;
       await this.pool.query(
-        `insert into tournaments (id,name,format,status,description,prize_usd,entry_type,entry_amount,currency,max_players,pod_size,pods_advance,points_table,matches_per_player,start_at,created_by,created_at)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-        [id, t.name, t.format, t.status, t.description, t.prizeUsd, t.entryType, t.entryAmount, t.currency, t.maxPlayers, t.podSize, t.podsAdvance, JSON.stringify(t.pointsTable), t.matchesPerPlayer, t.startAt, t.createdBy, t.createdAt],
+        `insert into tournaments (id,name,format,status,description,prize_usd,entry_type,entry_amount,currency,max_players,pod_size,pods_advance,points_table,matches_per_player,start_at,created_by,created_at,test_fill_bots)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+        [id, t.name, t.format, t.status, t.description, t.prizeUsd, t.entryType, t.entryAmount, t.currency, t.maxPlayers, t.podSize, t.podsAdvance, JSON.stringify(t.pointsTable), t.matchesPerPlayer, t.startAt, t.createdBy, t.createdAt, t.testFillBots],
       );
     } else {
       this.mem.tours.set(id, t);
@@ -252,8 +258,8 @@ class TournamentStore {
     const next: Tournament = { ...cur, ...patch } as Tournament;
     if (this.pool) {
       await this.pool.query(
-        `update tournaments set name=$2,format=$3,status=$4,description=$5,prize_usd=$6,entry_type=$7,entry_amount=$8,currency=$9,max_players=$10,pod_size=$11,pods_advance=$12,points_table=$13,matches_per_player=$14,start_at=$15,started_at=$16,ended_at=$17,winners=$18 where id=$1`,
-        [id, next.name, next.format, next.status, next.description, next.prizeUsd, next.entryType, next.entryAmount, next.currency, next.maxPlayers, next.podSize, next.podsAdvance, JSON.stringify(next.pointsTable), next.matchesPerPlayer, next.startAt, next.startedAt, next.endedAt, JSON.stringify(next.winners)],
+        `update tournaments set name=$2,format=$3,status=$4,description=$5,prize_usd=$6,entry_type=$7,entry_amount=$8,currency=$9,max_players=$10,pod_size=$11,pods_advance=$12,points_table=$13,matches_per_player=$14,start_at=$15,started_at=$16,ended_at=$17,winners=$18,test_fill_bots=$19 where id=$1`,
+        [id, next.name, next.format, next.status, next.description, next.prizeUsd, next.entryType, next.entryAmount, next.currency, next.maxPlayers, next.podSize, next.podsAdvance, JSON.stringify(next.pointsTable), next.matchesPerPlayer, next.startAt, next.startedAt, next.endedAt, JSON.stringify(next.winners), next.testFillBots],
       );
     } else {
       this.mem.tours.set(id, next);
@@ -488,6 +494,7 @@ export function sanitizeConfig(input: Partial<TournamentConfig>): TournamentConf
   c.matchesPerPlayer = Math.max(0, Math.min(50, Math.round(Number(c.matchesPerPlayer) || 5)));
   c.startAt = Math.max(0, Math.round(Number(c.startAt) || 0));
   c.regOpen = c.regOpen !== false;
+  c.testFillBots = c.testFillBots === true;
   return c;
 }
 
@@ -508,7 +515,7 @@ function shuffle<T>(a: T[]): T[] {
  *  Returns the pods so the caller can tell players which room to join. */
 export async function seedTournament(
   id: string,
-  createRoom: (tournamentId: string) => string | null,
+  createRoom: (tournamentId: string, fillBotsTo: number) => string | null,
   now: number,
 ): Promise<{ round: number; pods: Array<{ pod: number; roomCode: string; players: string[] }> } | null> {
   const t = await tournaments.get(id);
@@ -516,13 +523,17 @@ export async function seedTournament(
   // Eligible = still in it (not eliminated). Registered/checked_in/active all play.
   const all = await tournaments.players(id);
   const eligible = all.filter((p) => p.status === "registered" || p.status === "checked_in" || p.status === "active");
-  if (eligible.length < 2) return { round: await tournaments.nextRound(id), pods: [] };
+  // Normally need ≥2 to make a match; in TEST mode one organizer can seed solo
+  // (bots pad the pod, so the dry-run still produces real rooms + scoring).
+  const minToSeed = t.testFillBots ? 1 : 2;
+  if (eligible.length < minToSeed) return { round: await tournaments.nextRound(id), pods: [] };
   const round = await tournaments.nextRound(id);
   const groups = chunk(shuffle(eligible.map((p) => p.wallet)), t.podSize);
   const pods: Array<{ pod: number; roomCode: string; players: string[] }> = [];
   for (let i = 0; i < groups.length; i++) {
     const players = groups[i];
-    const roomCode = createRoom(id);
+    // In test mode, tell the room to top up to podSize with bots and auto-start.
+    const roomCode = createRoom(id, t.testFillBots ? t.podSize : 0);
     if (!roomCode) continue; // server full — skip (admin can retry)
     await tournaments.addMatch({ tournamentId: id, round, pod: i, roomCode, players, result: [], status: "live" });
     for (const w of players) await tournaments.setPlayer(id, w, { status: "active" });

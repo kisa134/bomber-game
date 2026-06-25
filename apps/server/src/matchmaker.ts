@@ -75,10 +75,13 @@ export class Matchmaker {
   /** Create a private pod room for a tournament; the assigned players join it by
    *  the returned code. Tagged with tournamentId so the match-end hook reports
    *  the finishing order back to the bracket/standings. Returns null if full. */
-  createTournamentRoom(tournamentId: string): string | null {
+  createTournamentRoom(tournamentId: string, fillBotsTo = 0): string | null {
     try {
       const room = this.newRoom(false); // private, free; buy-in escrow handled at registration
       room.tournamentId = tournamentId;
+      // TEST mode: when a human joins, the room pads to this many seats with bots
+      // and auto-starts — lets an organizer dry-run a whole tournament solo.
+      room.fillBotsTo = fillBotsTo;
       return room.id;
     } catch {
       return null; // ServerFull / load-shed

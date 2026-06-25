@@ -162,6 +162,10 @@ export class Room {
   private rng: () => number = Math.random;
   /** Non-empty when this room is a tournament pod — drives the match-end report. */
   tournamentId = "";
+  // TEST mode (set on tournament pods created with "fill with bots"): when the
+  // first human joins, top the room up to this many seats with bots and auto-
+  // start, so an organizer can dry-run a tournament solo. 0 = off (normal).
+  fillBotsTo = 0;
 
   dead = false;
 
@@ -263,6 +267,14 @@ export class Room {
     send(encodeWelcome(id, GRID_W, GRID_H, PROTOCOL_VERSION));
     send(encodePhase(this.phase, this.phaseTimer()));
     this.broadcastRoomInfo();
+    // TEST tournament pod: first human in → pad with bots + auto-start (one-shot).
+    if (this.fillBotsTo > 0 && this.phase === MatchPhase.LOBBY && this.humanCount >= 1) {
+      const target = Math.min(MAX_PLAYERS_PER_ROOM, this.fillBotsTo);
+      while (this.players.size < target) this.addBot();
+      this.fillBotsTo = 0; // one-shot
+      this.broadcastRoomInfo();
+      void this.start();
+    }
     return p;
   }
 

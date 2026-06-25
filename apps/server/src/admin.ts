@@ -148,6 +148,7 @@ export function adminPageHtml(): string {
       <input id="t-prize" type="number" placeholder="prize $" style="max-width:90px">
       <input id="t-max" type="number" placeholder="max" value="64" style="max-width:70px">
       <input id="t-start" type="datetime-local" style="max-width:185px">
+      <label style="display:flex;align-items:center;gap:4px;font-size:.8rem" title="Test mode: pads pods with bots and auto-starts, so you can dry-run the whole tournament solo. Bots never score or advance."><input id="t-testbots" type="checkbox"> 🤖 test (fill with bots)</label>
       <button id="t-create">Create</button>
     </div>
     <div id="tour-list" class="muted">—</div>
@@ -437,7 +438,7 @@ window.tourStatus=async function(id,status){await fetch("/admin/tournament/statu
 window.tourSeed=async function(id){const r=await fetch("/admin/tournament/seed?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})});const d=await r.json();var pods=(d.result&&d.result.pods)||[];alert("Seeded "+pods.length+" pod(s). Players will see Join in-game.");loadTours();};
 $("#t-create").onclick=async function(){
   var s=$("#t-start").value;var startAt=s?new Date(s).getTime():0;
-  var body={name:$("#t-name").value||"Tournament",format:$("#t-format").value,entryType:$("#t-entry").value,entryAmount:Number($("#t-amount").value)||0,currency:Number($("#t-cur").value)||0,prizeUsd:Number($("#t-prize").value)||0,maxPlayers:Number($("#t-max").value)||64,startAt:startAt,regOpen:true};
+  var body={name:$("#t-name").value||"Tournament",format:$("#t-format").value,entryType:$("#t-entry").value,entryAmount:Number($("#t-amount").value)||0,currency:Number($("#t-cur").value)||0,prizeUsd:Number($("#t-prize").value)||0,maxPlayers:Number($("#t-max").value)||64,startAt:startAt,regOpen:true,testFillBots:$("#t-testbots").checked};
   await fetch("/admin/tournament/create?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   $("#t-name").value="";loadTours();
 };
