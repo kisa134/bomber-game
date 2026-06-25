@@ -735,8 +735,14 @@ app.get("/admin/treasury", (res, req) => {
         balances[k] = { address: addr, token: addr ? await tokenBalance(addr).catch(() => 0) : 0 };
       }),
     );
-    const raw = await ((store as unknown as { recentDeposits?: (n: number) => Promise<Array<{ signature: string; wallet: string; amount: number; at: string }>> }).recentDeposits?.(25) ?? Promise.resolve([]));
+    const ledger = store as unknown as {
+      recentDeposits?: (n: number) => Promise<Array<{ signature: string; wallet: string; amount: number; at: string }>>;
+      recentWithdrawals?: (n: number) => Promise<Array<{ signature: string; wallet: string; amount: number; at: string }>>;
+    };
+    const raw = await (ledger.recentDeposits?.(25) ?? Promise.resolve([]));
     const deposits = raw.map((d) => ({ ...d, amount: fromBaseUnits(d.amount) }));
+    const rawW = await (ledger.recentWithdrawals?.(25) ?? Promise.resolve([]));
+    const withdrawals = rawW.map((d) => ({ ...d, amount: fromBaseUnits(d.amount) }));
     let prizeCommitted = 0;
     let prizePaid = 0;
     try {
@@ -749,8 +755,58 @@ app.get("/admin/treasury", (res, req) => {
     } catch {
       /* ignore */
     }
-    sendJson(res, { balances, deposits, tournaments: { prizeCommitted, prizePaid } });
+    sendJson(res, { balances, deposits, withdrawals, tournaments: { prizeCommitted, prizePaid } });
   })().catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
+// Bulk grant: credit a list of wallets with tokens/chips (tournament prizes,
+// task airdrops). Admin-gated, custodial balance only. Reports per-wallet result.
+app.post("/admin/bulk-grant", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  void readBody(res).then(async (body) => {
+    let wallets: string[] = [];
+    let amount = 0;
+    let currency = 0;
+    try {
+      const j = JSON.parse(body || "{}");
+      if (Array.isArray(j.wallets)) wallets = j.wallets.map((w: unknown) => String(w).trim()).filter(Boolean).slice(0, 1000);
+      amount = Math.round(Number(j.amount) || 0);
+      currency = Number(j.currency) === 1 ? 1 : 0;
+    } catch {
+      /* ignore */
+    }
+    if (!wallets.length || amount === 0) return sendJson(res, { error: "bad_request" }, "400 Bad Request");
+    let ok = 0;
+    for (const w of wallets) {
+      const delta = currency === 1 ? toBaseUnits(amount) : amount;
+      const r = currency === 1 ? await store.adjustToken(w, delta) : await store.adjustChips(w, delta);
+      if (r !== null) ok++;
+    }
+    logEvent("🎁", `bulk grant ${currency === 1 ? "💎" : "🪙"}${amount} × ${ok}/${wallets.length} wallets`);
+    sendJson(res, { ok: true, granted: ok, total: wallets.length });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
+// CSV export of the money ledgers (deposits / withdrawals) for off-line books.
+app.get("/admin/export", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const kind = new URLSearchParams(req.getQuery()).get("kind") === "withdrawals" ? "withdrawals" : "deposits";
+  const ledger = store as unknown as {
+    recentDeposits?: (n: number) => Promise<Array<{ signature: string; wallet: string; amount: number; at: string }>>;
+    recentWithdrawals?: (n: number) => Promise<Array<{ signature: string; wallet: string; amount: number; at: string }>>;
+  };
+  void ((kind === "withdrawals" ? ledger.recentWithdrawals?.(2000) : ledger.recentDeposits?.(2000)) ?? Promise.resolve([])).then((rows) => {
+    const header = "at,wallet,amount,signature\n";
+    const body = rows.map((r) => `${r.at},${r.wallet},${fromBaseUnits(r.amount)},${r.signature}`).join("\n");
+    res.cork(() => {
+      res.writeStatus("200 OK");
+      res.writeHeader("Content-Type", "text/csv; charset=utf-8");
+      res.writeHeader("Content-Disposition", `attachment; filename="${kind}.csv"`);
+      res.end(header + body);
+    });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 
 // The dashboard page itself (HTML asks for the token, then polls /admin/stats).
@@ -921,6 +977,8 @@ app.post("/withdraw", (res, req) => {
     }
     try {
       const signature = await withdraw(wallet, toBaseUnits(amount));
+      // Append to the audit ledger (best-effort; Postgres only).
+      void (store as unknown as { recordWithdrawal?: (s: string, w: string, a: number) => Promise<void> }).recordWithdrawal?.(signature, wallet, toBaseUnits(amount));
       const p = await store.getProfile(wallet);
       sendJson(res, { signature, gameTokens: fromBaseUnits(p?.token_balance ?? 0) });
     } catch (e) {
@@ -1669,7 +1727,10 @@ app.post("/auth/nonce", (res, req) => {
 });
 
 // --- external identity linking (Telegram / Google / Twitter) ----------------
-const APP_BASE = (process.env.PUBLIC_URL ?? process.env.RENDER_EXTERNAL_URL ?? "https://bombermeme.fun").replace(/\/+$/, "");
+// OAuth redirect base MUST exactly match what's registered with Google/Twitter
+// (our public domain) — so we do NOT fall back to RENDER_EXTERNAL_URL (the
+// *.onrender.com host), which would cause a redirect_uri mismatch.
+const APP_BASE = (process.env.PUBLIC_URL || "https://bombermeme.fun").replace(/\/+$/, "");
 function redirect(res: uWS.HttpResponse, url: string): void {
   res.cork(() => { res.writeStatus("302 Found"); res.writeHeader("Location", url); res.end(); });
 }

@@ -92,8 +92,18 @@ export function adminPageHtml(): string {
     <h3>💰 Live balances &amp; ledgers <span class="muted" style="font-weight:400;font-size:.8rem">· on-chain wallet balances · deposits · tournament prizes</span></h3>
     <div class="grid" id="onchain-bal"></div>
     <div id="tour-money" class="muted" style="margin:6px 0"></div>
-    <h4 style="margin:8px 0 4px">Recent deposits</h4>
+    <h4 style="margin:8px 0 4px">Recent deposits <a id="csv-dep" href="#" style="font-size:.7rem;font-weight:400">⬇ CSV</a></h4>
     <table id="deposits"><thead><tr><th>When</th><th>Wallet</th><th>Amount</th><th>Tx</th></tr></thead><tbody></tbody></table>
+    <h4 style="margin:10px 0 4px">Recent withdrawals <a id="csv-wd" href="#" style="font-size:.7rem;font-weight:400">⬇ CSV</a></h4>
+    <table id="withdrawals"><thead><tr><th>When</th><th>Wallet</th><th>Amount</th><th>Tx</th></tr></thead><tbody></tbody></table>
+    <h4 style="margin:10px 0 4px">💸 Bulk grant <span class="muted" style="font-weight:400;font-size:.78rem">· prizes / airdrops — credit a list of wallets</span></h4>
+    <div class="cfg" style="display:flex;flex-wrap:wrap;gap:6px;align-items:flex-start">
+      <textarea id="bulk-wallets" placeholder="one wallet per line" style="min-width:260px;height:64px"></textarea>
+      <input id="bulk-amount" type="number" placeholder="amount" style="max-width:110px">
+      <select id="bulk-cur"><option value="0">chips</option><option value="1">token</option></select>
+      <button id="bulk-go">Grant to all</button>
+      <span id="bulk-status" class="muted"></span>
+    </div>
     <h3>🎰 Lucky Spin <span class="muted" style="font-weight:400;font-size:.8rem">· since restart</span></h3>
     <div class="grid" id="spins"></div>
     <h3>Activity feed <span class="muted" style="font-weight:400;font-size:.8rem">· live</span></h3>
@@ -438,12 +448,28 @@ async function loadTreasury(){
     $("#onchain-bal").innerHTML=Object.keys(b).map(function(k){var w=b[k];return tile(k,w.address?fmt(Math.round(w.token)):"—",w.address?(w.address.slice(0,4)+"…"+w.address.slice(-4)):"not set");}).join("")||'<div class="empty">No system wallets set.</div>';
     var tm=d.tournaments||{prizeCommitted:0,prizePaid:0};
     $("#tour-money").innerHTML="🏆 Tournament prizes — committed: <b>$"+fmt(tm.prizeCommitted)+"</b> · paid out: <b>$"+fmt(tm.prizePaid)+"</b>";
-    var dp=d.deposits||[];
-    $("#deposits tbody").innerHTML=dp.length?dp.map(function(x){return "<tr><td>"+(x.at?new Date(x.at).toLocaleString():"")+"</td><td>"+x.wallet.slice(0,4)+"…"+x.wallet.slice(-4)+"</td><td>"+fmt(x.amount)+"</td><td><a href='https://solscan.io/tx/"+x.signature+"' target='_blank' rel='noopener'>tx</a></td></tr>";}).join(""):'<tr><td colspan="4" class="empty">No deposits recorded yet.</td></tr>';
+    var rowsHtml=function(arr){return arr.length?arr.map(function(x){return "<tr><td>"+(x.at?new Date(x.at).toLocaleString():"")+"</td><td>"+x.wallet.slice(0,4)+"…"+x.wallet.slice(-4)+"</td><td>"+fmt(x.amount)+"</td><td><a href='https://solscan.io/tx/"+x.signature+"' target='_blank' rel='noopener'>tx</a></td></tr>";}).join(""):'<tr><td colspan="4" class="empty">None yet.</td></tr>';};
+    $("#deposits tbody").innerHTML=rowsHtml(d.deposits||[]);
+    $("#withdrawals tbody").innerHTML=rowsHtml(d.withdrawals||[]);
+    $("#csv-dep").href="/admin/export?kind=deposits&token="+encodeURIComponent(token);
+    $("#csv-wd").href="/admin/export?kind=withdrawals&token="+encodeURIComponent(token);
   }catch(e){$("#tour-money").innerHTML='<span class="err">'+e+'</span>';}
 }
 if(token)loadTreasury();
 setInterval(loadTreasury,30000);
+$("#bulk-go").onclick=async function(){
+  if(!token)return;
+  var ws=($("#bulk-wallets").value||"").split(/\\s+/).map(function(s){return s.trim();}).filter(Boolean);
+  var amt=Number($("#bulk-amount").value)||0;
+  if(!ws.length||!amt){$("#bulk-status").textContent="Need wallets + amount.";return;}
+  if(!confirm("Grant "+amt+" "+($("#bulk-cur").value==="1"?"token":"chips")+" to "+ws.length+" wallet(s)?"))return;
+  $("#bulk-status").textContent="Granting…";
+  try{
+    var r=await fetch("/admin/bulk-grant?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({wallets:ws,amount:amt,currency:Number($("#bulk-cur").value)})});
+    var dd=await r.json();
+    $("#bulk-status").innerHTML=dd.ok?("✅ "+dd.granted+"/"+dd.total):'<span class="err">'+(dd.error||"failed")+'</span>';
+  }catch(e){$("#bulk-status").innerHTML='<span class="err">'+e+'</span>';}
+};
 </script>
 </body></html>`;
 }

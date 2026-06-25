@@ -1174,6 +1174,15 @@ class PostgresStore implements ProfileStore {
         amount bigint not null,
         at timestamptz not null default now()
       )`);
+    // Append-only withdrawals ledger (recorded after a successful payout tx) so
+    // every cash-out is auditable in the admin money panel.
+    await this.pool.query(`
+      create table if not exists withdrawals (
+        signature text primary key,
+        wallet text not null,
+        amount bigint not null,
+        at timestamptz not null default now()
+      )`);
     // In-flight escrow: stakes collected for a live match but not yet settled.
     // Refunded on boot if a hard crash left them behind (see takeOpenStakes).
     await this.pool.query(`
@@ -1575,7 +1584,27 @@ class PostgresStore implements ProfileStore {
   async recentDeposits(limit = 25): Promise<Array<{ signature: string; wallet: string; amount: number; at: string }>> {
     try {
       await this.ready;
-      const r = await this.pool.query("select signature, wallet, amount, at from processed_deposits order by at desc limit $1", [Math.min(200, limit)]);
+      const r = await this.pool.query("select signature, wallet, amount, at from processed_deposits order by at desc limit $1", [Math.min(2000, limit)]);
+      return r.rows.map((x: Record<string, unknown>) => ({ signature: String(x.signature), wallet: String(x.wallet), amount: Number(x.amount ?? 0), at: String(x.at ?? "") }));
+    } catch {
+      return [];
+    }
+  }
+
+  /** Record a successful withdrawal (append-only audit log). Best-effort. */
+  async recordWithdrawal(signature: string, wallet: string, amount: number): Promise<void> {
+    try {
+      await this.ready;
+      await this.pool.query("insert into withdrawals (signature, wallet, amount) values ($1,$2,$3) on conflict (signature) do nothing", [signature, wallet, amount]);
+    } catch (e) {
+      console.error("[store] pg recordWithdrawal failed", e);
+    }
+  }
+
+  async recentWithdrawals(limit = 25): Promise<Array<{ signature: string; wallet: string; amount: number; at: string }>> {
+    try {
+      await this.ready;
+      const r = await this.pool.query("select signature, wallet, amount, at from withdrawals order by at desc limit $1", [Math.min(2000, limit)]);
       return r.rows.map((x: Record<string, unknown>) => ({ signature: String(x.signature), wallet: String(x.wallet), amount: Number(x.amount ?? 0), at: String(x.at ?? "") }));
     } catch {
       return [];
