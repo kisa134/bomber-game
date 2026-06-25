@@ -2,6 +2,8 @@
 // game as a Mini App, plus optional social/site link buttons. Disabled (no-op)
 // until TG_BOT_TOKEN is set, so the server runs fine without it.
 
+import { identity, takeLinkCode } from "./identity.js";
+
 const TOKEN = process.env.TG_BOT_TOKEN ?? "";
 const API = TOKEN ? `https://api.telegram.org/bot${TOKEN}` : "";
 const WEBHOOK_SECRET = process.env.TG_WEBHOOK_SECRET ?? "bombermeme-webhook";
@@ -19,6 +21,13 @@ async function tg(method: string, params: unknown): Promise<void> {
   } catch {
     // best-effort; never throw into the request path
   }
+}
+
+/** Proactively DM a linked Telegram user (tournament reminders). No-op if the
+ *  bot isn't configured or the chat id is missing. */
+export async function notifyTelegram(chatId: number, text: string): Promise<void> {
+  if (!API || !chatId) return;
+  await tg("sendMessage", { chat_id: chatId, text, parse_mode: "HTML", disable_web_page_preview: true });
 }
 
 const WELCOME =
@@ -113,6 +122,19 @@ export async function handleTgUpdate(update: unknown): Promise<void> {
   const text = msg?.text ?? "";
   if (!chatId) return;
   if (/^\/(start|play)\b/.test(text)) {
+    // Deep-link account linking: "/start link_<code>" → attach this chat to the
+    // wallet that initiated the link in-game, so we can DM reminders.
+    const lm = text.match(/^\/start\s+link_([a-z0-9]+)/i);
+    if (lm) {
+      const wallet = takeLinkCode(lm[1]);
+      if (wallet) {
+        await identity.link(wallet, { telegramId: chatId });
+        await tg("sendMessage", { chat_id: chatId, text: "✅ Telegram linked! You'll get tournament reminders here.", parse_mode: "HTML" });
+      } else {
+        await tg("sendMessage", { chat_id: chatId, text: "⚠️ That link expired — open the game and tap “Link Telegram” again." });
+      }
+      return;
+    }
     await tg("sendMessage", {
       chat_id: chatId,
       text: WELCOME,

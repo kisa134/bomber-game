@@ -329,6 +329,25 @@ export async function claimDaily(): Promise<DailyResult> {
 export async function removeFriend(wallet: string): Promise<void> {
   await post("/friends/remove", { wallet });
 }
+// --- account / external links ----------------------------------------------
+export interface IdentityInfo { wallet: string; telegramId: number; email: string; twitter: string; }
+export async function fetchIdentity(): Promise<IdentityInfo | null> {
+  try {
+    const res = await fetch(`${SERVER_HTTP}/identity${sessionQS()}`);
+    if (!res.ok) return null;
+    const d = (await res.json()) as { identity: IdentityInfo | null };
+    return d.identity;
+  } catch { return null; }
+}
+export async function linkTelegramStart(): Promise<{ url?: string; error?: string }> {
+  try { const r = await post("/link/telegram/start", {}); return await r.json(); } catch { return { error: "net" }; }
+}
+/** Full URL to start an OAuth link (redirect the browser here). */
+export function oauthUrl(provider: "google" | "twitter"): string {
+  const s = loadWallet()?.session;
+  return `${SERVER_HTTP}/auth/${provider}${s ? `?session=${encodeURIComponent(s)}` : ""}`;
+}
+
 // --- tournaments -----------------------------------------------------------
 export interface TournamentInfo {
   id: string; name: string; format: "points" | "bracket"; status: string;

@@ -60,6 +60,9 @@ import {
   fetchTournament,
   tournamentAction,
   fetchAnnouncement,
+  fetchIdentity,
+  linkTelegramStart,
+  oauthUrl,
   type TournamentInfo,
   type FriendsData,
   type ProfileData,
@@ -1250,8 +1253,51 @@ function wireNickname(): void {
   });
 }
 
+/** Fill the Connections rows from the server (what's linked) + wire the buttons. */
+function renderConnections(): void {
+  const tg = document.getElementById("conn-tg");
+  const g = document.getElementById("conn-g");
+  const tw = document.getElementById("conn-tw");
+  const btnTg = document.getElementById("link-tg") as HTMLButtonElement | null;
+  const btnG = document.getElementById("link-google") as HTMLButtonElement | null;
+  const btnTw = document.getElementById("link-twitter") as HTMLButtonElement | null;
+  if (!loadWallet()) {
+    [tg, g, tw].forEach((e) => { if (e) e.textContent = "· connect a wallet first"; });
+    [btnTg, btnG, btnTw].forEach((b) => { if (b) b.disabled = true; });
+    return;
+  }
+  [btnTg, btnG, btnTw].forEach((b) => { if (b) b.disabled = false; });
+  void fetchIdentity().then((id) => {
+    if (tg) tg.textContent = id?.telegramId ? "· linked ✓" : "";
+    if (g) g.textContent = id?.email ? `· ${id.email}` : "";
+    if (tw) tw.textContent = id?.twitter ? `· @${id.twitter}` : "";
+    if (btnTg) btnTg.textContent = id?.telegramId ? "Re-link" : "Link";
+    if (btnG) btnG.textContent = id?.email ? "Re-connect" : "Connect";
+    if (btnTw) btnTw.textContent = id?.twitter ? "Re-connect" : "Connect";
+  });
+}
+function wireConnections(): void {
+  document.getElementById("link-tg")?.addEventListener("click", () => {
+    void linkTelegramStart().then((r) => {
+      if (r.url) window.open(r.url, "_blank");
+      else showToast(r.error === "telegram_unconfigured" ? "Telegram bot not set up yet" : "Couldn't start linking", "info");
+    });
+  });
+  document.getElementById("link-google")?.addEventListener("click", () => { window.location.href = oauthUrl("google"); });
+  document.getElementById("link-twitter")?.addEventListener("click", () => { window.location.href = oauthUrl("twitter"); });
+  // Surface the OAuth result (the callback redirects back with ?link=...).
+  try {
+    const link = new URLSearchParams(location.search).get("link");
+    if (link) {
+      const msg: Record<string, string> = { google_ok: "✅ Google connected", twitter_ok: "✅ Twitter connected", google_failed: "Google link failed", twitter_failed: "Twitter link failed", google_unconfigured: "Google login not set up yet", twitter_unconfigured: "Twitter login not set up yet", need_wallet: "Connect a wallet first" };
+      if (msg[link]) showToast(msg[link], link.endsWith("_ok") ? "success" : "info");
+      history.replaceState(null, "", location.pathname);
+    }
+  } catch { /* ignore */ }
+}
+
 function wireSettings(): void {
-  document.getElementById("open-settings")!.addEventListener("click", () => showScreen("settings"));
+  document.getElementById("open-settings")!.addEventListener("click", () => { showScreen("settings"); renderConnections(); });
   document.getElementById("settings-back")!.addEventListener("click", () => {
     showScreen("menu");
     music("lobby");
@@ -4157,6 +4203,7 @@ wireMenuLinks();
 wireBank();
 wireDaily();
 wireAnnouncement();
+wireConnections();
 setProfileHandler((p) => openPlayerCard(p));
 setKickHandler((playerId) => {
   const name = state.roomPlayers.find((p) => p.id === playerId)?.name ?? "player";

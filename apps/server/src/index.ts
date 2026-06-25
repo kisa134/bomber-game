@@ -19,6 +19,8 @@ import { adminPageHtml } from "./admin.js";
 import { store } from "./store.js";
 import { tournaments, sanitizeConfig, seedTournament, reportTournamentMatch, type TStatus } from "./tournament.js";
 import { setTournamentMatchEnd } from "./room.js";
+import { identity, makeLinkCode, takeLinkCode } from "./identity.js";
+import { randomBytes, createHash } from "node:crypto";
 import {
   tokenBalance,
   withdraw,
@@ -1630,6 +1632,126 @@ function guard(res: uWS.HttpResponse, req: uWS.HttpRequest): boolean {
 app.post("/auth/nonce", (res, req) => {
   if (!guard(res, req)) return;
   void readBody(res).then(() => sendJson(res, { nonce: createNonce() }));
+});
+
+// --- external identity linking (Telegram / Google / Twitter) ----------------
+const APP_BASE = (process.env.PUBLIC_URL ?? process.env.RENDER_EXTERNAL_URL ?? "https://bombermeme.fun").replace(/\/+$/, "");
+function redirect(res: uWS.HttpResponse, url: string): void {
+  res.cork(() => { res.writeStatus("302 Found"); res.writeHeader("Location", url); res.end(); });
+}
+
+// Telegram: issue a deep-link code; the user opens the bot and /start link_<code>
+// attaches their chat to this wallet (handled in tgbot.ts). Bot username = TG_BOT.
+app.post("/link/telegram/start", (res, req) => {
+  if (!guard(res, req)) return;
+  void readBody(res).then((body) => {
+    let wallet: string | null = null;
+    try { const j = JSON.parse(body || "{}"); if (typeof j.session === "string") wallet = verifySession(j.session); } catch { /* ignore */ }
+    if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+    const bot = process.env.TG_BOT ?? "";
+    if (!bot) return sendJson(res, { error: "telegram_unconfigured" });
+    sendJson(res, { url: `https://t.me/${bot}?start=link_${makeLinkCode(wallet)}` });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
+// Current external links for the connected wallet (the Connections screen).
+app.get("/identity", (res, req) => {
+  res.onAborted(() => {});
+  const wallet = verifySession(new URLSearchParams(req.getQuery()).get("session") ?? "");
+  if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
+  void identity.get(wallet).then((i) => sendJson(res, { identity: i })).catch(() => sendJson(res, { identity: null }));
+});
+
+// Google OAuth (gated on GOOGLE_CLIENT_ID/SECRET) — links the wallet's email.
+const GOOGLE_ID = process.env.GOOGLE_CLIENT_ID ?? "";
+const GOOGLE_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
+app.get("/auth/google", (res, req) => {
+  res.onAborted(() => {});
+  const wallet = verifySession(new URLSearchParams(req.getQuery()).get("session") ?? "");
+  if (!GOOGLE_ID || !GOOGLE_SECRET) return redirect(res, `${APP_BASE}/?link=google_unconfigured`);
+  if (!wallet) return redirect(res, `${APP_BASE}/?link=need_wallet`);
+  const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  u.searchParams.set("client_id", GOOGLE_ID);
+  u.searchParams.set("redirect_uri", `${APP_BASE}/auth/google/callback`);
+  u.searchParams.set("response_type", "code");
+  u.searchParams.set("scope", "openid email");
+  u.searchParams.set("state", makeLinkCode(wallet));
+  redirect(res, u.toString());
+});
+app.get("/auth/google/callback", (res, req) => {
+  res.onAborted(() => {});
+  const q = new URLSearchParams(req.getQuery());
+  const code = q.get("code") ?? "";
+  const wallet = takeLinkCode(q.get("state") ?? "");
+  if (!wallet || !code) return redirect(res, `${APP_BASE}/?link=google_failed`);
+  void (async () => {
+    try {
+      const tr = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ code, client_id: GOOGLE_ID, client_secret: GOOGLE_SECRET, redirect_uri: `${APP_BASE}/auth/google/callback`, grant_type: "authorization_code" }),
+      });
+      const tj = (await tr.json()) as { access_token?: string };
+      if (!tj.access_token) return redirect(res, `${APP_BASE}/?link=google_failed`);
+      const ur = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${tj.access_token}` } });
+      const uj = (await ur.json()) as { email?: string };
+      if (uj.email) await identity.link(wallet, { email: String(uj.email) });
+      redirect(res, `${APP_BASE}/?link=google_ok`);
+    } catch {
+      redirect(res, `${APP_BASE}/?link=google_failed`);
+    }
+  })();
+});
+
+// Twitter/X OAuth2 + PKCE (gated on TWITTER_CLIENT_ID/SECRET) — links @handle.
+const TW_ID = process.env.TWITTER_CLIENT_ID ?? "";
+const TW_SECRET = process.env.TWITTER_CLIENT_SECRET ?? "";
+const twPkce = new Map<string, { verifier: string; at: number }>();
+app.get("/auth/twitter", (res, req) => {
+  res.onAborted(() => {});
+  const wallet = verifySession(new URLSearchParams(req.getQuery()).get("session") ?? "");
+  if (!TW_ID || !TW_SECRET) return redirect(res, `${APP_BASE}/?link=twitter_unconfigured`);
+  if (!wallet) return redirect(res, `${APP_BASE}/?link=need_wallet`);
+  const state = makeLinkCode(wallet);
+  const verifier = randomBytes(32).toString("base64url");
+  const challenge = createHash("sha256").update(verifier).digest("base64url");
+  twPkce.set(state, { verifier, at: Date.now() });
+  const u = new URL("https://twitter.com/i/oauth2/authorize");
+  u.searchParams.set("client_id", TW_ID);
+  u.searchParams.set("redirect_uri", `${APP_BASE}/auth/twitter/callback`);
+  u.searchParams.set("response_type", "code");
+  u.searchParams.set("scope", "users.read tweet.read");
+  u.searchParams.set("state", state);
+  u.searchParams.set("code_challenge", challenge);
+  u.searchParams.set("code_challenge_method", "S256");
+  redirect(res, u.toString());
+});
+app.get("/auth/twitter/callback", (res, req) => {
+  res.onAborted(() => {});
+  const q = new URLSearchParams(req.getQuery());
+  const code = q.get("code") ?? "";
+  const state = q.get("state") ?? "";
+  const wallet = takeLinkCode(state);
+  const pk = twPkce.get(state);
+  twPkce.delete(state);
+  if (!wallet || !code || !pk) return redirect(res, `${APP_BASE}/?link=twitter_failed`);
+  void (async () => {
+    try {
+      const tr = await fetch("https://api.twitter.com/2/oauth2/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: `Basic ${Buffer.from(`${TW_ID}:${TW_SECRET}`).toString("base64")}` },
+        body: new URLSearchParams({ code, grant_type: "authorization_code", redirect_uri: `${APP_BASE}/auth/twitter/callback`, code_verifier: pk.verifier }),
+      });
+      const tj = (await tr.json()) as { access_token?: string };
+      if (!tj.access_token) return redirect(res, `${APP_BASE}/?link=twitter_failed`);
+      const ur = await fetch("https://api.twitter.com/2/users/me", { headers: { Authorization: `Bearer ${tj.access_token}` } });
+      const uj = (await ur.json()) as { data?: { username?: string } };
+      if (uj.data?.username) await identity.link(wallet, { twitter: String(uj.data.username) });
+      redirect(res, `${APP_BASE}/?link=twitter_ok`);
+    } catch {
+      redirect(res, `${APP_BASE}/?link=twitter_failed`);
+    }
+  })();
 });
 
 app.post("/auth/verify", (res, req) => {
