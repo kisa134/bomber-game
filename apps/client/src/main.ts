@@ -1417,11 +1417,21 @@ function applyValueUnit(): void {
 
 // --- wallet ---------------------------------------------------------------
 
+/** Wallet button label — no emoji; compact (just the last 4 chars) on phones so
+ *  the chrome stays on ONE row, fuller (first…last) on desktop. */
+function setWalletBtnText(): void {
+  const btn = document.getElementById("wallet-btn");
+  if (!btn) return;
+  const w = loadWallet();
+  if (!w) { btn.textContent = "Connect"; return; }
+  btn.textContent = window.innerWidth < 760 ? w.address.slice(-4) : shortAddr(w.address);
+}
+window.addEventListener("resize", setWalletBtnText);
 function refreshWalletBtn(): void {
   const btn = document.getElementById("wallet-btn")!;
   const w = loadWallet();
   setWalletState(!!w); // drives the 🔒 on staked tables in the browser
-  btn.textContent = w ? `🟢 ${shortAddr(w.address)}` : "🔗 Connect Wallet";
+  setWalletBtnText();
   // Show rating + chips + token balance whenever a wallet is connected.
   if (w) {
     attributeReferralOnce(); // bind a pending inviter once we have a wallet

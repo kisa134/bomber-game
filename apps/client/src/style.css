@@ -1561,6 +1561,7 @@ button.glass-btn.lobby-create {
   font-size: 0.78rem;
   font-weight: 700;
   border-radius: 10px;
+  white-space: nowrap; /* never wrap the address to a 2nd line */
   background: rgba(255, 204, 51, 0.08);
   border: 1px solid rgba(255, 204, 51, 0.32);
   color: #ffe9a8;
@@ -2782,42 +2783,40 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   opacity: 0.8;
   cursor: default;
 }
-/* Prize hero */
-/* Hub block style (same glass as the profile / season cards), with a coloured
-   accent per currency that BRIGHTENS on hover. */
+/* Prize hero — original coloured-glow design, with a brighten-on-hover. */
 .room-prize {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   padding: 16px 14px;
-  border-radius: 14px;
+  border-radius: 16px;
   text-align: center;
-  background: linear-gradient(180deg, rgba(34, 30, 40, 0.9), rgba(18, 15, 24, 0.9));
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 34px rgba(0, 0, 0, 0.34);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 .room-prize.prize-token {
-  border-color: rgba(57, 255, 155, 0.42);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 34px rgba(0, 0, 0, 0.34), 0 0 22px rgba(57, 255, 155, 0.14);
+  background: linear-gradient(160deg, rgba(57, 255, 155, 0.1), rgba(255, 204, 51, 0.06));
+  border: 1px solid rgba(57, 255, 155, 0.45);
+  box-shadow: 0 0 26px rgba(57, 255, 155, 0.14);
 }
 .room-prize.prize-token:hover {
-  border-color: rgba(57, 255, 155, 0.8);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 16px 40px rgba(0, 0, 0, 0.44), 0 0 42px rgba(57, 255, 155, 0.38);
+  border-color: rgba(57, 255, 155, 0.85);
+  box-shadow: 0 0 44px rgba(57, 255, 155, 0.4);
 }
 .room-prize.prize-chips {
-  border-color: rgba(255, 204, 51, 0.42);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 34px rgba(0, 0, 0, 0.34), 0 0 22px rgba(255, 170, 30, 0.12);
+  background: linear-gradient(160deg, rgba(255, 204, 51, 0.12), rgba(255, 204, 51, 0.04));
+  border: 1px solid rgba(255, 204, 51, 0.45);
 }
 .room-prize.prize-chips:hover {
-  border-color: rgba(255, 204, 51, 0.75);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 16px 40px rgba(0, 0, 0, 0.44), 0 0 38px rgba(255, 170, 30, 0.3);
+  border-color: rgba(255, 204, 51, 0.85);
+  box-shadow: 0 0 40px rgba(255, 170, 30, 0.32);
+}
+.room-prize.prize-free {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 .room-prize.prize-free:hover {
-  border-color: rgba(255, 255, 255, 0.26);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 .prize-label {
   font-size: 0.72rem;
