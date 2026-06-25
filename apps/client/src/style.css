@@ -732,6 +732,99 @@ button.glass-btn.primary:hover {
 .rt-delta {
   font-size: 0.85rem;
 }
+
+/* ── Result screen v2 — medal tint · prize accent · count-up glow ──────────── */
+.result-place {
+  margin: 0 0 3px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+/* Title + place coloured by finishing place. */
+.result-hero.place-1 .result-title,
+.result-hero.place-1 .result-place { color: #ffd23f; }
+.result-hero.place-1 .result-title { filter: drop-shadow(0 4px 30px rgba(255, 200, 60, 0.5)); }
+.result-hero.place-2 .result-title,
+.result-hero.place-2 .result-place { color: #d8dde6; }
+.result-hero.place-2 .result-title { filter: drop-shadow(0 4px 26px rgba(210, 220, 235, 0.4)); }
+.result-hero.place-3 .result-title,
+.result-hero.place-3 .result-place { color: #e09a5a; }
+.result-hero.place-3 .result-title { filter: drop-shadow(0 4px 26px rgba(220, 150, 90, 0.4)); }
+
+/* PRIZE accent — the big money/token payoff. */
+.result-prize {
+  width: min(560px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 16px 18px;
+  text-align: center;
+}
+.rp-label {
+  font-size: 0.64rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.rp-val {
+  font-family: var(--font-disp);
+  font-weight: 900;
+  font-size: clamp(2rem, 9vw, 3rem);
+  line-height: 1.05;
+  white-space: nowrap;
+  color: var(--cream);
+}
+.result-prize.up .rp-val { color: #5fe08a; text-shadow: 0 0 26px rgba(80, 230, 140, 0.4); }
+.result-prize.down .rp-val { color: #ff8a8a; text-shadow: 0 0 22px rgba(255, 120, 120, 0.3); }
+.rp-sub { font-size: 0.72rem; color: var(--muted); }
+
+/* Count-up payoff flash (numbers glow as they land). */
+.result-rew-v.count-done,
+.rp-val.count-done { animation: countPop 0.5s ease-out; }
+@keyframes countPop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.16); filter: brightness(1.5) drop-shadow(0 0 10px currentColor); }
+  100% { transform: scale(1); }
+}
+
+/* Standings — medal places + character avatars. */
+.rb-av {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+.rb-av img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.rb-rank { font-weight: 900; min-width: 1.4em; text-align: center; }
+.rb-row.place-1 { box-shadow: inset 0 0 18px -5px rgba(255, 210, 63, 0.5); }
+.rb-row.place-1 .rb-rank { color: #ffd23f; }
+.rb-row.place-2 .rb-rank { color: #d8dde6; }
+.rb-row.place-3 .rb-rank { color: #e09a5a; }
+
+/* Footer (avg ping) + glass "Back to lobby" button. */
+.result-foot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.result-ping {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.result-actions-bar .glass-btn.big {
+  width: min(420px, 100%);
+  min-height: 52px;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
 /* Animated LVL bar on the result screen (distinct cyan/violet XP fill). */
 .result-lvl-wrap {
   display: flex;

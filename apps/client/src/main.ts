@@ -175,6 +175,8 @@ let iGotFirstBlood = false; // did the local player take first blood this match
 let myPickupStep = 0; // count of bonuses I've collected this match -> rising pickup pitch
 let hitStopUntil = 0; // brief full-view freeze for kill impact (game feel)
 let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean; streak: number; xpFrom: number; xpTo: number; level: number } | null = null;
+// Ping samples collected during the live match → averaged on the result screen.
+let matchPings: number[] = [];
 // Handle for the 3s "result screen" timer, so a new match starting within that
 // window can cancel the previous match's deferred result (no overlay/stale data).
 let announceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -500,6 +502,7 @@ net.onMessage = (msg) => {
       break;
     case ServerMsg.PONG:
       state.pingMs = Math.round(performance.now() - msg.timestamp);
+      if (inGame(state.phase)) matchPings.push(state.pingMs);
       break;
     case ServerMsg.MATCH_SEED:
       state.seedCommit = msg.commit;
@@ -727,6 +730,39 @@ function animateCount(elx: HTMLElement, to: number, from = 0, ms = 700): void {
   requestAnimationFrame(step);
 }
 
+/** Count a stat up from 0, glow-flashing when it lands. With `sound`, a soft rising
+ *  tick plays during the run and a casino chime fires on the finish (positives only). */
+function countUpStat(
+  el: HTMLElement,
+  to: number,
+  opts: { prefix?: string; suffix?: string; ms?: number; sign?: boolean; sound?: boolean } = {},
+): void {
+  const { prefix = "", suffix = "", ms = 900, sign = false, sound = false } = opts;
+  const t0 = performance.now();
+  let lastTick = 0;
+  const fmt = (n: number): string =>
+    `${prefix}${sign && n > 0 ? "+" : ""}${Math.round(n).toLocaleString()}${suffix}`;
+  const step = (now: number): void => {
+    const k = Math.min(1, (now - t0) / ms);
+    const eased = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt(to * eased);
+    if (sound && to !== 0 && k < 1 && now - lastTick > 55) {
+      lastTick = now;
+      assets.countBlip(700 + 650 * k);
+    }
+    if (k < 1) {
+      requestAnimationFrame(step);
+    } else {
+      el.textContent = fmt(to);
+      el.classList.remove("count-done");
+      void el.offsetWidth; // restart the glow flash
+      el.classList.add("count-done");
+      if (sound && to > 0) assets.rewardDing();
+    }
+  };
+  requestAnimationFrame(step);
+}
+
 /** Grow the league progress bar from one rating to another, recomputing the fill
  *  (and the "X to next league" caption) each frame so it stays in sync with the
  *  rating count-up — and snaps cleanly if the match crossed a league boundary. */
@@ -763,58 +799,103 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
   hero?.classList.toggle("lose", !won && !draw);
   hero?.classList.toggle("draw", draw);
 
-  // Placement (1st / Nth / Draw) from the final ranking.
+  // Placement from the final ranking → medal tint (gold / silver / bronze / none).
   const ranked = [...finalPlayers].sort((a, b) => {
     if (a.id === winnerId) return -1;
     if (b.id === winnerId) return 1;
     return Number(b.alive) - Number(a.alive) || b.frags - a.frags;
   });
   const myPlace = ranked.findIndex((p) => p.id === state.myId) + 1;
+  hero?.classList.remove("place-1", "place-2", "place-3");
+  if (!draw && myPlace >= 1 && myPlace <= 3) hero?.classList.add(`place-${myPlace}`);
   const placeEl = document.getElementById("result-place");
   if (placeEl) {
-    placeEl.textContent = draw
-      ? "Match drawn"
-      : won
-        ? "🥇 1st place"
-        : myPlace > 0
-          ? `#${myPlace} of ${ranked.length}`
-          : "";
+    const ord = (n: number): string => (n === 1 ? "1ST" : n === 2 ? "2ND" : n === 3 ? "3RD" : `${n}TH`);
+    placeEl.textContent = draw ? "MATCH DRAWN" : myPlace > 0 ? `${ord(myPlace)} PLACE · ${myPlace}/${ranked.length}` : "";
   }
 
-  // Reward strip. Bots: honest "practice" / "tiny" note; PvP: winnings + rating.
+  const stake = state.roomStake;
+  const nPlayers = ranked.length || (state.roomPlayers?.length ?? 2);
+  const isToken = state.roomCurrency === 1;
+  const sym = isToken ? "💎" : "🪙";
+
+  // --- PRIZE accent (staked tables): the big money/token number — count-up + chime.
+  const prizeEl = document.getElementById("result-prize");
+  const prizeVal = document.getElementById("result-prize-val");
+  const prizeSub = document.getElementById("result-prize-sub");
+  if (prizeEl && prizeVal && prizeSub) {
+    if (stake > 0 && !practiceMode) {
+      const net = draw ? 0 : won ? stake * (nPlayers - 1) : -stake;
+      prizeEl.classList.remove("hidden", "up", "down", "flat");
+      prizeEl.classList.add(net > 0 ? "up" : net < 0 ? "down" : "flat");
+      prizeSub.textContent = draw
+        ? "Stake refunded"
+        : (won ? "Winner takes the pot" : "Better luck next round") +
+          (isToken && Math.abs(net) ? ` · ${usdOf(Math.abs(net)).trim()}` : "");
+      countUpStat(prizeVal, Math.abs(net), {
+        prefix: `${net < 0 ? "−" : net > 0 ? "+" : ""}${sym}`,
+        ms: 1100,
+        sound: true,
+      });
+    } else {
+      prizeEl.classList.add("hidden");
+      prizeVal.textContent = "0";
+    }
+  }
+
+  // --- Stat grid: XP · Coins · Frags · Rating — each counts up on a glass card.
   const rew = document.getElementById("result-rewards");
   if (rew) {
     rew.innerHTML = "";
-    const chip = (label: string, val: string, cls = ""): HTMLElement => {
-      const c = el("div", `result-rew ${cls}`, "");
-      c.append(el("span", "result-rew-v", val), el("span", "result-rew-l", label));
+    const statCard = (label: string, cls = ""): HTMLElement => {
+      const c = el("div", `result-rew info-card ${cls}`, "");
+      c.append(el("span", "result-rew-v", "0"), el("span", "result-rew-l", label));
       return c;
     };
-    rew.append(chip("Frags", `⚔️ ${frags}`));
-    if (practiceMode) {
-      rew.append(
-        practiceCompetitive
-          ? chip("Reward", "🟢 tiny XP + 🪙", "tiny")
-          : chip("Reward", "⚪ practice", "none"),
-      );
-    } else {
-      // (The token win/loss amount is shown per-player in the standings below, so
-      //  it's not repeated as a top chip where big token numbers overflowed.)
-      const delta = lastMatch?.ratingDelta ?? 0;
-      const ratingChip = chip("Rating", "", delta > 0 ? "up" : delta < 0 ? "down" : "");
-      const v = ratingChip.querySelector(".result-rew-v") as HTMLElement;
-      const deltaTag = delta ? ` (${delta > 0 ? "+" : ""}${delta})` : "";
-      v.innerHTML = `📈 <span class="rt-num"></span><span class="rt-delta">${deltaTag}</span>`;
-      rew.append(ratingChip);
-      animateCount(v.querySelector(".rt-num") as HTMLElement, lastRating, lastRating - delta, 800);
-      // Win-streak flex — only when you're actually on a roll (2+ in a row).
-      const streak = lastMatch?.streak ?? 0;
-      if (won && streak >= 2) rew.append(chip("Win streak", `🔥 ${streak}`, "streak"));
-    }
-    // Per-match extras (apply across modes) as minimal cards.
-    if (lastMatch?.firstBlood) rew.append(chip("First blood", "🩸 yes", "fb"));
+    const vOf = (c: HTMLElement): HTMLElement => c.querySelector(".result-rew-v") as HTMLElement;
+    // XP earned.
     const xpGain = (lastMatch?.xpTo ?? 0) - (lastMatch?.xpFrom ?? 0);
-    if (xpGain > 0) rew.append(chip("XP earned", `✨ +${xpGain}`, "xp"));
+    if (xpGain > 0) {
+      const c = statCard("XP earned", "xp");
+      rew.append(c);
+      countUpStat(vOf(c), xpGain, { prefix: "✦ ", sign: true, ms: 850 });
+    }
+    // Coins — the genuine soft reward on CASUAL tables. On staked tables the reward
+    // IS the PRIZE above, so there's no duplicate coins card.
+    if (practiceMode) {
+      const c = statCard("Reward", practiceCompetitive ? "tiny" : "none");
+      vOf(c).textContent = practiceCompetitive ? "🟢 tiny" : "⚪ practice";
+      rew.append(c);
+    } else if (stake === 0) {
+      const c = statCard("Coins", "coins");
+      rew.append(c);
+      countUpStat(vOf(c), won ? 100 : 20, { prefix: "🪙 ", sign: true, ms: 850 });
+    }
+    // Frags.
+    const fc = statCard("Frags", "frags");
+    rew.append(fc);
+    countUpStat(vOf(fc), frags, { prefix: "💀 ", ms: 800 });
+    // Rating delta (PvP only).
+    if (!practiceMode) {
+      const delta = lastMatch?.ratingDelta ?? 0;
+      const rc = statCard("Rating", delta > 0 ? "up" : delta < 0 ? "down" : "");
+      vOf(rc).innerHTML = `📈 <span class="rt-num"></span><span class="rt-delta">${
+        delta ? ` (${delta > 0 ? "+" : ""}${delta})` : ""
+      }</span>`;
+      rew.append(rc);
+      animateCount(rc.querySelector(".rt-num") as HTMLElement, lastRating, lastRating - delta, 850);
+      const streak = lastMatch?.streak ?? 0;
+      if (won && streak >= 2) {
+        const sc = statCard("Win streak", "streak");
+        vOf(sc).textContent = `🔥 ${streak}`;
+        rew.append(sc);
+      }
+    }
+    if (lastMatch?.firstBlood) {
+      const fb = statCard("First blood", "fb");
+      vOf(fb).textContent = "🩸 yes";
+      rew.append(fb);
+    }
   }
 
   // Animated LVL bar: fills from the XP you had to the XP you earned this match,
@@ -878,6 +959,14 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
 
   renderResultBoard(winnerId, finalPlayers);
 
+  // Average ping over the live match (footer stat).
+  const pingEl = document.getElementById("result-ping");
+  if (pingEl) {
+    const avg = matchPings.length ? Math.round(matchPings.reduce((a, b) => a + b, 0) / matchPings.length) : state.pingMs;
+    pingEl.textContent = avg > 0 ? `Avg ping · ${avg} ms` : "";
+    matchPings = [];
+  }
+
   // Mode-specific actions: bots = replay/setup; PvP = lobby/invite/share.
   const lobbyBtn = document.getElementById("result-lobby")!;
   lobbyBtn.textContent = practiceMode ? "🔁 Play again" : "↩ Back to lobby";
@@ -910,13 +999,21 @@ function renderResultBoard(winnerId: number, players: { id: number; alive: boole
   const sym = state.roomCurrency === 1 ? "💎" : "🪙";
   const n = ranked.length;
   const walletOf = new Map(state.roomPlayers.map((rp) => [rp.id, rp.wallet]));
+  const skinOf = new Map(state.roomPlayers.map((rp) => [rp.id, rp.skin]));
   board.innerHTML = "";
   ranked.forEach((p, i) => {
+    const place = i + 1; // already sorted winner-first
     const li = document.createElement("li");
-    li.className = "rb-row" + (p.id === state.myId ? " me" : "") + (p.id === winnerId ? " win" : "");
-    const place = p.id === winnerId ? "👑" : `${i + 1}`;
+    li.className =
+      "rb-row" +
+      (p.id === state.myId ? " me" : "") +
+      (p.id === winnerId ? " win" : "") +
+      (!draw && place <= 3 ? ` place-${place}` : "");
+    const av = skinAvatar(skinOf.get(p.id) ?? 0);
+    av.classList.add("rb-av");
     li.append(
-      el("span", "rb-rank", place),
+      el("span", "rb-rank", draw ? "–" : String(place)),
+      av,
       el("span", "rb-name", state.nameOf(p.id) + (p.id === state.myId ? " (you)" : "")),
       el("span", "rb-frags", `💀 ${p.frags}`),
     );

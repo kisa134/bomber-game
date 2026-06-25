@@ -721,19 +721,27 @@
       <section id="result" class="screen hidden">
         <div class="result-wrap">
           <div id="result-hero" class="result-hero">
-            <h2 id="result-title" class="result-title"></h2>
             <div id="result-place" class="result-place"></div>
+            <h2 id="result-title" class="result-title"></h2>
+          </div>
+          <div id="result-prize" class="result-prize info-card hidden">
+            <span class="rp-label">PRIZE</span>
+            <span id="result-prize-val" class="rp-val">0</span>
+            <span id="result-prize-sub" class="rp-sub"></span>
           </div>
           <div id="result-rewards" class="result-rewards"></div>
           <div id="result-lvl" class="result-lvl-wrap hidden"></div>
           <div id="result-prog" class="result-prog-wrap hidden"></div>
-          <div class="result-card">
-            <div class="result-card-h">🏆 Standings</div>
+          <div class="result-card info-card">
+            <div class="result-card-h">STANDINGS</div>
             <ol id="result-board" class="result-board"></ol>
           </div>
-          <p id="result-fair" class="status fair"></p>
+          <div class="result-foot">
+            <span id="result-ping" class="result-ping"></span>
+            <p id="result-fair" class="status fair"></p>
+          </div>
           <div class="result-actions-bar">
-            <button id="result-lobby" class="primary big">↩ Back to lobby</button>
+            <button id="result-lobby" class="glass-btn big">↩ Back to lobby</button>
             <div class="result-actions">
               <button id="result-setup" class="ghost hidden">⚙ Change setup</button>
               <button id="result-share" class="ghost">📸 Share</button>

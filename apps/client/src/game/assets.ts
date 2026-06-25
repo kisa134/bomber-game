@@ -559,6 +559,26 @@ export class Assets {
     });
   }
 
+  /** A soft, light blip for count-up "ticking" numbers (result screen). Reuses the
+   *  existing audio context; silent until something else has warmed it up. */
+  countBlip(freq = 880): void {
+    if (!this.sfxEnabled || !this.audioCtx) return;
+    const ctx = this.audioCtx;
+    if (ctx.state === "suspended") void ctx.resume();
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(freq, t);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.045, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t);
+    o.stop(t + 0.07);
+  }
+
   private getNoise(ctx: AudioContext): AudioBuffer {
     if (this.noiseBuf) return this.noiseBuf;
     const len = Math.floor(ctx.sampleRate * 0.25);
