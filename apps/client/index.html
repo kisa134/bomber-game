@@ -95,6 +95,13 @@
         </div>
       </div>
 
+      <!-- Admin-pushed announcement (tournaments/contests). Hidden until pushed. -->
+      <button id="announce-bar" class="hidden">
+        <span id="announce-text"></span>
+        <span id="announce-cta" class="announce-cta"></span>
+        <span id="announce-x" class="announce-x" aria-label="Dismiss">✕</span>
+      </button>
+
       <!-- First-launch onboarding (also re-openable via the ❓ menu button) -->
       <div id="onboard" class="hidden">
         <div class="onboard-card">
@@ -200,6 +207,10 @@
 
           <!-- RIGHT (bottom): destinations -->
           <div class="hub-rail hub-rail-right">
+            <button id="open-tournaments" class="rail-card season">
+              <div class="rc-top"><span class="rc-title">🏆 Season</span><span id="season-badge" class="rc-badge hidden">LIVE</span></div>
+              <div id="season-sub" class="rc-sub">Tournaments &amp; prizes</div>
+            </button>
             <button id="open-shop" class="rail-card">
               <div class="rc-top"><span class="rc-title">🛒 Shop</span><span class="rc-badge new">NEW</span></div>
               <div class="rc-sub">11 collectible skins</div>
@@ -479,6 +490,17 @@
           </div>
           <ol id="leaderboard-body" class="lb-list"></ol>
           <button id="leaderboard-back" class="primary">Back</button>
+        </div>
+      </section>
+
+      <!-- Season / Tournaments -->
+      <section id="tournaments" class="screen hidden">
+        <div class="panel tour-panel">
+          <h2>🏆 Season &amp; Tournaments</h2>
+          <p class="tour-intro status">Compete in scheduled tournaments for real prizes. Connect your wallet, register, and you'll be notified when your match starts.</p>
+          <div id="tour-screen-list"></div>
+          <div id="tour-detail" class="hidden"></div>
+          <button id="tournaments-back" class="primary">Back</button>
         </div>
       </section>
 

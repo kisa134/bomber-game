@@ -156,7 +156,8 @@ export type ScreenName =
   | "training"
   | "room"
   | "game"
-  | "result";
+  | "result"
+  | "tournaments";
 const SCREENS: ScreenName[] = [
   "splash",
   "loading",
@@ -171,6 +172,7 @@ const SCREENS: ScreenName[] = [
   "room",
   "game",
   "result",
+  "tournaments",
 ];
 
 export function showScreen(name: ScreenName): void {

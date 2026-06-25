@@ -56,6 +56,11 @@ import {
   inviteFriend,
   clearInvite,
   claimDaily,
+  fetchTournaments,
+  fetchTournament,
+  tournamentAction,
+  fetchAnnouncement,
+  type TournamentInfo,
   type FriendsData,
   type ProfileData,
   type JoinResponse,
@@ -3423,6 +3428,139 @@ function loadHubTop(): void {
     .catch(() => {});
 }
 
+// --- Season / Tournaments --------------------------------------------------
+function esc(s: string): string {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
+}
+function fmtWhen(ms: number): string {
+  if (!ms) return "TBD";
+  return new Date(ms).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+function tourStatusLabel(s: string): string {
+  return (({ reg_open: "📝 Registration open", checkin: "✅ Check-in", live: "🔴 LIVE", done: "🏁 Finished" }) as Record<string, string>)[s] || s;
+}
+
+async function openTournaments(): Promise<void> {
+  showScreen("tournaments");
+  document.getElementById("tour-detail")!.classList.add("hidden");
+  const list = document.getElementById("tour-screen-list")!;
+  list.classList.remove("hidden");
+  list.innerHTML = '<p class="status">Loading…</p>';
+  const ts = await fetchTournaments();
+  if (!ts.length) {
+    list.innerHTML = '<p class="status fair">No tournaments scheduled yet — check back soon. 🏆</p>';
+    return;
+  }
+  const active = ts.filter((t) => t.status !== "done");
+  const past = ts.filter((t) => t.status === "done");
+  list.innerHTML = "";
+  const card = (t: TournamentInfo): HTMLElement => {
+    const c = el("button", "tour-card", "");
+    const prize = t.prizeUsd > 0 ? `$${t.prizeUsd.toLocaleString()}` : t.entryType === "buyin" ? "Buy-in pool" : "For glory";
+    c.innerHTML =
+      `<div class="tc-top"><span class="tc-name">${esc(t.name)}</span><span class="tc-status">${tourStatusLabel(t.status)}</span></div>` +
+      `<div class="tc-meta">🏆 ${prize} · ${t.format === "points" ? "Points race" : "Bracket"} · ${t.registered}/${t.maxPlayers} · ⏱ ${fmtWhen(t.startAt)}</div>`;
+    c.addEventListener("click", () => void openTournamentDetail(t.id));
+    return c;
+  };
+  if (active.length) { list.append(el("div", "tour-section-h", "Upcoming & live")); active.forEach((t) => list.append(card(t))); }
+  if (past.length) { list.append(el("div", "tour-section-h", "Past")); past.forEach((t) => list.append(card(t))); }
+}
+
+async function openTournamentDetail(id: string): Promise<void> {
+  const list = document.getElementById("tour-screen-list")!;
+  const detail = document.getElementById("tour-detail")!;
+  list.classList.add("hidden");
+  detail.classList.remove("hidden");
+  detail.innerHTML = '<p class="status">Loading…</p>';
+  const d = await fetchTournament(id);
+  if (!d) { detail.innerHTML = '<p class="status">Failed to load.</p>'; return; }
+  const t = d.tournament;
+  const prize = t.prizeUsd > 0 ? `$${t.prizeUsd.toLocaleString()}` : t.entryType === "buyin" ? "Buy-in pool" : "For glory";
+  const standings = [...d.players].sort((a, b) => b.points - a.points).slice(0, 12);
+  const ord = (i: number): string => `${i + 1}${["st", "nd", "rd"][i] || "th"}`;
+  detail.innerHTML =
+    `<button class="ghost tour-back2">← All tournaments</button>` +
+    `<h3 class="tour-d-name">${esc(t.name)}</h3>` +
+    `<div class="tour-d-meta">${tourStatusLabel(t.status)} · 🏆 ${prize} · ${t.format === "points" ? "Points race" : "Bracket"} · ${t.registered}/${t.maxPlayers} · ⏱ ${fmtWhen(t.startAt)}</div>` +
+    (t.description ? `<p class="tour-d-desc">${esc(t.description)}</p>` : "") +
+    `<div class="tour-d-actions"></div>` +
+    (t.format === "points" ? `<div class="tour-rules">Scoring: ${t.pointsTable.map((p, i) => `${ord(i)} = ${p}`).join(" · ")}</div>` : "") +
+    (standings.length ? `<h4 class="tour-d-h">Standings</h4><ol class="tour-standings">${standings.map((p) => `<li><span>${esc(p.name || shortAddr(p.wallet))}</span><b>${p.points}</b></li>`).join("")}</ol>` : "");
+  detail.querySelector(".tour-back2")!.addEventListener("click", () => void openTournaments());
+  const actions = detail.querySelector(".tour-d-actions") as HTMLElement;
+  const nm = (): string => (localStorage.getItem("bp_nick") || "pumper").trim();
+  if (d.yourMatch?.roomCode) {
+    const join = el("button", "primary big", "🎮 Join your match");
+    join.addEventListener("click", () => { practiceMode = false; track("play_start", { mode: "tournament" }); void connect(() => joinRoom(nm(), d.yourMatch!.roomCode, randSkin())); });
+    actions.append(join);
+  } else if (!loadWallet()) {
+    actions.innerHTML = '<p class="status fair">Connect a wallet to register.</p>';
+  } else if (t.status === "reg_open" || t.status === "checkin") {
+    if (!d.you) {
+      const reg = el("button", "primary big", "📝 Register") as HTMLButtonElement;
+      reg.addEventListener("click", async () => {
+        reg.disabled = true; reg.textContent = "…";
+        const r = await tournamentAction("register", id);
+        showToast(r.result === "ok" ? "Registered! You'll be notified when it starts." : r.result === "full" ? "Tournament is full" : r.result === "exists" ? "Already registered" : "Couldn't register", r.result === "ok" ? "success" : "info");
+        void openTournamentDetail(id);
+      });
+      actions.append(reg);
+    } else if (t.status === "checkin" && d.you.status !== "checked_in") {
+      const ci = el("button", "primary big", "✅ Check in");
+      ci.addEventListener("click", async () => { await tournamentAction("checkin", id); showToast("Checked in — get ready!", "success"); void openTournamentDetail(id); });
+      actions.append(ci);
+    } else {
+      actions.append(el("div", "tour-registered", d.you.status === "checked_in" ? "✅ Checked in — get ready!" : "📝 Registered — see you there!"));
+      const leave = el("button", "ghost", "Leave tournament");
+      leave.addEventListener("click", async () => { if (!confirm("Leave this tournament?")) return; await tournamentAction("leave", id); void openTournamentDetail(id); });
+      actions.append(leave);
+    }
+  } else if (t.status === "live") {
+    actions.append(el("div", "tour-registered", d.you ? "🔴 Live — your match will appear here when ready" : "🔴 Live — registration closed"));
+  } else if (t.status === "done") {
+    const champ = t.winners[0] ? esc(d.players.find((p) => p.wallet === t.winners[0])?.name || shortAddr(t.winners[0])) : "—";
+    actions.innerHTML = `<div class="tour-registered">🏁 Winner: <b>${champ}</b></div>`;
+  }
+}
+
+// --- admin-pushed announcement banner --------------------------------------
+function pollAnnouncement(): void {
+  void fetchAnnouncement().then((a) => {
+    const bar = document.getElementById("announce-bar");
+    const badge = document.getElementById("season-badge");
+    if (badge) badge.classList.toggle("hidden", !a); // Season "LIVE" dot when something's on
+    if (!bar) return;
+    let seen = "";
+    try { seen = localStorage.getItem("bp_announce_seen") || ""; } catch { /* ignore */ }
+    if (a && a.id && a.id !== seen) {
+      (document.getElementById("announce-text") as HTMLElement).textContent = a.text;
+      const cta = document.getElementById("announce-cta") as HTMLElement;
+      cta.textContent = a.cta || "";
+      cta.classList.toggle("hidden", !a.cta);
+      bar.classList.remove("hidden");
+      (bar as HTMLElement).onclick = (e) => {
+        if ((e.target as HTMLElement).id === "announce-x") return;
+        if (a.tournamentId) void openTournamentDetail(a.tournamentId);
+        else void openTournaments();
+      };
+      (bar as HTMLElement).dataset.aid = a.id;
+    } else {
+      bar.classList.add("hidden");
+    }
+  });
+}
+function wireAnnouncement(): void {
+  document.getElementById("announce-x")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const bar = document.getElementById("announce-bar");
+    try { localStorage.setItem("bp_announce_seen", bar?.dataset.aid || ""); } catch { /* ignore */ }
+    bar?.classList.add("hidden");
+  });
+  pollAnnouncement();
+  setInterval(pollAnnouncement, 45_000);
+}
+
 // --- first-launch onboarding -----------------------------------------------
 
 const ONBOARD_KEY = "bp_onboarded_v1";
@@ -3701,6 +3839,8 @@ function wireMenuLinks(): void {
   });
   document.getElementById("profile-back")!.addEventListener("click", () => showScreen("menu"));
   document.getElementById("leaderboard-back")!.addEventListener("click", () => showScreen("menu"));
+  document.getElementById("open-tournaments")?.addEventListener("click", () => void openTournaments());
+  document.getElementById("tournaments-back")?.addEventListener("click", () => showScreen("menu"));
   document.getElementById("lb-rating")!.addEventListener("click", () => { lbBoard = "rating"; void openLeaderboard(); });
   document.getElementById("lb-tokens")!.addEventListener("click", () => { lbBoard = "tokens"; void openLeaderboard(); });
   document.getElementById("lb-chips")!.addEventListener("click", () => { lbBoard = "chips"; void openLeaderboard(); });
@@ -4016,6 +4156,7 @@ wireWallet();
 wireMenuLinks();
 wireBank();
 wireDaily();
+wireAnnouncement();
 setProfileHandler((p) => openPlayerCard(p));
 setKickHandler((playerId) => {
   const name = state.roomPlayers.find((p) => p.id === playerId)?.name ?? "player";

@@ -6862,3 +6862,91 @@ button.big {
   font-family: var(--font-mono);
   letter-spacing: 0.02em;
 }
+
+/* ===== Season / Tournaments ===== */
+.rail-card.season {
+  background: linear-gradient(160deg, rgba(40, 28, 60, 0.92), rgba(18, 14, 28, 0.92));
+  border-color: rgba(180, 120, 255, 0.4);
+}
+.rail-card.season .rc-title { color: #c9a6ff; }
+.tour-panel { width: min(560px, 100%); }
+.tour-intro { margin: -4px 0 10px; }
+.tour-section-h {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  margin: 12px 0 6px;
+}
+.tour-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.tour-card:hover { border-color: rgba(180, 120, 255, 0.55); background: rgba(180, 120, 255, 0.08); }
+.tc-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tc-name { font-weight: 800; font-size: 0.98rem; }
+.tc-status { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+.tc-meta { margin-top: 4px; font-size: 0.74rem; color: var(--muted); }
+.tour-back2 { margin-bottom: 8px; }
+.tour-d-name { margin: 4px 0 2px; }
+.tour-d-meta { font-size: 0.78rem; color: var(--muted); margin-bottom: 8px; }
+.tour-d-desc { font-size: 0.85rem; margin: 0 0 10px; opacity: 0.9; }
+.tour-d-actions { display: flex; flex-direction: column; gap: 8px; align-items: stretch; margin: 8px 0; }
+.tour-rules { font-size: 0.72rem; color: var(--muted); margin: 6px 0; }
+.tour-d-h { margin: 12px 0 4px; }
+.tour-standings { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 3px; }
+.tour-standings li {
+  display: flex; justify-content: space-between; padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04); border-radius: 8px; font-size: 0.82rem;
+}
+.tour-standings li b { color: var(--accent-bright, #ffcc33); }
+.tour-registered {
+  text-align: center; font-weight: 700; padding: 10px;
+  border-radius: 10px; background: rgba(95, 209, 122, 0.12); border: 1px solid rgba(95, 209, 122, 0.35);
+}
+
+/* Admin-pushed announcement banner (tournaments). Fixed under the chrome. */
+#announce-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(var(--chrome-h, 64px) + env(safe-area-inset-top) + 6px);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(92vw, 520px);
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(180, 120, 255, 0.5);
+  background: rgba(40, 28, 60, 0.82);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  animation: announcePop 0.3s ease-out both;
+}
+@keyframes announcePop { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+#announce-bar.hidden { display: none; }
+.announce-cta {
+  background: var(--accent, #f0a92a);
+  color: #1a1320;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.announce-cta.hidden { display: none; }
+.announce-x { color: var(--muted); padding: 0 2px; font-weight: 800; }

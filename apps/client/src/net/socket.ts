@@ -329,6 +329,44 @@ export async function claimDaily(): Promise<DailyResult> {
 export async function removeFriend(wallet: string): Promise<void> {
   await post("/friends/remove", { wallet });
 }
+// --- tournaments -----------------------------------------------------------
+export interface TournamentInfo {
+  id: string; name: string; format: "points" | "bracket"; status: string;
+  description: string; prizeUsd: number; entryType: "free" | "buyin"; entryAmount: number;
+  currency: number; maxPlayers: number; podSize: number; pointsTable: number[];
+  matchesPerPlayer: number; startAt: number; startedAt: number; endedAt: number;
+  winners: string[]; registered: number;
+}
+export interface TournamentPlayerInfo { wallet: string; name: string; status: string; points: number; placement: number; }
+export async function fetchTournaments(): Promise<TournamentInfo[]> {
+  try {
+    const res = await fetch(`${SERVER_HTTP}/tournaments`);
+    const { tournaments } = (await res.json()) as { tournaments: TournamentInfo[] };
+    return tournaments ?? [];
+  } catch { return []; }
+}
+export async function fetchTournament(id: string): Promise<{ tournament: TournamentInfo; players: TournamentPlayerInfo[]; you: TournamentPlayerInfo | null; yourMatch: { roomCode: string } | null } | null> {
+  try {
+    const res = await fetch(`${SERVER_HTTP}/tournament?id=${encodeURIComponent(id)}${sessionQS()}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+export async function tournamentAction(path: "register" | "checkin" | "leave", id: string): Promise<{ ok?: boolean; result?: string; error?: string }> {
+  try {
+    const r = await post(`/tournament/${path}`, { id });
+    return await r.json();
+  } catch { return { error: "net" }; }
+}
+export interface AnnouncementInfo { id: string; text: string; tournamentId: string; cta: string; until: number; }
+export async function fetchAnnouncement(): Promise<AnnouncementInfo | null> {
+  try {
+    const res = await fetch(`${SERVER_HTTP}/announcement`);
+    const { announcement } = (await res.json()) as { announcement: AnnouncementInfo | null };
+    return announcement;
+  } catch { return null; }
+}
+
 /** Invite a friend (by wallet) into a room. */
 export async function inviteFriend(friend: string, room: string): Promise<{ ok?: boolean; error?: string }> {
   try {
