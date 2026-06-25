@@ -479,9 +479,20 @@ export function setupMenu(h: MenuHandlers): void {
 /** Currency-category filter for the public tables browser. */
 type TableFilter = "all" | "casual" | "arena" | "open";
 let tableFilter: TableFilter = "all";
-/** Sort order for the browser. */
-type TableSort = "stake-desc" | "stake-asc" | "players-desc" | "players-asc";
-let tableSort: TableSort = "players-desc";
+/** Sort order for the browser (dropdown). */
+type TableSort = "pot" | "stake" | "players" | "open";
+let tableSort: TableSort = "pot";
+let sortMenuOpen = false;
+const SORT_LABELS: Record<TableSort, string> = {
+  pot: "Biggest pot",
+  stake: "Highest buy-in",
+  players: "Most players",
+  open: "Open seats first",
+};
+// Close the sort menu on any outside click.
+document.addEventListener("click", () => {
+  if (sortMenuOpen) { sortMenuOpen = false; drawTables(); }
+});
 let lastTables: TableInfo[] = [];
 let lastOnJoin: (code: string) => void = () => {};
 
@@ -530,34 +541,34 @@ function drawTables(): void {
     filter.appendChild(b);
   }
 
-  // Clickable column headers (CS-style): tap a column to sort, tap again to flip.
+  // Sort dropdown: a single "Sort: <label> ▾" pill that opens a small menu.
   if (head) {
-    head.className = "table-head";
+    head.className = "tables-sort";
     head.classList.toggle("hidden", lastTables.length === 0);
     head.innerHTML = "";
-    const arrow = (asc: TableSort, desc: TableSort) =>
-      tableSort === desc ? " ↓" : tableSort === asc ? " ↑" : "";
-    const th = (text: string, toggle?: () => void) => {
-      const s = document.createElement("span");
-      s.textContent = text;
-      if (toggle) {
-        s.className = "th sortable";
-        s.addEventListener("click", () => {
-          toggle();
-          drawTables();
-        });
-      } else s.className = "th";
-      return s;
-    };
-    head.append(
-      th("Stake" + arrow("stake-asc", "stake-desc"), () => {
-        tableSort = tableSort === "stake-desc" ? "stake-asc" : "stake-desc";
-      }),
-      th("Players" + arrow("players-asc", "players-desc"), () => {
-        tableSort = tableSort === "players-desc" ? "players-asc" : "players-desc";
-      }),
-      th(""),
-    );
+    const btn = document.createElement("button");
+    btn.className = "sort-btn";
+    btn.innerHTML = `<span class="sort-ico">↕</span> Sort: <b>${SORT_LABELS[tableSort]}</b> <span class="sort-caret">▾</span>`;
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      sortMenuOpen = !sortMenuOpen;
+      drawTables();
+    });
+    const menu = document.createElement("div");
+    menu.className = "sort-menu" + (sortMenuOpen ? "" : " hidden");
+    (Object.keys(SORT_LABELS) as TableSort[]).forEach((k) => {
+      const opt = document.createElement("button");
+      opt.className = "sort-opt" + (k === tableSort ? " selected" : "");
+      opt.textContent = SORT_LABELS[k];
+      opt.addEventListener("click", (e) => {
+        e.stopPropagation();
+        tableSort = k;
+        sortMenuOpen = false;
+        drawTables();
+      });
+      menu.appendChild(opt);
+    });
+    head.append(btn, menu);
   }
 
   const matchesFilter = (t: TableInfo): boolean => {
@@ -569,12 +580,14 @@ function drawTables(): void {
     }
   };
   const shown = lastTables.filter(matchesFilter).slice();
+  const potOf = (t: TableInfo): number => t.stake * t.players;
+  const openOf = (t: TableInfo): number => (!t.live && t.players < t.max ? 1 : 0);
   shown.sort((a, b) => {
     switch (tableSort) {
-      case "stake-desc": return b.stake - a.stake || b.players - a.players;
-      case "stake-asc": return a.stake - b.stake || b.players - a.players;
-      case "players-asc": return a.players - b.players || b.stake - a.stake;
-      default: return b.players - a.players || b.stake - a.stake; // players-desc
+      case "stake": return b.stake - a.stake || b.players - a.players;
+      case "players": return b.players - a.players || b.stake - a.stake;
+      case "open": return openOf(b) - openOf(a) || potOf(b) - potOf(a);
+      default: return potOf(b) - potOf(a) || b.players - a.players; // "pot"
     }
   });
   // Show the live exchange rate in the hint so players can read token stakes.

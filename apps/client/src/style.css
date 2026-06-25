@@ -1066,8 +1066,17 @@ button.glass-btn.lobby-create {
   background: rgba(255, 255, 255, 0.1);
   border-color: rgba(255, 255, 255, 0.22);
 }
-/* Filter chips (All / Casual / Arena / …) — clean transparent pills, gold when
-   selected (same family as the Casual-block stake chips). */
+/* Filter + Sort on one row: pills left, sort dropdown right. */
+.lobby-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: none;
+}
+/* Filter chips (All / Casual / Arena / Open seats) — compact pills; radius matches
+   CODE/Join (10px), gold when selected. (width:auto resets the global 260px.) */
 .tables-filter {
   display: flex;
   flex-wrap: wrap;
@@ -1075,14 +1084,17 @@ button.glass-btn.lobby-create {
 }
 #tables-filter .stake-btn {
   flex: 0 0 auto;
+  width: auto;
   min-width: auto;
-  padding: 8px 15px;
-  border-radius: 999px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #cfcbd8;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
+  white-space: nowrap;
   transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
 }
 #tables-filter .stake-btn:hover {
@@ -1092,9 +1104,66 @@ button.glass-btn.lobby-create {
 #tables-filter .stake-btn.selected {
   color: var(--accent-bright);
   border-color: rgba(255, 204, 51, 0.5);
-  background: rgba(255, 204, 51, 0.1);
+  background: rgba(255, 204, 51, 0.12);
   box-shadow: 0 0 12px rgba(255, 204, 51, 0.2);
 }
+/* Sort dropdown — single pill (right) that opens a small menu. */
+.tables-sort {
+  position: relative;
+  margin-left: auto;
+  flex: none;
+}
+.sort-btn {
+  width: auto;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cfcbd8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.sort-btn:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); }
+.sort-btn b { color: #f4f1fb; }
+.sort-ico { opacity: 0.7; }
+.sort-caret { opacity: 0.7; font-size: 0.7rem; }
+.sort-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 184px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(26, 22, 32, 0.96), rgba(16, 13, 20, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+.sort-opt {
+  width: 100%;
+  text-align: left;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: none;
+  border: none;
+  color: #cfcbd8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.sort-opt:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.sort-opt.selected { color: var(--accent-bright); background: rgba(255, 204, 51, 0.1); }
 #lobby .tables-list {
   flex: 1 1 auto;
   min-height: 0;
