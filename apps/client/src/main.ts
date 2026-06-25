@@ -83,7 +83,7 @@ import {
   reauth,
   signAndSendBase64,
 } from "./net/wallet.js";
-import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setInviteSeatHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState, type ScreenName } from "./ui/lobby.js";
+import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setInviteSeatHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState, setActiveRoom, type ScreenName } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
@@ -4697,6 +4697,7 @@ function leaveToMenu(): void {
   input.reset();
   predictor.reset();
   prevPlayerCount = 0;
+  setActiveRoom(""); // fully left — drop the "return to room" chip
   showScreen("menu");
   music("lobby");
   setMenuStatus("");
@@ -4713,6 +4714,7 @@ function leaveToLobby(): void {
   input.reset();
   predictor.reset();
   prevPlayerCount = 0;
+  setActiveRoom(""); // fully left — drop the "return to room" chip
   openLobby(); // showScreen("lobby") + loadTables
   music("lobby");
   setMenuStatus("");
@@ -4726,6 +4728,12 @@ document.getElementById("leave-room")!.addEventListener("click", () => {
     return;
   }
   leaveToLobby(); // back → room search (lobby), not the hub
+});
+// "Return to room" chip → jump straight back to the waiting room you're still in.
+document.getElementById("return-room")?.addEventListener("click", () => {
+  showScreen("room");
+  renderRoom(state);
+  music("lobby");
 });
 document.getElementById("result-leave")!.addEventListener("click", leaveToMenu);
 // "Change setup" (bots only): leave the practice room and reopen Training Setup.

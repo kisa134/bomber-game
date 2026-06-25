@@ -175,10 +175,37 @@ const SCREENS: ScreenName[] = [
   "tournaments",
 ];
 
+// ── "You're still in a room" affordance ─────────────────────────────────────
+// In an ideal networked game you stay seated until you explicitly leave or get
+// kicked — navigating the app must NOT drop your room. We keep the socket open
+// (nav never closes it) and show a floating "Return to room" chip whenever you
+// have an active room but are looking at another screen.
+let activeRoomCode = ""; // "" = not in any room
+let currentScreen: ScreenName = "splash";
+function refreshReturnRoom(): void {
+  const el = document.getElementById("return-room");
+  if (!el) return;
+  // Hide while actually in the room / mid-match / on the entry screens.
+  const browsing = !["room", "game", "result", "splash", "loading"].includes(currentScreen);
+  const show = activeRoomCode !== "" && browsing;
+  el.classList.toggle("hidden", !show);
+  if (show) {
+    const codeEl = el.querySelector(".rr-code");
+    if (codeEl) codeEl.textContent = activeRoomCode;
+  }
+}
+/** Called from main when you join/leave a room (sets or clears the active code). */
+export function setActiveRoom(code: string): void {
+  activeRoomCode = code;
+  refreshReturnRoom();
+}
+
 export function showScreen(name: ScreenName): void {
+  currentScreen = name;
   for (const id of SCREENS) {
     document.getElementById(id)?.classList.toggle("hidden", id !== name);
   }
+  refreshReturnRoom();
   // Persistent top chrome (alpha notice + global status bar + XP): shown on every
   // screen — including the waiting room — except the in-game canvas (own HUD) and
   // the splash entry screen. (#room reserves --chrome-h top padding for it.)
@@ -606,6 +633,7 @@ export function setMenuStatus(text: string): void {
 
 /** Refresh the waiting-room screen from current state. */
 export function renderRoom(state: GameState): void {
+  if (activeRoomCode !== state.roomCode) setActiveRoom(state.roomCode); // track active room
   const count = state.roomPlayers.length;
   const sym = state.roomCurrency === 1 ? "💎" : "🪙";
   const isToken = state.roomCurrency === 1;
