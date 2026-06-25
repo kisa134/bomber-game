@@ -111,12 +111,15 @@ const SOUND_BASE: Record<string, string> = {
 const MUSIC_BASE: Record<string, string> = {
   lobby: "music_lobby",
   lobby2: "music_lobby2",
+  lobby3: "music_lobby3",
+  lobby4: "music_lobby4",
+  lobby5: "music_lobby5",
   battle: "music_battle",
 };
 
 // The hub cycles through these tracks back-to-back (a mini playlist). Any that
 // fail to load are skipped; a single survivor just loops as before.
-const HUB_PLAYLIST = ["lobby", "lobby2"];
+const HUB_PLAYLIST = ["lobby", "lobby2", "lobby3", "lobby4", "lobby5"];
 
 const AUDIO_EXTS = [".mp3", ".ogg", ".wav"];
 
