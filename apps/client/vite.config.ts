@@ -31,9 +31,8 @@ export default defineConfig({
         orientation: "landscape",
         background_color: "#0e1018",
         theme_color: "#0e1018",
-        // The installable app IS the game, which now lives under /play (the root
-        // is the marketing landing). Launching the PWA jumps straight into play.
-        start_url: "/play",
+        // The installable app IS the game, served at the root.
+        start_url: "/",
         scope: "/",
         icons: [
           { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
@@ -51,9 +50,7 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html}"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
-          // Root + marketing landing must hit the network (server serves the
-          // landing there) — never the cached game shell.
-          /^\/$/,
+          // The marketing landing must hit the network (not the cached game shell).
           /^\/landing\b/,
           /^\/(auth|deposit|withdraw|profile|leaderboard|bank|price|tables|watch|health|ws|tg|admin|stats|online)\b/,
         ],

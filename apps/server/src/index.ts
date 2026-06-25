@@ -331,13 +331,16 @@ const MIME: Record<string, string> = {
 function serveStatic(res: uWS.HttpResponse, urlPath: string): void {
   res.onAborted(() => {});
   let rel = decodeURIComponent(urlPath.split("?")[0]);
-  // The marketing LANDING owns the root; the GAME app lives under /play.
-  if (rel === "/" || rel === "") rel = "/landing.html";
+  // The GAME owns the root (as it always has). The marketing landing is parked
+  // at /landing.html until it's launched deliberately; /play also serves the
+  // game so any links already pointing there keep working.
+  if (rel === "/" || rel === "") rel = "/index.html";
+  else if (rel === "/landing" || rel === "/landing/" || rel.startsWith("/landing/")) rel = "/landing.html";
   else if (rel === "/play" || rel === "/play/" || rel.startsWith("/play/")) rel = "/index.html";
   const full = normalize(join(CLIENT_DIST, rel));
   // SPA fallback + path-traversal guard. Unknown routes fall back to the game
-  // shell ONLY under /play; everything else (root, marketing paths) → landing.
-  const fallback = rel.startsWith("/play") ? "/index.html" : "/landing.html";
+  // shell; only explicit /landing paths fall back to the landing.
+  const fallback = rel.startsWith("/landing") ? "/landing.html" : "/index.html";
   const safe = full.startsWith(CLIENT_DIST) && existsSync(full) && statSync(full).isFile()
     ? full
     : join(CLIENT_DIST, fallback);
@@ -1835,8 +1838,8 @@ const GOOGLE_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
 app.get("/auth/google", (res, req) => {
   res.onAborted(() => {});
   const wallet = verifySession(new URLSearchParams(req.getQuery()).get("session") ?? "");
-  if (!GOOGLE_ID || !GOOGLE_SECRET) return redirect(res, `${APP_BASE}/play?link=google_unconfigured`);
-  if (!wallet) return redirect(res, `${APP_BASE}/play?link=need_wallet`);
+  if (!GOOGLE_ID || !GOOGLE_SECRET) return redirect(res, `${APP_BASE}/?link=google_unconfigured`);
+  if (!wallet) return redirect(res, `${APP_BASE}/?link=need_wallet`);
   const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   u.searchParams.set("client_id", GOOGLE_ID);
   u.searchParams.set("redirect_uri", `${APP_BASE}/auth/google/callback`);
@@ -1850,7 +1853,7 @@ app.get("/auth/google/callback", (res, req) => {
   const q = new URLSearchParams(req.getQuery());
   const code = q.get("code") ?? "";
   const wallet = takeLinkCode(q.get("state") ?? "");
-  if (!wallet || !code) return redirect(res, `${APP_BASE}/play?link=google_failed`);
+  if (!wallet || !code) return redirect(res, `${APP_BASE}/?link=google_failed`);
   void (async () => {
     try {
       const tr = await fetch("https://oauth2.googleapis.com/token", {
@@ -1859,13 +1862,13 @@ app.get("/auth/google/callback", (res, req) => {
         body: new URLSearchParams({ code, client_id: GOOGLE_ID, client_secret: GOOGLE_SECRET, redirect_uri: `${APP_BASE}/auth/google/callback`, grant_type: "authorization_code" }),
       });
       const tj = (await tr.json()) as { access_token?: string };
-      if (!tj.access_token) return redirect(res, `${APP_BASE}/play?link=google_failed`);
+      if (!tj.access_token) return redirect(res, `${APP_BASE}/?link=google_failed`);
       const ur = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${tj.access_token}` } });
       const uj = (await ur.json()) as { email?: string };
       if (uj.email) await identity.link(wallet, { email: String(uj.email) });
-      redirect(res, `${APP_BASE}/play?link=google_ok`);
+      redirect(res, `${APP_BASE}/?link=google_ok`);
     } catch {
-      redirect(res, `${APP_BASE}/play?link=google_failed`);
+      redirect(res, `${APP_BASE}/?link=google_failed`);
     }
   })();
 });
@@ -1877,8 +1880,8 @@ const twPkce = new Map<string, { verifier: string; at: number }>();
 app.get("/auth/twitter", (res, req) => {
   res.onAborted(() => {});
   const wallet = verifySession(new URLSearchParams(req.getQuery()).get("session") ?? "");
-  if (!TW_ID || !TW_SECRET) return redirect(res, `${APP_BASE}/play?link=twitter_unconfigured`);
-  if (!wallet) return redirect(res, `${APP_BASE}/play?link=need_wallet`);
+  if (!TW_ID || !TW_SECRET) return redirect(res, `${APP_BASE}/?link=twitter_unconfigured`);
+  if (!wallet) return redirect(res, `${APP_BASE}/?link=need_wallet`);
   const state = makeLinkCode(wallet);
   const verifier = randomBytes(32).toString("base64url");
   const challenge = createHash("sha256").update(verifier).digest("base64url");
@@ -1901,7 +1904,7 @@ app.get("/auth/twitter/callback", (res, req) => {
   const wallet = takeLinkCode(state);
   const pk = twPkce.get(state);
   twPkce.delete(state);
-  if (!wallet || !code || !pk) return redirect(res, `${APP_BASE}/play?link=twitter_failed`);
+  if (!wallet || !code || !pk) return redirect(res, `${APP_BASE}/?link=twitter_failed`);
   void (async () => {
     try {
       const tr = await fetch("https://api.twitter.com/2/oauth2/token", {
@@ -1910,13 +1913,13 @@ app.get("/auth/twitter/callback", (res, req) => {
         body: new URLSearchParams({ code, grant_type: "authorization_code", redirect_uri: `${APP_BASE}/auth/twitter/callback`, code_verifier: pk.verifier }),
       });
       const tj = (await tr.json()) as { access_token?: string };
-      if (!tj.access_token) return redirect(res, `${APP_BASE}/play?link=twitter_failed`);
+      if (!tj.access_token) return redirect(res, `${APP_BASE}/?link=twitter_failed`);
       const ur = await fetch("https://api.twitter.com/2/users/me", { headers: { Authorization: `Bearer ${tj.access_token}` } });
       const uj = (await ur.json()) as { data?: { username?: string } };
       if (uj.data?.username) await identity.link(wallet, { twitter: String(uj.data.username) });
-      redirect(res, `${APP_BASE}/play?link=twitter_ok`);
+      redirect(res, `${APP_BASE}/?link=twitter_ok`);
     } catch {
-      redirect(res, `${APP_BASE}/play?link=twitter_failed`);
+      redirect(res, `${APP_BASE}/?link=twitter_failed`);
     }
   })();
 });
