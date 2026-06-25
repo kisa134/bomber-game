@@ -741,9 +741,20 @@ export function renderRoom(state: GameState): void {
       kick.className = "kick-btn";
       kick.textContent = "✕";
       kick.title = "Kick player";
+      // Two-tap confirm (mobile-reliable, no native dialog): first tap arms the
+      // button, second tap within 2.6s kicks.
       kick.addEventListener("click", (e) => {
         e.stopPropagation();
-        onKick(p.id);
+        if (kick.dataset.armed === "1") { onKick(p.id); return; }
+        kick.dataset.armed = "1";
+        kick.textContent = "Kick?";
+        kick.classList.add("armed");
+        setTimeout(() => {
+          if (!kick.isConnected) return;
+          kick.dataset.armed = "";
+          kick.textContent = "✕";
+          kick.classList.remove("armed");
+        }, 2600);
       });
       li.appendChild(kick);
     }
@@ -799,18 +810,19 @@ export function renderRoom(state: GameState): void {
   document.getElementById("room-stake")?.classList.add("hidden");
 
   const readyCount = state.roomPlayers.filter((p) => p.ready).length;
-  const status = document.getElementById("room-status")!;
+  const status = document.getElementById("room-status");
   const allReady = count >= MIN_PLAYERS_TO_START && readyCount === count;
   const cdLeft = Math.ceil(state.lobbyCountdownLeft() / 1000);
-  if (cdLeft > 0 && !allReady) {
-    // Enough players are ready — counting down; stragglers get dropped at zero.
-    status.textContent = `⏱ Starting in ${cdLeft}s — ready up or you'll be dropped!`;
-  } else if (count < MIN_PLAYERS_TO_START) {
-    status.textContent = `Waiting for players… ${count}/${MAX_PLAYERS_PER_ROOM}`;
-  } else if (allReady) {
-    status.textContent = `All ready — starting!`;
-  } else {
-    status.textContent = `${readyCount}/${count} ready — waiting for everyone to ready up`;
+  // The action button now carries the ready state — keep the separate status line
+  // ONLY for the urgent countdown warning, otherwise hide it (no duplication).
+  if (status) {
+    if (cdLeft > 0 && !allReady) {
+      status.textContent = `Starting in ${cdLeft}s — ready up or you'll be dropped`;
+      status.classList.remove("hidden");
+    } else {
+      status.textContent = "";
+      status.classList.add("hidden");
+    }
   }
 
   // ── ONE smart action button (merged Ready/Start), role-aware — like top lobby
@@ -822,20 +834,21 @@ export function renderRoom(state: GameState): void {
   const startBtn = document.getElementById("start-now") as HTMLButtonElement | null;
   startBtn?.classList.add("hidden"); // merged into the one button
   const enough = count >= MIN_PLAYERS_TO_START;
+  const readyLabel = `${readyCount}/${count} ready · tap to cancel`;
   if (readyBtn && me) {
     if (state.isHost) {
       if (!enough) {
         readyBtn.textContent = `Waiting for players… ${count}/${MIN_PLAYERS_TO_START}`;
         readyBtn.disabled = true;
       } else if (!me.ready) {
-        readyBtn.textContent = "▶ Start match";
+        readyBtn.textContent = "Start match";
         readyBtn.disabled = false;
       } else {
-        readyBtn.textContent = allReady ? "Starting…" : "✅ Starting — tap to cancel";
+        readyBtn.textContent = allReady ? "Starting…" : readyLabel;
         readyBtn.disabled = false;
       }
     } else {
-      readyBtn.textContent = me.ready ? "✅ Ready — tap to cancel" : "Ready up";
+      readyBtn.textContent = me.ready ? readyLabel : "Ready up";
       readyBtn.disabled = false;
     }
     readyBtn.dataset.on = String(me.ready);

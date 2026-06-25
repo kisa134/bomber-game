@@ -4403,10 +4403,11 @@ wireAnnouncement();
 wireConnections();
 setProfileHandler((p) => openPlayerCard(p));
 setKickHandler((playerId) => {
+  // The seat ✕ does its own two-tap confirm, so just send it (native confirm()
+  // was unreliable on mobile).
   const name = state.roomPlayers.find((p) => p.id === playerId)?.name ?? "player";
-  if (!confirm(`Kick ${name} from the lobby?`)) return;
   net.sendKick(playerId);
-  showToast(`👢 Kicked ${name}`, "info");
+  showToast(`Kicked ${name}`, "info");
 });
 // Tapping an empty lobby seat opens the friends list to invite someone here.
 setInviteSeatHandler(() => openFriendsForInvite());
@@ -4806,7 +4807,7 @@ function onStakeVote(msg: {
     const voted = !mine && votedProposalKey === key;
     banner.innerHTML =
       `<div class="sv-text">${who} raising to <b>${stakeSym()}${msg.stake.toLocaleString()}</b> · ${left}s · ${msg.yes}/${msg.total} ✅${voted ? " · you voted ✓" : ""}</div>` +
-      (canVote ? `<div class="sv-actions"><button id="sv-yes" class="primary">✅ Accept</button><button id="sv-no" class="ghost">❌ Decline</button></div>` : "");
+      (canVote ? `<div class="sv-actions"><button id="sv-yes" class="primary glass-btn">Accept</button><button id="sv-no" class="ghost">Decline</button></div>` : "");
     const vote = (accept: boolean): void => {
       net.sendVoteStake(accept);
       votedProposalKey = key; // remember so buttons don't return on the next update
@@ -5010,6 +5011,7 @@ document.getElementById("copy-invite")?.addEventListener("click", () => {
   const done = () => {
     const old = btn.textContent;
     btn.textContent = "✅ Copied!";
+    showToast("Invite link copied — share it with a friend!", "success");
     setTimeout(() => (btn.textContent = old), 1500);
   };
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(done);

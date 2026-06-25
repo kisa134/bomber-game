@@ -533,7 +533,7 @@ button.glass-btn.primary:hover {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 8px;
+  height: 10px;
   border-radius: 999px;
   background: linear-gradient(90deg, #ffcc33 var(--sp-fill, 0%), rgba(255, 255, 255, 0.12) var(--sp-fill, 0%));
   outline: none;
@@ -542,22 +542,23 @@ button.glass-btn.primary:hover {
 }
 .sp-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+  margin-top: -4px; /* centre the thumb ON the 10px track (no floating) */
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff6cf, #ffb43d);
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 calc(4px + 14px * var(--sp-glow)) rgba(255, 190, 50, 0.8);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45), 0 0 calc(3px + 13px * var(--sp-glow)) rgba(255, 190, 50, 0.85);
   cursor: grab;
 }
-.sp-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.1); }
+.sp-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.12); }
 .sp-slider::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff6cf, #ffb43d);
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
   cursor: grab;
 }
 .sp-tiers {
@@ -586,6 +587,11 @@ button.glass-btn.primary:hover {
   width: 100%;
   min-height: 44px;
   font-weight: 800;
+  color: #fff7da;
+  border-color: rgba(255, 204, 51, calc(0.3 + 0.5 * var(--sp-glow)));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 0 calc(8px + 32px * var(--sp-glow)) rgba(255, 180, 40, calc(0.18 + 0.5 * var(--sp-glow)));
 }
 .stake-btn {
   flex: 1 1 auto;
@@ -2654,9 +2660,9 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   border-color: rgba(90, 230, 150, 0.7);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 14px 34px rgba(0, 0, 0, 0.46), 0 0 38px rgba(57, 255, 155, 0.42);
 }
-/* Keep the chip centred on press — the global button:active scale() would drop
-   translateX(-50%) and make it jump right. Click = just click. */
-.return-room:active { transform: translateX(-50%) scale(0.98); }
+/* Keep the chip perfectly still on press — the global button:active scale() would
+   drop translateX(-50%) and make it jump right. Click = just click, no movement. */
+.return-room:active { transform: translateX(-50%); }
 .return-room .rr-txt { color: #d6ffe8; font-weight: 700; }
 .return-room .rr-code { color: #fff; letter-spacing: 1px; }
 .return-room .rr-go { color: #aaffd0; font-weight: 800; }
@@ -2849,6 +2855,21 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 .seat .kick-btn:hover {
   background: rgba(255, 90, 95, 0.32);
+}
+/* Armed (first tap) — widens to a clear "Kick?" confirm; second tap kicks. */
+.seat .kick-btn.armed {
+  width: auto;
+  padding: 0 10px;
+  font-size: 0.78rem;
+  background: rgba(255, 70, 75, 0.92);
+  border-color: rgba(255, 120, 120, 0.9);
+  color: #fff;
+  box-shadow: 0 0 14px rgba(255, 70, 75, 0.6);
+  animation: kickArm 0.9s ease-in-out infinite;
+}
+@keyframes kickArm {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 70, 75, 0.5); }
+  50% { box-shadow: 0 0 18px rgba(255, 70, 75, 0.85); }
 }
 /* Kick action inside a player's profile card — the reliable, obvious path. */
 .kick-card-btn {
@@ -3224,36 +3245,50 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   .room-side { order: 2; }
   /* Simplify: no character picking on mobile (your equipped skin is used). */
   .room-character { display: none; }
-  /* Top bar wraps cleanly — title stays inline with the back arrow; CODE+Invite
-     wrap to the next line. */
-  .room-top { flex-wrap: wrap; align-items: center; }
-  .room-id { flex: 1 1 auto; }
-  .room-region { order: 5; }
-  /* Ready / Raise pinned to the bottom of the screen, always reachable. */
+  /* Top bar — match-type stays INLINE with the back arrow (min-width:0 lets the id
+     shrink instead of wrapping below it); CODE+Invite + server drop to own rows. */
+  .room-top { flex-wrap: wrap; align-items: center; gap: 8px; }
+  .room-id { flex: 1 1 auto; min-width: 0; order: 1; }
+  .room-type { font-size: 1.4rem; }
+  .room-code-inline { flex: 1 1 100%; }
+  .room-region { order: 5; flex: 1 1 100%; margin-left: 0; }
+
+  /* Bottom action bar — a glass card glued near the bottom edge (only its outer
+     edge shows), always reachable + reliably tappable (FIXED, not sticky — sticky
+     + backdrop-filter inside the scroll container was eating taps). */
   .room-actions {
-    position: sticky;
-    bottom: 0;
-    z-index: 6;
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: calc(8px + var(--sai-bottom, 0px));
+    z-index: 40;
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
-    margin: 8px -16px calc(-14px - var(--sai-bottom, 0px));
-    padding: 10px 16px calc(10px + var(--sai-bottom, 0px));
-    background: rgba(11, 13, 22, 0.92);
-    backdrop-filter: blur(12px) saturate(1.2);
-    -webkit-backdrop-filter: blur(12px) saturate(1.2);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 18px;
+    background: rgba(14, 16, 24, 0.66);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 12px 34px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
   }
-  .room-status { flex: none; text-align: center; font-size: 0.78rem; }
+  .room-status { flex: none; text-align: center; font-size: 0.76rem; }
   .room-actions-btns { width: 100%; }
   .room-actions-btns button { flex: 1 1 auto; }
-  /* Stake-raise proposals also dock just above the pinned bar. */
+  /* Content scrolls clear of the fixed bar. */
+  .room-wrap { padding-bottom: calc(104px + var(--sai-bottom, 0px)); }
+  /* Stake popups float as a sheet just above the bar. */
   #stake-vote:not(.hidden),
   #propose-picker:not(.hidden),
   #room-stake:not(.hidden) {
-    position: sticky;
-    bottom: 78px;
-    z-index: 6;
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    bottom: calc(80px + var(--sai-bottom, 0px));
+    z-index: 41;
+    margin: 0;
   }
 }
 /* Reliable taps on every room control (kills the 300ms delay / first-tap miss). */
