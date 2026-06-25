@@ -1364,13 +1364,19 @@ function wireConnections(): void {
   });
   document.getElementById("link-google")?.addEventListener("click", () => { window.location.href = oauthUrl("google"); });
   document.getElementById("link-twitter")?.addEventListener("click", () => { window.location.href = oauthUrl("twitter"); });
-  // Surface the OAuth result (the callback redirects back with ?link=...).
+  // Surface the OAuth result (the callback redirects back to THIS host with
+  // ?link=...). Land the player right back on Settings → Connections so they
+  // can see the account is now linked (and the success/-failed toast).
   try {
     const link = new URLSearchParams(location.search).get("link");
     if (link) {
       const msg: Record<string, string> = { google_ok: "✅ Google connected", twitter_ok: "✅ Twitter connected", google_failed: "Google link failed", twitter_failed: "Twitter link failed", google_unconfigured: "Google login not set up yet", twitter_unconfigured: "Twitter login not set up yet", need_wallet: "Connect a wallet first" };
       if (msg[link]) showToast(msg[link], link.endsWith("_ok") ? "success" : "info");
       history.replaceState(null, "", location.pathname);
+      // Jump to Settings and refresh the linked-accounts rows so the player sees
+      // the account is now linked. (An OAuth return never carries ?room.)
+      showScreen("settings");
+      renderConnections();
     }
   } catch { /* ignore */ }
 }

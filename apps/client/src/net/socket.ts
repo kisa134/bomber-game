@@ -345,7 +345,10 @@ export async function linkTelegramStart(): Promise<{ url?: string; error?: strin
 /** Full URL to start an OAuth link (redirect the browser here). */
 export function oauthUrl(provider: "google" | "twitter"): string {
   const s = loadWallet()?.session;
-  return `${SERVER_HTTP}/auth/${provider}${s ? `?session=${encodeURIComponent(s)}` : ""}`;
+  // Pass our exact origin so the callback returns the user to the SAME host
+  // (www↔apex would otherwise strand the session on the other origin).
+  const from = `&from=${encodeURIComponent(location.origin)}`;
+  return `${SERVER_HTTP}/auth/${provider}${s ? `?session=${encodeURIComponent(s)}${from}` : `?from=${encodeURIComponent(location.origin)}`}`;
 }
 
 // --- tournaments -----------------------------------------------------------

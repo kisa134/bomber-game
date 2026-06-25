@@ -1806,6 +1806,29 @@ app.post("/auth/nonce", (res, req) => {
 // (our public domain) — so we do NOT fall back to RENDER_EXTERNAL_URL (the
 // *.onrender.com host), which would cause a redirect_uri mismatch.
 const APP_BASE = (process.env.PUBLIC_URL || "https://bombermeme.fun").replace(/\/+$/, "");
+// Allowed hosts we'll redirect a user BACK to after OAuth (open-redirect guard).
+// Defaults cover the apex + any subdomain of bombermeme.fun; localhost for dev.
+const OAUTH_RETURN_HOSTS = (process.env.OAUTH_RETURN_HOSTS || "bombermeme.fun").split(",").map((s) => s.trim()).filter(Boolean);
+/** Resolve the safe origin to return the user to (the host they started on, so
+ *  www↔apex never strands the session), falling back to APP_BASE. */
+function returnBase(from: string): string {
+  try {
+    const u = new URL(from);
+    const ok = u.hostname === "localhost" || OAUTH_RETURN_HOSTS.some((h) => u.hostname === h || u.hostname.endsWith("." + h));
+    if (ok && (u.protocol === "https:" || u.hostname === "localhost")) return `${u.protocol}//${u.host}`;
+  } catch { /* bad input → fall back */ }
+  return APP_BASE;
+}
+/** Pack the CSRF link-code + the return origin into one OAuth state string. */
+function packState(code: string, from: string): string {
+  return `${code}.${Buffer.from(from, "utf8").toString("base64url")}`;
+}
+function unpackState(state: string): { code: string; from: string } {
+  const i = state.indexOf(".");
+  if (i < 0) return { code: state, from: "" };
+  try { return { code: state.slice(0, i), from: Buffer.from(state.slice(i + 1), "base64url").toString("utf8") }; }
+  catch { return { code: state.slice(0, i), from: "" }; }
+}
 function redirect(res: uWS.HttpResponse, url: string): void {
   res.cork(() => { res.writeStatus("302 Found"); res.writeHeader("Location", url); res.end(); });
 }
@@ -1837,23 +1860,28 @@ const GOOGLE_ID = process.env.GOOGLE_CLIENT_ID ?? "";
 const GOOGLE_SECRET = process.env.GOOGLE_CLIENT_SECRET ?? "";
 app.get("/auth/google", (res, req) => {
   res.onAborted(() => {});
-  const wallet = verifySession(new URLSearchParams(req.getQuery()).get("session") ?? "");
-  if (!GOOGLE_ID || !GOOGLE_SECRET) return redirect(res, `${APP_BASE}/?link=google_unconfigured`);
-  if (!wallet) return redirect(res, `${APP_BASE}/?link=need_wallet`);
+  const qs = new URLSearchParams(req.getQuery());
+  const wallet = verifySession(qs.get("session") ?? "");
+  const from = qs.get("from") ?? "";
+  const back = returnBase(from);
+  if (!GOOGLE_ID || !GOOGLE_SECRET) return redirect(res, `${back}/?link=google_unconfigured`);
+  if (!wallet) return redirect(res, `${back}/?link=need_wallet`);
   const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   u.searchParams.set("client_id", GOOGLE_ID);
   u.searchParams.set("redirect_uri", `${APP_BASE}/auth/google/callback`);
   u.searchParams.set("response_type", "code");
   u.searchParams.set("scope", "openid email");
-  u.searchParams.set("state", makeLinkCode(wallet));
+  u.searchParams.set("state", packState(makeLinkCode(wallet), from));
   redirect(res, u.toString());
 });
 app.get("/auth/google/callback", (res, req) => {
   res.onAborted(() => {});
   const q = new URLSearchParams(req.getQuery());
   const code = q.get("code") ?? "";
-  const wallet = takeLinkCode(q.get("state") ?? "");
-  if (!wallet || !code) return redirect(res, `${APP_BASE}/?link=google_failed`);
+  const { code: linkCode, from } = unpackState(q.get("state") ?? "");
+  const back = returnBase(from);
+  const wallet = takeLinkCode(linkCode);
+  if (!wallet || !code) return redirect(res, `${back}/?link=google_failed`);
   void (async () => {
     try {
       const tr = await fetch("https://oauth2.googleapis.com/token", {
@@ -1862,13 +1890,13 @@ app.get("/auth/google/callback", (res, req) => {
         body: new URLSearchParams({ code, client_id: GOOGLE_ID, client_secret: GOOGLE_SECRET, redirect_uri: `${APP_BASE}/auth/google/callback`, grant_type: "authorization_code" }),
       });
       const tj = (await tr.json()) as { access_token?: string };
-      if (!tj.access_token) return redirect(res, `${APP_BASE}/?link=google_failed`);
+      if (!tj.access_token) return redirect(res, `${back}/?link=google_failed`);
       const ur = await fetch("https://openidconnect.googleapis.com/v1/userinfo", { headers: { Authorization: `Bearer ${tj.access_token}` } });
       const uj = (await ur.json()) as { email?: string };
       if (uj.email) await identity.link(wallet, { email: String(uj.email) });
-      redirect(res, `${APP_BASE}/?link=google_ok`);
+      redirect(res, `${back}/?link=google_ok`);
     } catch {
-      redirect(res, `${APP_BASE}/?link=google_failed`);
+      redirect(res, `${back}/?link=google_failed`);
     }
   })();
 });
@@ -1879,10 +1907,13 @@ const TW_SECRET = process.env.TWITTER_CLIENT_SECRET ?? "";
 const twPkce = new Map<string, { verifier: string; at: number }>();
 app.get("/auth/twitter", (res, req) => {
   res.onAborted(() => {});
-  const wallet = verifySession(new URLSearchParams(req.getQuery()).get("session") ?? "");
-  if (!TW_ID || !TW_SECRET) return redirect(res, `${APP_BASE}/?link=twitter_unconfigured`);
-  if (!wallet) return redirect(res, `${APP_BASE}/?link=need_wallet`);
-  const state = makeLinkCode(wallet);
+  const qs = new URLSearchParams(req.getQuery());
+  const wallet = verifySession(qs.get("session") ?? "");
+  const from = qs.get("from") ?? "";
+  const back = returnBase(from);
+  if (!TW_ID || !TW_SECRET) return redirect(res, `${back}/?link=twitter_unconfigured`);
+  if (!wallet) return redirect(res, `${back}/?link=need_wallet`);
+  const state = packState(makeLinkCode(wallet), from);
   const verifier = randomBytes(32).toString("base64url");
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   twPkce.set(state, { verifier, at: Date.now() });
@@ -1901,10 +1932,12 @@ app.get("/auth/twitter/callback", (res, req) => {
   const q = new URLSearchParams(req.getQuery());
   const code = q.get("code") ?? "";
   const state = q.get("state") ?? "";
-  const wallet = takeLinkCode(state);
+  const { code: linkCode, from } = unpackState(state);
+  const back = returnBase(from);
+  const wallet = takeLinkCode(linkCode);
   const pk = twPkce.get(state);
   twPkce.delete(state);
-  if (!wallet || !code || !pk) return redirect(res, `${APP_BASE}/?link=twitter_failed`);
+  if (!wallet || !code || !pk) return redirect(res, `${back}/?link=twitter_failed`);
   void (async () => {
     try {
       const tr = await fetch("https://api.twitter.com/2/oauth2/token", {
@@ -1913,13 +1946,13 @@ app.get("/auth/twitter/callback", (res, req) => {
         body: new URLSearchParams({ code, grant_type: "authorization_code", redirect_uri: `${APP_BASE}/auth/twitter/callback`, code_verifier: pk.verifier }),
       });
       const tj = (await tr.json()) as { access_token?: string };
-      if (!tj.access_token) return redirect(res, `${APP_BASE}/?link=twitter_failed`);
+      if (!tj.access_token) return redirect(res, `${back}/?link=twitter_failed`);
       const ur = await fetch("https://api.twitter.com/2/users/me", { headers: { Authorization: `Bearer ${tj.access_token}` } });
       const uj = (await ur.json()) as { data?: { username?: string } };
       if (uj.data?.username) await identity.link(wallet, { twitter: String(uj.data.username) });
-      redirect(res, `${APP_BASE}/?link=twitter_ok`);
+      redirect(res, `${back}/?link=twitter_ok`);
     } catch {
-      redirect(res, `${APP_BASE}/?link=twitter_failed`);
+      redirect(res, `${back}/?link=twitter_failed`);
     }
   })();
 });
