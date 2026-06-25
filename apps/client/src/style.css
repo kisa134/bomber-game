@@ -2980,8 +2980,11 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 .chat-input {
   width: 100%;
-  font-size: 0.9rem;
-  padding: 10px 12px;
+  font-size: 0.8rem;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 /* Bottom action bar */
 .room-actions {
@@ -3033,14 +3036,43 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   .room-side { order: 2; }
   /* Simplify: no character picking on mobile (your equipped skin is used). */
   .room-character { display: none; }
-  /* Top bar wraps cleanly — nothing slides off horizontally. */
-  .room-top { flex-wrap: wrap; }
-  .room-id { flex: 1 1 100%; }
-  .room-region { margin-left: 0; order: 5; }
-  .room-actions { flex-direction: column; align-items: stretch; }
+  /* Top bar wraps cleanly — title stays inline with the back arrow; CODE+Invite
+     wrap to the next line. */
+  .room-top { flex-wrap: wrap; align-items: center; }
+  .room-id { flex: 1 1 auto; }
+  .room-region { order: 5; }
+  /* Ready / Raise pinned to the bottom of the screen, always reachable. */
+  .room-actions {
+    position: sticky;
+    bottom: 0;
+    z-index: 6;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin: 8px -16px calc(-14px - var(--sai-bottom, 0px));
+    padding: 10px 16px calc(10px + var(--sai-bottom, 0px));
+    background: rgba(11, 13, 22, 0.92);
+    backdrop-filter: blur(12px) saturate(1.2);
+    -webkit-backdrop-filter: blur(12px) saturate(1.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  .room-status { flex: none; text-align: center; font-size: 0.78rem; }
   .room-actions-btns { width: 100%; }
   .room-actions-btns button { flex: 1 1 auto; }
+  /* Stake-raise proposals also dock just above the pinned bar. */
+  #stake-vote:not(.hidden),
+  #propose-picker:not(.hidden),
+  #room-stake:not(.hidden) {
+    position: sticky;
+    bottom: 78px;
+    z-index: 6;
+  }
 }
+/* Reliable taps on every room control (kills the 300ms delay / first-tap miss). */
+#room button,
+#room .room-vis-btn,
+#room .seat,
+#room input { touch-action: manipulation; }
 
 /* --- Invite & Earn hub (KPIs · share · how-it-works · network · estimate) --- */
 #referral {
@@ -3601,21 +3633,30 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 
 /* Emote / reaction bars */
+/* Reactions — a glass grid that fills the chat width edge-to-edge. */
 .emote-bar {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
   gap: 6px;
-  justify-content: center;
-  flex-wrap: wrap;
 }
 .emote-btn {
-  width: 42px;
-  height: 42px;
-  font-size: 1.3rem;
+  width: 100%;
+  height: 40px;
+  font-size: 1.25rem;
   padding: 0;
   border-radius: 10px;
-  background: var(--panel);
-  border: 1px solid var(--border);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.1s ease;
+}
+.emote-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.26);
 }
 .emote-btn:active {
   transform: scale(0.9);
@@ -3640,16 +3681,16 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   background: var(--panel);
 }
 .emote-pop {
-  position: absolute;
+  position: fixed; /* viewport-relative → visible even while the room scrolls (mobile) */
   left: 50%;
-  bottom: 26%;
+  bottom: 30%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.7);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 6px 14px;
   font-weight: 700;
-  z-index: 9;
+  z-index: 40;
   pointer-events: none;
   white-space: nowrap;
   animation: emote-rise 2.2s ease-out forwards;
