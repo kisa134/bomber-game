@@ -1,7 +1,7 @@
 // All gameplay-balancing numbers live here. No magic numbers in logic.
 
 // Bump whenever the binary frame layout changes; client + server must match.
-export const PROTOCOL_VERSION = 19;
+export const PROTOCOL_VERSION = 20;
 
 export const TICK_RATE = 60; // Hz — finest/most responsive base motion (2x server cost)
 export const TICK_MS = 1000 / TICK_RATE; // ~16.7
@@ -31,6 +31,9 @@ export const CORNER_ASSIST = 2.2;
 
 export const MAX_PLAYERS_PER_ROOM = 4;
 export const MIN_PLAYERS_TO_START = 2;
+// Distinct in-match player colours (assigned in the lobby, independent of skin).
+// Must cover the largest possible arena (1 human + 7 bots in practice = 8).
+export const PLAYER_COLOR_COUNT = 8;
 export const SPECTATOR_ID = 255; // welcome id sent to a spectator (not a real seat)
 
 export const MATCH_LENGTH_MS = 180_000; // 3 minutes (default; host can change in-lobby)
@@ -74,7 +77,7 @@ export const START_SPEED = PLAYER_BASE_SPEED;
 export const KICK_SPEED = 6.0;
 
 // --- Economy (simulated currency; real token wired later) ------------------
-export const STARTING_CHIPS = 1000; // granted to a new wallet
+export const STARTING_CHIPS = 2500; // granted to a new wallet (small welcome bundle)
 export const BET_SIZES = [100, 250, 500, 1000, 2500] as const; // chip table stakes
 // Token table stakes (whole tokens). Host picks; winner takes the pot.
 export const TOKEN_BET_SIZES = [1000, 5000, 25000, 100000, 500000] as const;
@@ -102,14 +105,15 @@ export const DAILY_XP_PER_DAY = 15; // XP per streak day (capped like chips)
 // Index: 0 Shiba, 1 Pepe, 2 Trump, 3 Musk, 4 Doge, 5 Pump, 6 Durov, 7 Vitalik,
 //        8 Troll, 9 Bogdanoff, 10 Gigachad. The cooler/rarer it is, the dearer.
 export const SKIN_COUNT = 11;
-// The first 4 are free & owned from the start.
-export const DEFAULT_SKINS = 0b0000_1111;
+// The first 4 are free & owned from the start, plus a free starter rare (Doge, #4).
+export const DEFAULT_SKINS = 0b0001_1111;
 // Chip price to UNLOCK a skin (also requires reaching SKIN_UNLOCK_LEVEL). 0 = free.
-export const SKIN_PRICES = [0, 0, 0, 0, 2000, 3500, 5000, 7000, 9000, 12000, 20000] as const;
+// Tuned so the full set is grindable in ~a week of casual play (#4 free starter).
+export const SKIN_PRICES = [0, 0, 0, 0, 0, 2500, 4000, 6000, 8000, 11000, 16000] as const;
 // Player level required before a skin can be bought with chips. 0 = no gate.
-export const SKIN_UNLOCK_LEVEL = [0, 0, 0, 0, 3, 5, 8, 12, 16, 20, 25] as const;
+export const SKIN_UNLOCK_LEVEL = [0, 0, 0, 0, 0, 4, 7, 10, 14, 18, 22] as const;
 // Whole-token price to buy a skin INSTANTLY (bypasses the level gate). 0 = free.
-export const SKIN_TOKEN_PRICES = [0, 0, 0, 0, 5000, 10000, 20000, 35000, 50000, 80000, 150000] as const;
+export const SKIN_TOKEN_PRICES = [0, 0, 0, 0, 0, 10000, 20000, 35000, 50000, 80000, 150000] as const;
 
 // --- Lucky Spin (free chips wheel; "always something", pure fun) ------------
 export const SPIN_COST_CHIPS = 200; // cost per spin

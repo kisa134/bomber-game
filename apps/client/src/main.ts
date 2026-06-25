@@ -481,7 +481,7 @@ net.onMessage = (msg) => {
       hitStopUntil = performance.now() + 85; // hit-stop: weighty kill freeze
       const snap = state.latest();
       const dp = snap?.players.find((p) => p.id === msg.playerId);
-      if (dp) renderer?.onDeath(Math.floor(dp.x), Math.floor(dp.y), PLAYER_COLORS[dp.id % PLAYER_COLORS.length]);
+      if (dp) renderer?.onDeath(Math.floor(dp.x), Math.floor(dp.y), PLAYER_COLORS[state.colorOf(dp.id) % PLAYER_COLORS.length]);
       if (msg.playerId === state.myId) { flashHit(); myKillTimes = []; } // your death breaks your streak
       break;
     }
@@ -522,6 +522,7 @@ function enterGame(): void {
     renderer = new Renderer(canvas);
     renderer.setAssets(assets);
     renderer.skinOf = (id) => state.skinOf(id);
+    renderer.colorOf = (id) => state.colorOf(id);
     renderer.setGore(settings.gore);
   }
   renderer.resize();
@@ -1014,7 +1015,7 @@ function updateHud(): void {
 
     const dot = document.createElement("span");
     dot.className = "pdot";
-    dot.style.background = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
+    dot.style.background = PLAYER_COLORS[state.colorOf(p.id) % PLAYER_COLORS.length];
     card.appendChild(dot);
 
     const name = document.createElement("span");
@@ -1098,13 +1099,13 @@ function renderKillfeed(now: number): void {
     e.className = "kill-entry";
     const killer = document.createElement("span");
     killer.className = "nm";
-    killer.style.color = k.killerId < 255 ? PLAYER_COLORS[k.killerId % PLAYER_COLORS.length] : "#aaa";
+    killer.style.color = k.killerId < 255 ? PLAYER_COLORS[state.colorOf(k.killerId) % PLAYER_COLORS.length] : "#aaa";
     killer.textContent = k.killerId < 255 ? state.nameOf(k.killerId) : "☠️";
     const mid = document.createElement("span");
     mid.textContent = "💥";
     const victim = document.createElement("span");
     victim.className = "nm";
-    victim.style.color = PLAYER_COLORS[k.victimId % PLAYER_COLORS.length];
+    victim.style.color = PLAYER_COLORS[state.colorOf(k.victimId) % PLAYER_COLORS.length];
     victim.textContent = state.nameOf(k.victimId);
     e.append(killer, mid, victim);
     killfeedEl.appendChild(e);

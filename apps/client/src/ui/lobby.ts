@@ -1,4 +1,4 @@
-import { PLAYER_COLORS, skinAvatar } from "../game/renderer.js";
+import { PLAYER_COLORS, COLOR_NAMES, skinAvatar } from "../game/renderer.js";
 import { ASSET_VER } from "../game/assets.js";
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, DEFAULT_SKINS, PRACTICE_MAX_BOTS, DEFAULT_SANDBOX, type SandboxOpts } from "../net/protocol.js";
 
@@ -649,7 +649,12 @@ export function renderRoom(state: GameState): void {
     const li = document.createElement("li");
     li.className =
       "seat" + (p.ready ? " ready" : "") + (p.id === state.myId ? " you" : "") + (p.id === state.hostId ? " host" : "");
-    const av = skinAvatar(p.skin, PLAYER_COLORS[p.id % PLAYER_COLORS.length]);
+    const col = PLAYER_COLORS[p.color % PLAYER_COLORS.length];
+    const colName = COLOR_NAMES[p.color % COLOR_NAMES.length];
+    // The seat is tinted in the player's UNIQUE in-match colour (assigned in the
+    // lobby, independent of skin) so everyone knows their colour before the match.
+    li.style.setProperty("--seat-color", col);
+    const av = skinAvatar(p.skin, col);
     av.classList.add("seat-av");
     li.appendChild(av);
     const name = document.createElement("div");
@@ -658,6 +663,10 @@ export function renderRoom(state: GameState): void {
     li.appendChild(name);
     const badges = document.createElement("div");
     badges.className = "seat-badges";
+    // Colour chip — for the local player it reads "YOU: Red" so they can't miss it.
+    badges.innerHTML += `<span class="color-tag" style="--c:${col}">${
+      p.id === state.myId ? `YOU: ${colName}` : colName
+    }</span>`;
     if (p.id === state.hostId) badges.innerHTML += `<span class="host-tag">👑 HOST</span>`;
     if (seriesOn) badges.innerHTML += `<span class="win-tag">🏆 ${p.wins}</span>`;
     li.appendChild(badges);

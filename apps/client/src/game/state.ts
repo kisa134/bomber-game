@@ -98,6 +98,12 @@ export class GameState {
     return this.roomPlayers.find((p) => p.id === id)?.skin ?? id % 4;
   }
 
+  /** Unique in-match colour index, assigned in the lobby (independent of skin).
+   *  Falls back to an id-derived index for players we have no room info for. */
+  colorOf(id: number): number {
+    return this.roomPlayers.find((p) => p.id === id)?.color ?? id % 8;
+  }
+
   addSnapshot(snap: Snapshot): void {
     // Reconstruct the grid from the delta encoding.
     if (snap.gridMode === 2 && snap.gridFull) this.grid.set(snap.gridFull);

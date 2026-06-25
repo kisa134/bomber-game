@@ -3,7 +3,22 @@ import type { RenderView } from "./state.js";
 import type { Assets } from "./assets.js";
 import { ASSET_VER } from "./assets.js";
 
-export const PLAYER_COLORS = ["#ff5555", "#4aa3ff", "#5fd96a", "#ffcc33"];
+// One unique colour per player slot — supports a full 8-player arena (1 human +
+// up to 7 bots) with no duplicates. Index is assigned in the lobby, independent
+// of the chosen skin. Ordered for max contrast between the first few entries.
+export const PLAYER_COLORS = [
+  "#ff5555", // red
+  "#4aa3ff", // blue
+  "#5fd96a", // green
+  "#ffcc33", // yellow
+  "#c879ff", // purple
+  "#ff8a3d", // orange
+  "#33e0d6", // cyan
+  "#ff6fae", // pink
+];
+// Human-readable names for each colour slot (same order as PLAYER_COLORS), so a
+// player can be told "you're the Red bomber" in the lobby before the match.
+export const COLOR_NAMES = ["Red", "Blue", "Green", "Yellow", "Purple", "Orange", "Cyan", "Pink"];
 export const SKIN_EMOJI = ["🐕", "🐸", "🦊", "😐", "🐶", "🥚", "🕶", "🦄", "🧌", "📞", "💪"];
 
 /** DOM avatar showing the character sprite (emoji fallback), with an optional
@@ -130,6 +145,9 @@ export class Renderer {
 
   /** Maps a player id to a skin index. Overridden by main. */
   skinOf: (id: number) => number = (id) => id % PLAYER_COLORS.length;
+  /** Maps a player id to its unique in-match colour index (assigned in the
+   *  lobby, not skin-tied). Overridden by main; falls back to id-derived. */
+  colorOf: (id: number) => number = (id) => id % PLAYER_COLORS.length;
 
   private fireStart = new Map<number, number>();
   private lastPos = new Map<number, { x: number; y: number }>();
@@ -1693,7 +1711,7 @@ export class Renderer {
       const pulse = 1 - (b.fuseLeftMs / BOMB_TIMER_MS) * 0.25;
       const cx = (b.x + 0.5) * t;
       const cy = (b.y + 0.5) * t;
-      const color = PLAYER_COLORS[b.ownerId % PLAYER_COLORS.length];
+      const color = PLAYER_COLORS[this.colorOf(b.ownerId) % PLAYER_COLORS.length];
       this.drawShadow(cx, cy + t * 0.3, t * 0.34, t * 0.14, 0.28);
       // Owner-colored glow under the bomb (kept even on phones so you can tell
       // whose bombs are whose), pulsing faster as the fuse burns down.
@@ -1830,7 +1848,7 @@ export class Renderer {
 
       // Countdown: brightly mark YOUR corner in your color ("you are here").
       if (this.countdownActive && p.id === myId && p.alive) {
-        const col = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
+        const col = PLAYER_COLORS[this.colorOf(p.id) % PLAYER_COLORS.length];
         const pulse = 0.5 + 0.5 * Math.sin(now / 170);
         const tx = Math.floor(rp.x) * t;
         const ty = Math.floor(rp.y) * t;
@@ -1876,7 +1894,7 @@ export class Renderer {
       const sinceStart = this.matchStartMs ? now - this.matchStartMs : Infinity;
       if (p.alive) {
         const isMe = p.id === myId;
-        const col = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
+        const col = PLAYER_COLORS[this.colorOf(p.id) % PLAYER_COLORS.length];
         const beat = 0.88 + 0.12 * Math.sin(now / 240);
         const boost = sinceStart < HL_MS ? (sinceStart > HL_MS - 4000 ? (HL_MS - sinceStart) / 4000 : 1) : 0;
         // Smaller, MORE SATURATED color pool (tighter falloff -> denser core).
@@ -1976,7 +1994,7 @@ export class Renderer {
         ctx.drawImage(img, -s / 2, -s / 2, s, s);
         ctx.restore();
       } else {
-        ctx.fillStyle = PLAYER_COLORS[p.id % PLAYER_COLORS.length];
+        ctx.fillStyle = PLAYER_COLORS[this.colorOf(p.id) % PLAYER_COLORS.length];
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();

@@ -23,19 +23,22 @@ Derived from the code (`packages/shared/src/constants.ts`, `apps/server/src/stor
 - **Affects:** league tier (Beginner→Advanced→Pro→Champion), the ranked
   leaderboard, and the displayed rank.
 
-## Skins / unlocks
-- `SKIN_UNLOCK_LEVEL = [0,0,0,0,3,5,8,12,16,20,25]` (first 4 free).
-- `SKIN_PRICES (chips) = [0,0,0,0,2000,3500,5000,7000,9000,12000,20000]`.
+## Skins / unlocks (tuned economy)
+- `SKIN_UNLOCK_LEVEL = [0,0,0,0,0,4,7,10,14,18,22]` — **first 5 free** (the 4
+  starters + a free starter rare, Doge #4, owned from the first login).
+- `SKIN_PRICES (chips) = [0,0,0,0,0,2500,4000,6000,8000,11000,16000]`.
+- New wallets also get a **welcome bundle** of `STARTING_CHIPS = 2500`.
 - To own a paid skin you need **both** the level **and** the chips (or buy with
   token via the shop).
 
 ## Progression estimate ("~1 week to unlock all")
-- Top skin = level 25 = **5000 XP** ≈ **~125-200 matches** (depends on win rate /
-  frags). At ~3 min/match that's ≈ **6-10 h** of play ≈ a week at ~1.5 h/day. ✅
-- Chips for the full set ≈ 58,500 chips; match rewards (win 100 / play 20) +
-  dailies (50→350 + bonuses) cover this in roughly the same window.
+- Top skin = level 22 = **4400 XP** ≈ **~110-180 matches** (depends on win rate /
+  frags). At ~3 min/match that's ≈ **5-9 h** of play ≈ a week at ~1.5 h/day. ✅
+- Chips for the full paid set ≈ 47,500 chips; the 2,500 welcome bundle + match
+  rewards (win 100 / play 20) + dailies (50→350 + 500 weekly bonus) cover this in
+  roughly the same window, with a free rare skin in hand from day one.
 - **Tuning levers:** `xpForMatch` constants, `200`-XP step, `SKIN_PRICES`,
-  `SKIN_UNLOCK_LEVEL`, daily reward constants. (See economy-tuning task.)
+  `SKIN_UNLOCK_LEVEL`, `STARTING_CHIPS`, `DEFAULT_SKINS`, daily reward constants.
 
 ## Notes / decisions
 - No token reward for rating (by design) — tokens come from buying or referral.

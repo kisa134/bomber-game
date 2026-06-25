@@ -17,6 +17,7 @@ import {
   MAX_PLAYERS_PER_ROOM,
   MIN_PLAYERS_TO_START,
   SKIN_COUNT,
+  PLAYER_COLOR_COUNT,
   SPECTATOR_ID,
   KICK_SPEED,
   HIT_INVULN_MS,
@@ -243,6 +244,7 @@ export class Room {
     const name = BOT_NAMES[id % BOT_NAMES.length];
     const p = new Player(id, name, id % SKIN_COUNT, spawn.x, spawn.y, () => {}, true);
     p.ready = true; // bots are always ready
+    p.color = this.freeColor();
     this.players.set(id, p);
     this.bots.set(id, new BotController(this.botDifficulty));
     this.dedupeSkins();
@@ -253,6 +255,7 @@ export class Room {
     const spawn = SPAWNS[this.players.size % SPAWNS.length];
     const p = new Player(id, name, skin, spawn.x, spawn.y, send);
     p.wallet = wallet;
+    p.color = this.freeColor();
     this.players.set(id, p);
     this.needKeyframe.add(id);
     if (this.hostId < 0) this.hostId = id;
@@ -261,6 +264,18 @@ export class Room {
     send(encodePhase(this.phase, this.phaseTimer()));
     this.broadcastRoomInfo();
     return p;
+  }
+
+  /** Lowest colour index not currently taken by a seated player. Colours are
+   *  assigned once on join and stay put (they don't follow skin changes), so
+   *  every player — human or bot, even a full 8-seat practice arena — keeps a
+   *  unique colour they can see in the lobby before the match starts. */
+  private freeColor(): number {
+    const taken = new Set<number>();
+    for (const p of this.players.values()) taken.add(p.color);
+    let c = 0;
+    while (c < PLAYER_COLOR_COUNT && taken.has(c)) c++;
+    return c % PLAYER_COLOR_COUNT;
   }
 
   /** Give every seated player a distinct skin so no two look alike in a match.
@@ -1580,6 +1595,7 @@ export class Room {
       id: p.id,
       name: p.name,
       skin: p.skin,
+      color: p.color,
       ready: p.ready,
       wins: p.wins,
       wallet: p.wallet ?? "",

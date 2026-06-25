@@ -420,8 +420,8 @@ export function encodeRoomInfo(
   const nameBytes = players.map((p) => textEncoder.encode(p.name.slice(0, 24)));
   const walletBytes = players.map((p) => textEncoder.encode(p.wallet ?? ""));
   let size = 1 + 1 + 1 + 2 + 4 + 1 + 1 + 1 + 1 + codeBytes.length + 1;
-  // per player: id + skin + ready + wins + nameLen + name + walletLen + wallet
-  for (let i = 0; i < players.length; i++) size += 1 + 1 + 1 + 1 + 1 + nameBytes[i].length + 1 + walletBytes[i].length;
+  // per player: id + skin + color + ready + wins + nameLen + name + walletLen + wallet
+  for (let i = 0; i < players.length; i++) size += 1 + 1 + 1 + 1 + 1 + 1 + nameBytes[i].length + 1 + walletBytes[i].length;
   const buf = new Uint8Array(size);
   const dv = new DataView(buf.buffer);
   let o = 0;
@@ -439,6 +439,7 @@ export function encodeRoomInfo(
   for (let i = 0; i < players.length; i++) {
     dv.setUint8(o, players[i].id); o += 1;
     dv.setUint8(o, players[i].skin & 0xff); o += 1;
+    dv.setUint8(o, (players[i].color ?? 0) & 0xff); o += 1;
     dv.setUint8(o, players[i].ready ? 1 : 0); o += 1;
     dv.setUint8(o, Math.min(255, players[i].wins) & 0xff); o += 1;
     dv.setUint8(o, nameBytes[i].length); o += 1;
@@ -633,13 +634,14 @@ export function decodeServer(data: ArrayBuffer | Uint8Array): ServerMessage | nu
       for (let i = 0; i < count; i++) {
         const id = dv.getUint8(o); o += 1;
         const skin = dv.getUint8(o); o += 1;
+        const color = dv.getUint8(o); o += 1;
         const ready = dv.getUint8(o) !== 0; o += 1;
         const wins = dv.getUint8(o); o += 1;
         const nameLen = dv.getUint8(o); o += 1;
         const name = textDecoder.decode(bytes.subarray(o, o + nameLen)); o += nameLen;
         const walletLen = dv.getUint8(o); o += 1;
         const wallet = textDecoder.decode(bytes.subarray(o, o + walletLen)); o += walletLen;
-        players.push({ id, name, skin, ready, wins, wallet });
+        players.push({ id, name, skin, color, ready, wins, wallet });
       }
       const msg: RoomInfoMsg = { type, code, hostId, isHost, lobbyCountdownMs, stake, currency, isPublic, durationMins, players };
       return msg;

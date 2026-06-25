@@ -19,6 +19,7 @@ export class Player {
   name: string;
   skin: number; // effective skin shown in-match (deduped so it's unique per room)
   preferredSkin: number; // the skin the player actually picked
+  color: number = 0; // unique in-match colour index, assigned in the lobby (not skin-tied)
   isBot: boolean;
   wallet: string | null = null; // verified Solana address, for ranked stats
 

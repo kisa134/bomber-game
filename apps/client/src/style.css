@@ -2297,6 +2297,7 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 3px solid var(--seat-color, rgba(255, 255, 255, 0.1));
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease;
 }
@@ -2334,6 +2335,17 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   display: flex;
   gap: 6px;
   min-height: 14px;
+}
+.seat-badges .color-tag {
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  padding: 1px 7px;
+  border-radius: 999px;
+  color: var(--c);
+  background: color-mix(in srgb, var(--c) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 55%, transparent);
+  text-transform: uppercase;
 }
 .seat-badges .host-tag {
   font-size: 0.66rem;
