@@ -113,21 +113,30 @@
       </div>
 
       <!-- Splash: the very first entry screen (its own video backdrop) -->
+      <!-- Hero STAGE: scene layers (bg / overlay / focus / embers) are pure
+           decoration; the UI lives in a glass card in normal flow on top. -->
       <section id="splash" class="screen hidden">
         <video id="splash-video" autoplay muted loop playsinline preload="auto"></video>
+        <div class="splash-hero" aria-hidden="true"></div>
+        <div class="splash-overlay" aria-hidden="true"></div>
+        <div class="splash-focus" aria-hidden="true"></div>
+        <div class="splash-embers" aria-hidden="true">
+          <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
         <!-- Pre-launch alpha notice — only on this very first screen -->
         <div id="alpha-banner" class="splash-alpha">
-          🔴 FINAL ALPHA — NOT LAUNCHED YET. You're on a <b>temporary TEST token</b> only. The official token
+          <span class="sa-dot" aria-hidden="true"></span> FINAL ALPHA — NOT LAUNCHED YET. You're on a <b>temporary TEST token</b> only. The official token
           launches <b>TOMORROW</b> (it will be a NEW token).
           <a href="https://pump.fun/coin/2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump" target="_blank" rel="noopener">Current test token ↗</a>
         </div>
-        <div class="splash-overlay">
-          <div class="splash-card">
-            <div class="splash-logo logo">BomberMeme.fun</div>
-            <p class="splash-tagline">blow up your friends · pump.fun arena</p>
+        <div class="splash-card">
+          <h1 class="splash-logo">BOMBERMEME</h1>
+          <p class="splash-tagline">blow up your friends · pump.fun arena</p>
+          <div class="splash-chip"><span class="sc-dot" aria-hidden="true"></span> SEASON 1 · LIVE</div>
+          <div class="splash-actions">
             <button id="splash-enter" class="primary big glass-btn">▶ Enter game</button>
-            <button id="splash-connect" class="big">🔗 Connect wallet</button>
-            <button id="splash-about" class="ghost">ℹ About</button>
+            <button id="splash-connect" class="big glass-btn">🔗 Connect wallet</button>
+            <button id="splash-about" class="splash-about">About</button>
           </div>
         </div>
       </section>

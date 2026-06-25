@@ -4011,21 +4011,42 @@ button.big {
   background: transparent;
 }
 /* Pre-launch alpha / test-token banner (first row of the chrome). */
+/* Refined alert ribbon — dark glass + amber text + a pulsing red dot, instead
+   of a flat red block (matches the AAA glass language). */
 #alpha-banner {
-  background: linear-gradient(180deg, #e0231f, #a30b08);
-  color: #fff;
-  font-size: 0.74rem;
-  font-weight: 700;
-  line-height: 1.25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  color: #ffe6b0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.3;
   text-align: center;
   letter-spacing: 0.2px;
-  padding: calc(6px + env(safe-area-inset-top)) 12px 6px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+  padding: calc(7px + env(safe-area-inset-top)) 14px 7px;
+  background: linear-gradient(180deg, rgba(36, 20, 10, 0.82), rgba(22, 12, 8, 0.82));
+  border-bottom: 1px solid rgba(255, 170, 70, 0.22);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
 }
+#alpha-banner b { color: #ffd27a; }
 #alpha-banner a {
-  color: #fff;
+  color: #ffd27a;
   text-decoration: underline;
   white-space: nowrap;
+}
+/* pulsing red status dot (replaces the 🔴 emoji) */
+.sa-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff3b30;
+  box-shadow: 0 0 8px 1px rgba(255, 59, 48, 0.8);
+  animation: scPulse 1.6s ease-in-out infinite;
 }
 #alpha-banner.hidden {
   display: none;
@@ -5246,74 +5267,200 @@ button.big {
 }
 
 /* --- Splash entry screen (own video backdrop + Enter / Connect / About) --- */
+/* ── SPLASH = hero STAGE. Decorative scene layers (bg / overlay / focus / embers)
+   sit behind a GLASS UI card that lifts the content cleanly off the art (same
+   glass language as the hub's profile card) — not buttons floating on an image.
+   The card is normal flow, centred by the stage grid; only the art is absolute. */
 #splash {
   position: fixed;
   inset: 0;
   z-index: 40;
-  overflow: hidden;
-  /* AAA mockup: static splash-art hero, slightly dimmed/saturated. */
-  background: #0b070e url("/bg/splash-art.png") center / cover no-repeat;
+  overflow: clip;
+  display: grid;
+  place-items: center;
+  padding: max(64px, calc(20px + env(safe-area-inset-top))) 22px max(40px, calc(20px + env(safe-area-inset-bottom)));
+  isolation: isolate;
+  background: #0b070e;
 }
-#splash::before {
-  /* match the mockup's brightness(.62) saturate(1.12) on the art */
-  content: "";
+/* (1) Background scene — the art, dimmed, slow ken-burns drift. */
+.splash-hero {
+  position: absolute;
+  inset: -4%;
+  z-index: 0;
+  background: #0b070e url("/bg/splash-art.webp") center / cover no-repeat;
+  filter: brightness(0.66) saturate(1.12) contrast(1.03);
+  transform-origin: 52% 42%;
+  animation: splashKen 26s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes splashKen {
+  0%   { transform: scale(1.06) translate(0, 0); }
+  100% { transform: scale(1.14) translate(-1.4%, -1.2%); }
+}
+#splash-video { display: none; }
+/* Floating embers — a whisper of magic dust drifting up the hero (CSS only). */
+.splash-embers {
   position: absolute;
   inset: 0;
-  background: rgba(8, 7, 14, 0.34);
-  backdrop-filter: saturate(1.12);
-  -webkit-backdrop-filter: saturate(1.12);
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
 }
-#splash-video {
-  display: none; /* replaced by the static splash-art hero */
+.splash-embers i {
+  position: absolute;
+  bottom: -6%;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #ffe9a8, transparent 70%);
+  box-shadow: 0 0 7px 1px rgba(255, 210, 120, 0.5);
+  opacity: 0;
+  animation: splashEmber var(--ed, 9s) linear infinite;
+  animation-delay: var(--edl, 0s);
 }
+.splash-embers i:nth-child(1)  { left: 8%;  --ed: 11s; --edl: -2s; }
+.splash-embers i:nth-child(2)  { left: 17%; --ed: 9s;  --edl: -5s; }
+.splash-embers i:nth-child(3)  { left: 26%; --ed: 13s; --edl: -1s; }
+.splash-embers i:nth-child(4)  { left: 35%; --ed: 8s;  --edl: -7s; }
+.splash-embers i:nth-child(5)  { left: 44%; --ed: 12s; --edl: -3s; }
+.splash-embers i:nth-child(6)  { left: 53%; --ed: 10s; --edl: -9s; }
+.splash-embers i:nth-child(7)  { left: 62%; --ed: 14s; --edl: -4s; }
+.splash-embers i:nth-child(8)  { left: 71%; --ed: 9s;  --edl: -6s; }
+.splash-embers i:nth-child(9)  { left: 80%; --ed: 11s; --edl: -2s; }
+.splash-embers i:nth-child(10) { left: 88%; --ed: 12s; --edl: -8s; }
+.splash-embers i:nth-child(11) { left: 30%; --ed: 15s; --edl: -10s; }
+.splash-embers i:nth-child(12) { left: 67%; --ed: 13s; --edl: -12s; }
+@keyframes splashEmber {
+  0%   { opacity: 0; transform: translateY(0) translateX(0); }
+  12%  { opacity: 0.85; }
+  80%  { opacity: 0.65; }
+  100% { opacity: 0; transform: translateY(-86vh) translateX(14px); }
+}
+/* (2) Global dark overlay — calms the art for readability. */
 .splash-overlay {
   position: absolute;
   inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding: 0 20px 56px;
-  /* mockup vignette: clear at top, deep at the bottom where the CTA sits */
-  background: radial-gradient(125% 95% at 50% 26%, transparent 28%, rgba(8, 7, 14, 0.5) 64%, rgba(8, 7, 14, 0.96) 100%);
+  z-index: 1;
+  background: linear-gradient(to bottom, rgba(6, 10, 18, 0.34) 0%, rgba(6, 10, 18, 0.46) 45%, rgba(4, 7, 14, 0.74) 100%);
 }
+/* (3) Local focus — a warm key-light that lifts the centre under the card. */
+.splash-focus {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 215, 120, 0.14), transparent 30%),
+    radial-gradient(circle at 50% 52%, rgba(255, 255, 255, 0.07), transparent 42%);
+}
+/* (4) Glass UI card — the whole content stack, lifted off the scene. */
 .splash-card {
+  position: relative;
+  z-index: 4;
+  /* inline-size container: the card width is FIXED (not stretched by the long
+     logo), and the logo scales to fit it via cqw — robust on every screen. */
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  width: min(380px, 100%);
   text-align: center;
-}
-/* gold CTA gets a sweeping sheen, like the mockup CONNECT WALLET button */
-.splash-card .primary {
-  position: relative;
-  overflow: hidden;
-}
-/* (Removed the left-to-right running sheen bar on splash buttons.) */
-.splash-card .primary::after { display: none; }
-@keyframes splash-sheen {
-  0% {
-    transform: translateX(-130%) skewX(-18deg);
-  }
-  55%,
-  100% {
-    transform: translateX(560%) skewX(-18deg);
-  }
+  width: min(600px, 92vw);
+  padding: 40px 34px 32px;
+  border-radius: 26px;
+  background: linear-gradient(180deg, rgba(26, 22, 34, 0.72), rgba(14, 12, 20, 0.74));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
 }
 .splash-logo {
-  font-size: clamp(2.4rem, 11vw, 3.6rem);
-  letter-spacing: 0.07em;
+  margin: 0;
+  font-family: var(--font-disp, "Cinzel", Georgia, serif);
+  font-weight: 800;
+  /* sized to the CARD width (cqw) so it always fits with side margin */
+  font-size: clamp(1.4rem, 7cqw, 2.7rem);
+  line-height: 0.96;
+  letter-spacing: 0.01em;
+  background: linear-gradient(180deg, #fff6d4 0%, #f4c049 46%, #d89220 78%, #b06e14 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45)) drop-shadow(0 8px 22px rgba(239, 175, 44, 0.16));
 }
+/* Thin service line — small, low-contrast, wide tracking (won't fight the logo). */
 .splash-tagline {
+  margin: 16px 0 0;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.22em;
+  font-size: 0.7rem;
+  line-height: 1;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: #e8cf86;
-  margin: 4px 0 12px;
+  color: rgba(244, 221, 167, 0.82);
+  font-weight: 500;
 }
-.splash-card button {
+/* SEASON 1 · LIVE — high-end live-status chip (its own module). */
+.splash-chip {
+  margin-top: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: rgba(230, 245, 225, 0.92);
+  background: rgba(18, 28, 20, 0.55);
+  border: 1px solid rgba(120, 220, 130, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.sc-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #4df27b;
+  box-shadow: 0 0 12px 1px rgba(77, 242, 123, 0.7);
+  animation: scPulse 1.8s ease-in-out infinite;
+}
+@keyframes scPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.82); }
+}
+/* Actions — a vertical system: primary heaviest, secondary lighter, about a link. */
+.splash-actions {
   width: 100%;
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 13px;
+}
+.splash-actions .glass-btn { width: 100%; }
+.splash-actions .glass-btn.primary { min-height: 58px; font-size: 1.04rem; }
+.splash-actions .glass-btn:not(.primary) { min-height: 52px; }
+/* About — a capsule LINK, not a third CTA (reads as secondary info). */
+.splash-about {
+  margin-top: 5px;
+  width: auto;
+  min-height: 38px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: rgba(18, 27, 45, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(231, 236, 248, 0.86);
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+/* Compact phones — tighten the card + buttons (logo auto-fits via cqw). */
+@media (max-width: 480px) {
+  .splash-card { padding: 30px 22px 26px; border-radius: 22px; }
+  .splash-actions .glass-btn.primary { min-height: 54px; }
+  .splash-actions .glass-btn:not(.primary) { min-height: 48px; }
 }
 
 /* =====================================================================

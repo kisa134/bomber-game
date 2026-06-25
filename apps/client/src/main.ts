@@ -4884,8 +4884,8 @@ document.addEventListener("pointerdown", (e) => {
 document.addEventListener("pointerdown", () => assets.playMusic(currentTrack), { once: true });
 
 // Deep links jump straight in (connect() drives the screen); otherwise we open
-// the main hub directly (the splash entry screen is disabled for now).
+// the splash entry screen (▶ Enter game → hub).
 updateSplashButtons();
-if (!autoJoined) showScreen("menu");
+if (!autoJoined) showScreen("splash");
 music("lobby");
 requestAnimationFrame(frame);
