@@ -580,8 +580,10 @@ function drawTables(): void {
     const isToken = t.currency === 1;
     const potVal = t.stake * t.players; // total on the line right now
     const usd = isToken ? usdSuffix(potVal) : "";
-    // Buy-in (the stake one player puts up) — the headline figure.
-    const stakeTag = t.stake > 0 ? `${sym}${t.stake.toLocaleString()}` : "🆓 FREE";
+    // Buy-in (the stake one player puts up) — the headline figure, shown with its
+    // ≈$/◎ conversion (player's chosen unit) right next to it for token rooms.
+    const conv = isToken && t.stake > 0 ? ` <span class="td-conv">${usdSuffix(t.stake).trim()}</span>` : "";
+    const stakeTag = t.stake > 0 ? `${sym}${t.stake.toLocaleString()}${conv}` : "🆓 FREE";
     // What's actually at stake: the whole pot (winner takes it), + USD for token.
     const potTag = t.stake > 0 ? `🏆 pot ${sym}${potVal.toLocaleString()}${usd}` : "casual · for fun";
     const action = t.live ? "👁 Watch" : "Join";
