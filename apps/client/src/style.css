@@ -2924,7 +2924,20 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 @media (max-width: 820px) {
   .room-grid {
     grid-template-columns: 1fr;
+    /* Size to CONTENT and let the wrap scroll — no height-squish that makes the
+       stacked blocks overlap. Even vertical spacing between every block. */
+    flex: none;
+    min-height: auto;
+    gap: 14px;
   }
+  .room-center,
+  .room-side,
+  .room-rail,
+  .room-social {
+    min-height: auto;
+    flex: none;
+  }
+  .chat-log { flex: none; max-height: 200px; }
   /* Priority order on mobile: seats → prize → chat. */
   .room-center { order: 1; }
   .room-side { order: 2; }
