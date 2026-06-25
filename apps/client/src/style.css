@@ -5124,6 +5124,24 @@ button.big {
   line-height: 1;
   margin-bottom: 12px;
 }
+/* Real sprite visual (character / bomb) on some onboarding cards. */
+.onboard-visual {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+.onboard-visual img {
+  width: 84px;
+  height: 84px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
+  animation: onboardFloat 2.6s ease-in-out infinite;
+}
+@keyframes onboardFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
 .onboard-title {
   font-size: 22px;
   font-weight: 800;
@@ -8201,3 +8219,32 @@ button.big {
     background: rgba(255, 255, 255, 0.05);
   }
 }
+
+/* Mini wallet nudge in the match HUD — subtle, dismissible (no wallet = no saved
+   XP/rating/earnings). */
+.hud-nudge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #ffd98a;
+  background: rgba(255, 204, 51, 0.08);
+  border: 1px solid rgba(255, 204, 51, 0.26);
+  border-radius: 9px;
+  padding: 3px 4px 3px 9px;
+  white-space: nowrap;
+}
+.hud-nudge .hn-text { cursor: pointer; }
+.hud-nudge .hn-x {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.7rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.hud-nudge .hn-x:hover { color: #fff; }

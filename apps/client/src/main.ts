@@ -1226,6 +1226,14 @@ function updateHud(): void {
       stakeEl.classList.add("hidden");
     }
   }
+
+  // Mini nudge: no wallet → your XP/rating/earnings aren't being saved. Dismissible.
+  const nudge = document.getElementById("hud-wallet-nudge");
+  if (nudge) {
+    let off = false;
+    try { off = !!localStorage.getItem("bp_nudge_off"); } catch { /* ignore */ }
+    nudge.classList.toggle("hidden", !!loadWallet() || off);
+  }
 }
 
 let bottomSig = "";
@@ -3819,34 +3827,41 @@ function wireAnnouncement(): void {
 const ONBOARD_KEY = "bp_onboarded_v1";
 const ONBOARD_TOUCH =
   typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
-const ONBOARD: Array<{ icon: string; title: string; text: string; pu?: string[] }> = [
+const ONBOARD: Array<{ icon: string; title: string; text: string; pu?: string[]; img?: string }> = [
+  {
+    img: "/sprites/skin_0_down_1.webp",
+    icon: "🎴",
+    title: "Welcome, fighter!",
+    text: "You've unlocked your <b>starter characters</b> as a joining reward — meet your roster in the card carousel on the hub. Win matches to collect rarer ones.",
+  },
   {
     icon: "🎯",
     title: "Last one standing",
-    text: "Blow up your rivals and survive. 2–4 players, 3-minute match.",
+    text: "Blow up your rivals and survive. <b>2–4 players</b>, one <b>3-minute</b> round — last fighter alive wins.",
   },
   {
-    icon: "🎮",
+    icon: ONBOARD_TOUCH ? "🕹️" : "⌨️",
     title: "Controls",
     text: ONBOARD_TOUCH
-      ? "Joystick / d-pad to move, the bomb button to drop bombs."
-      : "Arrows or WASD to move, Space to drop a bomb.",
+      ? "<b>Drag the left side</b> of the screen to move · tap the <b>💣 button</b> to drop a bomb."
+      : "<b>WASD</b> or <b>arrows</b> to move · <b>Space</b> to drop a bomb.",
   },
   {
+    img: "/sprites/bomb.webp",
     icon: "💣",
-    title: "Bombs & HP",
-    text: "Break crates, catch rivals in the blast. You have 3 ❤️ — a hit costs one.",
+    title: "Bombs & lives",
+    text: "Bombs blast in a <b>＋ cross</b> — smash crates and catch rivals. You have <b>3 ❤️</b>; each hit costs one life.",
   },
   {
     icon: "⚡",
     title: "Power-ups",
     pu: ["💣 +bomb", "🔥 +range", "👟 speed", "🦵 kick", "👻 ghost", "❤️ +life"],
-    text: "Grab them from destroyed crates.",
+    text: "Smash crates to grab them — stack up fast to dominate.",
   },
   {
-    icon: "🩸",
-    title: "Ready?",
-    text: "Hit PLAY NOW for an instant match. First to hit a rival = First Blood!",
+    icon: "🏆",
+    title: "Play & earn",
+    text: "Hit <b>PLAY</b> for an instant match — first hit on a rival is <b>First Blood</b>. Connect a wallet to earn tokens and climb the leagues.",
   },
 ];
 let onboardIdx = 0;
@@ -3854,8 +3869,11 @@ let onboardIdx = 0;
 function renderOnboard(): void {
   const c = ONBOARD[onboardIdx];
   const pu = c.pu ? `<div class="onboard-pu">${c.pu.map((p) => `<span>${p}</span>`).join("")}</div>` : "";
+  const visual = c.img
+    ? `<div class="onboard-visual"><img src="${c.img}?v=${ASSET_VER}" alt="" /></div>`
+    : `<div class="onboard-icon">${c.icon}</div>`;
   document.getElementById("onboard-body")!.innerHTML =
-    `<div class="onboard-icon">${c.icon}</div><div class="onboard-title">${c.title}</div>${pu}` +
+    `${visual}<div class="onboard-title">${c.title}</div>${pu}` +
     `<div class="onboard-text">${c.text}</div>`;
   document.getElementById("onboard-dots")!.innerHTML = ONBOARD.map(
     (_, i) => `<i class="${i === onboardIdx ? "on" : ""}"></i>`,
@@ -4910,6 +4928,16 @@ function buildEmoteBar(id: string): void {
 }
 buildEmoteBar("room-emotes");
 buildEmoteBar("game-emotes");
+
+// In-game wallet nudge: tapping the text opens connect; the ✕ hides it forever.
+document.querySelector("#hud-wallet-nudge .hn-text")?.addEventListener("click", () => {
+  document.getElementById("wallet-btn")?.click();
+});
+document.querySelector("#hud-wallet-nudge .hn-x")?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  try { localStorage.setItem("bp_nudge_off", "1"); } catch { /* ignore */ }
+  document.getElementById("hud-wallet-nudge")?.classList.add("hidden");
+});
 
 /** Show a reaction: a bubble over the player in-game, plus a floating lobby pop.
  *  Lobby pops spawn at a random x with a little drift and rise up, so multiple
