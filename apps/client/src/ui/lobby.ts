@@ -451,7 +451,7 @@ export function setupMenu(h: MenuHandlers): void {
 }
 
 /** Currency-category filter for the public tables browser. */
-type TableFilter = "all" | "free" | "chips" | "token";
+type TableFilter = "all" | "casual" | "arena" | "open";
 let tableFilter: TableFilter = "all";
 /** Sort order for the browser. */
 type TableSort = "stake-desc" | "stake-asc" | "players-desc" | "players-asc";
@@ -483,13 +483,13 @@ function drawTables(): void {
 
   // Filter chips by currency category — only show categories actually present,
   // each with the CORRECT symbol (🆓 free / 🪙 chips / 💎 token).
-  const hasFree = lastTables.some((t) => t.stake === 0);
-  const hasChips = lastTables.some((t) => t.currency === 0 && t.stake > 0);
-  const hasToken = lastTables.some((t) => t.currency === 1);
+  const hasCasual = lastTables.some((t) => t.currency === 0); // chips/free
+  const hasArena = lastTables.some((t) => t.currency === 1); // real tokens
+  const hasOpen = lastTables.some((t) => !t.live && t.players < t.max);
   const chips: Array<{ v: TableFilter; label: string }> = [{ v: "all", label: "All" }];
-  if (hasFree) chips.push({ v: "free", label: "🆓 Free" });
-  if (hasChips) chips.push({ v: "chips", label: "🪙 Chips" });
-  if (hasToken) chips.push({ v: "token", label: "💎 Token" });
+  if (hasCasual) chips.push({ v: "casual", label: "🪙 Casual" });
+  if (hasArena) chips.push({ v: "arena", label: "💎 Arena" });
+  if (hasOpen) chips.push({ v: "open", label: "👤 Open seats" });
   // Only one real category present → the chips add nothing; hide them.
   filter.classList.toggle("hidden", lastTables.length === 0 || chips.length <= 2);
   filter.innerHTML = "";
@@ -536,9 +536,9 @@ function drawTables(): void {
 
   const matchesFilter = (t: TableInfo): boolean => {
     switch (tableFilter) {
-      case "free": return t.stake === 0;
-      case "chips": return t.currency === 0 && t.stake > 0;
-      case "token": return t.currency === 1;
+      case "casual": return t.currency === 0;
+      case "arena": return t.currency === 1;
+      case "open": return !t.live && t.players < t.max;
       default: return true; // "all"
     }
   };
