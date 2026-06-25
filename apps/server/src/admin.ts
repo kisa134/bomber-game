@@ -46,6 +46,10 @@ export function adminPageHtml(): string {
   .ext-links{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 14px}
   .ext-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 14px;border-radius:8px;background:var(--panel);border:1px solid var(--border);color:var(--text);text-decoration:none;font-weight:700}
   .ext-btn:hover{border-color:var(--accent)}
+  #atabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;flex-wrap:wrap;padding:10px 0;margin:0 0 8px;background:linear-gradient(180deg,var(--bg) 70%,transparent);backdrop-filter:blur(6px)}
+  #atabs button{padding:9px 16px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--muted);font-weight:700;font-size:.85rem;cursor:pointer;transition:all .15s}
+  #atabs button:hover{color:var(--text)}
+  #atabs button.on{background:var(--accent);color:#1a1320;border-color:var(--accent)}
 </style></head><body>
 <header><span id="dot"></span><h1>🎮 Bombermeme — Admin</h1><span id="meta" class="muted"></span></header>
 <main>
@@ -56,11 +60,13 @@ export function adminPageHtml(): string {
   </div>
   <p id="msg" class="muted"></p>
   <div id="board" style="display:none">
+    <nav id="atabs"></nav>
     <h3>📈 Growth today <span class="muted" style="font-weight:400;font-size:.8rem">· resets at UTC midnight</span></h3>
     <div class="grid" id="growth"></div>
-    <h3>🤖 AI Analyst <span class="muted" style="font-weight:400;font-size:.8rem">· business + game + tech, analyzed together</span></h3>
+    <h3>🧠 AI Director <span class="muted" style="font-weight:400;font-size:.8rem">· reads every data flow (economy · money · tournaments · players · system · logs) and reports</span></h3>
     <div style="margin-bottom:16px">
       <button id="ai-run">Analyze now</button>
+      <a id="snap-link" href="#" style="margin-left:10px;font-size:.78rem">⬇ Full data snapshot (JSON)</a>
       <span id="ai-info" class="muted" style="margin-left:10px"></span>
       <span id="ai-status" class="muted" style="margin-left:10px"></span>
       <div id="ai-out" class="ai-out" style="display:none"></div>
@@ -439,6 +445,29 @@ $("#ann-go").onclick=async function(){if(!$("#ann-text").value)return;await fetc
 $("#ann-clear").onclick=async function(){await fetch("/admin/tournament/announce/clear?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"}});$("#ann-clear").textContent="Cleared ✓";setTimeout(function(){$("#ann-clear").textContent="Clear";},1500);};
 if(token)loadTours();
 setInterval(loadTours,8000);
+// --- role tabs: categorize the flat sections and show one group at a time ---
+function ensureTabs(){
+  if(window.__tabsDone)return;
+  var board=document.getElementById("board");if(!board)return;
+  var CAT=[[/growth today/i,"director"],[/ai analyst/i,"director"],[/system health/i,"director"],[/activity feed/i,"director"],[/load/i,"system"],[/live now/i,"system"],[/economy/i,"money"],[/rake engine/i,"money"],[/treasury/i,"money"],[/live balances/i,"money"],[/lucky spin/i,"money"],[/wallet lookup/i,"players"],[/since restart/i,"players"],[/top players/i,"players"],[/referral/i,"players"],[/tournaments/i,"tournaments"],[/character cards/i,"growth"],[/analytics/i,"growth"]];
+  var cur="director";
+  Array.prototype.forEach.call(board.children,function(el){
+    if(el.id==="atabs")return;
+    if(el.tagName==="H3"){var t=el.textContent||"";for(var i=0;i<CAT.length;i++){if(CAT[i][0].test(t)){cur=CAT[i][1];break;}}}
+    el.dataset.cat=cur;
+  });
+  var TABS=[["director","🧠 Director"],["money","💰 Money"],["players","👥 Players"],["tournaments","🏆 Tournaments"],["system","📡 System"],["growth","📈 Growth"]];
+  var nav=document.getElementById("atabs");nav.innerHTML="";
+  TABS.forEach(function(t){var b=document.createElement("button");b.textContent=t[1];b.dataset.t=t[0];b.onclick=function(){showTab(t[0]);};nav.appendChild(b);});
+  window.__tabsDone=true;showTab("director");
+  var sl=document.getElementById("snap-link");if(sl&&token)sl.href="/admin/snapshot?token="+encodeURIComponent(token);
+}
+function showTab(cat){
+  var board=document.getElementById("board");
+  Array.prototype.forEach.call(board.querySelectorAll("[data-cat]"),function(el){el.style.display=(el.dataset.cat===cat)?"":"none";});
+  Array.prototype.forEach.call(document.querySelectorAll("#atabs button"),function(b){b.classList.toggle("on",b.dataset.t===cat);});
+}
+ensureTabs();
 // --- live balances & ledgers ---
 async function loadTreasury(){
   if(!token)return;

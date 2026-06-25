@@ -623,45 +623,73 @@ app.get("/admin/stats", (res, req) => {
 });
 
 // AI analyst — unified snapshot (business + game + technical) → LLM brief.
+// One unified snapshot of EVERY data flow we have — fed to the in-house AI
+// analyst AND exposed at /admin/snapshot as the integration point for the
+// owner's future external AI (with memory). Read-only.
+async function buildAdminSnapshot(): Promise<Record<string, unknown>> {
+  const ledger = store as unknown as {
+    recentDeposits?: (n: number) => Promise<Array<{ wallet: string; amount: number; at: string }>>;
+    recentWithdrawals?: (n: number) => Promise<Array<{ wallet: string; amount: number; at: string }>>;
+  };
+  const [top, ref, econ, tlist, dep, wd] = await Promise.all([
+    store.leaderboard(5, "rating"),
+    store.referralOverview(10, REFERRAL_ROOT),
+    store.economyStats(),
+    tournaments.list().catch(() => []),
+    ledger.recentDeposits?.(10) ?? Promise.resolve([]),
+    ledger.recentWithdrawals?.(10) ?? Promise.resolve([]),
+  ]);
+  const sum = (a: Array<{ amount: number }>): number => a.reduce((s, x) => s + fromBaseUnits(x.amount), 0);
+  return {
+    now: new Date().toISOString(),
+    online: onlineCount(),
+    growth: metrics.snapshot(),
+    growthTargets: GROWTH_TARGETS,
+    economy: { players: econ.players, chips: econ.chips, tokens: fromBaseUnits(econ.tokenBase) },
+    money: {
+      depositCount: dep.length,
+      withdrawalCount: wd.length,
+      recentDepositVol: sum(dep),
+      recentWithdrawalVol: sum(wd),
+      recentDeposits: dep.slice(0, 5).map((d) => ({ wallet: d.wallet, amount: fromBaseUnits(d.amount), at: d.at })),
+      recentWithdrawals: wd.slice(0, 5).map((d) => ({ wallet: d.wallet, amount: fromBaseUnits(d.amount), at: d.at })),
+    },
+    tournaments: tlist.map((t) => ({ id: t.id, name: t.name, status: t.status, format: t.format, registered: t.registered, prizeUsd: t.prizeUsd })),
+    spins: { ...spinStats, net: spinStats.cost - spinStats.paid },
+    totals: analytics.snapshot(),
+    live: mm.adminStats,
+    load: mm.load,
+    system: systemHealth(),
+    rakeEngine: rakeEngineBlock(),
+    loadHistory: loadHistory().slice(-20),
+    benchmark: lastBenchmark,
+    config: {
+      rakePct: (Number(process.env.HOUSE_RAKE_BP ?? 0) || 0) / 100,
+      referralRoot: !!REFERRAL_ROOT,
+      deposits: depositsOn(),
+      withdrawals: withdrawalsOn(),
+    },
+    topPlayers: top.map((p) => ({ name: p.name, rating: p.rating, matches: p.matches, wins: p.wins })),
+    social: { onlineWallets: onlineWalletCount() },
+    referrals: { networkSize: ref.networkSize, totalEarned: fromBaseUnits(ref.totalEarned), unattached: ref.unattached },
+    events: recentEvents(20),
+    errors: recentAlerts(8),
+  };
+}
+
+// Full machine-readable snapshot (for the owner's external AI / dashboards).
+app.get("/admin/snapshot", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  void buildAdminSnapshot().then((s) => sendJson(res, s)).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
 app.post("/admin/ai-analyze", (res, req) => {
   res.onAborted(() => {});
   if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
   void (async () => {
     try {
-      const [top, ref, econ] = await Promise.all([
-        store.leaderboard(5, "rating"),
-        store.referralOverview(10, REFERRAL_ROOT),
-        store.economyStats(),
-      ]);
-      const snapshot = {
-        now: new Date().toISOString(),
-        online: onlineCount(),
-        growth: metrics.snapshot(),
-        growthTargets: GROWTH_TARGETS,
-        economy: { players: econ.players, chips: econ.chips, tokens: fromBaseUnits(econ.tokenBase) },
-        spins: { ...spinStats, net: spinStats.cost - spinStats.paid },
-        totals: analytics.snapshot(),
-        live: mm.adminStats,
-        load: mm.load,
-        system: systemHealth(),
-        rakeEngine: rakeEngineBlock(),
-        loadHistory: loadHistory().slice(-20),
-        benchmark: lastBenchmark,
-        config: {
-          rakePct: (Number(process.env.HOUSE_RAKE_BP ?? 0) || 0) / 100,
-          referralRoot: !!REFERRAL_ROOT,
-          deposits: depositsOn(),
-          withdrawals: withdrawalsOn(),
-        },
-        topPlayers: top.map((p) => ({ name: p.name, rating: p.rating, matches: p.matches, wins: p.wins })),
-        social: { onlineWallets: onlineWalletCount() },
-        referrals: {
-          networkSize: ref.networkSize,
-          totalEarned: fromBaseUnits(ref.totalEarned),
-          unattached: ref.unattached,
-        },
-      };
-      sendJson(res, await aiAnalyze(snapshot));
+      sendJson(res, await aiAnalyze(await buildAdminSnapshot()));
     } catch (e) {
       sendJson(res, { ok: false, reason: `snapshot failed: ${String(e)}` }, "500 Internal Server Error");
     }
