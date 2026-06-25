@@ -117,6 +117,26 @@ export function adminPageHtml(): string {
     <table id="ref-levels"><thead><tr><th>Level</th><th>Players</th><th>Reward</th></tr></thead><tbody></tbody></table>
     <h4 style="margin:10px 0 4px">Top partners</h4>
     <table id="ref-top"><thead><tr><th>#</th><th>Partner</th><th>Direct refs</th><th>Earned</th></tr></thead><tbody></tbody></table>
+    <h3>🏆 Tournaments <span class="muted" style="font-weight:400;font-size:.8rem">· create & run contests (both formats), push announcements</span></h3>
+    <div class="cfg" id="tour-create" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px">
+      <input id="t-name" placeholder="Name" style="max-width:160px">
+      <select id="t-format"><option value="points">Points race</option><option value="bracket">Bracket</option></select>
+      <select id="t-entry"><option value="free">Free</option><option value="buyin">Buy-in</option></select>
+      <input id="t-amount" type="number" placeholder="buy-in" style="max-width:90px">
+      <select id="t-cur"><option value="0">chips</option><option value="1">token</option></select>
+      <input id="t-prize" type="number" placeholder="prize $" style="max-width:90px">
+      <input id="t-max" type="number" placeholder="max" value="64" style="max-width:70px">
+      <input id="t-start" type="datetime-local" style="max-width:185px">
+      <button id="t-create">Create</button>
+    </div>
+    <div id="tour-list" class="muted">—</div>
+    <h4 style="margin:10px 0 4px">📣 In-game announcement (shown to all players)</h4>
+    <div class="cfg" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+      <input id="ann-text" placeholder="Announcement text" style="max-width:300px">
+      <input id="ann-cta" placeholder="CTA (e.g. Join)" style="max-width:120px">
+      <button id="ann-go">Push</button>
+      <button id="ann-clear">Clear</button>
+    </div>
     <h3>🎨 Character Cards <span class="muted" style="font-weight:400;font-size:.8rem">· marketing kit — download each character walking in a circle as a GIF/PNG</span></h3>
     <iframe id="cards-frame" data-src="/cards.html" style="width:100%;height:1300px;border:1px solid var(--border);border-radius:12px;background:var(--bg)" allow="fullscreen"></iframe>
     <h3>Analytics <span class="muted" style="font-weight:400;font-size:.8rem">· PostHog</span></h3>
@@ -376,6 +396,34 @@ $("#bench-run").onclick=function(){
 };
 if(token)poll();
 setInterval(poll,5000);
+// --- tournaments admin ---
+async function loadTours(){
+  if(!token)return;
+  try{
+    const r=await fetch("/admin/tournaments?token="+encodeURIComponent(token));
+    const d=await r.json();const ts=d.tournaments||[];
+    $("#tour-list").innerHTML = ts.length ? ts.map(function(t){
+      var meta=t.format+" · "+t.status+" · "+t.registered+"/"+t.maxPlayers+" · $"+t.prizeUsd+(t.entryType==="buyin"?(" · buy-in "+t.entryAmount):" · free");
+      return '<div class="tile" style="text-align:left;margin-bottom:6px"><b>'+t.name+'</b> <span class="muted">· '+meta+'</span><br>'+
+        tb(t.id,"reg_open","Open reg")+tb(t.id,"checkin","Check-in")+ts2(t.id)+tb(t.id,"live","Start")+tb(t.id,"done","Finish")+tb(t.id,"cancelled","Cancel")+
+        '</div>';
+    }).join("") : '<span class="empty">No tournaments yet — create one above.</span>';
+  }catch(e){$("#tour-list").innerHTML='<span class="err">'+e+'</span>';}
+}
+function tb(id,status,label){return '<button onclick="tourStatus(\\''+id+'\\',\\''+status+'\\')" style="margin:2px 4px 0 0">'+label+'</button>';}
+function ts2(id){return '<button onclick="tourSeed(\\''+id+'\\')" style="margin:2px 4px 0 0;background:#2d8b57;color:#fff">Seed round</button>';}
+window.tourStatus=async function(id,status){await fetch("/admin/tournament/status?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id,status:status})});loadTours();};
+window.tourSeed=async function(id){const r=await fetch("/admin/tournament/seed?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})});const d=await r.json();var pods=(d.result&&d.result.pods)||[];alert("Seeded "+pods.length+" pod(s). Players will see Join in-game.");loadTours();};
+$("#t-create").onclick=async function(){
+  var s=$("#t-start").value;var startAt=s?new Date(s).getTime():0;
+  var body={name:$("#t-name").value||"Tournament",format:$("#t-format").value,entryType:$("#t-entry").value,entryAmount:Number($("#t-amount").value)||0,currency:Number($("#t-cur").value)||0,prizeUsd:Number($("#t-prize").value)||0,maxPlayers:Number($("#t-max").value)||64,startAt:startAt,regOpen:true};
+  await fetch("/admin/tournament/create?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  $("#t-name").value="";loadTours();
+};
+$("#ann-go").onclick=async function(){if(!$("#ann-text").value)return;await fetch("/admin/tournament/announce?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:$("#ann-text").value,cta:$("#ann-cta").value})});$("#ann-go").textContent="Pushed ✓";setTimeout(function(){$("#ann-go").textContent="Push";},1500);};
+$("#ann-clear").onclick=async function(){await fetch("/admin/tournament/announce/clear?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"}});$("#ann-clear").textContent="Cleared ✓";setTimeout(function(){$("#ann-clear").textContent="Clear";},1500);};
+if(token)loadTours();
+setInterval(loadTours,8000);
 </script>
 </body></html>`;
 }
