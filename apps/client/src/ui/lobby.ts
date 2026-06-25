@@ -813,17 +813,33 @@ export function renderRoom(state: GameState): void {
     status.textContent = `${readyCount}/${count} ready — waiting for everyone to ready up`;
   }
 
-  // Ready button reflects the local player's state.
+  // ── ONE smart action button (merged Ready/Start), role-aware — like top lobby
+  // games. Players get a Ready toggle; the host gets "Start match" (which readies
+  // them and triggers the server's auto-start / straggler-drop countdown), or a
+  // disabled "Waiting for players…" when there aren't enough yet.
   const me = state.roomPlayers.find((p) => p.id === state.myId);
   const readyBtn = document.getElementById("ready-btn") as HTMLButtonElement;
+  const startBtn = document.getElementById("start-now") as HTMLButtonElement | null;
+  startBtn?.classList.add("hidden"); // merged into the one button
+  const enough = count >= MIN_PLAYERS_TO_START;
   if (readyBtn && me) {
-    readyBtn.textContent = me.ready ? "✅ Ready — waiting…" : "Ready up";
+    if (state.isHost) {
+      if (!enough) {
+        readyBtn.textContent = `Waiting for players… ${count}/${MIN_PLAYERS_TO_START}`;
+        readyBtn.disabled = true;
+      } else if (!me.ready) {
+        readyBtn.textContent = "▶ Start match";
+        readyBtn.disabled = false;
+      } else {
+        readyBtn.textContent = allReady ? "Starting…" : "✅ Starting — tap to cancel";
+        readyBtn.disabled = false;
+      }
+    } else {
+      readyBtn.textContent = me.ready ? "✅ Ready — tap to cancel" : "Ready up";
+      readyBtn.disabled = false;
+    }
     readyBtn.dataset.on = String(me.ready);
   }
-
-  const startBtn = document.getElementById("start-now") as HTMLButtonElement;
-  startBtn.classList.toggle("hidden", !state.isHost);
-  startBtn.disabled = !allReady; // start only once everyone has readied up
 }
 
 export function showResult(title: string): void {
