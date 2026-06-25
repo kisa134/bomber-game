@@ -1321,8 +1321,11 @@ export class Room {
     const p = this.players.get(id);
     if (!p || p.isBot) return;
     const tiers = this.currency === Currency.TOKEN ? TOKEN_BET_SIZES : BET_SIZES;
-    if (!(tiers as readonly number[]).includes(stake)) return;
-    if (stake <= this.stake) return; // proposals are raises only
+    const maxTier = tiers[tiers.length - 1];
+    // Allow any custom raise (the client offers a slider) up to the top tier —
+    // must be a positive integer above the current stake and within the cap.
+    // Affordability is verified when the proposal resolves.
+    if (!Number.isInteger(stake) || stake <= this.stake || stake > maxTier) return;
     this.stakeProposal = { stake, by: id, votes: new Map([[id, true]]), deadlineMs: Date.now() + 30_000 };
     this.broadcastStakeVote(false, false);
     void this.maybeResolveProposal();

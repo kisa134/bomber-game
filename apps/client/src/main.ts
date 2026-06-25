@@ -4823,21 +4823,49 @@ function onStakeVote(msg: {
   }, 1000);
 }
 
-// Propose a higher stake: reveal the tiers above the current one.
+// Propose a higher stake: a glass popup with a custom slider + preset tiers.
+// The brighter the chosen stake, the more the panel glows from inside.
 document.getElementById("propose-stake")?.addEventListener("click", () => {
   if (practiceMode) return;
   const picker = document.getElementById("propose-picker")!;
   if (!picker.classList.contains("hidden")) { picker.classList.add("hidden"); return; }
-  const tiers = (state.roomCurrency === 1 ? TOKEN_BET_SIZES : BET_SIZES).filter((v) => v > state.roomStake);
-  if (!tiers.length) { showToast("Already at the top stake", "info"); return; }
-  picker.innerHTML = "";
-  for (const v of tiers) {
+  const isToken = state.roomCurrency === 1;
+  const tiers = (isToken ? TOKEN_BET_SIZES : BET_SIZES) as readonly number[];
+  const maxTier = tiers[tiers.length - 1];
+  if (state.roomStake >= maxTier) { showToast("Already at the top stake", "info"); return; }
+  const sym = stakeSym();
+  const stepUnit = isToken ? 1000 : 50;
+  const lo = Math.max(stepUnit, Math.ceil((state.roomStake + 1) / stepUnit) * stepUnit);
+  const nextTier = tiers.find((v) => v > state.roomStake) ?? lo;
+  picker.innerHTML =
+    `<div class="sp-head">Raise the stake</div>` +
+    `<div id="sp-val" class="sp-val"></div>` +
+    `<input id="sp-slider" class="sp-slider" type="range" min="${lo}" max="${maxTier}" step="${stepUnit}" value="${nextTier}" />` +
+    `<div id="sp-tiers" class="sp-tiers"></div>` +
+    `<button id="sp-confirm" class="sp-confirm glass-btn">⬆ Propose raise</button>`;
+  const slider = picker.querySelector("#sp-slider") as HTMLInputElement;
+  const valEl = picker.querySelector("#sp-val") as HTMLElement;
+  const update = (): void => {
+    const v = Number(slider.value);
+    valEl.textContent = `${sym}${v.toLocaleString()}${isToken ? usdOf(v) : ""}`;
+    const ratio = (v - lo) / Math.max(1, maxTier - lo);
+    picker.style.setProperty("--sp-glow", ratio.toFixed(3));
+    slider.style.setProperty("--sp-fill", `${(ratio * 100).toFixed(1)}%`);
+  };
+  slider.addEventListener("input", update);
+  const tiersWrap = picker.querySelector("#sp-tiers") as HTMLElement;
+  for (const v of tiers.filter((t) => t > state.roomStake)) {
     const b = document.createElement("button");
-    b.className = "stake-btn";
-    b.textContent = `${stakeSym()}${v.toLocaleString()}`;
-    b.addEventListener("click", () => { net.sendProposeStake(v); picker.classList.add("hidden"); });
-    picker.appendChild(b);
+    b.className = "sp-tier";
+    b.textContent = `${sym}${v.toLocaleString()}`;
+    b.addEventListener("click", () => { slider.value = String(v); update(); });
+    tiersWrap.appendChild(b);
   }
+  picker.querySelector("#sp-confirm")!.addEventListener("click", () => {
+    net.sendProposeStake(Number(slider.value));
+    picker.classList.add("hidden");
+  });
+  update();
   picker.classList.remove("hidden");
 });
 

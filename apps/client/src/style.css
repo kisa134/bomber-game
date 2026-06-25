@@ -491,11 +491,101 @@ button.glass-btn.primary:hover {
   color: var(--muted);
   text-align: center;
 }
+/* Stake-raise popup — glass card (like the room chip); glows brighter from the
+   inside the bigger the chosen stake (--sp-glow 0→1). */
 .stake-picker {
+  --sp-glow: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  text-align: center;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 204, 51, calc(0.06 + 0.16 * var(--sp-glow))),
+    rgba(255, 170, 40, calc(0.03 + 0.1 * var(--sp-glow)))
+  );
+  border: 1px solid rgba(255, 204, 51, calc(0.3 + 0.45 * var(--sp-glow)));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 12px 30px rgba(0, 0, 0, 0.4),
+    0 0 calc(10px + 40px * var(--sp-glow)) rgba(255, 180, 40, calc(0.14 + 0.4 * var(--sp-glow)));
+  backdrop-filter: blur(10px) saturate(160%) brightness(1.1);
+  -webkit-backdrop-filter: blur(10px) saturate(160%) brightness(1.1);
+}
+.sp-head {
+  font-size: 0.64rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.sp-val {
+  font-family: var(--font-disp);
+  font-weight: 900;
+  font-size: 1.5rem;
+  color: #ffd23f;
+  text-shadow: 0 0 calc(6px + 20px * var(--sp-glow)) rgba(255, 190, 50, calc(0.3 + 0.5 * var(--sp-glow)));
+}
+/* Custom range slider — gold fill grows with the stake; grabbable thumb. */
+.sp-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffcc33 var(--sp-fill, 0%), rgba(255, 255, 255, 0.12) var(--sp-fill, 0%));
+  outline: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.sp-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6cf, #ffb43d);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 calc(4px + 14px * var(--sp-glow)) rgba(255, 190, 50, 0.8);
+  cursor: grab;
+}
+.sp-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.1); }
+.sp-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6cf, #ffb43d);
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  cursor: grab;
+}
+.sp-tiers {
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
   justify-content: center;
+}
+.sp-tier {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 64px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 204, 51, 0.28);
+  font-weight: 800;
+  font-size: 0.8rem;
+  color: #ffe08a;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.sp-tier:hover { background: rgba(255, 204, 51, 0.16); border-color: rgba(255, 204, 51, 0.55); }
+.sp-confirm.glass-btn {
+  width: 100%;
+  min-height: 44px;
+  font-weight: 800;
 }
 .stake-btn {
   flex: 1 1 auto;
@@ -2564,6 +2654,9 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   border-color: rgba(90, 230, 150, 0.7);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 14px 34px rgba(0, 0, 0, 0.46), 0 0 38px rgba(57, 255, 155, 0.42);
 }
+/* Keep the chip centred on press — the global button:active scale() would drop
+   translateX(-50%) and make it jump right. Click = just click. */
+.return-room:active { transform: translateX(-50%) scale(0.98); }
 .return-room .rr-txt { color: #d6ffe8; font-weight: 700; }
 .return-room .rr-code { color: #fff; letter-spacing: 1px; }
 .return-room .rr-go { color: #aaffd0; font-weight: 800; }
@@ -4257,6 +4350,37 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   align-items: center;
   gap: 8px;
 }
+
+/* ── In-game HUD v2 — no reaction emoji; the rest as clean glass pills ──────── */
+#game-emotes { display: none; } /* reactions live in the lobby, not over the match */
+#hud-panel {
+  gap: 10px;
+  background: rgba(8, 10, 16, 0.55);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+}
+#timer,
+#ping,
+#hud-bottom {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(6px) saturate(160%);
+  -webkit-backdrop-filter: blur(6px) saturate(160%);
+}
+#hud-bottom { padding: 4px 10px; }
+#game-leave {
+  background: linear-gradient(135deg, rgba(255, 90, 95, 0.22), rgba(255, 90, 95, 0.08));
+  border: 1px solid rgba(255, 120, 120, 0.42);
+  border-radius: 10px;
+  color: #ffd9d9;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(6px) saturate(160%);
+  -webkit-backdrop-filter: blur(6px) saturate(160%);
+  touch-action: manipulation;
+}
+#game-leave:hover { border-color: rgba(255, 120, 120, 0.72); }
 .kit {
   display: flex;
   align-items: center;
