@@ -924,11 +924,25 @@
     <!-- BOMBERMEME FM "now playing" chip (desktop only; lobby music). Minimal
          white text in the corner; populated + toggled from main.ts. -->
     <div id="now-playing" class="hidden" aria-hidden="true">
-      <div class="np-station">♪ BOMBERMEME FM</div>
-      <div class="np-track"><span id="np-title"></span> — <span id="np-artist"></span></div>
+      <div class="np-text">
+        <div class="np-station">♪ BOMBERMEME FM</div>
+        <div class="np-track"><span id="np-title"></span> — <span id="np-artist"></span></div>
+      </div>
       <div class="np-controls">
-        <button id="np-next" type="button" title="Next track" aria-label="Next track">⏭</button>
-        <button id="np-repeat" type="button" title="Repeat track" aria-label="Repeat track">🔁</button>
+        <button id="np-next" type="button" title="Next track" aria-label="Next track">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M6 5l9 7-9 7z" />
+            <line x1="18" y1="5" x2="18" y2="19" />
+          </svg>
+        </button>
+        <button id="np-repeat" type="button" title="Repeat track" aria-label="Repeat track">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M17 2l4 4-4 4" />
+            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+            <path d="M7 22l-4-4 4-4" />
+            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+          </svg>
+        </button>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
