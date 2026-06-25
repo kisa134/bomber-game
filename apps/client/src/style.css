@@ -3571,7 +3571,7 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 /* Glassmorphism toast stack (top-center): slim, blurred, auto-dismissing. */
 #toast-stack {
   position: fixed;
-  top: calc(14px + env(safe-area-inset-top));
+  top: calc(14px + var(--sai-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
@@ -4086,8 +4086,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   }
   #play-area {
     background: #0c0e14;
-    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom)
-      env(safe-area-inset-left);
+    padding: 0 var(--sai-right) var(--sai-bottom)
+      var(--sai-left);
   }
   #canvas {
     border: 0;
@@ -4105,8 +4105,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
     flex: 0 0 auto;
     flex-wrap: nowrap;
     gap: 8px;
-    padding: calc(3px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right))
-      3px calc(10px + env(safe-area-inset-left));
+    padding: calc(3px + var(--sai-top)) calc(10px + var(--sai-right))
+      3px calc(10px + var(--sai-left));
     background: rgba(0, 0, 0, 0.62);
     border-top: 0;
     border-bottom: 1px solid var(--border);
@@ -4157,8 +4157,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 @media (pointer: coarse) and (orientation: landscape) {
   /* Board is NOT padded for the zones — it stays height-max. */
   #play-area {
-    padding: calc(2px + env(safe-area-inset-top)) env(safe-area-inset-right)
-      calc(2px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
+    padding: calc(2px + var(--sai-top)) var(--sai-right)
+      calc(2px + var(--sai-bottom)) var(--sai-left);
   }
   /* #hud-panel stops being a bar; its two children are the top of each zone. */
   #hud-panel {
@@ -4183,12 +4183,12 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
     left: 0;
     max-height: calc(100% - 96px); /* room for the timer + kit + player list */
     gap: 7px;
-    padding: calc(8px + env(safe-area-inset-top)) 6px 0 calc(8px + env(safe-area-inset-left));
+    padding: calc(8px + var(--sai-top)) 6px 0 calc(8px + var(--sai-left));
   }
   #hud-right {
     right: 0;
     max-height: 46%;
-    padding: calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) 0 6px;
+    padding: calc(8px + var(--sai-top)) calc(8px + var(--sai-right)) 0 6px;
   }
   /* --- Glass HUD panels (mockup look): timer+lives, kit pill, player list --- */
   /* NOTE: no pointer-events here — the whole left half must stay a joystick zone
@@ -4270,8 +4270,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
     position: absolute;
-    left: calc(6px + env(safe-area-inset-left));
-    bottom: calc(34px + env(safe-area-inset-bottom));
+    left: calc(6px + var(--sai-left));
+    bottom: calc(34px + var(--sai-bottom));
     width: 96px;
     height: 96px;
     opacity: 0.28;
@@ -4299,8 +4299,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   }
   /* (D-pad alternative: pinned to the bottom of the left zone, scaled to fit.) */
   #dpad {
-    left: calc(2px + env(safe-area-inset-left));
-    bottom: calc(16px + env(safe-area-inset-bottom));
+    left: calc(2px + var(--sai-left));
+    bottom: calc(16px + var(--sai-bottom));
     top: auto;
     margin: 0;
     transform: scale(0.5);
@@ -4312,8 +4312,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
      tap-zone). `#touch-controls #bomb-btn` raises specificity so it beats the
      base red desktop rule that's defined later in the file. */
   #touch-controls #bomb-btn {
-    right: calc(20px + env(safe-area-inset-right));
-    bottom: calc(22px + env(safe-area-inset-bottom));
+    right: calc(20px + var(--sai-right));
+    bottom: calc(22px + var(--sai-bottom));
     left: auto;
     top: auto;
     margin: 0;
@@ -4379,8 +4379,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 /* In-game leave button (top-left) — glassy, and clear of a notch/Dynamic Island. */
 #game-leave {
   position: absolute;
-  top: calc(10px + env(safe-area-inset-top));
-  left: calc(10px + env(safe-area-inset-left));
+  top: calc(10px + var(--sai-top));
+  left: calc(10px + var(--sai-left));
   z-index: 9;
   width: 40px;
   height: 40px;
@@ -4738,8 +4738,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 #dpad {
   position: absolute;
-  left: calc(28px + env(safe-area-inset-left));
-  bottom: calc(36px + env(safe-area-inset-bottom));
+  left: calc(28px + var(--sai-left));
+  bottom: calc(36px + var(--sai-bottom));
   width: 168px;
   height: 168px;
 }
@@ -4771,8 +4771,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 #bomb-btn {
   position: absolute;
-  right: calc(28px + env(safe-area-inset-right));
-  bottom: calc(36px + env(safe-area-inset-bottom));
+  right: calc(28px + var(--sai-right));
+  bottom: calc(36px + var(--sai-bottom));
   width: 112px;
   height: 112px;
   border-radius: 50%;
@@ -4949,7 +4949,7 @@ button.big {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: calc(8px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 8px calc(16px + env(safe-area-inset-left));
+  padding: calc(8px + var(--sai-top)) calc(16px + var(--sai-right)) 8px calc(16px + var(--sai-left));
   /* Transparent header — NO frosted bar. (Was an accidental dark tint strip.) */
   background: transparent;
 }
@@ -4968,7 +4968,7 @@ button.big {
   line-height: 1.3;
   text-align: center;
   letter-spacing: 0.2px;
-  padding: calc(7px + env(safe-area-inset-top)) 14px 7px;
+  padding: calc(7px + var(--sai-top)) 14px 7px;
   background: linear-gradient(180deg, rgba(36, 20, 10, 0.82), rgba(22, 12, 8, 0.82));
   border-bottom: 1px solid rgba(255, 170, 70, 0.22);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
@@ -5005,7 +5005,7 @@ button.big {
 
 .icon-btn {
   position: absolute;
-  top: calc(58px + env(safe-area-inset-top));
+  top: calc(58px + var(--sai-top));
   right: 16px;
   width: 46px;
   height: 46px;
@@ -6124,8 +6124,8 @@ button.big {
    HUD slim so the play area dominates. */
 @media (orientation: landscape) and (max-height: 560px) {
   #hud-panel {
-    padding: calc(3px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right))
-      3px calc(10px + env(safe-area-inset-left));
+    padding: calc(3px + var(--sai-top)) calc(10px + var(--sai-right))
+      3px calc(10px + var(--sai-left));
     gap: 8px;
   }
   #timer {
@@ -6239,7 +6239,7 @@ button.big {
   overflow: clip;
   display: grid;
   place-items: center;
-  padding: max(64px, calc(20px + env(safe-area-inset-top))) 22px max(40px, calc(20px + env(safe-area-inset-bottom)));
+  padding: max(64px, calc(20px + var(--sai-top))) 22px max(40px, calc(20px + var(--sai-bottom)));
   isolation: isolate;
   /* Just a readability veil over the standard blurred background (#bg.art). */
   background: radial-gradient(ellipse at center, rgba(10, 8, 14, 0.18), rgba(8, 6, 12, 0.55));
@@ -8085,7 +8085,7 @@ button.big {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  top: calc(var(--chrome-h, 64px) + env(safe-area-inset-top) + 6px);
+  top: calc(var(--chrome-h, 64px) + var(--sai-top) + 6px);
   z-index: 60;
   display: flex;
   align-items: center;
@@ -8123,8 +8123,8 @@ button.big {
    On hover, tiny ⏭/🔁 controls reveal; the resting state stays pure text. */
 #now-playing {
   position: fixed;
-  left: calc(18px + env(safe-area-inset-left));
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: calc(18px + var(--sai-left));
+  bottom: calc(16px + var(--sai-bottom));
   z-index: 9998;
   pointer-events: none; /* never blocks the lobby UI while hidden */
   display: flex;
