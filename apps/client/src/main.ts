@@ -4326,8 +4326,12 @@ function refreshPrice(): void {
 // Live "online now" count for the hub info panel (refresh every 30s).
 function refreshOnline(): void {
   void fetch(`${SERVER_HTTP}/online`).then((r) => r.json()).then((d: { online?: number }) => {
+    if (typeof d.online !== "number") return;
+    const txt = d.online.toLocaleString("en-US");
     const el = document.getElementById("hub-online");
-    if (el && typeof d.online === "number") el.textContent = d.online.toLocaleString("en-US");
+    if (el) el.textContent = txt;
+    const lob = document.getElementById("lobby-online"); // lobby top-bar plaque
+    if (lob) lob.textContent = txt;
   }).catch(() => { /* offline — leave the placeholder */ });
 }
 refreshOnline();

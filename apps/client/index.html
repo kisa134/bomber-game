@@ -416,8 +416,15 @@
         <div class="lobby-wrap">
           <div class="lobby-top">
             <button id="lobby-back" class="ghost lobby-icon">←</button>
-            <h2 class="lobby-title">🌐 Game Lobby</h2>
-            <button id="tables-refresh" class="ghost lobby-icon">↻</button>
+            <h2 class="lobby-title">GAME LOBBY</h2>
+            <div class="lobby-top-right">
+              <div class="lobby-meta">
+                <span class="lm-dot" aria-hidden="true"></span>
+                <span id="lobby-online">—</span> ONLINE · <span id="lobby-rooms">0</span> ROOMS
+              </div>
+              <button id="tables-refresh" class="ghost lobby-icon" title="Refresh">↻</button>
+              <button id="tables-new" class="primary glass-btn lobby-create">+ Create</button>
+            </div>
           </div>
 
           <!-- Bento mode cards: Casual (chips) + The Arena (real tokens) -->
@@ -443,7 +450,6 @@
           <div class="lobby-subhead">
             <span class="lobby-subtitle">Active lobbies</span>
             <div class="lobby-subhead-actions">
-              <button id="tables-new" class="ghost">➕ Create</button>
               <div class="lobby-code">
                 <input id="lobby-code-input" maxlength="4" placeholder="CODE" autocomplete="off" />
                 <button id="lobby-code-join">Join</button>

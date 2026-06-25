@@ -939,7 +939,7 @@ button.glass-btn.primary:hover {
 /* Open full-width shell — no outer card (the wide-screen rule strips any
    bg/border); glass stays on the bento cards + room rows only. */
 .lobby-wrap {
-  width: min(1200px, 100%);
+  width: min(1320px, 100%);
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -950,7 +950,8 @@ button.glass-btn.primary:hover {
 .lobby-top {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 .lobby-title {
   font-family: var(--font-disp);
@@ -961,10 +962,58 @@ button.glass-btn.primary:hover {
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+/* Title sits LEFT next to the back arrow, big — no emoji, our display font. */
 .lobby-top .lobby-title {
-  flex: 1 1 auto;
-  text-align: center;
-  font-size: 1.4rem;
+  text-transform: uppercase;
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  line-height: 1;
+}
+/* Right cluster: online·rooms plaque + refresh + bright gold Create. */
+.lobby-top-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+/* Online·rooms — just text (no box), with a small live dot. */
+.lobby-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #9c98a8;
+}
+.lobby-meta #lobby-online,
+.lobby-meta #lobby-rooms { color: #e8e6ef; }
+.lm-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5ad27a;
+  box-shadow: 0 0 8px 1px rgba(90, 210, 122, 0.8);
+  animation: scPulse 1.8s ease-in-out infinite;
+}
+.lobby-top-right .lobby-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  font-size: 1.15rem;
+}
+/* Create = bright gold liquid-glass (hub PLAY button), same box as refresh.
+   Higher specificity so the radius beats button.glass-btn's 16px. */
+button.glass-btn.lobby-create {
+  width: auto;
+  flex: none;
+  height: 40px;
+  min-width: 116px;
+  padding: 0 20px;
+  border-radius: 11px;
+  font-weight: 800;
+  font-size: 0.9rem;
 }
 .lobby-icon {
   width: 46px;
@@ -991,19 +1040,70 @@ button.glass-btn.primary:hover {
 .lobby-code input {
   flex: 1 1 0;
   width: auto;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   text-transform: uppercase;
   letter-spacing: 3px;
   font-weight: 700;
+  font-size: 0.82rem;
 }
 .lobby-code button {
   width: auto;
   flex: none;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 700;
+  font-size: 0.82rem;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.lobby-code button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+/* Filter chips (All / Casual / Arena / …) — clean transparent pills, gold when
+   selected (same family as the Casual-block stake chips). */
+.tables-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#tables-filter .stake-btn {
+  flex: 0 0 auto;
+  min-width: auto;
+  padding: 8px 15px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #cfcbd8;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+#tables-filter .stake-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+#tables-filter .stake-btn.selected {
+  color: var(--accent-bright);
+  border-color: rgba(255, 204, 51, 0.5);
+  background: rgba(255, 204, 51, 0.1);
+  box-shadow: 0 0 12px rgba(255, 204, 51, 0.2);
 }
 #lobby .tables-list {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 2px;
 }
 .lobby-hint {
   text-align: center;
@@ -1184,6 +1284,23 @@ button.glass-btn.primary:hover {
     margin-top: 0;
     flex: 1 1 100%;
   }
+  /* Lobby top bar: title row, then the online/create cluster full-width below. */
+  .lobby-top { gap: 10px; }
+  .lobby-top-right {
+    margin-left: 0;
+    width: 100%;
+    justify-content: space-between;
+    order: 3;
+  }
+  .lobby-meta { font-size: 0.6rem; padding: 7px 11px; }
+  .lobby-create { flex: 1 1 auto; }
+  /* Room rows stay one tidy line — tighter padding + smaller Join. */
+  .table-row {
+    grid-template-columns: 1fr auto 84px;
+    gap: 9px;
+    padding: 11px 13px;
+  }
+  .table-row .td-action { min-width: 72px; padding: 7px 8px; font-size: 0.76rem; }
 }
 
 /* --- Main hub (spatial online-game home, not a centered card) --- */
@@ -2898,9 +3015,9 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 /* CS-style column header: clickable to sort, aligned with the rows below. */
 .table-head {
   display: grid;
-  grid-template-columns: 1fr 64px 84px;
-  gap: 10px;
-  padding: 4px 12px;
+  grid-template-columns: 1fr auto 118px;
+  gap: 14px;
+  padding: 4px 18px;
   position: sticky;
   top: 0;
   color: var(--muted);
@@ -2917,16 +3034,21 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 .table-row {
   display: grid;
-  grid-template-columns: 1fr 64px 84px;
+  grid-template-columns: 1fr auto 118px;
   align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  border-radius: 8px;
-  background: var(--panel);
-  border: 1px solid var(--border);
+  gap: 14px;
+  width: 100%;
+  padding: 13px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 18px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(6px) saturate(140%);
+  -webkit-backdrop-filter: blur(6px) saturate(140%);
   cursor: pointer;
   font-weight: 700;
   text-align: left;
+  transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
 }
 /* Always-open casual bot room — a calm teal accent so it reads as "always here". */
 .table-row.bots {
@@ -2958,12 +3080,31 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   font-weight: 600;
   font-size: 0.68rem;
 }
+/* JOIN = a green pill that lights up on row hover (like the Arena CTA). */
 .table-row .td-action {
-  text-align: right;
-  color: var(--accent);
+  justify-self: end;
+  min-width: 96px;
+  text-align: center;
+  padding: 8px 14px;
+  border-radius: 9px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  color: #5dffb0;
+  background: rgba(31, 209, 122, 0.1);
+  border: 1px solid rgba(57, 255, 155, 0.3);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .table-row:hover {
-  border-color: var(--accent);
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.18);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+}
+.table-row:hover .td-action {
+  background: linear-gradient(180deg, #4dffa6, #1fd17a);
+  color: #07120c;
+  border-color: transparent;
+  box-shadow: 0 0 20px rgba(57, 255, 155, 0.45);
 }
 .table-row.live {
   border-color: var(--accent2);
@@ -2971,8 +3112,16 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .table-row.live .td-stake {
   color: var(--accent2);
 }
+/* LIVE rooms = Watch (cyan), not the green Join. */
 .table-row.live .td-action {
   color: var(--accent2);
+  background: rgba(95, 209, 217, 0.1);
+  border-color: rgba(95, 209, 217, 0.32);
+}
+.table-row.live:hover .td-action {
+  background: linear-gradient(180deg, #7fe7ee, #3fc6d0);
+  color: #06181a;
+  box-shadow: 0 0 20px rgba(95, 209, 217, 0.45);
 }
 .prof-chips {
   font-weight: 800;

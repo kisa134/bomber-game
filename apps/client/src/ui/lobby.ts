@@ -478,6 +478,8 @@ function drawTables(): void {
   const list = document.getElementById("tables-list");
   const head = document.getElementById("tables-sort");
   if (!list || !filter) return;
+  const roomsEl = document.getElementById("lobby-rooms"); // top-bar plaque count
+  if (roomsEl) roomsEl.textContent = String(lastTables.length);
 
   // Filter chips by currency category — only show categories actually present,
   // each with the CORRECT symbol (🆓 free / 🪙 chips / 💎 token).
