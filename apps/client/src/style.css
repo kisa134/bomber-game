@@ -2241,10 +2241,17 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   color: var(--muted);
   letter-spacing: 0.12em;
 }
+/* Override the global big .code box so the pill matches the Invite button (38px). */
 .room-code-inline .code {
+  font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 3px;
   color: var(--accent);
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  margin: 0;
 }
 /* Invite = dimmer than the yellow ready/start CTAs (secondary action). */
 .room-copy {
@@ -2281,15 +2288,28 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   opacity: 0.85;
   cursor: default;
 }
-/* Server label — pushed to the far-right corner. */
+/* Server label + live status light — pushed to the far-right corner. */
 .room-region {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: var(--font-mono);
   font-size: 0.66rem;
   letter-spacing: 0.08em;
   color: #8b8696;
   white-space: nowrap;
 }
+.rr-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  animation: scPulse 1.8s ease-in-out infinite;
+}
+.rr-dot.ok { background: #5ad27a; box-shadow: 0 0 8px rgba(90, 210, 122, 0.85); }
+.rr-dot.warn { background: #f4c049; box-shadow: 0 0 8px rgba(244, 192, 73, 0.85); }
+.rr-dot.bad { background: #ff5a5f; box-shadow: 0 0 8px rgba(255, 90, 95, 0.85); }
 /* 3-column grid */
 .room-grid {
   display: grid;
@@ -2334,8 +2354,9 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   padding: 14px 10px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-top: 3px solid var(--seat-color, rgba(255, 255, 255, 0.1));
+  /* Flat uniform border in the player colour — no thick top edge (that read as a
+     raised 3D tab). The colour still identifies the player. */
+  border: 1.5px solid var(--seat-color, rgba(255, 255, 255, 0.12));
   cursor: pointer;
   transition: border-color 0.12s ease, background 0.12s ease;
 }

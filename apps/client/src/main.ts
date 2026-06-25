@@ -4338,6 +4338,17 @@ function refreshOnline(): void {
 refreshOnline();
 setInterval(refreshOnline, 30_000);
 
+// Live server-status light + ping in the room top-right (green/amber/red).
+function updateRoomRegion(): void {
+  const el = document.getElementById("room-region");
+  if (!el || document.getElementById("room")?.classList.contains("hidden")) return;
+  const ping = state.pingMs;
+  const cls = ping <= 0 ? "warn" : ping < 120 ? "ok" : ping < 250 ? "warn" : "bad";
+  const txt = ping > 0 ? `${ping}ms` : "…";
+  el.innerHTML = `<span class="rr-dot ${cls}"></span>Global · ${txt}`;
+}
+setInterval(updateRoomRegion, 1500);
+
 // Fireflies drifting inside the glass buttons (like bugs in a jar).
 function addFireflies(btn: HTMLElement, n: number): void {
   if (liteMode || btn.querySelector(".glass-firefly")) return;

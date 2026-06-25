@@ -621,9 +621,7 @@ export function renderRoom(state: GameState): void {
     typeEl.textContent =
       state.roomStake > 0 ? (isToken ? "TOKEN ARENA" : "CHIPS TABLE") : "CASUAL";
   }
-  // Server label in the top-right corner.
-  const regionEl = document.getElementById("room-region");
-  if (regionEl) regionEl.textContent = "⚡ Global server";
+  // (Server label + live ping is updated on a timer in main.ts.)
   // Match parameters list (under the players).
   const infoEl = document.getElementById("room-match-info");
   if (infoEl) {
