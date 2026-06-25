@@ -722,6 +722,37 @@ app.post("/admin/burn-sweep", (res, req) => {
   })();
 });
 
+// Money control: live on-chain balances of system wallets + recent deposits +
+// tournament prize ledger. Fetched on a slower cadence than /admin/stats (RPC).
+app.get("/admin/treasury", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  void (async () => {
+    const wallets = treasuryWallets();
+    const balances: Record<string, { address: string; token: number }> = {};
+    await Promise.all(
+      Object.entries(wallets).map(async ([k, addr]) => {
+        balances[k] = { address: addr, token: addr ? await tokenBalance(addr).catch(() => 0) : 0 };
+      }),
+    );
+    const raw = await ((store as unknown as { recentDeposits?: (n: number) => Promise<Array<{ signature: string; wallet: string; amount: number; at: string }>> }).recentDeposits?.(25) ?? Promise.resolve([]));
+    const deposits = raw.map((d) => ({ ...d, amount: fromBaseUnits(d.amount) }));
+    let prizeCommitted = 0;
+    let prizePaid = 0;
+    try {
+      const ts = await tournaments.list();
+      for (const t of ts) if (t.status !== "cancelled") prizeCommitted += t.prizeUsd;
+      for (const t of ts.filter((x) => x.status === "done")) {
+        const ps = await tournaments.players(t.id);
+        for (const p of ps) prizePaid += p.prizePaid;
+      }
+    } catch {
+      /* ignore */
+    }
+    sendJson(res, { balances, deposits, tournaments: { prizeCommitted, prizePaid } });
+  })().catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
 // The dashboard page itself (HTML asks for the token, then polls /admin/stats).
 app.get("/admin", (res) => {
   res.onAborted(() => {});

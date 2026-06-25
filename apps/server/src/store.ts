@@ -1571,6 +1571,17 @@ class PostgresStore implements ProfileStore {
     }
   }
 
+  /** Recent deposits for the admin money ledger (newest first). Postgres-only. */
+  async recentDeposits(limit = 25): Promise<Array<{ signature: string; wallet: string; amount: number; at: string }>> {
+    try {
+      await this.ready;
+      const r = await this.pool.query("select signature, wallet, amount, at from processed_deposits order by at desc limit $1", [Math.min(200, limit)]);
+      return r.rows.map((x: Record<string, unknown>) => ({ signature: String(x.signature), wallet: String(x.wallet), amount: Number(x.amount ?? 0), at: String(x.at ?? "") }));
+    } catch {
+      return [];
+    }
+  }
+
   async setReferrer(wallet: string, referrer: string): Promise<boolean> {
     if (!wallet || !referrer || wallet === referrer) return false;
     try {

@@ -89,6 +89,11 @@ export function adminPageHtml(): string {
     <h3>🏦 Treasury &amp; supply <span class="muted" style="font-weight:400;font-size:.8rem">· on-chain transparency</span></h3>
     <div class="grid" id="supply"></div>
     <div id="wallets" class="feed" style="margin:0 0 16px"></div>
+    <h3>💰 Live balances &amp; ledgers <span class="muted" style="font-weight:400;font-size:.8rem">· on-chain wallet balances · deposits · tournament prizes</span></h3>
+    <div class="grid" id="onchain-bal"></div>
+    <div id="tour-money" class="muted" style="margin:6px 0"></div>
+    <h4 style="margin:8px 0 4px">Recent deposits</h4>
+    <table id="deposits"><thead><tr><th>When</th><th>Wallet</th><th>Amount</th><th>Tx</th></tr></thead><tbody></tbody></table>
     <h3>🎰 Lucky Spin <span class="muted" style="font-weight:400;font-size:.8rem">· since restart</span></h3>
     <div class="grid" id="spins"></div>
     <h3>Activity feed <span class="muted" style="font-weight:400;font-size:.8rem">· live</span></h3>
@@ -424,6 +429,21 @@ $("#ann-go").onclick=async function(){if(!$("#ann-text").value)return;await fetc
 $("#ann-clear").onclick=async function(){await fetch("/admin/tournament/announce/clear?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"}});$("#ann-clear").textContent="Cleared ✓";setTimeout(function(){$("#ann-clear").textContent="Clear";},1500);};
 if(token)loadTours();
 setInterval(loadTours,8000);
+// --- live balances & ledgers ---
+async function loadTreasury(){
+  if(!token)return;
+  try{
+    const r=await fetch("/admin/treasury?token="+encodeURIComponent(token));
+    const d=await r.json();var b=d.balances||{};
+    $("#onchain-bal").innerHTML=Object.keys(b).map(function(k){var w=b[k];return tile(k,w.address?fmt(Math.round(w.token)):"—",w.address?(w.address.slice(0,4)+"…"+w.address.slice(-4)):"not set");}).join("")||'<div class="empty">No system wallets set.</div>';
+    var tm=d.tournaments||{prizeCommitted:0,prizePaid:0};
+    $("#tour-money").innerHTML="🏆 Tournament prizes — committed: <b>$"+fmt(tm.prizeCommitted)+"</b> · paid out: <b>$"+fmt(tm.prizePaid)+"</b>";
+    var dp=d.deposits||[];
+    $("#deposits tbody").innerHTML=dp.length?dp.map(function(x){return "<tr><td>"+(x.at?new Date(x.at).toLocaleString():"")+"</td><td>"+x.wallet.slice(0,4)+"…"+x.wallet.slice(-4)+"</td><td>"+fmt(x.amount)+"</td><td><a href='https://solscan.io/tx/"+x.signature+"' target='_blank' rel='noopener'>tx</a></td></tr>";}).join(""):'<tr><td colspan="4" class="empty">No deposits recorded yet.</td></tr>';
+  }catch(e){$("#tour-money").innerHTML='<span class="err">'+e+'</span>';}
+}
+if(token)loadTreasury();
+setInterval(loadTreasury,30000);
 </script>
 </body></html>`;
 }
