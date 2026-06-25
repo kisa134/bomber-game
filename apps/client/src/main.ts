@@ -4690,6 +4690,22 @@ function leaveToMenu(): void {
   music("lobby");
   setMenuStatus("");
 }
+/** Leave the room but land back in the LOBBY (room search), not the hub. */
+function leaveToLobby(): void {
+  spectating = false;
+  practiceMode = false;
+  resetCharacterBrowse();
+  document.getElementById("chat-log")?.replaceChildren();
+  net.close();
+  assets.stop("sudden_death");
+  state.reset();
+  input.reset();
+  predictor.reset();
+  prevPlayerCount = 0;
+  openLobby(); // showScreen("lobby") + loadTables
+  music("lobby");
+  setMenuStatus("");
+}
 // Leaving the waiting room. If you're the host, an accidental tap would abandon
 // (and reap) the room you just made — and there's no way back — so confirm first.
 // Non-hosts leave freely.
@@ -4698,7 +4714,7 @@ document.getElementById("leave-room")!.addEventListener("click", () => {
     track("room_leave_cancelled", { code: state.roomCode });
     return;
   }
-  leaveToMenu();
+  leaveToLobby(); // back → room search (lobby), not the hub
 });
 document.getElementById("result-leave")!.addEventListener("click", leaveToMenu);
 // "Change setup" (bots only): leave the practice room and reopen Training Setup.

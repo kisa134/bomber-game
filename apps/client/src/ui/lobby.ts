@@ -618,13 +618,13 @@ export function renderRoom(state: GameState): void {
   codeBox.classList.toggle("hidden", !state.roomCode);
   const typeEl = document.getElementById("room-type");
   if (typeEl) {
+    // Big plain title by match type (no emoji) — set in the top bar.
     typeEl.textContent =
-      state.roomStake > 0
-        ? isToken
-          ? "💎 Token Arena"
-          : "🪙 Chips Table"
-        : "🆓 Casual Match";
+      state.roomStake > 0 ? (isToken ? "TOKEN ARENA" : "CHIPS TABLE") : "CASUAL";
   }
+  // Server label in the top-right corner.
+  const regionEl = document.getElementById("room-region");
+  if (regionEl) regionEl.textContent = "⚡ Global server";
   // Visibility chip: host can tap to toggle public/private; others just see it.
   const visEl = document.getElementById("room-visibility") as HTMLButtonElement | null;
   if (visEl) {
