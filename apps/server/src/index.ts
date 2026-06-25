@@ -20,6 +20,7 @@ import { store } from "./store.js";
 import { tournaments, sanitizeConfig, seedTournament, reportTournamentMatch, type TStatus } from "./tournament.js";
 import { setTournamentMatchEnd } from "./room.js";
 import { identity, makeLinkCode, takeLinkCode } from "./identity.js";
+import { startReminders } from "./reminders.js";
 import { randomBytes, createHash } from "node:crypto";
 import {
   tokenBalance,
@@ -1363,6 +1364,8 @@ adminTourneyPost("/admin/tournament/announce/clear", async () => { await tournam
 adminTourneyPost("/admin/tournament/seed", (j) => seedTournament(String(j.id ?? ""), (tid) => mm.createTournamentRoom(tid), Date.now()));
 // Wire pod match-end → tournament scoring/advance.
 setTournamentMatchEnd((tid, code, order) => void reportTournamentMatch(tid, code, order, Date.now()));
+// Tournament reminder DMs (T-24h / T-1h / starting now) via linked Telegram.
+startReminders();
 
 // --- referral ---
 // Bind the inviter for a freshly-connected wallet (one-time, session-verified).
