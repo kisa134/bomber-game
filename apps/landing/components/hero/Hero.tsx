@@ -5,6 +5,8 @@ import { useState, useEffect, useRef } from "react";
 import { AnimatedTitle } from "./AnimatedTitle";
 import { PrizePoolCounter } from "./PrizePoolCounter";
 import { MatchmakingCta } from "./MatchmakingCta";
+import { fetchStats, type GameStats } from "@/lib/gameApi";
+import { TOKEN_TICKER } from "@/lib/token";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -19,12 +21,15 @@ interface HudStat {
   glow:   string;
 }
 
-const HUD_STATS: HudStat[] = [
-  { icon: "●", target: 14_284, suffix: "",   label: "PLAYERS ONLINE",  color: "#5ad27a", glow: "rgba(90,210,122,0.8)"   },
-  { icon: "◎", target: 9_611,  suffix: "",   label: "MATCHES TODAY",   color: "#7fd8ff", glow: "rgba(127,216,255,0.8)"   },
-  { icon: "$", target: 2.1,    suffix: "M",  label: "PRIZE PAID OUT",  color: "#ffd700", glow: "rgba(255,215,0,0.8)"   },
-  { icon: "⚡", target: 8_420,  suffix: "",   label: "TOP MMR",         color: "#ff5a4d", glow: "rgba(255,90,77,0.8)"  },
-];
+/* Real HUD stats, built from the game's /stats (no mocks). Yellow leads. */
+function buildHudStats(s: GameStats | null): HudStat[] {
+  return [
+    { icon: "●", target: Math.round(s?.online ?? 0),     suffix: "", label: "PLAYERS ONLINE", color: "#5ad27a", glow: "rgba(90,210,122,0.8)" },
+    { icon: "◎", target: Math.round(s?.matches ?? 0),    suffix: "", label: "MATCHES",        color: "#7fd8ff", glow: "rgba(127,216,255,0.8)" },
+    { icon: "◎", target: Math.round(s?.prizePaid ?? 0),  suffix: ` ${TOKEN_TICKER}`, label: "PAID OUT", color: "#f5c842", glow: "rgba(245,200,66,0.8)" },
+    { icon: "⚡", target: Math.round(s?.topMmr ?? 0),     suffix: "", label: "TOP MMR",        color: "#ff5a4d", glow: "rgba(255,90,77,0.8)" },
+  ];
+}
 
 function HudChip({ icon, target, prefix = "", suffix = "", label, color, glow, trigger }: HudStat & { trigger: boolean }) {
   const value   = useMotionValue(0);
@@ -104,8 +109,18 @@ export function Hero() {
   const [detonateFlash, setDetonateFlash] = useState(false);
   const [showFallback, setShowFallback]   = useState(false);
   const [statsVisible, setStatsVisible]   = useState(false);
+  const [stats, setStats]                 = useState<GameStats | null>(null);
   const videoRef   = useRef<HTMLVideoElement>(null);
   const statsRef   = useRef<HTMLDivElement>(null);
+
+  /* ── Real HUD numbers from the game server (no mocks) ─────────────────── */
+  useEffect(() => {
+    let alive = true;
+    const load = () => void fetchStats().then((d) => { if (alive && d) setStats(d); });
+    load();
+    const id = setInterval(load, 30_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
 
   /* ── Video fallback: if video doesn't play within 3s, show static image ─ */
   useEffect(() => {
@@ -196,12 +211,12 @@ export function Hero() {
             alignItems:     "center",
             gap:            "8px",
             borderRadius:   "999px",
-            border:         "1px solid rgba(90,210,122,0.20)",
-            background:     "rgba(90,210,122,0.06)",
+            border:         "1px solid rgba(245,200,66,0.22)",
+            background:     "rgba(245,200,66,0.07)",
             backdropFilter: "blur(14px)",
             WebkitBackdropFilter: "blur(14px)",
             padding:        "6px 16px",
-            boxShadow:      "0 0 24px rgba(90,210,122,0.06), inset 0 1px 0 rgba(255,255,255,0.04)",
+            boxShadow:      "0 0 24px rgba(245,200,66,0.07), inset 0 1px 0 rgba(255,255,255,0.04)",
           }}
         >
           <span className="relative flex h-2 w-2 shrink-0">
@@ -221,7 +236,7 @@ export function Hero() {
               fontWeight:    700,
               letterSpacing: "0.20em",
               textTransform: "uppercase",
-              color:         "rgba(90,210,122,0.75)",
+              color:         "rgba(245,200,66,0.85)",
             }}
           >
             Ranked Season 1
@@ -301,7 +316,7 @@ export function Hero() {
           transition={{ duration: 0.7, ease, delay: 0.54 }}
           className="flex flex-wrap items-center justify-center gap-3"
         >
-          {HUD_STATS.map((stat, i) => (
+          {buildHudStats(stats).map((stat, i) => (
             <motion.div
               key={stat.label}
               initial={{ opacity: 0, y: 8 }}
@@ -333,7 +348,7 @@ export function Hero() {
               fontFamily:    "var(--font-mono)",
               fontSize:      "0.56rem",
               letterSpacing: "0.28em",
-              color:         "rgba(90,210,122,0.25)",
+              color:         "rgba(245,200,66,0.30)",
               textTransform: "uppercase",
             }}
           >
@@ -343,7 +358,7 @@ export function Hero() {
             style={{
               width:      "1px",
               height:     "36px",
-              background: "linear-gradient(to bottom, rgba(90,210,122,0.3), transparent)",
+              background: "linear-gradient(to bottom, rgba(245,200,66,0.35), transparent)",
             }}
           />
         </motion.div>

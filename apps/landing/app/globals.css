@@ -12,6 +12,12 @@
   --color-panel:  #1a1620;
   --color-border: #2a2533;
 
+  /* ── Esports spec accent: YELLOW is the single primary/CTA warm colour ──── */
+  --color-yellow:        #f5c842;   /* primary CTA / key stat / conversion */
+  --color-yellow-hover:  #ffd95e;
+  --color-yellow-active: #e0b633;
+  --color-yellow-glow:   rgba(245,200,66,0.20);
+
   /* Accents — warm gold lead, supporting hues kept for semantics */
   --color-neon-green:    #5ad27a;   /* skill / online / money (softened) */
   --color-laser-pink:    #ff5a4d;   /* kill / danger / ranked */
