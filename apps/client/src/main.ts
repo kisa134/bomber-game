@@ -856,6 +856,7 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
   }
 
   // --- Stat grid: XP · Coins · Frags · Rating — each counts up on a glass card.
+  let barStartDelay = 0; // lvl/rating bars wait until the cubes finish (+0.5s)
   const rew = document.getElementById("result-rewards");
   if (rew) {
     rew.innerHTML = "";
@@ -892,8 +893,11 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
     // Run them descending by value, each starting after the previous so the cubes
     // flash one-by-one (the biggest number first).
     seq.sort((a, b) => b.to - a.to);
-    const stagger = Math.min(750, 2400 / Math.max(1, seq.length));
-    seq.forEach((s, i) => countUpStat(s.el, s.to, { ...s.opts, ms: 720, delay: i * stagger, sound: true }));
+    const cubeMs = 1300;
+    const stagger = Math.min(1300, 3600 / Math.max(1, seq.length));
+    seq.forEach((s, i) => countUpStat(s.el, s.to, { ...s.opts, ms: cubeMs, delay: i * stagger, sound: true }));
+    // The lvl/rating bars start AFTER the cubes finish + a 0.5s pause.
+    barStartDelay = Math.max(0, seq.length - 1) * stagger + cubeMs + 500;
     // Rating delta (PvP only).
     if (!practiceMode) {
       const delta = lastMatch?.ratingDelta ?? 0;
@@ -936,8 +940,8 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
       const numEl = lvlWrap.querySelector(".lvl-num") as HTMLElement | null;
       const xpEl = lvlWrap.querySelector(".lvl-xp") as HTMLElement | null;
       if (fill) {
-        const t0 = performance.now();
-        const ms = 900;
+        const ms = 1100;
+        let t0 = 0;
         const step = (now: number): void => {
           const k = Math.min(1, (now - t0) / ms);
           const eased = 1 - Math.pow(1 - k, 3);
@@ -947,7 +951,7 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
           if (xpEl) xpEl.textContent = `${Math.floor(xp % XP_PER)} / ${XP_PER} XP`;
           if (k < 1) requestAnimationFrame(step);
         };
-        requestAnimationFrame(step);
+        setTimeout(() => { t0 = performance.now(); requestAnimationFrame(step); }, barStartDelay);
       }
     } else {
       lvlWrap.classList.add("hidden");
@@ -970,7 +974,9 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
         `<div class="prof-sub">${endPr.label}</div>`;
       const fill = progWrap.querySelector(".result-progfill") as HTMLElement | null;
       const sub = progWrap.querySelector(".prof-sub") as HTMLElement | null;
-      if (fill && delta !== 0) animateProgressBar(fill, sub, fromRating, lastRating, 800);
+      if (fill && delta !== 0) {
+        setTimeout(() => animateProgressBar(fill, sub, fromRating, lastRating, 1100), barStartDelay);
+      }
     } else {
       progWrap.classList.add("hidden");
     }
@@ -4649,6 +4655,7 @@ function sparkBurst(btn: HTMLElement, count: number): void {
   window.setTimeout(() => cont.remove(), 820);
 }
 document.querySelectorAll<HTMLElement>(".glass-btn").forEach((b) => {
+  if (b.id === "result-lobby") return; // back-to-lobby glows softly (no sparks) — see CSS
   addFireflies(b, 18);
   b.addEventListener("pointerenter", () => sparkBurst(b, 9));
   b.addEventListener("click", () => sparkBurst(b, 20));

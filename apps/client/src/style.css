@@ -801,9 +801,20 @@ button.glass-btn.primary:hover {
 /* Keep the standings + prize in DOM order (kill the inherited info-card order:4). */
 #result .result-card,
 #result-prize { order: 0; }
-/* Wider lvl + rating bars so the fill is satisfying to watch. */
+/* Wider lvl + rating bars so the fill is satisfying to watch — and everything UNDER
+   the bars (standings, buttons, footer) matches that same width. */
 .result-lvl-wrap,
-.result-prog-wrap { width: min(460px, 94%); }
+.result-prog-wrap,
+.result-actions-bar,
+#result .result-card,
+.result-foot { width: min(460px, 94%); }
+/* Back to lobby — soft hover glow like the cubes (NO sparks, no lift). */
+#result-lobby:hover {
+  transform: none;
+  filter: none;
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 20px 0 rgba(255, 255, 255, 0.2);
+}
 .result-rew {
   flex: 0 1 auto; /* wrap around the number, don't stretch across the whole row */
   min-width: 84px;
