@@ -1,0 +1,1055 @@
+/* ── BomberMeme design system fonts (match the in-game hub) ───────────────── */
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap");
+
+@import "tailwindcss";
+
+/* ── Design token theme ─────────────────────────────────────────────────── */
+@theme {
+  /* ── BOMBERMEME PREMIUM PALETTE (matches the in-game hub) ───────────────── */
+  /* Background layers — warm purple-tinted void, not cold blue-black */
+  --color-bg:     #0b0a0e;   /* hub void — primary background */
+  --color-bg2:    #12101a;
+  --color-panel:  #1a1620;
+  --color-border: #2a2533;
+
+  /* Accents — warm gold lead, supporting hues kept for semantics */
+  --color-neon-green:    #5ad27a;   /* skill / online / money (softened) */
+  --color-laser-pink:    #ff5a4d;   /* kill / danger / ranked */
+  --color-plasma-blue:   #7fd8ff;   /* prize pool / spectator (soft cyan) */
+  --color-gold-trophy:   #ffd84d;   /* champion / top rank */
+  --color-toxic-amber:   #f0a92a;   /* bomb timer / warnings (warm gold) */
+  --color-muted-surface: #1a1620;   /* card interiors */
+
+  /* Glassmorphism system — purple glass + gold edge */
+  --color-hud-glass:   rgba(26,22,32,0.72);
+  --color-hud-border:  rgba(255,210,74,0.18);
+  --color-glass-pink:  rgba(255,90,77,0.16);
+  --color-glass-blue:  rgba(127,216,255,0.16);
+
+  /* Text */
+  --color-text:   #eef0f5;
+  --color-muted:  #8b8696;
+
+  /* Legacy aliases — kept for backward compat with existing components */
+  --color-accent:      #f0a92a;
+  --color-accent-2:    #ff5a4d;
+  --color-p-red:       #ff5a4d;
+  --color-p-blue:      #7fd8ff;
+  --color-p-green:     #5ad27a;
+  --color-p-gold:      #ffd84d;
+  --color-flame:       #f0a92a;
+  --color-flame-hot:   #ffe27a;
+  --color-money:       #5ad27a;
+  --color-good:        #5ad27a;
+
+  /* ── DETONATE design system tokens (remapped to BomberMeme palette) ────── */
+  --color-ink:         #0b0a0e;
+  --color-ink-2:       #100e16;
+  --color-glass:       #1a1620;
+  --color-term:        #08070c;
+  --color-volt-green:  #5ad27a;
+  --color-cyan-bright: #7fd8ff;
+  --color-detonate:    #ff5a4d;
+  --color-detonate-2:  #ff8a6e;
+
+  /* Typography — Cinzel display (gold headings), Space Grotesk body, Space Mono numerics */
+  --font-display: "Cinzel", "Space Grotesk", Georgia, serif;
+  --font-heading: "Cinzel", "Space Grotesk", Georgia, serif;
+  --font-body:    "Space Grotesk", system-ui, -apple-system, sans-serif;
+  --font-mono:    "Space Mono", ui-monospace, "Courier New", monospace;
+  --font-hud:     "Space Mono", ui-monospace, monospace;
+
+  /* Animation utilities */
+  --animate-marquee:       marquee 38s linear infinite;
+  --animate-marquee-fast:  marquee 22s linear infinite;
+  --animate-scanline:      scanline 4.5s linear infinite;
+  --animate-hud-blink:     hud-blink 1.4s steps(1) infinite;
+  --animate-neon-pulse:    neon-pulse 2s ease-in-out infinite;
+  --animate-plasma-pulse:  plasma-pulse 2.5s ease-in-out infinite;
+  --animate-find-match:    find-match-glow 1.6s ease-in-out infinite;
+  --animate-bracket-blink: bracket-blink 3s steps(1) infinite;
+  --animate-bottom-nav-in: bottom-nav-in 0.4s cubic-bezier(0.16,1,0.3,1) forwards;
+}
+
+/* Keyframes backing the @theme animation tokens */
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+@keyframes scanline {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+@keyframes hud-blink {
+  0%, 60%  { opacity: 1; }
+  61%,100% { opacity: 0.15; }
+}
+
+/* ── Cyber-Meme new keyframes ──────────────────────────────────────────── */
+@keyframes neon-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(90,210,122,0.4), 0 0 24px rgba(90,210,122,0.15);
+    border-color: rgba(90,210,122,0.5);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(90,210,122,0.75), 0 0 48px rgba(90,210,122,0.3), 0 0 80px rgba(90,210,122,0.1);
+    border-color: rgba(90,210,122,0.85);
+  }
+}
+@keyframes plasma-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(127,216,255,0.4), 0 0 24px rgba(127,216,255,0.15);
+    border-color: rgba(127,216,255,0.5);
+  }
+  50% {
+    box-shadow: 0 0 18px rgba(127,216,255,0.75), 0 0 48px rgba(127,216,255,0.3);
+    border-color: rgba(127,216,255,0.85);
+  }
+}
+@keyframes find-match-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(90,210,122,0),
+      0 4px 22px rgba(90,210,122,0.45),
+      inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(90,210,122,0.12),
+      0 4px 32px rgba(90,210,122,0.70),
+      inset 0 1px 0 rgba(255,255,255,0.25);
+  }
+}
+@keyframes bracket-blink {
+  0%, 85%  { opacity: 1; }
+  86%, 93% { opacity: 0.2; }
+  94%,100% { opacity: 1; }
+}
+@keyframes bottom-nav-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes connecting-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes prize-tick-flash {
+  0%   { color: #5ad27a; text-shadow: 0 0 20px rgba(90,210,122,1); }
+  100% { color: #7fd8ff; text-shadow: 0 0 20px rgba(127,216,255,0.8); }
+}
+
+/* ── Base reset ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  background: var(--color-bg);   /* base fallback only — the .site-bg layer paints over this */
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+body { background: transparent; } /* transparent so the fixed .site-bg image shows through */
+
+/* TMA BottomNav clearance — prevents content hiding behind fixed nav */
+@media (max-width: 767px) {
+  body { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+}
+
+body {
+  font-family: var(--font-body);
+  overflow-x: hidden;
+}
+
+::selection { background: rgba(240,169,42,0.28); color: #fff; }
+
+/* Lenis smooth-scroll */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-stopped { overflow: hidden; }
+
+/* ── Film grain overlay ─────────────────────────────────────────────────── */
+/* A fixed pseudo-element over the entire viewport gives the CRT/cinematic  */
+/* grain feel without a shader pass on every section.                        */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+  display: none; /* film-grain CRT effect disabled — clean premium look */
+}
+
+@keyframes grain-shift {
+  0%   { background-position:  0%   0%; }
+  20%  { background-position: 40%  60%; }
+  40%  { background-position: 80%  20%; }
+  60%  { background-position: 20%  80%; }
+  80%  { background-position: 60%  40%; }
+  100% { background-position: 100% 100%; }
+}
+
+/* ── Unified site background — same blurred game art + vignette as the hub ──── */
+/* A fixed layer (in layout.tsx) sitting behind ALL content on every page.       */
+/* .site-bg::before = the deeply-blurred, dimmed splash-art "stage".             */
+/* .site-bg::after  = a warm centre key-light + deep soft vignette at the edges. */
+.site-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  overflow: hidden;
+  pointer-events: none;
+  background: #0b070e;
+}
+.site-bg::before {
+  content: "";
+  position: absolute;
+  inset: -70px;                 /* overscan so heavy blur never leaks edges */
+  background: #0b070e url("/bg/splash-art.webp") center / cover no-repeat;
+  filter: blur(46px) saturate(1.06) brightness(0.6);
+  transform: scale(1.1);
+}
+.site-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 52% at 50% 30%, rgba(255,210,150,0.09), transparent 58%),
+    radial-gradient(ellipse 100% 92% at 50% 42%,
+      rgba(0,0,0,0) 26%,
+      rgba(8,6,14,0.50) 58%,
+      rgba(4,3,8,0.84) 82%,
+      rgba(0,0,0,0.95) 100%);
+}
+
+/* ── HERO TITLE — CSS 3D bevel + gold gradient + neon glow ─────────────── */
+/* This is the "BOMBERMEME" wordmark. Multiple text-shadow layers create the */
+/* beveled, extruded feel. The gradient clip gives the gold→orange brand     */
+/* colour. The filter drop-shadow adds the outer neon bloom.                 */
+.hero-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(3.2rem, 15vw, 11.5rem);
+  line-height: 0.75;
+  letter-spacing: -0.03em;
+
+  /* Gold gradient text clip */
+  background: linear-gradient(170deg, #fff8c0 0%, #ffdf50 28%, #ffcc33 52%, #ff9a3d 78%, #ff6020 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  /* 3D bevel: light edge (top-left) + deep shadow (bottom-right) layers */
+  filter:
+    drop-shadow(0  1px 0 rgba(255,230,100,0.9))
+    drop-shadow(0  2px 0 rgba(200,130,0,0.7))
+    drop-shadow(0  4px 0 rgba(140,80,0,0.5))
+    drop-shadow(0  8px 0 rgba(80,40,0,0.3))
+    drop-shadow(0 16px 32px rgba(255,180,0,0.25))
+    drop-shadow(0  0  60px rgba(255,204,51,0.18));
+
+  /* Prevent layout shift */
+  text-rendering: optimizeLegibility;
+}
+
+/* ── Primary CTA button ────────────────────────────────────────────────────*/
+.cta-primary {
+  background: linear-gradient(170deg, #ffe266 0%, #ffcc33 45%, #ff9a3d 100%);
+  box-shadow:
+    0  4px 22px rgba(255,204,51,0.40),
+    0  0  60px rgba(255,204,51,0.14),
+    inset 0 1px 0 rgba(255,255,200,0.35);
+  transition: box-shadow 0.15s ease, transform 0.08s ease;
+}
+.cta-primary:hover {
+  box-shadow:
+    0  6px 30px rgba(255,204,51,0.58),
+    0  0  80px rgba(255,204,51,0.22),
+    inset 0 1px 0 rgba(255,255,200,0.35);
+}
+.cta-primary:active { transform: scale(0.96); }
+
+/* ── Glassmorphism bento card ───────────────────────────────────────────── */
+.bento-card {
+  background: rgba(16, 19, 34, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 20px;
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  box-shadow:
+    0 2px 0 rgba(255,255,255,0.04) inset,
+    0 24px 60px rgba(0,0,0,0.55),
+    0  0  1px rgba(0,0,0,0.8);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.bento-card:hover {
+  border-color: rgba(255, 204, 51, 0.18);
+  box-shadow:
+    0 2px 0 rgba(255,255,255,0.06) inset,
+    0 28px 70px rgba(0,0,0,0.6),
+    0  0  30px rgba(255,204,51,0.06);
+}
+
+/* ── ROI number — massive neon green ───────────────────────────────────── */
+.roi-number {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 8vw, 5.5rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: #4ade80;
+  text-shadow:
+    0  0  18px rgba(74, 222, 128, 0.90),
+    0  0  50px rgba(74, 222, 128, 0.50),
+    0  0 100px rgba(74, 222, 128, 0.22);
+  animation: roi-breathe 3.2s ease-in-out infinite;
+}
+@keyframes roi-breathe {
+  0%, 100% { text-shadow: 0 0 18px rgba(74,222,128,0.90), 0 0 50px rgba(74,222,128,0.50), 0 0 100px rgba(74,222,128,0.22); }
+  50%       { text-shadow: 0 0 28px rgba(74,222,128,1.00), 0 0 72px rgba(74,222,128,0.70), 0 0 140px rgba(74,222,128,0.35); }
+}
+
+/* ── ROI card — neon green hover override ──────────────────────────────── */
+.roi-card {
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.roi-card:hover {
+  border-color: rgba(74, 222, 128, 0.38) !important;
+  box-shadow:
+    0 2px 0 rgba(255,255,255,0.06) inset,
+    0 28px 70px rgba(0,0,0,0.60),
+    0  0  48px rgba(74,222,128,0.18),
+    0  0   1px rgba(74,222,128,0.50) !important;
+}
+
+/* ── Bull mascot (overflows ROI card top-right) ─────────────────────────── */
+.bull-mascot {
+  font-size: 7rem;
+  line-height: 1;
+  transform: rotate(12deg) scaleX(-1);
+  filter:
+    drop-shadow(0 24px 32px rgba(0,0,0,0.7))
+    drop-shadow(0  0  22px rgba(255,204,51,0.30));
+  animation: bull-lean 4s ease-in-out infinite;
+}
+@keyframes bull-lean {
+  0%, 100% { transform: rotate(12deg)  scaleX(-1) translateY(0); }
+  50%       { transform: rotate(8deg)  scaleX(-1) translateY(-5px); }
+}
+
+/* ── Bear mascot (overflows QR card bottom-left) ───────────────────────── */
+.bear-mascot {
+  font-size: 6.5rem;
+  line-height: 1;
+  transform: rotate(-8deg);
+  filter:
+    drop-shadow(0 20px 28px rgba(0,0,0,0.7))
+    drop-shadow(0  0  18px rgba(74,163,255,0.25));
+  animation: bear-lean 4.8s ease-in-out infinite;
+}
+@keyframes bear-lean {
+  0%, 100% { transform: rotate(-8deg)  translateY(0); }
+  50%       { transform: rotate(-12deg) translateY(-4px); }
+}
+
+/* ── Powerup icon ───────────────────────────────────────────────────────── */
+.powerup-icon {
+  filter: drop-shadow(0 0 10px rgba(255,204,51,0.35));
+  transition: filter 0.3s ease;
+}
+.bento-card:hover .powerup-icon {
+  filter: drop-shadow(0 0 18px rgba(255,204,51,0.65));
+}
+
+/* ── Profit Calculator — segmented control ─────────────────────────────── */
+.calc-seg-group {
+  display: flex;
+  gap: 4px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 3px;
+}
+.calc-seg-btn {
+  flex: 1;
+  padding: 5px 0;
+  border-radius: 7px;
+  font-family: var(--font-display);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.40);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.calc-seg-btn:hover { color: rgba(255,255,255,0.70); }
+.calc-seg-active {
+  color: #4ade80 !important;
+  background: rgba(74,222,128,0.10);
+  border-color: rgba(74,222,128,0.35) !important;
+  box-shadow: 0 0 12px rgba(74,222,128,0.20), inset 0 1px 0 rgba(74,222,128,0.15);
+}
+
+/* ── Profit Calculator — range slider ──────────────────────────────────── */
+.calc-slider-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+}
+.calc-slider-fill {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+  box-shadow: 0 0 8px rgba(74,222,128,0.55);
+  pointer-events: none;
+  transition: width 0.05s linear;
+}
+.calc-slider {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ── Profit Calculator — preset chips ──────────────────────────────────── */
+.calc-chip {
+  padding: 4px 0;
+  width: 100%;
+  text-align: center;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.calc-chip:hover {
+  color: rgba(255,255,255,0.75);
+  border-color: rgba(255,255,255,0.22);
+}
+.calc-chip-active {
+  color: #4ade80 !important;
+  background: rgba(74,222,128,0.12) !important;
+  border-color: rgba(74,222,128,0.40) !important;
+  box-shadow: 0 0 8px rgba(74,222,128,0.18);
+}
+
+/* ── Profit Calculator — output row ────────────────────────────────────── */
+.calc-output-row {
+  display: flex;
+  align-items: center;
+  background: rgba(74,222,128,0.06);
+  border: 1px solid rgba(74,222,128,0.18);
+  border-radius: 14px;
+  padding: 14px 16px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.calc-output-row:hover {
+  border-color: rgba(74,222,128,0.32);
+  box-shadow: 0 0 24px rgba(74,222,128,0.12);
+}
+.calc-output-cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.calc-output-divider {
+  width: 1px;
+  height: 40px;
+  background: rgba(74,222,128,0.18);
+  flex-shrink: 0;
+}
+.calc-output-label {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.35);
+}
+.calc-output-value {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #4ade80;
+  text-shadow:
+    0 0 14px rgba(74,222,128,0.85),
+    0 0 40px rgba(74,222,128,0.45);
+  animation: roi-breathe 3.2s ease-in-out infinite;
+}
+@media (min-width: 768px) {
+  .calc-output-value-hero {
+    font-size: clamp(2rem, 3.5vw, 2.75rem);
+  }
+}
+@media (min-width: 1024px) {
+  .calc-output-value-hero {
+    font-size: clamp(2.25rem, 3vw, 3.25rem);
+  }
+}
+
+/* ── Section heading ────────────────────────────────────────────────────── */
+.section-heading {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  color: #fff;
+  margin-bottom: 1rem;
+}
+
+/* ── Accent/muted text color utilities ─────────────────────────────────── */
+.text-accent-2 { color: var(--color-accent-2); }
+.text-money    { color: var(--color-money); }
+.text-muted    { color: var(--color-muted); }
+
+/* ── Gold gradient text clip utility ────────────────────────────────────── */
+.text-gold-grad {
+  background: linear-gradient(180deg, #fff0a8, var(--color-accent) 55%, #ff9a3d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 4px 24px rgba(255,204,51,0.3));
+}
+
+/* ── Tailwind color aliases ─────────────────────────────────────────────── */
+.bg-bg    { background-color: var(--color-bg); }
+.bg-panel { background-color: var(--color-panel); }
+.border-border { border-color: var(--color-border); }
+.shadow-glow { box-shadow: 0 0 40px rgba(255,204,51,0.25); }
+
+/* ── CSS particle float (replaces WebGL Sparkles — no canvas, no crash) ─── */
+.particle {
+  animation: particle-float linear infinite;
+}
+@keyframes particle-float {
+  0%   { transform: translateY(0)    scale(1);    opacity: 0.15; }
+  45%  { transform: translateY(-20px) scale(1.3); opacity: 0.45; }
+  75%  { transform: translateY(-9px)  scale(0.8); opacity: 0.25; }
+  100% { transform: translateY(0)    scale(1);    opacity: 0.15; }
+}
+
+/* Subtle breathing glow behind the hero title */
+.hero-section::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(ellipse 58% 38% at 50% 43%,
+    rgba(255,204,51,0.065) 0%,
+    rgba(255,120,30,0.03) 45%,
+    transparent 70%
+  );
+  animation: hero-glow-pulse 5.5s ease-in-out infinite;
+}
+@keyframes hero-glow-pulse {
+  0%, 100% { opacity: 0.65; }
+  50%       { opacity: 1.0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/*  DETONATE DESIGN SYSTEM — shared utilities                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Aggressive AAA heading: heavy black italic, uppercase, tight tracking ── */
+.detonate-heading {
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+  line-height: 0.92;
+}
+
+/* ── Detonate glassmorphism card (#11131a · white/10 border · inner glow) ── */
+.glass-card {
+  background: #11131a;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 1rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 50px rgba(0, 0, 0, 0.55);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 40px rgba(184, 255, 53, 0.05),
+    0 22px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Token color text/border helpers used across the overhaul ───────────── */
+.text-volt   { color: #b8ff35; }
+.text-detonate { color: #ff5a1f; }
+.text-cyan-bright { color: #3ba7ff; }
+.border-volt { border-color: #b8ff35; }
+
+/* ── HUD corner brackets (4 L-shaped neon corners over the hero video) ───── */
+.hud-bracket {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(184, 255, 53, 0.85);
+  filter: drop-shadow(0 0 6px rgba(184, 255, 53, 0.45));
+  pointer-events: none;
+  z-index: 20;
+}
+.hud-bracket-tl { top: 12px; left: 12px;  border-right: none; border-bottom: none; border-top-left-radius: 4px; }
+.hud-bracket-tr { top: 12px; right: 12px; border-left: none;  border-bottom: none; border-top-right-radius: 4px; }
+.hud-bracket-bl { bottom: 12px; left: 12px;  border-right: none; border-top: none; border-bottom-left-radius: 4px; }
+.hud-bracket-br { bottom: 12px; right: 12px; border-left: none;  border-top: none; border-bottom-right-radius: 4px; }
+
+/* ── HUD animated scanline sweep ─────────────────────────────────────────── */
+.hud-scanline {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 15;
+}
+.hud-scanline::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  height: 45%;
+  background: linear-gradient(to bottom, rgba(184, 255, 53, 0.10), transparent);
+  animation: scanline 4.5s linear infinite;
+}
+
+/* ── Marquee row (duplicated content + translateX(-50%) = seamless loop) ─── */
+.marquee-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  animation: marquee 38s linear infinite;
+}
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 6%, #000 94%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation: none; }
+}
+
+/* ── Terminal window (Provably Fair block) ──────────────────────────────── */
+.terminal-window {
+  background: #08090c;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 14px;
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+.terminal-dot { width: 11px; height: 11px; border-radius: 999px; display: inline-block; }
+
+/* ── DETONATE orange slider variant (overrides green fill on .calc-detonate)─ */
+.calc-detonate .calc-slider-fill {
+  background: linear-gradient(90deg, #ff5a1f, #ff8a3c);
+  box-shadow: 0 0 10px rgba(255, 90, 31, 0.6);
+}
+.calc-detonate .calc-seg-active {
+  color: #ff8a3c !important;
+  background: rgba(255, 90, 31, 0.12);
+  border-color: rgba(255, 90, 31, 0.40) !important;
+  box-shadow: 0 0 12px rgba(255, 90, 31, 0.22), inset 0 1px 0 rgba(255, 138, 60, 0.15);
+}
+.calc-detonate .calc-chip-active {
+  color: #ff8a3c !important;
+  background: rgba(255, 90, 31, 0.14) !important;
+  border-color: rgba(255, 90, 31, 0.42) !important;
+  box-shadow: 0 0 8px rgba(255, 90, 31, 0.20);
+}
+.calc-detonate .calc-output-row {
+  background: rgba(255, 90, 31, 0.06);
+  border-color: rgba(255, 90, 31, 0.20);
+}
+.calc-detonate .calc-output-row:hover {
+  border-color: rgba(255, 90, 31, 0.34);
+  box-shadow: 0 0 24px rgba(255, 90, 31, 0.14);
+}
+.calc-detonate .calc-output-divider { background: rgba(255, 90, 31, 0.20); }
+
+/* Detonate output value: volt-green pot, orange profit */
+.calc-value-volt {
+  color: #b8ff35 !important;
+  text-shadow: 0 0 14px rgba(184, 255, 53, 0.75), 0 0 40px rgba(184, 255, 53, 0.40) !important;
+}
+.calc-value-detonate {
+  color: #ff8a3c !important;
+  text-shadow: 0 0 14px rgba(255, 90, 31, 0.75), 0 0 40px rgba(255, 90, 31, 0.40) !important;
+}
+
+/* ── Dot-matrix overlay (final CTA) ─────────────────────────────────────── */
+.dot-matrix {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.55) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   CYBER-MEME ESPORTS DESIGN SYSTEM — 2026 REDESIGN UTILITIES
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Esports heading variant: Archivo black italic, ultra-compressed ────── */
+.esports-heading {
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: -0.04em;
+  line-height: 0.88;
+}
+
+/* ── Neon glow text utilities ───────────────────────────────────────────── */
+.text-neon-green {
+  color: #5ad27a;
+  text-shadow: 0 0 12px rgba(90,210,122,0.8), 0 0 32px rgba(90,210,122,0.4);
+}
+.text-laser-pink {
+  color: #ff5a4d;
+  text-shadow: 0 0 12px rgba(255,90,77,0.8), 0 0 32px rgba(255,90,77,0.4);
+}
+.text-plasma-blue {
+  color: #7fd8ff;
+  text-shadow: 0 0 12px rgba(127,216,255,0.8), 0 0 32px rgba(127,216,255,0.4);
+}
+.text-gold-trophy {
+  color: #ffd700;
+  text-shadow: 0 0 12px rgba(255,215,0,0.7), 0 0 32px rgba(255,215,0,0.3);
+}
+
+/* ── Neon border glows ──────────────────────────────────────────────────── */
+.border-neon-green { border-color: rgba(90,210,122,0.5); }
+.border-laser-pink { border-color: rgba(255,90,77,0.5); }
+.border-plasma-blue { border-color: rgba(127,216,255,0.5); }
+
+/* ── Premium glass card — Cyber-Meme variant ───────────────────────────── */
+.cyber-glass {
+  background: rgba(10,12,20,0.72);
+  border: 1px solid rgba(90,210,122,0.12);
+  border-radius: 1rem;
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 20px 60px rgba(0,0,0,0.7),
+    0 0 0 1px rgba(0,0,0,0.5);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.cyber-glass:hover {
+  border-color: rgba(90,210,122,0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 0 40px rgba(90,210,122,0.04),
+    0 24px 72px rgba(0,0,0,0.75),
+    0 0 32px rgba(90,210,122,0.08);
+}
+.cyber-glass-pink {
+  border-color: rgba(255,90,77,0.12);
+}
+.cyber-glass-pink:hover {
+  border-color: rgba(255,90,77,0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 24px 72px rgba(0,0,0,0.75),
+    0 0 32px rgba(255,90,77,0.1);
+}
+.cyber-glass-blue {
+  border-color: rgba(127,216,255,0.12);
+}
+.cyber-glass-blue:hover {
+  border-color: rgba(127,216,255,0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 24px 72px rgba(0,0,0,0.75),
+    0 0 32px rgba(127,216,255,0.1);
+}
+
+/* ── HUD corner brackets — updated to neon green ───────────────────────── */
+.hud-bracket {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(90,210,122,0.85);
+  filter: drop-shadow(0 0 6px rgba(90,210,122,0.5));
+  pointer-events: none;
+  z-index: 20;
+  animation: bracket-blink 3s steps(1) infinite;
+}
+.hud-bracket-tl { top: 12px; left: 12px;  border-right: none; border-bottom: none; border-top-left-radius: 3px; }
+.hud-bracket-tr { top: 12px; right: 12px; border-left: none;  border-bottom: none; border-top-right-radius: 3px; }
+.hud-bracket-bl { bottom: 12px; left: 12px;  border-right: none; border-top: none; border-bottom-left-radius: 3px; }
+.hud-bracket-br { bottom: 12px; right: 12px; border-left: none;  border-top: none; border-bottom-right-radius: 3px; }
+
+/* ── FIND MATCH primary CTA — neon green glow ───────────────────────────── */
+.cta-find-match {
+  background: linear-gradient(135deg, #1eff00 0%, #5ad27a 45%, #7fff00 100%);
+  color: #040806;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(90,210,122,0.6);
+  animation: find-match-glow 1.6s ease-in-out infinite;
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+.cta-find-match:hover {
+  filter: brightness(1.12) saturate(1.2);
+}
+.cta-find-match:active { transform: scale(0.96); }
+
+/* ── ENTER RANKED secondary CTA — laser pink border ─────────────────────── */
+.cta-ranked {
+  background: rgba(255,90,77,0.08);
+  color: #ff5a4d;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 1px solid rgba(255,90,77,0.50);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  text-shadow: 0 0 14px rgba(255,90,77,0.6);
+  box-shadow: 0 0 24px rgba(255,90,77,0.1), inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: all 0.2s ease;
+}
+.cta-ranked:hover {
+  background: rgba(255,90,77,0.15);
+  border-color: rgba(255,90,77,0.85);
+  box-shadow: 0 0 40px rgba(255,90,77,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+  text-shadow: 0 0 20px rgba(255,90,77,0.9);
+}
+.cta-ranked:active { transform: scale(0.96); }
+
+/* ── Connect Wallet CTA button ───────────────────────────────────────────── */
+.cta-connect {
+  background: rgba(90,210,122,0.08);
+  color: #5ad27a;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid rgba(90,210,122,0.45);
+  border-radius: 999px;
+  padding: 6px 14px;
+  text-shadow: 0 0 10px rgba(90,210,122,0.7);
+  animation: neon-pulse 2s ease-in-out infinite;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.08s ease;
+  white-space: nowrap;
+}
+.cta-connect:hover {
+  background: rgba(90,210,122,0.16);
+  transform: scale(1.04);
+}
+.cta-connect:active { transform: scale(0.97); }
+
+/* ── NeonBadge tier / role variants ─────────────────────────────────────── */
+.neon-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.neon-badge-green {
+  color: #5ad27a;
+  background: rgba(90,210,122,0.10);
+  border: 1px solid rgba(90,210,122,0.35);
+  text-shadow: 0 0 8px rgba(90,210,122,0.7);
+  box-shadow: 0 0 10px rgba(90,210,122,0.1);
+}
+.neon-badge-pink {
+  color: #ff5a4d;
+  background: rgba(255,90,77,0.10);
+  border: 1px solid rgba(255,90,77,0.35);
+  text-shadow: 0 0 8px rgba(255,90,77,0.7);
+}
+.neon-badge-blue {
+  color: #7fd8ff;
+  background: rgba(127,216,255,0.10);
+  border: 1px solid rgba(127,216,255,0.35);
+  text-shadow: 0 0 8px rgba(127,216,255,0.7);
+}
+.neon-badge-gold {
+  color: #ffd700;
+  background: rgba(255,215,0,0.10);
+  border: 1px solid rgba(255,215,0,0.35);
+  text-shadow: 0 0 8px rgba(255,215,0,0.7);
+}
+.neon-badge-amber {
+  color: #f0a92a;
+  background: rgba(255,140,0,0.10);
+  border: 1px solid rgba(255,140,0,0.35);
+  text-shadow: 0 0 8px rgba(255,140,0,0.7);
+}
+.neon-badge-muted {
+  color: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+/* ── Connecting spinner ─────────────────────────────────────────────────── */
+.connecting-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(90,210,122,0.2);
+  border-top-color: #5ad27a;
+  border-radius: 50%;
+  animation: connecting-spin 0.7s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* ── Bottom nav (TMA) ───────────────────────────────────────────────────── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 80;
+  display: flex;
+  align-items: stretch;
+  background: rgba(7,8,16,0.88);
+  border-top: 1px solid rgba(90,210,122,0.12);
+  backdrop-filter: blur(24px) saturate(1.3);
+  -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  box-shadow: 0 -4px 40px rgba(0,0,0,0.65), 0 -1px 0 rgba(90,210,122,0.06);
+  animation: bottom-nav-in 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+.bottom-nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px 12px;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: rgba(255,255,255,0.35);
+  font-family: var(--font-mono);
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: color 0.18s ease;
+  position: relative;
+}
+.bottom-nav-tab:hover { color: rgba(255,255,255,0.70); }
+.bottom-nav-tab-active {
+  color: #5ad27a !important;
+  text-shadow: 0 0 10px rgba(90,210,122,0.6);
+}
+.bottom-nav-tab-active::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: #5ad27a;
+  border-radius: 0 0 2px 2px;
+  box-shadow: 0 0 10px rgba(90,210,122,0.7), 0 0 24px rgba(90,210,122,0.35);
+}
+
+/* ── Auth chip in TopNav (connected state) ──────────────────────────────── */
+.auth-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 5px 12px 5px 8px;
+  background: rgba(90,210,122,0.06);
+  border: 1px solid rgba(90,210,122,0.22);
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(255,255,255,0.80);
+  white-space: nowrap;
+}
+.auth-chip:hover {
+  background: rgba(90,210,122,0.12);
+  border-color: rgba(90,210,122,0.40);
+}
+.auth-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5ad27a;
+  box-shadow: 0 0 6px rgba(90,210,122,0.9), 0 0 14px rgba(90,210,122,0.5);
+  flex-shrink: 0;
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+.auth-chip-mmr {
+  color: #7fd8ff;
+  text-shadow: 0 0 8px rgba(127,216,255,0.6);
+}
+.auth-chip-bal {
+  color: #5ad27a;
+  text-shadow: 0 0 8px rgba(90,210,122,0.6);
+}
+
+/* ── Bento card updated hover for neon green accents ───────────────────── */
+.bento-card:hover {
+  border-color: rgba(90,210,122,0.18);
+  box-shadow:
+    0 2px 0 rgba(255,255,255,0.06) inset,
+    0 28px 70px rgba(0,0,0,0.6),
+    0  0  30px rgba(90,210,122,0.06);
+}
+.powerup-icon {
+  filter: drop-shadow(0 0 10px rgba(90,210,122,0.35));
+  transition: filter 0.3s ease;
+}
+.bento-card:hover .powerup-icon {
+  filter: drop-shadow(0 0 18px rgba(90,210,122,0.65));
+}
+
+/* ── Updated hero glow — neon green / plasma blue instead of gold ────────── */
+.hero-section::before {
+  background: radial-gradient(ellipse 58% 38% at 50% 43%,
+    rgba(90,210,122,0.05) 0%,
+    rgba(127,216,255,0.03) 40%,
+    transparent 70%
+  );
+  animation: hero-glow-pulse 5.5s ease-in-out infinite;
+}
