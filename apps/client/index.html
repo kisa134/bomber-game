@@ -270,6 +270,19 @@
         </div>
       </div>
 
+      <!-- Interactive referral-network graph -->
+      <div id="refgraph-modal" class="modal hidden">
+        <div class="modal-card refgraph-card">
+          <div class="fr-top">
+            <button id="refgraph-close" class="ghost lobby-icon">←</button>
+            <h2 class="lobby-title">Your network</h2>
+            <span class="lobby-icon" style="visibility:hidden">.</span>
+          </div>
+          <canvas id="refgraph-canvas" class="refgraph-canvas"></canvas>
+          <p id="refgraph-info" class="status"></p>
+        </div>
+      </div>
+
       <!-- Daily login reward — a popup (not a permanent hub card) -->
       <div id="daily-modal" class="modal hidden">
         <div class="modal-card daily-card-pop">

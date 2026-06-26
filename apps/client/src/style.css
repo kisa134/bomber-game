@@ -6284,6 +6284,24 @@ button.big {
   text-align: left;
   gap: 12px;
 }
+/* Interactive referral-network graph window. */
+#refgraph-modal .refgraph-card {
+  width: min(680px, 100%);
+  max-height: 92vh;
+  align-items: stretch;
+  text-align: left;
+  gap: 10px;
+}
+.refgraph-canvas {
+  width: 100%;
+  height: min(58vh, 460px);
+  border-radius: 14px;
+  background: radial-gradient(ellipse at center, rgba(160, 110, 255, 0.1), rgba(10, 8, 16, 0.4));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  touch-action: none;
+}
+#refgraph-info { text-align: center; }
+.ref-graph-btn { width: 100%; margin-top: 8px; }
 .lb-period {
   width: 100%;
 }

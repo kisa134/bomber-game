@@ -4466,6 +4466,82 @@ function walletGate(stake: number, currency = 0): boolean {
   if (ref && !localStorage.getItem("bp_ref_done")) localStorage.setItem("bp_ref", ref);
 })();
 
+// Interactive referral-network graph (its own floating window). We only have per-level
+// counts (not the raw tree), so we lay out representative nodes on rings around YOU and let
+// them drift; nodes are hover-highlighted and clickable for their level info.
+let refGraphRaf = 0;
+function openRefGraph(network: number[], pcts: number[]): void {
+  const modal = document.getElementById("refgraph-modal");
+  const canvas = document.getElementById("refgraph-canvas") as HTMLCanvasElement | null;
+  const info = document.getElementById("refgraph-info");
+  if (!modal || !canvas) return;
+  modal.classList.remove("hidden");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const total = network.reduce((a, b) => a + b, 0);
+  if (info) info.textContent = `${total.toLocaleString()} people across your network · tap a node`;
+  const CAP = 16;
+  type GN = { level: number; ring: number; ang: number; ph: number; px: number; py: number; parent: number };
+  const nodes: GN[] = [{ level: 0, ring: 0, ang: 0, ph: 0, px: 0, py: 0, parent: -1 }];
+  const starts: number[] = [0, 1]; // node index where each level begins
+  pcts.forEach((_p, i) => {
+    const c = Math.min(network[i] ?? 0, CAP);
+    const prevStart = starts[i], prevLen = Math.max(1, starts[i + 1] - starts[i]);
+    for (let k = 0; k < c; k++) {
+      const parent = i === 0 ? 0 : prevStart + (k % prevLen);
+      nodes.push({ level: i + 1, ring: i + 1, ang: (k / Math.max(1, c)) * Math.PI * 2 + i * 0.6, ph: (k * 1.7 + i) % (Math.PI * 2), px: 0, py: 0, parent });
+    }
+    starts[i + 2] = nodes.length;
+  });
+  let hover = -1;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  let w = 0, h = 0;
+  const resize = (): void => { const r = canvas.getBoundingClientRect(); w = r.width; h = r.height; canvas.width = w * dpr; canvas.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  resize();
+  const t0 = performance.now();
+  const step = (now: number): void => {
+    if (modal.classList.contains("hidden")) { refGraphRaf = 0; return; }
+    const t = (now - t0) / 1000;
+    const cx = w / 2, cy = h / 2;
+    const ringStep = (Math.min(w, h) / 2 - 26) / (pcts.length + 0.5);
+    ctx.clearRect(0, 0, w, h);
+    for (const n of nodes) {
+      if (n.level === 0) { n.px = cx + Math.sin(t * 0.5) * 5; n.py = cy + Math.cos(t * 0.4) * 5; }
+      else { const r = n.ring * ringStep + Math.sin(t * 0.8 + n.ph) * 7; const a = n.ang + Math.sin(t * 0.25 + n.ph) * 0.05; n.px = cx + Math.cos(a) * r; n.py = cy + Math.sin(a) * r; }
+    }
+    ctx.lineWidth = 1.2;
+    for (const n of nodes) { if (n.parent < 0) continue; const p = nodes[n.parent]; ctx.strokeStyle = "rgba(160,110,255,0.22)"; ctx.beginPath(); ctx.moveTo(p.px, p.py); ctx.lineTo(n.px, n.py); ctx.stroke(); }
+    nodes.forEach((n, i) => {
+      const you = n.level === 0;
+      const rad = you ? 17 : 7 + Math.max(0, 5 - n.level);
+      ctx.beginPath(); ctx.arc(n.px, n.py, rad, 0, Math.PI * 2);
+      ctx.fillStyle = you ? "#f0a92a" : `rgba(160,110,255,${(0.85 - n.level * 0.09).toFixed(2)})`;
+      ctx.shadowColor = you ? "rgba(255,200,80,0.7)" : "rgba(160,110,255,0.6)"; ctx.shadowBlur = i === hover ? 20 : 8;
+      ctx.fill(); ctx.shadowBlur = 0;
+      if (i === hover) { ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); }
+      if (you) { ctx.fillStyle = "#2a1a05"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("YOU", n.px, n.py); }
+    });
+    refGraphRaf = requestAnimationFrame(step);
+  };
+  if (refGraphRaf) cancelAnimationFrame(refGraphRaf);
+  refGraphRaf = requestAnimationFrame(step);
+  const pick = (ev: PointerEvent): number => {
+    const r = canvas.getBoundingClientRect(); const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    let best = -1, bd = 20 * 20;
+    nodes.forEach((n, i) => { const dx = n.px - mx, dy = n.py - my, d = dx * dx + dy * dy; if (d < bd) { bd = d; best = i; } });
+    return best;
+  };
+  canvas.onpointermove = (ev) => { hover = pick(ev); canvas.style.cursor = hover >= 0 ? "pointer" : "default"; };
+  canvas.onpointerdown = (ev) => {
+    const i = pick(ev);
+    if (i >= 0 && info) {
+      const n = nodes[i];
+      info.textContent = n.level === 0 ? "That's you — the root of your network 🌱" : `Level ${n.level} · you earn ${pcts[n.level - 1]}% of their rake`;
+    }
+  };
+  window.addEventListener("resize", resize);
+}
+
 /** Bind the inviter once a wallet+session exist. Runs even without a stored ref
  *  so the server attaches un-invited players under the root (owner). Retries on
  *  every wallet refresh / 20s poll until it succeeds, then persists done — so a
@@ -4536,31 +4612,22 @@ async function openReferral(): Promise<void> {
     empty.classList.remove("hidden");
   } else {
     empty.classList.add("hidden");
-    // Referral network as a pyramid graph: YOU at the top, each level a node sized by how
-    // many people are on it, branching down and connected by a glowing spine.
-    const maxC = Math.max(1, ...network);
-    const cx = 50, top = 26, rowH = 52, W = 320;
-    const svgH = top + pcts.length * rowH + 14;
-    let lines = "";
-    let nodes = `<circle cx="${cx}" cy="${top}" r="15" fill="url(#rpYou)" stroke="#ffd84d" stroke-width="1.5"/><text x="${cx}" y="${top + 4}" text-anchor="middle" class="rp-you">YOU</text>`;
-    pcts.forEach((pct, i) => {
-      const y = top + (i + 1) * rowH;
-      const c = network[i] ?? 0;
-      const k = c / maxC;
-      const rad = 9 + k * 17;
-      const yPrev = top + i * rowH + (i === 0 ? 15 : 0);
-      lines += `<line x1="${cx}" y1="${yPrev}" x2="${cx}" y2="${(y - rad).toFixed(1)}" stroke="rgba(160,110,255,0.45)" stroke-width="2"/>`;
-      nodes +=
-        `<circle cx="${cx}" cy="${y}" r="${rad.toFixed(1)}" fill="rgba(160,110,255,${(0.18 + 0.5 * k).toFixed(2)})" stroke="#a06eff" stroke-width="1.5"/>` +
-        `<text x="${cx}" y="${(y + 4).toFixed(1)}" text-anchor="middle" class="rp-c">${c}</text>` +
-        `<text x="${(cx + rad + 12).toFixed(1)}" y="${(y - 2).toFixed(1)}" class="rp-l">L${i + 1} · ${(c).toLocaleString()} ${c === 1 ? "person" : "people"}</text>` +
-        `<text x="${(cx + rad + 12).toFixed(1)}" y="${(y + 13).toFixed(1)}" class="rp-p">${pct}% of rake</text>`;
-    });
+    const max = Math.max(1, ...network);
     tree.innerHTML =
-      `<svg class="ref-pyramid" viewBox="0 0 ${W} ${svgH}" aria-hidden="true">` +
-      `<defs><radialGradient id="rpYou"><stop offset="0" stop-color="#ffe9a8"/><stop offset="1" stop-color="#f0a92a"/></radialGradient></defs>` +
-      lines + nodes +
-      `</svg>`;
+      pcts
+        .map((_pct, i) => {
+          const c = network[i] ?? 0;
+          return (
+            `<div class="ref-treerow"><span class="ref-treelvl">L${i + 1}</span>` +
+            `<div class="ref-treebar"><div class="ref-treefill" style="width:${(c / max) * 100}%"></div></div>` +
+            `<span class="ref-treecnt">${c.toLocaleString()}</span></div>`
+          );
+        })
+        .join("") +
+      `<button id="ref-graph-btn" class="glass-btn ref-graph-btn">🌐 View network graph</button>`;
+    document
+      .getElementById("ref-graph-btn")
+      ?.addEventListener("click", () => openRefGraph(network, pcts));
   }
   calcRakePct = s.rakePct ?? 0;
   calcL1Pct = pcts[0] ?? 10;
@@ -4698,6 +4765,12 @@ document.getElementById("pubprofile-close")!.addEventListener("click", () =>
 // Referral / partner program wiring.
 document.getElementById("open-referral")?.addEventListener("click", () => void openReferral());
 document.getElementById("referral-back")?.addEventListener("click", () => showScreen("menu"));
+document.getElementById("refgraph-close")?.addEventListener("click", () =>
+  document.getElementById("refgraph-modal")?.classList.add("hidden"),
+);
+document.getElementById("refgraph-modal")?.addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) (e.currentTarget as HTMLElement).classList.add("hidden");
+});
 document.getElementById("ref-copy")?.addEventListener("click", () => {
   if (!loadWallet()) return setMenuStatus("Connect a wallet to get your link");
   void navigator.clipboard?.writeText(referralLink());
