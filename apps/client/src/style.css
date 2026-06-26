@@ -8159,30 +8159,59 @@ button.big {
   filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.85));
 }
 
-/* ── Fireflies-under-glass + soft inner glow on the hub profile / season cards ─ */
-.passport-card > :not(.lg-fireflies):not(.lg-frost),
-.info-card > :not(.lg-fireflies):not(.lg-frost) { position: relative; z-index: 1; }
+/* ── Living-glass fireflies + soft centre glow (hub profile / season cards) ───────
+   Layers fill the WHOLE card (edge = card edge) so there's no hard internal line.
+   A masked frosted pane blurs the motes; a radial centre-glow lights up with NO
+   edged ring; the liquid-glass refraction strengthens on hover (interactive). */
+.passport-card > :not(.lg-fireflies):not(.lg-frost):not(.lg-glow),
+.info-card > :not(.lg-fireflies):not(.lg-frost):not(.lg-glow) { position: relative; z-index: 1; }
 .lg-fireflies,
-.lg-frost {
+.lg-frost,
+.lg-glow {
   position: absolute;
-  inset: 7px; /* INSIDE the edges → soft + natural, never on the border */
-  border-radius: 9px;
+  inset: 0;
+  border-radius: inherit; /* edge coincides with the card → NO inner border line */
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.5s ease;
 }
 .lg-fireflies { overflow: hidden; z-index: 0; }
-/* Frosted pane OVER the motes → the glass "blurs" the fireflies under it. */
+/* Frosted pane over the motes → the glass blurs them; radial mask softens its edge. */
 .lg-frost {
   z-index: 0;
-  backdrop-filter: blur(2.5px);
-  -webkit-backdrop-filter: blur(2.5px);
+  backdrop-filter: blur(2.5px) saturate(1.15);
+  -webkit-backdrop-filter: blur(2.5px) saturate(1.15);
+  -webkit-mask: radial-gradient(125% 125% at 50% 50%, #000 58%, transparent 100%);
+  mask: radial-gradient(125% 125% at 50% 50%, #000 58%, transparent 100%);
 }
-.passport-card:hover .lg-fireflies,
-.passport-card:hover .lg-frost,
-.info-card.season-glow:hover .lg-fireflies,
-.info-card.season-glow:hover .lg-frost { opacity: 1; }
-/* Tiny glowing motes — transform + opacity driven by JS (mouse-gravity physics). */
+/* Soft CENTRE glow — radial, fades to nothing before the edges (no hard ring). */
+.lg-glow {
+  z-index: 0;
+  background: radial-gradient(ellipse 72% 64% at 50% 46%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05) 42%, transparent 70%);
+}
+.info-card.season-glow .lg-glow {
+  background: radial-gradient(ellipse 72% 64% at 50% 46%, rgba(180, 125, 255, 0.3), rgba(150, 90, 255, 0.09) 42%, transparent 70%);
+}
+.passport-card:hover .lg-fireflies, .passport-card:hover .lg-frost, .passport-card:hover .lg-glow,
+.info-card.season-glow:hover .lg-fireflies, .info-card.season-glow:hover .lg-frost, .info-card.season-glow:hover .lg-glow { opacity: 1; }
+/* Gentle lightbulb flicker — opacity-only (cheap), no box-shadow ring. */
+.passport-card:hover .lg-glow,
+.info-card.season-glow:hover .lg-glow { animation: glowFlicker 3.2s ease-in-out infinite; }
+@keyframes glowFlicker {
+  0%, 100% { opacity: 1; }
+  5% { opacity: 0.7; }
+  8% { opacity: 1; }
+  12% { opacity: 0.84; }
+  16% { opacity: 1; }
+  55% { opacity: 0.9; }
+}
+.info-card.season-glow:hover { border-color: rgba(168, 120, 255, 0.4); transition: border-color 0.4s ease; }
+.info-card.season-glow:active .lg-glow { opacity: 1; filter: brightness(1.6); }
+/* Interactive liquid-glass: the refraction layer comes alive on hover. */
+.passport-card::after,
+.info-card.season-glow::after { transition: backdrop-filter 0.4s ease; }
+.passport-card:hover::after,
+.info-card.season-glow:hover::after { backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
 .lg-fireflies i {
   position: absolute;
   left: 0;
@@ -8198,29 +8227,4 @@ button.big {
 .info-card.season-glow .lg-fireflies i {
   background: #d7bcff;
   box-shadow: 0 0 5px 1px rgba(176, 130, 255, 0.9), 0 0 1px 0 #e9dcff;
-}
-/* Soft INNER glow (well within the edges) that fades in smoothly + flickers gently
-   like a warming lightbulb. */
-.passport-card { transition: box-shadow 0.5s ease; }
-.passport-card:hover { animation: cardGlowFlicker 3.4s ease-in-out infinite; }
-@keyframes cardGlowFlicker {
-  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), inset 0 0 36px -8px rgba(255,255,255,0.24), 0 14px 34px rgba(0,0,0,0.34); }
-  6% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), inset 0 0 28px -8px rgba(255,255,255,0.14), 0 14px 34px rgba(0,0,0,0.34); }
-  10% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), inset 0 0 46px -6px rgba(255,255,255,0.34), 0 14px 34px rgba(0,0,0,0.34); }
-  14% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), inset 0 0 36px -8px rgba(255,255,255,0.24), 0 14px 34px rgba(0,0,0,0.34); }
-  52% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), inset 0 0 42px -6px rgba(255,255,255,0.3), 0 14px 34px rgba(0,0,0,0.34); }
-}
-.info-card.season-glow { transition: box-shadow 0.5s ease, border-color 0.5s ease; }
-.info-card.season-glow:hover {
-  border-color: rgba(168, 120, 255, 0.4);
-  animation: seasonGlowFlicker 3.4s ease-in-out infinite;
-}
-@keyframes seasonGlowFlicker {
-  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 0 44px -8px rgba(160,100,255,0.55), 0 14px 34px rgba(60,20,120,0.4); }
-  8% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 0 32px -8px rgba(160,100,255,0.38), 0 14px 34px rgba(60,20,120,0.4); }
-  12% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.65), inset 0 0 58px -6px rgba(170,110,255,0.72), 0 14px 34px rgba(60,20,120,0.4); }
-  16% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 0 44px -8px rgba(160,100,255,0.55), 0 14px 34px rgba(60,20,120,0.4); }
-}
-.info-card.season-glow:active {
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), inset 0 0 62px -4px rgba(175,115,255,0.82), 0 14px 34px rgba(70,25,130,0.5) !important;
 }

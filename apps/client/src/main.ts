@@ -4934,13 +4934,16 @@ function initCardFireflies(): void {
   document.querySelectorAll<HTMLElement>(".lg-fireflies").forEach((layer) => {
     const card = layer.parentElement;
     if (!card) return;
-    // Frosted pane so the glass blurs the motes beneath it.
+    // Frosted pane (blurs the motes) + a soft radial centre-glow layer.
     if (!card.querySelector(".lg-frost")) {
       const frost = document.createElement("div");
       frost.className = "lg-frost";
       layer.insertAdjacentElement("afterend", frost);
+      const glow = document.createElement("div");
+      glow.className = "lg-glow";
+      frost.insertAdjacentElement("afterend", glow);
     }
-    const N = liteMode ? 7 : 12;
+    const N = liteMode ? 11 : 20;
     const dots = Array.from({ length: N }, () => ({
       x: Math.random(), y: Math.random(), vx: 0, vy: 0,
       ph: Math.random() * 6.283, sp: 1.4 + Math.random() * 2.2,
@@ -4956,9 +4959,10 @@ function initCardFireflies(): void {
       const w = card.clientWidth, h = card.clientHeight;
       for (let i = 0; i < dots.length; i++) {
         const d = dots[i];
-        // Gentle gravity toward the cursor + weightless brownian wander.
-        d.vx += (mx - d.x) * 0.0011 + (Math.random() - 0.5) * 0.0018;
-        d.vy += (my - d.y) * 0.0011 + (Math.random() - 0.5) * 0.0018;
+        // LOOSE gravity toward the cursor (they stay spread, not clumped) + a livelier
+        // weightless brownian wander so the whole field shimmers.
+        d.vx += (mx - d.x) * 0.0006 + (Math.random() - 0.5) * 0.0026;
+        d.vy += (my - d.y) * 0.0006 + (Math.random() - 0.5) * 0.0026;
         d.vx *= 0.9; d.vy *= 0.9;
         d.x += d.vx; d.y += d.vy;
         if (d.x < 0.03) { d.x = 0.03; d.vx = -d.vx * 0.5; }
@@ -4971,7 +4975,12 @@ function initCardFireflies(): void {
       }
       raf = hovering ? requestAnimationFrame(tick) : 0;
     };
-    card.addEventListener("pointerenter", () => { hovering = true; if (!raf) raf = requestAnimationFrame(tick); });
+    card.addEventListener("pointerenter", () => {
+      hovering = true;
+      // "Bah" — a little burst of magic dust the moment you hover in.
+      for (const d of dots) { d.vx += (Math.random() - 0.5) * 0.06; d.vy += (Math.random() - 0.5) * 0.06; }
+      if (!raf) raf = requestAnimationFrame(tick);
+    });
     card.addEventListener("pointermove", (e) => {
       const b = card.getBoundingClientRect();
       mx = Math.min(1, Math.max(0, (e.clientX - b.left) / b.width));
