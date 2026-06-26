@@ -3312,8 +3312,9 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
     padding: 12px 14px calc(14px + var(--sai-bottom, 0px));
     border-radius: 18px 18px 0 0;
     background: rgba(14, 16, 24, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-bottom: none;
+    /* No border — a lit white edge was visible where light hit it; let the glass blur
+       + soft shadow define the edge so light passes through cleanly. */
+    border: none;
     box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(18px) saturate(160%);
     -webkit-backdrop-filter: blur(18px) saturate(160%);
