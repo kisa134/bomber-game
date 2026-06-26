@@ -2168,7 +2168,10 @@ async function openProfile(): Promise<void> {
     lvlCard.appendChild(row(`Level ${p.level ?? 1}`, `${(p.xp ?? 0) % 200} / 200 XP`));
     const xpbar = el("div", "lvl-bar", "");
     const xpfill = el("div", "lvl-fill", "");
-    xpfill.style.width = `${Math.max(3, Math.min(100, (((p.xp ?? 0) % 200) / 200) * 100))}%`;
+    const xpRatio = ((p.xp ?? 0) % 200) / 200;
+    xpfill.style.width = `${Math.max(3, Math.min(100, xpRatio * 100))}%`;
+    // Dopamine bar: the closer to the next level, the hotter + livelier the gradient.
+    xpfill.style.setProperty("--p", xpRatio.toFixed(3));
     xpbar.appendChild(xpfill);
     lvlCard.appendChild(xpbar);
 
@@ -2188,12 +2191,22 @@ async function openProfile(): Promise<void> {
 
     // Account / economy
     const acct = card("💰 Account");
+    const rWonTok = row("🏆 Won 💎", tokWon.toLocaleString(undefined, { maximumFractionDigits: 2 }));
+    const rWonChip = row("🏆 Won 🪙", (p.chips_won ?? 0).toLocaleString());
+    rWonTok.querySelector(".prof-row-v")?.classList.add("accent-gold");
+    rWonChip.querySelector(".prof-row-v")?.classList.add("accent-gold");
     acct.append(
       row("🪙 Chips", p.chips.toLocaleString()),
       row(`💎 In game`, `${(p.gameTokens ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}${usdOf(p.gameTokens ?? 0)}`),
-      row("🏆 Won 💎", tokWon.toLocaleString(undefined, { maximumFractionDigits: 2 })),
-      row("🏆 Won 🪙", (p.chips_won ?? 0).toLocaleString()),
+      rWonTok,
+      rWonChip,
     );
+    // Jump straight to the referral program from the profile.
+    const refBtn = document.createElement("button");
+    refBtn.className = "prof-ref-btn glass-btn primary";
+    refBtn.textContent = "💸 Invite & Earn";
+    refBtn.addEventListener("click", () => void openReferral());
+    acct.appendChild(refBtn);
 
     // Two packed columns (no ragged gaps): left = stats, right = level + account.
     const cols = el("div", "prof-cols", "");
