@@ -533,25 +533,31 @@ button.glass-btn.primary:hover {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 10px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #ffcc33 var(--sp-fill, 0%), rgba(255, 255, 255, 0.12) var(--sp-fill, 0%));
+  height: 18px; /* tall enough to hold the thumb; track drawn in the pseudo */
+  background: transparent;
   outline: none;
   cursor: pointer;
   touch-action: manipulation;
+}
+.sp-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffcc33 var(--sp-fill, 0%), rgba(255, 255, 255, 0.12) var(--sp-fill, 0%));
 }
 .sp-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 18px;
   height: 18px;
-  margin-top: -4px; /* centre the thumb ON the 10px track (no floating) */
+  margin-top: -5px; /* (8px track − 18px thumb) / 2 → centred ON the line */
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff6cf, #ffb43d);
   border: 2px solid rgba(255, 255, 255, 0.85);
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45), 0 0 calc(3px + 13px * var(--sp-glow)) rgba(255, 190, 50, 0.85);
   cursor: grab;
 }
-.sp-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.12); }
+.sp-slider::-webkit-slider-thumb:active { cursor: grabbing; }
+.sp-slider::-moz-range-track { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); }
+.sp-slider::-moz-range-progress { height: 8px; border-radius: 999px; background: #ffcc33; }
 .sp-slider::-moz-range-thumb {
   width: 18px;
   height: 18px;
@@ -771,13 +777,13 @@ button.glass-btn.primary:hover {
   width: min(560px, 100%);
 }
 .result-rew {
-  flex: 1 1 0;
-  min-width: 96px;
+  flex: 0 1 auto; /* wrap around the number, don't stretch across the whole row */
+  min-width: 84px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 13px 10px;
+  padding: 12px 16px;
   border-radius: 13px;
   background: linear-gradient(180deg, rgba(34, 30, 40, 0.85), rgba(20, 17, 26, 0.85));
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1009,9 +1015,9 @@ button.glass-btn.primary:hover {
   flex-direction: column;
   gap: 8px;
   width: min(560px, 100%);
-  margin-top: auto; /* push the actions to the bottom of the column */
   padding-top: 4px;
 }
+.result-foot { margin-top: 4px; opacity: 0.75; } /* ping + seed quiet at the bottom */
 .result-actions-bar .primary.big {
   width: 100%;
 }
@@ -2844,17 +2850,25 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   height: 34px;
   padding: 0;
   border-radius: 9px;
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 800;
-  background: rgba(255, 90, 95, 0.16);
-  border: 1px solid rgba(255, 90, 95, 0.45);
-  color: #ff7a7f;
-  z-index: 3; /* sit above the seat's tap-to-open-profile target */
+  background: transparent;
+  border: none; /* no frame — just the glyph that lights up red */
+  color: rgba(255, 120, 125, 0.5);
+  z-index: 5; /* sit above the seat's tap-to-open-profile target */
   cursor: pointer;
   touch-action: manipulation;
+  transition: color 0.14s ease, background 0.14s ease, text-shadow 0.14s ease;
 }
 .seat .kick-btn:hover {
-  background: rgba(255, 90, 95, 0.32);
+  color: #ff5a5f;
+  background: rgba(255, 90, 95, 0.18);
+  text-shadow: 0 0 10px rgba(255, 90, 95, 0.8);
+}
+.seat .kick-btn:active {
+  color: #ff3b40;
+  background: rgba(255, 70, 75, 0.3);
+  text-shadow: 0 0 18px rgba(255, 70, 75, 1);
 }
 /* Armed (first tap) — widens to a clear "Kick?" confirm; second tap kicks. */
 .seat .kick-btn.armed {
@@ -3263,11 +3277,11 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   .room-character { display: none; }
   /* Top bar — match-type stays INLINE with the back arrow (min-width:0 lets the id
      shrink instead of wrapping below it); CODE+Invite + server drop to own rows. */
-  .room-top { flex-wrap: wrap; align-items: center; gap: 8px; }
-  .room-id { flex: 1 1 auto; min-width: 0; order: 1; }
-  .room-type { font-size: 1.4rem; }
-  .room-code-inline { flex: 1 1 100%; }
-  .room-region { order: 5; flex: 1 1 100%; margin-left: 0; }
+  .room-top { flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  #leave-room { order: 1; flex: 0 0 auto; }
+  .room-type { order: 2; flex: 0 1 auto; min-width: 0; font-size: 1.35rem; }
+  .room-code-inline { order: 3; flex: 1 1 100%; }
+  .room-region { order: 4; flex: 1 1 100%; margin-left: 0; }
 
   /* Bottom action bar — a glass card glued near the bottom edge (only its outer
      edge shows), always reachable + reliably tappable (FIXED, not sticky — sticky
@@ -3636,7 +3650,7 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .sv-pot b { color: #5fe08a; }
 .sv-meta { font-size: 0.68rem; color: var(--muted); margin-top: 4px; }
 .sv-actions { display: flex; gap: 8px; margin-top: 4px; }
-.sv-actions button { flex: 1 1 auto; width: auto; }
+.sv-actions button { flex: 1 1 auto; width: auto; border-radius: 12px; } /* Accept = Decline radius */
 #sv-yes:hover { filter: brightness(1.22); }
 .sv-no { transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease; }
 .sv-no:hover {
@@ -5883,7 +5897,7 @@ button.big {
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 20;
+  z-index: 100; /* above the splash (40) + return chip (55) so popups are on TOP */
   display: flex;
   align-items: center;
   justify-content: center;

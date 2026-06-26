@@ -1119,11 +1119,19 @@ export class Room {
 
   private suddenDeath(dt: number): void {
     this.suddenDeathTimerMs += dt;
+    // Pace the spiral so it FULLY closes within the sudden-death window (finishing
+    // ~4s before time runs out). A fixed 500ms/tile couldn't fill the whole 17x11
+    // in the final minute (more spiral cells than 60s/0.5s = 120) — so the arena
+    // never finished closing. Derive the step from the actual spiral length.
+    const step = Math.max(
+      90,
+      Math.min(SUDDEN_DEATH_STEP_MS, (SUDDEN_DEATH_LEAD_MS - 4000) / Math.max(1, this.spiral.length)),
+    );
     while (
-      this.suddenDeathTimerMs >= SUDDEN_DEATH_STEP_MS &&
+      this.suddenDeathTimerMs >= step &&
       this.suddenDeathIdx < this.spiral.length
     ) {
-      this.suddenDeathTimerMs -= SUDDEN_DEATH_STEP_MS;
+      this.suddenDeathTimerMs -= step;
       const cell = this.spiral[this.suddenDeathIdx++];
       this.world.set(cell.x, cell.y, TileType.HARD);
       this.bombs = this.bombs.filter((b) => !(b.x === cell.x && b.y === cell.y));

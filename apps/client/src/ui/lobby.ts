@@ -129,6 +129,8 @@ export function setKickHandler(fn: (playerId: number) => void): void {
 // re-render, so the kick never completed).
 let armedKickId = -1;
 let armedKickTimer = 0;
+// Signature of the last room render — skip rebuilding the DOM when nothing changed.
+let lastRoomSig = "";
 /* Match-length editing is disabled for now (fixed 3-min rounds); the protocol
    hook stays server-side until the in-lobby control is redesigned. */
 /** Tapping an empty seat opens the friends list to invite someone (wired from main). */
@@ -207,6 +209,7 @@ export function setActiveRoom(code: string): void {
 
 export function showScreen(name: ScreenName): void {
   currentScreen = name;
+  if (name === "room") lastRoomSig = ""; // force a fresh room render on (re)entry
   for (const id of SCREENS) {
     document.getElementById(id)?.classList.toggle("hidden", id !== name);
   }
@@ -658,6 +661,25 @@ export function setMenuStatus(text: string): void {
 /** Refresh the waiting-room screen from current state. */
 export function renderRoom(state: GameState): void {
   if (activeRoomCode !== state.roomCode) setActiveRoom(state.roomCode); // track active room
+  // CRITICAL: this is called EVERY animation frame while in the lobby. Rebuilding
+  // the whole seat list (+ kick button, chat input, …) 60×/sec made interactive
+  // elements impossible to use — a fresh element each frame means :hover never
+  // sticks and a click is destroyed before it fires (that's why kick "didn't
+  // work"). Only rebuild when something actually changed.
+  const sig = JSON.stringify({
+    p: state.roomPlayers.map((p) => [p.id, p.name, p.ready, p.skin, p.color, p.wins, p.wallet]),
+    h: state.hostId,
+    me: state.myId,
+    host: state.isHost,
+    c: state.roomCode,
+    st: state.roomStake,
+    cur: state.roomCurrency,
+    pub: state.roomIsPublic,
+    cd: Math.ceil(state.lobbyCountdownLeft() / 1000),
+    k: armedKickId,
+  });
+  if (sig === lastRoomSig) return;
+  lastRoomSig = sig;
   const count = state.roomPlayers.length;
   const sym = state.roomCurrency === 1 ? "💎" : "🪙";
   const isToken = state.roomCurrency === 1;
