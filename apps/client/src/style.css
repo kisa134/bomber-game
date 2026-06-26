@@ -2260,7 +2260,7 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 .train-top .lobby-title {
   flex: 1 1 auto;
-  text-align: center;
+  text-align: left;
   font-size: 1.4rem;
 }
 .train-modes {
@@ -3413,7 +3413,7 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 .ref-top .lobby-title {
   flex: 1 1 auto;
-  text-align: center;
+  text-align: left;
 }
 /* KPI strip (confirmed facts) */
 .ref-kpis {
@@ -5538,7 +5538,7 @@ button.big {
 }
 .prof-top .lobby-title {
   flex: 1 1 auto;
-  text-align: center;
+  text-align: left;
 }
 .prof-share-btn {
   width: auto;
@@ -5873,7 +5873,7 @@ button.big {
 }
 .shop-top .lobby-title {
   flex: 1 1 auto;
-  text-align: center;
+  text-align: left;
 }
 .shop-econ {
   display: flex;
@@ -5902,7 +5902,7 @@ button.big {
     overflow: visible;
     min-height: auto;
   }
-  .shop-grid { grid-template-columns: repeat(auto-fill, minmax(102px, 1fr)); }
+  .shop-grid { grid-template-columns: repeat(auto-fill, minmax(98px, 124px)); justify-content: center; }
 }
 /* Filters */
 .shop-filters {
@@ -5931,7 +5931,10 @@ button.big {
   overflow-x: hidden;
   align-content: start;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  /* Fixed-size tracks (not 1fr) so cards stay neat squares and never stretch into wide
+     rectangles when the window narrows — they just reflow into fewer columns, centered. */
+  grid-template-columns: repeat(auto-fill, minmax(108px, 132px));
+  justify-content: center;
   gap: 12px;
   padding-right: 4px;
 }
