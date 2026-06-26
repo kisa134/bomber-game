@@ -1490,6 +1490,12 @@ export class Room {
       }
       // Lifetime winnings for the earnings leaderboards (token or chips pot).
       await store.recordWinnings(w, this.currency, payout);
+      // PnL side-log for the profile chart: winner's profit (payout − own stake) and each
+      // loser's −stake. Fire-and-forget + best-effort — CANNOT affect the payout above.
+      const pnlStake = this.stakeBase();
+      for (const cw of contributors) {
+        void store.recordPnl(cw, this.currency, cw === w ? payout - pnlStake : -pnlStake, 0).catch(() => {});
+      }
       // Multi-level referral rewards come OUT of the house rake — token matches
       // only. Each staker's chain gets a slice of the rake their stake produced.
       if (this.currency === Currency.TOKEN && rakeBp > 0) {
@@ -1603,6 +1609,8 @@ export class Room {
       const won = p.id === this.winnerId;
       void store.adjustChips(p.wallet, won ? CHIPS_WIN_REWARD : CHIPS_PLAY_REWARD);
       if (won) void store.recordWinnings(p.wallet, Currency.CHIPS, CHIPS_WIN_REWARD);
+      // PnL side-log (chips earned this free match) — best-effort, can't affect rewards.
+      void store.recordPnl(p.wallet, Currency.CHIPS, won ? CHIPS_WIN_REWARD : CHIPS_PLAY_REWARD, 0).catch(() => {});
     }
   }
 

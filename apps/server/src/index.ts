@@ -937,6 +937,18 @@ function cachedLeaderboard(board: LbBoard): Promise<unknown[]> {
     .catch(() => hit?.rows ?? []); // serve stale on a DB blip if we have any
 }
 
+// Profile PnL history (per-match money swings) for the profit chart. Public by wallet,
+// like /profile — only winnings-type data, no balances.
+app.get("/pnl", (res, req) => {
+  res.onAborted(() => {});
+  const wallet = new URLSearchParams(req.getQuery()).get("wallet") ?? "";
+  if (!wallet) return sendJson(res, []);
+  store
+    .getPnl(wallet)
+    .then((rows) => sendJson(res, rows))
+    .catch(() => sendJson(res, []));
+});
+
 app.get("/leaderboard", (res, req) => {
   res.onAborted(() => {
     (res as ResWithAbort).aborted = true;

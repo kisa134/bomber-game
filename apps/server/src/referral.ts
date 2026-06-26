@@ -34,6 +34,8 @@ export async function distributeReferralRewards(staker: string, rakeBase: number
       const reward = Math.floor((rakeBase * REFERRAL_LEVEL_BPS[level]) / 10000);
       if (reward > 0) {
         await store.creditReferral(upline, reward);
+        // PnL side-log: referral earnings line (kind=1, token currency=1). Best-effort.
+        void store.recordPnl(upline, 1, reward, 1).catch(() => {});
         logEvent("💸", `${shortWallet(upline)} earned ${fromBaseUnits(reward).toLocaleString(undefined, { maximumFractionDigits: 2 })} (L${level + 1})`);
       }
       current = upline;
