@@ -167,6 +167,19 @@ export async function fetchLeaderboard(board: LbBoard = "rating"): Promise<Profi
   return rows ?? [];
 }
 
+export interface PnlPoint { ts: string; currency: number; net: number; kind: number }
+/** Per-match PnL history for the profile chart (cross-device). [] on any failure. */
+export async function fetchPnl(wallet: string): Promise<PnlPoint[]> {
+  try {
+    const res = await fetch(`${SERVER_HTTP}/pnl?wallet=${encodeURIComponent(wallet)}`);
+    if (!res.ok) return [];
+    const rows = (await res.json()) as PnlPoint[];
+    return Array.isArray(rows) ? rows : [];
+  } catch {
+    return [];
+  }
+}
+
 export interface TableInfo {
   code: string;
   stake: number;

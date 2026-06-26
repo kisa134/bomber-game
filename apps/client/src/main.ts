@@ -36,6 +36,8 @@ import {
   fetchProfile,
   setNickname,
   fetchLeaderboard,
+  fetchPnl,
+  type PnlPoint,
   fetchTables,
   fetchBank,
   fetchPrice,
@@ -190,43 +192,60 @@ function recordPnl(c: number, n: number): void {
   }
 }
 /** Build the profile PnL line chart from local history, or null if too little data. */
-function buildPnlChart(): HTMLElement | null {
-  let arr: { t: number; c: number; n: number }[];
-  try {
-    arr = JSON.parse(localStorage.getItem("bp_pnl") || "[]");
-  } catch {
-    return null;
+/** Profit chart. Prefers cross-device server rows; falls back to local history. Token mode
+ *  draws TWO lines (games + referrals); chip mode draws one. */
+function buildPnlChart(serverRows?: PnlPoint[]): HTMLElement | null {
+  let data: { currency: number; net: number; kind: number }[] = [];
+  if (serverRows && serverRows.length) {
+    data = serverRows.map((r) => ({ currency: Number(r.currency), net: Number(r.net), kind: Number(r.kind) }));
+  } else {
+    try {
+      const arr = JSON.parse(localStorage.getItem("bp_pnl") || "[]") as { c: number; n: number }[];
+      data = arr.map((e) => ({ currency: e.c, net: e.n, kind: 0 }));
+    } catch {
+      return null;
+    }
   }
-  if (!Array.isArray(arr) || arr.length < 2) return null;
-  const cur = arr.some((e) => e.c === 1) ? 1 : 0; // prefer real-token PnL if any exists
-  const pts = arr.filter((e) => e.c === cur);
+  if (data.length < 2) return null;
+  const tokenMode = data.some((d) => d.currency === 1); // real-token PnL takes priority
+  const pts = data.filter((d) => (tokenMode ? d.currency === 1 : d.currency === 0 && d.kind === 0));
   if (pts.length < 2) return null;
-  let cum = 0;
-  const ys = pts.map((p) => (cum += p.n));
-  const lo = Math.min(0, ...ys), hi = Math.max(0, ...ys);
+  const scale = tokenMode ? 10 ** TOKEN_DECIMALS : 1;
+  let g = 0, r = 0;
+  const gs: number[] = [], rs: number[] = [];
+  for (const d of pts) {
+    if (d.kind === 1) r += d.net; else g += d.net;
+    gs.push(g / scale); rs.push(r / scale);
+  }
+  const hasRef = tokenMode && rs[rs.length - 1] !== 0;
+  const all = hasRef ? [...gs, ...rs, 0] : [...gs, 0];
+  const lo = Math.min(...all), hi = Math.max(...all);
   const span = hi - lo || 1;
   const W = 320, H = 110, pad = 7;
-  const px = (i: number): number => pad + (i / (ys.length - 1)) * (W - pad * 2);
+  const px = (i: number, n: number): number => pad + (i / Math.max(1, n - 1)) * (W - pad * 2);
   const py = (v: number): number => pad + (1 - (v - lo) / span) * (H - pad * 2);
-  const line = ys.map((v, i) => `${i ? "L" : "M"}${px(i).toFixed(1)} ${py(v).toFixed(1)}`).join(" ");
-  const area = `${line} L${px(ys.length - 1).toFixed(1)} ${py(lo).toFixed(1)} L${px(0).toFixed(1)} ${py(lo).toFixed(1)} Z`;
-  const last = ys[ys.length - 1];
+  const path = (ys: number[]): string => ys.map((v, i) => `${i ? "L" : "M"}${px(i, ys.length).toFixed(1)} ${py(v).toFixed(1)}`).join(" ");
+  const last = gs[gs.length - 1];
   const up = last >= 0;
-  const col = up ? "#5fe08a" : "#ff6b6b";
+  const gcol = up ? "#5fe08a" : "#ff6b6b";
   const z = py(0).toFixed(1);
-  const sym = cur === 1 ? "💎" : "🪙";
+  const sym = tokenMode ? "💎" : "🪙";
+  const fmt = (v: number): string => (Math.abs(v) >= 1 ? Math.round(v).toLocaleString() : v.toFixed(2));
+  const area = `${path(gs)} L${px(gs.length - 1, gs.length).toFixed(1)} ${py(lo).toFixed(1)} L${px(0, gs.length).toFixed(1)} ${py(lo).toFixed(1)} Z`;
   const card = el("div", "prof-card pnl-card", "");
   card.appendChild(el("div", "prof-card-h", `📈 Profit · ${pts.length} matches`));
   card.insertAdjacentHTML(
     "beforeend",
-    `<div class="pnl-net ${up ? "up" : "down"}">${up ? "+" : "−"}${sym}${Math.abs(last).toLocaleString()}</div>` +
+    `<div class="pnl-net ${up ? "up" : "down"}">${up ? "+" : "−"}${sym}${fmt(Math.abs(last))}</div>` +
       `<svg class="pnl-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">` +
-      `<defs><linearGradient id="pnlg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="0.32"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>` +
+      `<defs><linearGradient id="pnlg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${gcol}" stop-opacity="0.3"/><stop offset="1" stop-color="${gcol}" stop-opacity="0"/></linearGradient></defs>` +
       `<line x1="0" y1="${z}" x2="${W}" y2="${z}" stroke="rgba(255,255,255,0.14)" stroke-dasharray="3 3"/>` +
       `<path d="${area}" fill="url(#pnlg)"/>` +
-      `<path d="${line}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` +
+      `<path d="${path(gs)}" fill="none" stroke="${gcol}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` +
+      (hasRef ? `<path d="${path(rs)}" fill="none" stroke="#a06eff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : "") +
       `</svg>` +
-      `<div class="pnl-note">Cumulative ${cur === 1 ? "token" : "chip"} swing across your matches on this device.</div>`,
+      `<div class="pnl-legend"><span class="pnl-k game">● games</span>${hasRef ? '<span class="pnl-k ref">● referrals</span>' : ""}</div>` +
+      `<div class="pnl-note">${serverRows && serverRows.length ? "Across all your devices" : "On this device"} · cumulative ${tokenMode ? "token" : "chip"} profit.</div>`,
   );
   return card;
 }
@@ -2241,9 +2260,17 @@ async function openProfile(): Promise<void> {
     rankCard.appendChild(el("div", "prof-sub", pr.label));
     body.append(rankCard); // full width on its own row
 
-    // Profit (PnL) chart from local match history — real swings, shown when there's data.
-    const pnl = buildPnlChart();
-    if (pnl) body.append(pnl);
+    // Profit (PnL) chart — fetch cross-device server history (falls back to local), then
+    // slot the chart in after the rank card once it loads. Non-blocking.
+    void fetchPnl(w.address)
+      .then((rows) => {
+        const pnl = buildPnlChart(rows);
+        if (pnl) rankCard.insertAdjacentElement("afterend", pnl);
+      })
+      .catch(() => {
+        const pnl = buildPnlChart();
+        if (pnl) rankCard.insertAdjacentElement("afterend", pnl);
+      });
 
     // Account level / XP (separate, calmer progression).
     const lvlCard = card("📊 Account level");
