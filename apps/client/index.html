@@ -565,6 +565,10 @@
             <span>Background</span>
             <button id="theme-toggle" class="toggle" title="Day / Night">🌙</button>
           </div>
+          <div class="setting-row">
+            <span>Performance mode <small style="opacity:.6">(fewer effects)</small></span>
+            <button id="set-lite" class="toggle" data-on="false">Off</button>
+          </div>
           <h3 class="conn-h">🔗 Connections <span class="muted" style="font-weight:400;font-size:.78rem">· link accounts for tournament reminders</span></h3>
           <div class="conn-rows">
             <div class="setting-row"><span>✈️ Telegram <small id="conn-tg" class="conn-state"></small></span><button id="link-tg" class="toggle">Link</button></div>
@@ -572,7 +576,13 @@
             <!-- Twitter/X hidden until our developer access is approved. -->
             <div class="setting-row hidden"><span>𝕏 Twitter <small id="conn-tw" class="conn-state"></small></span><button id="link-twitter" class="toggle">Connect</button></div>
           </div>
-          <button id="settings-back" class="primary">Back</button>
+          <h3 class="conn-h">🐞 Report a bug <span class="muted" style="font-weight:400;font-size:.78rem">· goes straight to the devs</span></h3>
+          <div class="bug-form">
+            <textarea id="bug-text" maxlength="600" rows="3" placeholder="What went wrong? Steps, what you expected…"></textarea>
+            <button id="bug-send" class="glass-btn">Send report</button>
+            <p id="bug-status" class="status"></p>
+          </div>
+          <button id="settings-back" class="primary glass-btn">Back</button>
         </div>
       </section>
 

@@ -14,6 +14,7 @@ export interface Settings {
   valueUnit: ValueUnit; // show token worth in USD ($) or SOL (◎)
   valueMode: ValueMode; // "token" = 💎1,000 ≈$x · "fiat" = show the $/◎ value as primary
   repeatOne: boolean; // BOMBERMEME FM: loop the current lobby track instead of shuffling on
+  liteGfx: boolean; // force the lighter render (no blur/fireflies/dust) for weak devices
 }
 
 const KEY = "bp_settings";
@@ -28,6 +29,7 @@ const DEFAULTS: Settings = {
   valueUnit: "usd",
   valueMode: "token",
   repeatOne: false,
+  liteGfx: false,
 };
 
 export function loadSettings(): Settings {

@@ -1491,6 +1491,9 @@ function syncSettingsUI(): void {
   s.dataset.on = String(settings.sfx);
   s.textContent = settings.sfx ? "On" : "Off";
   if (gr) { gr.dataset.on = String(settings.gore); gr.textContent = settings.gore ? "On" : "Off"; }
+  const lt = document.getElementById("set-lite") as HTMLButtonElement | null;
+  if (lt) { lt.dataset.on = String(settings.liteGfx); lt.textContent = settings.liteGfx ? "On" : "Off"; }
+  if (settings.liteGfx) goLite(); // force the lighter render when the player opted in
   document.getElementById("ctl-joystick")!.classList.toggle("active", settings.controls === "joystick");
   document.getElementById("ctl-dpad")!.classList.toggle("active", settings.controls === "dpad");
   document.getElementById("unit-usd")?.classList.toggle("active", settings.valueUnit === "usd");
@@ -1584,6 +1587,20 @@ function wireSettings(): void {
   document.getElementById("set-music")!.addEventListener("click", () => update("music", !settings.music));
   document.getElementById("set-sfx")!.addEventListener("click", () => update("sfx", !settings.sfx));
   document.getElementById("set-gore")?.addEventListener("click", () => update("gore", !settings.gore));
+  document.getElementById("set-lite")?.addEventListener("click", () => {
+    update("liteGfx", !settings.liteGfx);
+    if (settings.liteGfx) goLite();
+    else setMenuStatus("Reload to restore full effects");
+  });
+  document.getElementById("bug-send")?.addEventListener("click", () => {
+    const ta = document.getElementById("bug-text") as HTMLTextAreaElement | null;
+    const st = document.getElementById("bug-status");
+    const text = (ta?.value || "").trim();
+    if (text.length < 5) { if (st) st.textContent = "Please describe the bug in a few words."; return; }
+    track("feedback", { text, wallet: loadWallet()?.address ?? "", ua: navigator.userAgent, url: location.href });
+    if (ta) ta.value = "";
+    if (st) st.textContent = "Thanks! Your report was sent to the devs 🙏";
+  });
   document.getElementById("ctl-joystick")!.addEventListener("click", () => update("controls", "joystick"));
   document.getElementById("ctl-dpad")!.addEventListener("click", () => update("controls", "dpad"));
   document.getElementById("unit-usd")?.addEventListener("click", () => { update("valueUnit", "usd"); applyValueUnit(); });

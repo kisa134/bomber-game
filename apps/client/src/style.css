@@ -3680,6 +3680,20 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .calc-sub b { color: var(--cream); }
 .calc-note { text-align: center; font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
 .ref-card-btn { width: 100%; margin-top: 8px; }
+/* Settings bug-report form. */
+.bug-form { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.bug-form textarea {
+  width: 100%;
+  resize: vertical;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--cream);
+}
+.bug-form #bug-send { width: 100%; }
 .ref-disclaimer {
   font-size: 0.72rem;
   color: var(--muted);
