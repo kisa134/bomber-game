@@ -798,9 +798,12 @@ button.glass-btn.primary:hover {
   border-color: rgba(255, 255, 255, 0.22);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 18px 0 rgba(255, 255, 255, 0.18);
 }
-/* Keep the standings + prize in DOM order (kill the inherited info-card order:4). */
+/* The standings + prize reuse the hub .info-card glass, which drags in THREE hub-layout
+   rules that wreck them here: order:4 (dumps to bottom), align-self:start (shoves LEFT),
+   and a drop-shadow. Neutralise all three. */
 #result .result-card,
-#result-prize { order: 0; }
+#result-prize { order: 0; align-self: center; }
+#result .result-card { box-shadow: none; } /* no own shadow under the standings block */
 /* Wider lvl + rating bars so the fill is satisfying to watch — and everything UNDER
    the bars (standings, buttons, footer) matches that same width. */
 .result-lvl-wrap,
@@ -1053,7 +1056,7 @@ button.glass-btn.primary:hover {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  width: min(560px, 100%);
+  width: min(460px, 94%); /* same width as the bars + standings above */
   padding-top: 4px;
 }
 .result-foot { margin-top: 4px; opacity: 0.75; } /* ping + seed quiet at the bottom */
@@ -5395,6 +5398,12 @@ button.big {
 .pp-stat.good .pp-stat-v { color: #5fe08a; }
 .pp-stat.gold .pp-stat-v { color: var(--accent-bright); }
 .pp-addr { font-size: 0.66rem; text-align: center; }
+/* Even breathing room between the popup's sections (they were stuck together) and a
+   full-width, centered Close button. */
+#pubprofile-body { display: flex; flex-direction: column; gap: 11px; }
+.pp-grid { gap: 10px; }
+#pubprofile-modal .modal-card { align-items: stretch; }
+#pubprofile-close { width: 100%; margin-top: 6px; text-align: center; }
 
 /* Lucky-spin popup — centred, full-width glass spin button. */
 .wheel-card { align-items: center; }
