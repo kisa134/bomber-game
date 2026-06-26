@@ -1583,6 +1583,15 @@ function refreshWalletBtn(): void {
         setProgress(p.level ?? 1, p.xp ?? 0);
         refreshDaily(p); // show the Daily Reward card if claimable today
         setLobbySkins(p.skins ?? DEFAULT_SKINS, p.level ?? 1); // owned skins for the lobby strip
+        // Sync shop ownership + unlock the hub carousel cards RIGHT AWAY. Previously the
+        // carousel read stale defaults at boot, so owned skins showed as locked until you
+        // opened a tab (which ran loadShopData) and came back.
+        shop.owned = p.skins ?? DEFAULT_SKINS;
+        shop.level = p.level ?? shop.level;
+        if (typeof p.skin === "number") shop.equipped = p.skin;
+        document.querySelectorAll<HTMLElement>("#fighter-carousel .fighter-card").forEach((card) => {
+          card.querySelector(".fc-lock")?.classList.toggle("hidden", skinOwned(Number(card.dataset.skin)));
+        });
         loadHubTop(); // re-render now that we know who "you" are (show your own row right away)
         // Show the wallet's claimed (unique) nickname in the field.
         const nick = document.getElementById("nickname") as HTMLInputElement | null;
