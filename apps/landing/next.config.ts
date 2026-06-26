@@ -12,6 +12,9 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: here,
   images: { unoptimized: true },
   reactStrictMode: true,
+  // @bomberpump/shared ships raw TS (no prebuilt JS), so Next must transpile it.
+  // This is how the landing stays in lockstep with the game's source of truth.
+  transpilePackages: ["@bomberpump/shared"],
 };
 
 export default nextConfig;
