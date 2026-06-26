@@ -116,7 +116,7 @@
           <button id="onboard-skip" class="onboard-skip" title="Skip">✕</button>
           <div id="onboard-body" class="onboard-body"></div>
           <div id="onboard-dots" class="onboard-dots"></div>
-          <button id="onboard-next" class="primary big glass-btn">Next →</button>
+          <button id="onboard-next" class="primary big">Next →</button>
         </div>
       </div>
 
@@ -124,6 +124,10 @@
       <!-- Hero STAGE: scene layers (bg / overlay / focus / embers) are pure
            decoration; the UI lives in a glass card in normal flow on top. -->
       <section id="splash" class="screen hidden">
+        <video id="splash-video" autoplay muted loop playsinline preload="auto"></video>
+        <div class="splash-hero" aria-hidden="true"></div>
+        <div class="splash-overlay" aria-hidden="true"></div>
+        <div class="splash-focus" aria-hidden="true"></div>
         <div class="splash-embers" aria-hidden="true">
           <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
         </div>
@@ -133,10 +137,10 @@
           launches <b>TOMORROW</b> (it will be a NEW token).
           <a href="https://pump.fun/coin/2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump" target="_blank" rel="noopener">Current test token ↗</a>
         </div>
-        <div class="splash-content">
+        <div class="splash-card">
           <h1 class="splash-logo">BOMBERMEME</h1>
           <p class="splash-tagline">blow up your friends · pump.fun arena</p>
-          <div class="splash-season"><span class="ss-dot" aria-hidden="true"></span> SEASON 1 · LIVE</div>
+          <div class="splash-chip"><span class="sc-dot" aria-hidden="true"></span> SEASON 1 · LIVE</div>
           <div class="splash-actions">
             <button id="splash-enter" class="primary big glass-btn">▶ Enter game</button>
             <button id="splash-connect" class="big glass-btn">🔗 Connect wallet</button>
@@ -157,6 +161,7 @@
         <div class="hub hub-hero-layout">
           <!-- LEFT: player passport card -->
           <div class="passport-card">
+            <div class="lg-fireflies" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
             <div class="pc-head">
               <span class="pc-av"><img id="hub-passport-av" alt="" /></span>
               <div class="pc-id">
@@ -207,7 +212,8 @@
           </div>
 
           <!-- RIGHT (top): game-wide info panel — symmetric to the passport -->
-          <div class="info-card">
+          <div class="info-card season-glow">
+            <div class="lg-fireflies" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
             <div class="ic-head">
               <span class="ic-title">★ SEASON 1</span>
               <span class="ic-badge"><span class="ro-dot" aria-hidden="true"></span>LIVE</span>
@@ -584,10 +590,12 @@
           <!-- Top bar: room identity / type / code / invite -->
           <div class="room-top">
             <button id="leave-room" class="ghost lobby-icon" title="Leave">←</button>
-            <span id="room-type" class="room-type">🌐 Public Arena</span>
-            <div id="room-code-box" class="room-code-inline hidden">
-              <span class="room-code-pill"><span class="room-code-label">CODE</span><span id="room-code" class="code"></span></span>
-              <button id="copy-invite" class="room-copy">👥 Invite friends</button>
+            <div class="room-id">
+              <span id="room-type" class="room-type">🌐 Public Arena</span>
+              <div id="room-code-box" class="room-code-inline hidden">
+                <span class="room-code-pill"><span class="room-code-label">CODE</span><span id="room-code" class="code"></span></span>
+                <button id="copy-invite" class="room-copy">👥 Invite friends</button>
+              </div>
             </div>
             <span id="room-region" class="room-region"></span>
           </div>
@@ -670,15 +678,12 @@
         <div id="hud-panel">
           <div id="hud-left">
             <div id="timer">3:00</div>
+            <div id="hud-stake" class="hud-stake hidden"></div>
             <div id="hud-bottom"></div>
             <div id="players"></div>
             <div id="bal-hud" class="bal-bar hidden"></div>
           </div>
           <div id="hud-right">
-            <div id="hud-wallet-nudge" class="hud-nudge hidden">
-              <span class="hn-text">🔗 Connect wallet to earn &amp; rank up</span>
-              <button class="hn-x" title="Don't show again">✕</button>
-            </div>
             <div id="game-emotes" class="emote-bar in-game"></div>
             <div id="ping">0 ms</div>
           </div>
@@ -722,17 +727,21 @@
             <div id="result-place" class="result-place"></div>
             <h2 id="result-title" class="result-title"></h2>
           </div>
-          <div id="result-rewards" class="result-rewards"></div>
           <div id="result-prize" class="result-prize info-card hidden">
             <span class="rp-label">PRIZE</span>
             <span id="result-prize-val" class="rp-val">0</span>
             <span id="result-prize-sub" class="rp-sub"></span>
           </div>
+          <div id="result-rewards" class="result-rewards"></div>
           <div id="result-lvl" class="result-lvl-wrap hidden"></div>
           <div id="result-prog" class="result-prog-wrap hidden"></div>
           <div class="result-card info-card">
             <div class="result-card-h">STANDINGS</div>
             <ol id="result-board" class="result-board"></ol>
+          </div>
+          <div class="result-foot">
+            <span id="result-ping" class="result-ping"></span>
+            <p id="result-fair" class="status fair"></p>
           </div>
           <div class="result-actions-bar">
             <button id="result-lobby" class="glass-btn big">↩ Back to lobby</button>
@@ -742,10 +751,6 @@
               <button id="result-invite" class="ghost">👥 Invite friends</button>
             </div>
             <button id="result-leave" class="ghost result-leave-btn">Leave to menu</button>
-          </div>
-          <div class="result-foot">
-            <span id="result-ping" class="result-ping"></span>
-            <p id="result-fair" class="status fair"></p>
           </div>
         </div>
       </section>

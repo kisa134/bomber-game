@@ -533,41 +533,25 @@ button.glass-btn.primary:hover {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 18px; /* tall enough to hold the thumb; the track is drawn in the pseudo */
-  background: transparent;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffcc33 var(--sp-fill, 0%), rgba(255, 255, 255, 0.12) var(--sp-fill, 0%));
   outline: none;
   cursor: pointer;
   touch-action: manipulation;
-}
-/* WebKit: track drawn separately so the thumb centres exactly on it. */
-.sp-slider::-webkit-slider-runnable-track {
-  height: 8px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #ffcc33 var(--sp-fill, 0%), rgba(255, 255, 255, 0.12) var(--sp-fill, 0%));
 }
 .sp-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 18px;
   height: 18px;
-  margin-top: -5px; /* (8px track − 18px thumb) / 2 → centred ON the line */
+  margin-top: -4px; /* centre the thumb ON the 10px track (no floating) */
   border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #fff6cf, #ffb43d);
   border: 2px solid rgba(255, 255, 255, 0.85);
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45), 0 0 calc(3px + 13px * var(--sp-glow)) rgba(255, 190, 50, 0.85);
   cursor: grab;
 }
-.sp-slider::-webkit-slider-thumb:active { cursor: grabbing; }
-/* Firefox: explicit track + filled progress + thumb. */
-.sp-slider::-moz-range-track {
-  height: 8px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-}
-.sp-slider::-moz-range-progress {
-  height: 8px;
-  border-radius: 999px;
-  background: #ffcc33;
-}
+.sp-slider::-webkit-slider-thumb:active { cursor: grabbing; transform: scale(1.12); }
 .sp-slider::-moz-range-thumb {
   width: 18px;
   height: 18px;
@@ -787,13 +771,13 @@ button.glass-btn.primary:hover {
   width: min(560px, 100%);
 }
 .result-rew {
-  flex: 0 1 auto; /* wrap around the number, don't stretch across the whole row */
-  min-width: 84px;
+  flex: 1 1 0;
+  min-width: 96px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  padding: 12px 16px;
+  padding: 13px 10px;
   border-radius: 13px;
   background: linear-gradient(180deg, rgba(34, 30, 40, 0.85), rgba(20, 17, 26, 0.85));
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -1025,12 +1009,8 @@ button.glass-btn.primary:hover {
   flex-direction: column;
   gap: 8px;
   width: min(560px, 100%);
+  margin-top: auto; /* push the actions to the bottom of the column */
   padding-top: 4px;
-}
-/* Ping + provably-fair seed sit quietly at the very bottom. */
-.result-foot {
-  margin-top: 4px;
-  opacity: 0.75;
 }
 .result-actions-bar .primary.big {
   width: 100%;
@@ -2864,23 +2844,17 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   height: 34px;
   padding: 0;
   border-radius: 9px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 800;
-  background: transparent;
-  border: none; /* no frame — just the glyph that lights up red */
-  color: rgba(255, 120, 125, 0.5);
+  background: rgba(255, 90, 95, 0.16);
+  border: 1px solid rgba(255, 90, 95, 0.45);
+  color: #ff7a7f;
   z-index: 3; /* sit above the seat's tap-to-open-profile target */
   cursor: pointer;
   touch-action: manipulation;
-  transition: color 0.14s ease, text-shadow 0.14s ease;
 }
 .seat .kick-btn:hover {
-  color: #ff5a5f;
-  text-shadow: 0 0 10px rgba(255, 90, 95, 0.75);
-}
-.seat .kick-btn:active {
-  color: #ff3b40;
-  text-shadow: 0 0 18px rgba(255, 70, 75, 1);
+  background: rgba(255, 90, 95, 0.32);
 }
 /* Armed (first tap) — widens to a clear "Kick?" confirm; second tap kicks. */
 .seat .kick-btn.armed {
@@ -3248,15 +3222,14 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 #propose-stake:hover {
   transform: none;
-  border-color: rgba(255, 204, 51, 0.65);
-  background: rgba(255, 204, 51, 0.16);
-  color: #ffe7a0;
-  box-shadow: 0 0 18px rgba(255, 190, 50, 0.45), inset 0 0 12px rgba(255, 204, 51, 0.2);
+  filter: brightness(1.2);
+  border-color: rgba(255, 204, 51, 0.5);
+  background: rgba(255, 204, 51, 0.12);
 }
 #propose-stake:active {
   transform: none;
-  background: rgba(255, 204, 51, 0.26);
-  box-shadow: 0 0 26px rgba(255, 190, 50, 0.65), inset 0 0 16px rgba(255, 204, 51, 0.3);
+  filter: brightness(1.4);
+  background: rgba(255, 204, 51, 0.2);
 }
 .room-actions-btns button {
   width: auto;
@@ -3288,13 +3261,13 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   .room-side { order: 2; }
   /* Simplify: no character picking on mobile (your equipped skin is used). */
   .room-character { display: none; }
-  /* Top bar — back + match-type on row 1 (title is a direct flex child now, so it
-     can't wrap below the arrow); CODE+Invite and server drop to their own rows. */
-  .room-top { flex-wrap: wrap; align-items: center; gap: 8px 10px; }
-  #leave-room { order: 1; flex: 0 0 auto; }
-  .room-type { order: 2; flex: 0 1 auto; min-width: 0; font-size: 1.35rem; }
-  .room-code-inline { order: 3; flex: 1 1 100%; }
-  .room-region { order: 4; flex: 1 1 100%; margin-left: 0; }
+  /* Top bar — match-type stays INLINE with the back arrow (min-width:0 lets the id
+     shrink instead of wrapping below it); CODE+Invite + server drop to own rows. */
+  .room-top { flex-wrap: wrap; align-items: center; gap: 8px; }
+  .room-id { flex: 1 1 auto; min-width: 0; order: 1; }
+  .room-type { font-size: 1.4rem; }
+  .room-code-inline { flex: 1 1 100%; }
+  .room-region { order: 5; flex: 1 1 100%; margin-left: 0; }
 
   /* Bottom action bar — a glass card glued near the bottom edge (only its outer
      edge shows), always reachable + reliably tappable (FIXED, not sticky — sticky
@@ -3598,7 +3571,7 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 /* Glassmorphism toast stack (top-center): slim, blurred, auto-dismissing. */
 #toast-stack {
   position: fixed;
-  top: calc(14px + var(--sai-top));
+  top: calc(14px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
@@ -3694,11 +3667,9 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 #result-lobby:hover { transform: none; filter: none; }
 #result-lobby:active { transform: none; }
-#result-lobby::before { display: none !important; } /* no spark/shimmer sweep */
-/* Text pulses with a soft WHITE glow (not yellow). */
 @keyframes resultLobbyPulse {
   0%, 88%, 100% { text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
-  94% { text-shadow: 0 0 16px rgba(255, 255, 255, 0.92), 0 1px 2px rgba(0, 0, 0, 0.4); }
+  94% { text-shadow: 0 0 16px rgba(255, 220, 130, 0.85), 0 1px 2px rgba(0, 0, 0, 0.4); }
 }
 
 /* Share popup — centred content; light, meaning-tinted action buttons. */
@@ -4115,8 +4086,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   }
   #play-area {
     background: #0c0e14;
-    padding: 0 var(--sai-right) var(--sai-bottom)
-      var(--sai-left);
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
   }
   #canvas {
     border: 0;
@@ -4134,8 +4105,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
     flex: 0 0 auto;
     flex-wrap: nowrap;
     gap: 8px;
-    padding: calc(3px + var(--sai-top)) calc(10px + var(--sai-right))
-      3px calc(10px + var(--sai-left));
+    padding: calc(3px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right))
+      3px calc(10px + env(safe-area-inset-left));
     background: rgba(0, 0, 0, 0.62);
     border-top: 0;
     border-bottom: 1px solid var(--border);
@@ -4186,8 +4157,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 @media (pointer: coarse) and (orientation: landscape) {
   /* Board is NOT padded for the zones — it stays height-max. */
   #play-area {
-    padding: calc(2px + var(--sai-top)) var(--sai-right)
-      calc(2px + var(--sai-bottom)) var(--sai-left);
+    padding: calc(2px + env(safe-area-inset-top)) env(safe-area-inset-right)
+      calc(2px + env(safe-area-inset-bottom)) env(safe-area-inset-left);
   }
   /* #hud-panel stops being a bar; its two children are the top of each zone. */
   #hud-panel {
@@ -4212,12 +4183,12 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
     left: 0;
     max-height: calc(100% - 96px); /* room for the timer + kit + player list */
     gap: 7px;
-    padding: calc(8px + var(--sai-top)) 6px 0 calc(8px + var(--sai-left));
+    padding: calc(8px + env(safe-area-inset-top)) 6px 0 calc(8px + env(safe-area-inset-left));
   }
   #hud-right {
     right: 0;
     max-height: 46%;
-    padding: calc(8px + var(--sai-top)) calc(8px + var(--sai-right)) 0 6px;
+    padding: calc(8px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) 0 6px;
   }
   /* --- Glass HUD panels (mockup look): timer+lives, kit pill, player list --- */
   /* NOTE: no pointer-events here — the whole left half must stay a joystick zone
@@ -4299,8 +4270,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
     grid-template-columns: repeat(3, 1fr);
     grid-template-rows: repeat(3, 1fr);
     position: absolute;
-    left: calc(6px + var(--sai-left));
-    bottom: calc(34px + var(--sai-bottom));
+    left: calc(6px + env(safe-area-inset-left));
+    bottom: calc(34px + env(safe-area-inset-bottom));
     width: 96px;
     height: 96px;
     opacity: 0.28;
@@ -4328,8 +4299,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   }
   /* (D-pad alternative: pinned to the bottom of the left zone, scaled to fit.) */
   #dpad {
-    left: calc(2px + var(--sai-left));
-    bottom: calc(16px + var(--sai-bottom));
+    left: calc(2px + env(safe-area-inset-left));
+    bottom: calc(16px + env(safe-area-inset-bottom));
     top: auto;
     margin: 0;
     transform: scale(0.5);
@@ -4341,8 +4312,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
      tap-zone). `#touch-controls #bomb-btn` raises specificity so it beats the
      base red desktop rule that's defined later in the file. */
   #touch-controls #bomb-btn {
-    right: calc(20px + var(--sai-right));
-    bottom: calc(22px + var(--sai-bottom));
+    right: calc(20px + env(safe-area-inset-right));
+    bottom: calc(22px + env(safe-area-inset-bottom));
     left: auto;
     top: auto;
     margin: 0;
@@ -4408,8 +4379,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 /* In-game leave button (top-left) — glassy, and clear of a notch/Dynamic Island. */
 #game-leave {
   position: absolute;
-  top: calc(10px + var(--sai-top));
-  left: calc(10px + var(--sai-left));
+  top: calc(10px + env(safe-area-inset-top));
+  left: calc(10px + env(safe-area-inset-left));
   z-index: 9;
   width: 40px;
   height: 40px;
@@ -4767,8 +4738,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 #dpad {
   position: absolute;
-  left: calc(28px + var(--sai-left));
-  bottom: calc(36px + var(--sai-bottom));
+  left: calc(28px + env(safe-area-inset-left));
+  bottom: calc(36px + env(safe-area-inset-bottom));
   width: 168px;
   height: 168px;
 }
@@ -4800,8 +4771,8 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 }
 #bomb-btn {
   position: absolute;
-  right: calc(28px + var(--sai-right));
-  bottom: calc(36px + var(--sai-bottom));
+  right: calc(28px + env(safe-area-inset-right));
+  bottom: calc(36px + env(safe-area-inset-bottom));
   width: 112px;
   height: 112px;
   border-radius: 50%;
@@ -4978,7 +4949,7 @@ button.big {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: calc(8px + var(--sai-top)) calc(16px + var(--sai-right)) 8px calc(16px + var(--sai-left));
+  padding: calc(8px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 8px calc(16px + env(safe-area-inset-left));
   /* Transparent header — NO frosted bar. (Was an accidental dark tint strip.) */
   background: transparent;
 }
@@ -4997,7 +4968,7 @@ button.big {
   line-height: 1.3;
   text-align: center;
   letter-spacing: 0.2px;
-  padding: calc(7px + var(--sai-top)) 14px 7px;
+  padding: calc(7px + env(safe-area-inset-top)) 14px 7px;
   background: linear-gradient(180deg, rgba(36, 20, 10, 0.82), rgba(22, 12, 8, 0.82));
   border-bottom: 1px solid rgba(255, 170, 70, 0.22);
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
@@ -5034,7 +5005,7 @@ button.big {
 
 .icon-btn {
   position: absolute;
-  top: calc(58px + var(--sai-top));
+  top: calc(58px + env(safe-area-inset-top));
   right: 16px;
   width: 46px;
   height: 46px;
@@ -5152,24 +5123,6 @@ button.big {
   font-size: 54px;
   line-height: 1;
   margin-bottom: 12px;
-}
-/* Real sprite visual (character / bomb) on some onboarding cards. */
-.onboard-visual {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 12px;
-}
-.onboard-visual img {
-  width: 84px;
-  height: 84px;
-  object-fit: contain;
-  image-rendering: pixelated;
-  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.5));
-  animation: onboardFloat 2.6s ease-in-out infinite;
-}
-@keyframes onboardFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
 }
 .onboard-title {
   font-size: 22px;
@@ -5930,7 +5883,7 @@ button.big {
 .modal {
   position: fixed;
   inset: 0;
-  z-index: 100; /* above the splash (40) + return chip (55) so popups are on TOP */
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6153,8 +6106,8 @@ button.big {
    HUD slim so the play area dominates. */
 @media (orientation: landscape) and (max-height: 560px) {
   #hud-panel {
-    padding: calc(3px + var(--sai-top)) calc(10px + var(--sai-right))
-      3px calc(10px + var(--sai-left));
+    padding: calc(3px + env(safe-area-inset-top)) calc(10px + env(safe-area-inset-right))
+      3px calc(10px + env(safe-area-inset-left));
     gap: 8px;
   }
   #timer {
@@ -6268,55 +6221,9 @@ button.big {
   overflow: clip;
   display: grid;
   place-items: center;
-  padding: max(64px, calc(20px + var(--sai-top))) 22px max(40px, calc(20px + var(--sai-bottom)));
+  padding: max(64px, calc(20px + env(safe-area-inset-top))) 22px max(40px, calc(20px + env(safe-area-inset-bottom)));
   isolation: isolate;
-  /* Just a readability veil over the standard blurred background (#bg.art). */
-  background: radial-gradient(ellipse at center, rgba(10, 8, 14, 0.18), rgba(8, 6, 12, 0.55));
-}
-/* Centred content, no card — floats on the blurred background. */
-.splash-content {
-  position: relative;
-  z-index: 4;
-  container-type: inline-size; /* logo scales via cqw to always fit */
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  width: min(560px, 92vw);
-}
-.splash-content .splash-logo {
-  font-size: clamp(2rem, 13cqw, 3.4rem);
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7)) drop-shadow(0 8px 26px rgba(239, 175, 44, 0.22));
-}
-/* SEASON 1 · LIVE — green blinking text + its own little light, no plaque. */
-.splash-season {
-  margin-top: 16px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  color: #62e58c;
-  text-shadow: 0 0 12px rgba(95, 224, 138, 0.5);
-  animation: seasonBlink 2.4s ease-in-out infinite;
-}
-.splash-season .ss-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #62e58c;
-  box-shadow: 0 0 10px rgba(95, 224, 138, 0.95);
-  animation: seasonPulse 1.5s ease-in-out infinite;
-}
-@keyframes seasonBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.55; }
-}
-@keyframes seasonPulse {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.45); opacity: 0.55; }
+  background: #0b070e;
 }
 /* (1) Background scene — the art, dimmed, slow ken-burns drift. */
 .splash-hero {
@@ -8114,7 +8021,7 @@ button.big {
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  top: calc(var(--chrome-h, 64px) + var(--sai-top) + 6px);
+  top: calc(var(--chrome-h, 64px) + env(safe-area-inset-top) + 6px);
   z-index: 60;
   display: flex;
   align-items: center;
@@ -8152,8 +8059,8 @@ button.big {
    On hover, tiny ⏭/🔁 controls reveal; the resting state stays pure text. */
 #now-playing {
   position: fixed;
-  left: calc(18px + var(--sai-left));
-  bottom: calc(16px + var(--sai-bottom));
+  left: calc(18px + env(safe-area-inset-left));
+  bottom: calc(16px + env(safe-area-inset-bottom));
   z-index: 9998;
   pointer-events: none; /* never blocks the lobby UI while hidden */
   display: flex;
@@ -8238,57 +8145,64 @@ button.big {
   filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.85));
 }
 
-/* vs-Bots on phones: drop the "PRACTICE" label, lighter/more transparent glass. */
-@media (max-width: 820px) {
-  .hb-practice .hb-label { display: none; }
-  .hb-practice-btn {
-    min-width: 0;
-    padding: 10px 14px;
-    font-size: 0.78rem;
-    background: rgba(255, 255, 255, 0.05);
-  }
-}
-
-/* Mini wallet nudge in the match HUD — subtle, dismissible (no wallet = no saved
-   XP/rating/earnings). */
-.hud-nudge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.64rem;
-  font-weight: 700;
-  color: #ffd98a;
-  background: rgba(255, 204, 51, 0.08);
-  border: 1px solid rgba(255, 204, 51, 0.26);
+/* ── Fireflies-under-glass + soft inner glow on the hub profile / season cards ─ */
+.passport-card > :not(.lg-fireflies),
+.info-card > :not(.lg-fireflies) { position: relative; z-index: 1; }
+.lg-fireflies {
+  position: absolute;
+  inset: 7px; /* INSIDE the edges (not on them) → soft + natural */
   border-radius: 9px;
-  padding: 3px 4px 3px 9px;
-  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.45s ease;
 }
-.hud-nudge .hn-text { cursor: pointer; }
-.hud-nudge .hn-x {
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.7rem;
-  cursor: pointer;
-  touch-action: manipulation;
+.passport-card:hover .lg-fireflies,
+.info-card.season-glow:hover .lg-fireflies { opacity: 1; }
+.lg-fireflies i {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.85);
+  opacity: 0;
+  animation: fireflyTwinkle 5.5s ease-in-out infinite;
 }
-.hud-nudge .hn-x:hover { color: #fff; }
-
-/* Onboarding — breathing room so the dots/content don't stick to the Next button. */
-.onboard-dots { margin: 24px 0 18px; }
-#onboard-next { width: 100%; margin-top: 6px; }
-
-/* Wallet popup — centre everything (Cancel had drifted left). */
-#wallet-modal .modal-card { text-align: center; }
-#wallet-modal .wc-deeplinks { justify-content: center; }
-#wallet-modal #wallet-list {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
+.lg-fireflies i:nth-child(1) { left: 14%; top: 28%; animation-delay: 0s; }
+.lg-fireflies i:nth-child(2) { left: 72%; top: 18%; animation-delay: 0.8s; }
+.lg-fireflies i:nth-child(3) { left: 40%; top: 62%; animation-delay: 1.6s; }
+.lg-fireflies i:nth-child(4) { left: 86%; top: 54%; animation-delay: 2.3s; }
+.lg-fireflies i:nth-child(5) { left: 24%; top: 78%; animation-delay: 3.1s; }
+.lg-fireflies i:nth-child(6) { left: 58%; top: 40%; animation-delay: 3.9s; }
+.lg-fireflies i:nth-child(7) { left: 8%; top: 56%; animation-delay: 4.6s; }
+@keyframes fireflyTwinkle {
+  0%, 100% { opacity: 0; transform: translate(0, 0) scale(0.7); }
+  25% { opacity: 0.95; transform: translate(5px, -6px) scale(1); }
+  55% { opacity: 0.35; transform: translate(-4px, 5px) scale(0.85); }
+  80% { opacity: 0.9; transform: translate(7px, 3px) scale(1.05); }
 }
-#wallet-modal #wallet-modal-close { display: block; margin: 12px auto 0; }
+/* Soft INNER glow (within the edges) on hover — profile card. */
+.passport-card:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    inset 0 0 32px -6px rgba(255, 255, 255, 0.22),
+    0 14px 34px rgba(0, 0, 0, 0.34);
+}
+/* Season card → PURPLE on hover (like the tournaments card) + inner glow; stronger
+   glow + full fireflies on press. */
+.info-card.season-glow:hover {
+  border-color: rgba(168, 120, 255, 0.32);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 0 40px -6px rgba(150, 90, 255, 0.5),
+    0 14px 34px rgba(60, 20, 120, 0.4);
+}
+.info-card.season-glow:active .lg-fireflies { opacity: 1; }
+.info-card.season-glow:active {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 0 54px -4px rgba(165, 105, 255, 0.72),
+    0 14px 34px rgba(70, 25, 130, 0.5);
+}

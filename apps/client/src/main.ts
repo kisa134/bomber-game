@@ -166,9 +166,6 @@ interface KillLine {
   until: number;
 }
 const killLines: KillLine[] = [];
-// Reliable per-match frag tally from the EVENT_KILL stream (snapshots are throttled,
-// so the killing-blow frag is often missing from the last snapshot before MATCH_END).
-const matchFrags = new Map<number, number>();
 let toastUntil = 0;
 let hudSig = "";
 let prevMyLives = -1; // track HP to flash on damage
@@ -462,7 +459,6 @@ net.onMessage = (msg) => {
       state.setPhase(msg.phase, msg.timerMs);
       if (msg.phase === MatchPhase.COUNTDOWN) {
         enterGame();
-        matchFrags.clear(); // fresh frag tally for the new match
         lastCountSec = -1;
         renderer?.setCountdown(true); // highlight your corner while 3-2-1 runs
       } else if (msg.phase === MatchPhase.PLAYING) {
@@ -552,10 +548,6 @@ net.onMessage = (msg) => {
     case ServerMsg.EVENT_KILL:
       killLines.push({ killerId: msg.killerId, victimId: msg.victimId, until: performance.now() + 4500 });
       if (killLines.length > 5) killLines.shift();
-      // Real kill (not environment 255, not a self-blast) → credit the killer.
-      if (msg.killerId !== 255 && msg.killerId !== msg.victimId) {
-        matchFrags.set(msg.killerId, (matchFrags.get(msg.killerId) ?? 0) + 1);
-      }
       if (msg.killerId === state.myId && msg.victimId !== state.myId) {
         registerMyKill();
         assets.rewardDing(); // bright casino-style reward chime on your kill
@@ -646,10 +638,7 @@ function enterGame(): void {
 }
 
 function announceResult(winnerId: number): void {
-  const meFrags = Math.max(
-    matchFrags.get(state.myId) ?? 0,
-    state.latest()?.players.find((p) => p.id === state.myId)?.frags ?? 0,
-  );
+  const meFrags = state.latest()?.players.find((p) => p.id === state.myId)?.frags ?? 0;
   track("match_ended", { won: winnerId === state.myId, draw: winnerId === DRAW_WINNER_ID, frags: meFrags });
   // Winner strikes the victory pose on the battlefield during the end linger.
   if (winnerId !== DRAW_WINNER_ID) renderer?.setVictory(winnerId);
@@ -1022,12 +1011,11 @@ function renderResultBoard(winnerId: number, players: { id: number; alive: boole
       (!draw && place <= 3 ? ` place-${place}` : "");
     const av = skinAvatar(skinOf.get(p.id) ?? 0);
     av.classList.add("rb-av");
-    const pFrags = Math.max(matchFrags.get(p.id) ?? 0, p.frags);
     li.append(
       el("span", "rb-rank", draw ? "–" : String(place)),
       av,
       el("span", "rb-name", state.nameOf(p.id) + (p.id === state.myId ? " (you)" : "")),
-      el("span", "rb-frags", `💀 ${pFrags}`),
+      el("span", "rb-frags", `💀 ${p.frags}`),
     );
     const pw = walletOf.get(p.id);
     if (pw) {
@@ -1227,14 +1215,16 @@ function updateHud(): void {
     playersEl.appendChild(card);
   }
 
-  // (The pot at stake is shown on the right balance plaque — #bal-hud — not here.)
-
-  // Mini nudge: no wallet → your XP/rating/earnings aren't being saved. Dismissible.
-  const nudge = document.getElementById("hud-wallet-nudge");
-  if (nudge) {
-    let off = false;
-    try { off = !!localStorage.getItem("bp_nudge_off"); } catch { /* ignore */ }
-    nudge.classList.toggle("hidden", !!loadWallet() || off);
+  // What's on the line right now (pot) — staked tables only.
+  const stakeEl = document.getElementById("hud-stake");
+  if (stakeEl) {
+    if (state.roomStake > 0) {
+      const sym = state.roomCurrency === 1 ? "💎" : "🪙";
+      stakeEl.textContent = `🏆 ${sym}${(state.roomStake * snap.players.length).toLocaleString()}`;
+      stakeEl.classList.remove("hidden");
+    } else {
+      stakeEl.classList.add("hidden");
+    }
   }
 }
 
@@ -3829,41 +3819,34 @@ function wireAnnouncement(): void {
 const ONBOARD_KEY = "bp_onboarded_v1";
 const ONBOARD_TOUCH =
   typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0);
-const ONBOARD: Array<{ icon: string; title: string; text: string; pu?: string[]; img?: string }> = [
-  {
-    img: "/sprites/skin_0_down_1.webp",
-    icon: "🎴",
-    title: "Welcome — here's your reward 🎁",
-    text: "Just for joining, you've <b>unlocked your first characters</b>! <b>Swipe the card carousel</b> on the hub to pick who you fight as. Win matches to <b>open rarer, flashier ones</b>.",
-  },
+const ONBOARD: Array<{ icon: string; title: string; text: string; pu?: string[] }> = [
   {
     icon: "🎯",
     title: "Last one standing",
-    text: "Blow up your rivals and survive. <b>2–4 players</b>, one <b>3-minute</b> round — last fighter alive wins.",
+    text: "Blow up your rivals and survive. 2–4 players, 3-minute match.",
   },
   {
-    icon: ONBOARD_TOUCH ? "🕹️" : "⌨️",
+    icon: "🎮",
     title: "Controls",
     text: ONBOARD_TOUCH
-      ? "<b>Drag the left side</b> of the screen to move · tap the <b>💣 button</b> to drop a bomb."
-      : "<b>WASD</b> or <b>arrows</b> to move · <b>Space</b> to drop a bomb.",
+      ? "Joystick / d-pad to move, the bomb button to drop bombs."
+      : "Arrows or WASD to move, Space to drop a bomb.",
   },
   {
-    img: "/sprites/bomb.webp",
     icon: "💣",
-    title: "Bombs & lives",
-    text: "Bombs blast in a <b>＋ cross</b> — smash crates and catch rivals. You have <b>3 ❤️</b>; each hit costs one life.",
+    title: "Bombs & HP",
+    text: "Break crates, catch rivals in the blast. You have 3 ❤️ — a hit costs one.",
   },
   {
     icon: "⚡",
     title: "Power-ups",
     pu: ["💣 +bomb", "🔥 +range", "👟 speed", "🦵 kick", "👻 ghost", "❤️ +life"],
-    text: "Smash crates to grab them — stack up fast to dominate.",
+    text: "Grab them from destroyed crates.",
   },
   {
-    icon: "🏆",
-    title: "Play & earn",
-    text: "Hit <b>PLAY</b> for an instant match — first hit on a rival is <b>First Blood</b>. Connect a wallet to earn tokens and climb the leagues.",
+    icon: "🩸",
+    title: "Ready?",
+    text: "Hit PLAY NOW for an instant match. First to hit a rival = First Blood!",
   },
 ];
 let onboardIdx = 0;
@@ -3871,11 +3854,8 @@ let onboardIdx = 0;
 function renderOnboard(): void {
   const c = ONBOARD[onboardIdx];
   const pu = c.pu ? `<div class="onboard-pu">${c.pu.map((p) => `<span>${p}</span>`).join("")}</div>` : "";
-  const visual = c.img
-    ? `<div class="onboard-visual"><img src="${c.img}?v=${ASSET_VER}" alt="" /></div>`
-    : `<div class="onboard-icon">${c.icon}</div>`;
   document.getElementById("onboard-body")!.innerHTML =
-    `${visual}<div class="onboard-title">${c.title}</div>${pu}` +
+    `<div class="onboard-icon">${c.icon}</div><div class="onboard-title">${c.title}</div>${pu}` +
     `<div class="onboard-text">${c.text}</div>`;
   document.getElementById("onboard-dots")!.innerHTML = ONBOARD.map(
     (_, i) => `<i class="${i === onboardIdx ? "on" : ""}"></i>`,
@@ -4048,8 +4028,13 @@ function setupOnboarding(): void {
   });
   document.getElementById("onboard-skip")!.addEventListener("click", closeOnboarding);
   document.getElementById("open-help")!.addEventListener("click", showOnboarding);
-  // First-run onboarding now opens AFTER the splash "Enter game" (see splash-enter),
-  // not on page load — so a brand-new browser shows the entry screen first.
+  let seen = false;
+  try {
+    seen = !!localStorage.getItem(ONBOARD_KEY);
+  } catch {
+    // ignore
+  }
+  if (!seen) showOnboarding();
 }
 
 function wireMenuLinks(): void {
@@ -4931,16 +4916,6 @@ function buildEmoteBar(id: string): void {
 buildEmoteBar("room-emotes");
 buildEmoteBar("game-emotes");
 
-// In-game wallet nudge: tapping the text opens connect; the ✕ hides it forever.
-document.querySelector("#hud-wallet-nudge .hn-text")?.addEventListener("click", () => {
-  document.getElementById("wallet-btn")?.click();
-});
-document.querySelector("#hud-wallet-nudge .hn-x")?.addEventListener("click", (e) => {
-  e.stopPropagation();
-  try { localStorage.setItem("bp_nudge_off", "1"); } catch { /* ignore */ }
-  document.getElementById("hud-wallet-nudge")?.classList.add("hidden");
-});
-
 /** Show a reaction: a bubble over the player in-game, plus a floating lobby pop.
  *  Lobby pops spawn at a random x with a little drift and rise up, so multiple
  *  reactions scatter across the screen instead of stacking in one place. */
@@ -5180,11 +5155,7 @@ document.getElementById("profile-share")?.addEventListener("click", () => void o
 document.getElementById("splash-enter")?.addEventListener("click", () => {
   localStorage.setItem("bp_entered", "1"); // returning visitors skip the splash next time
   showScreen("menu");
-  music("lobby"); // music starts once you're in the hub, not on the splash
-  // First-time players get the how-to-play right after entering.
-  let onbSeen = false;
-  try { onbSeen = !!localStorage.getItem(ONBOARD_KEY); } catch { /* ignore */ }
-  if (!onbSeen) showOnboarding();
+  music("lobby");
 });
 document.getElementById("splash-connect")?.addEventListener("click", () => {
   document.getElementById("wallet-btn")?.click(); // reuse the connect flow
@@ -5210,13 +5181,7 @@ document.addEventListener("pointerdown", (e) => {
   const el = e.target as HTMLElement;
   if (el.closest("button") && !el.closest("#touch-controls")) assets.play("ui");
 });
-// Autoplay-unlock fallback: start music on the first gesture AFTER we've left the
-// splash (so nothing plays on the entry screen — music belongs to the hub onward).
-document.addEventListener("pointerdown", function startMusicOnce() {
-  if (!document.getElementById("splash")?.classList.contains("hidden")) return; // still on splash
-  assets.playMusic(currentTrack);
-  document.removeEventListener("pointerdown", startMusicOnce);
-});
+document.addEventListener("pointerdown", () => assets.playMusic(currentTrack), { once: true });
 
 // Deep links jump straight in (connect() drives the screen); otherwise show the
 // splash ONLY to first-time visitors — returning players (entered before, or a
