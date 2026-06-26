@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { audioManager } from "@/lib/audioManager";
+import { TOKEN_TICKER } from "@/lib/token";
 
 const PLAY_URL = "http://bombermeme.fun/play";
 
@@ -140,9 +141,9 @@ export function MatchmakingCta({ playHref = PLAY_URL }: MatchmakingCtaProps) {
           (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,215,0,0.25)";
           (e.currentTarget as HTMLElement).style.boxShadow  = "0 0 20px rgba(255,215,0,0.08), inset 0 1px 0 rgba(255,255,255,0.04)";
         }}
-        aria-label="Buy $BMB token on pump.fun"
+        aria-label={`Buy $${TOKEN_TICKER} token on pump.fun`}
       >
-        💎 Buy $BMB
+        💎 Buy {`$${TOKEN_TICKER}`}
       </motion.a>
     </div>
   );

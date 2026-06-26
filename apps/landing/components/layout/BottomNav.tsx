@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWeb3Auth, fmtBalance, fmtMMR } from "@/lib/web3Auth";
 import { audioManager } from "@/lib/audioManager";
+import { TOKEN_TICKER } from "@/lib/token";
 import type { ReactNode } from "react";
 
 /* ── Icons ───────────────────────────────────────────────────────────────── */
@@ -111,7 +112,7 @@ export function BottomNav() {
               letterSpacing:  "0.12em",
             }}
           >
-            <span style={{ color: "rgba(255,255,255,0.35)" }}>$BMB</span>
+            <span style={{ color: "rgba(255,255,255,0.35)" }}>{`$${TOKEN_TICKER}`}</span>
             <span style={{ color: "#5ad27a", textShadow: "0 0 8px rgba(90,210,122,0.6)" }}>
               {fmtBalance(bmbBalance)}
             </span>

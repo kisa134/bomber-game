@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { TOKEN_TICKER } from "@/lib/token";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -13,7 +14,7 @@ const SLICES = [
 ];
 
 const PILLS = [
-  { label: "Total Supply", value: "1,000,000,000", sub: "$BMB" },
+  { label: "Total Supply", value: "1,000,000,000", sub: `$${TOKEN_TICKER}` },
   { label: "Chain",        value: "Solana",        sub: "SOL native" },
   { label: "Launch",       value: "pump.fun",      sub: "Fair launch" },
   { label: "Utility",      value: "In-game + Gov", sub: "Dual use" },
@@ -85,7 +86,7 @@ function DonutChart() {
         fontFamily="var(--font-mono)"
         letterSpacing="1"
       >
-        $BMB
+        {`$${TOKEN_TICKER}`}
       </text>
     </svg>
   );

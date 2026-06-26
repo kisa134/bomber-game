@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { TOKEN_TICKER } from "@/lib/token";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -19,8 +20,8 @@ const FAQS = [
     a: "No wallet is required to play for free. For paid matches and skin ownership you'll need a Solana wallet — Phantom, Solflare, and Backpack are all supported via Sign-In With Solana (SIWS).",
   },
   {
-    q: "What is the $BMB token used for?",
-    a: "$BMB is the native token of the BomberMeme ecosystem. It powers in-game cosmetics, wallet-gated skins, creator reward boosts, and future governance. Token is live on pump.fun — no presale, fair launch.",
+    q: `What is the $${TOKEN_TICKER} token used for?`,
+    a: `$${TOKEN_TICKER} is the native token of the BomberMeme ecosystem. It powers in-game cosmetics, wallet-gated skins, creator reward boosts, and future governance. Token is live on pump.fun — no presale, fair launch.`,
   },
   {
     q: "How is the game provably fair?",

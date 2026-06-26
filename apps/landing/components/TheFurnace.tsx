@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
+import { TOKEN_TICKER } from "@/lib/token";
 
 /* ── Flame CSS keyframes injected once ───────────────────────────────────── */
 const FLAME_STYLES = `
@@ -297,7 +298,7 @@ export function TheFurnace() {
                 marginBottom: "10px",
               }}
             >
-              Total $BMB Permanently Destroyed
+              Total {`$${TOKEN_TICKER}`} Permanently Destroyed
             </div>
             <div
               key={burned}
@@ -326,7 +327,7 @@ export function TheFurnace() {
                 marginTop: "8px",
               }}
             >
-              $BMB
+              {`$${TOKEN_TICKER}`}
             </div>
           </div>
 
@@ -359,7 +360,7 @@ export function TheFurnace() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "10px" }}>
             {[
               { label: "Burn Rate",      value: "25% of Rake",    icon: "🔥" },
-              { label: "Per Match Est.", value: "~$1.20 $BMB",   icon: "⚡" },
+              { label: "Per Match Est.", value: `~$1.20 $${TOKEN_TICKER}`,   icon: "⚡" },
               { label: "Burn Address",   value: "Dead Wallet",    icon: "🔒" },
               { label: "Mechanism",      value: "On-Chain Auto",  icon: "⚙" },
             ].map((s) => (

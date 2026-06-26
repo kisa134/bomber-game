@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useWeb3Auth, fmtBalance, fmtMMR } from "@/lib/web3Auth";
 import { audioManager } from "@/lib/audioManager";
+import { TOKEN_TICKER } from "@/lib/token";
 
 const NAV_LINKS = [
   { label: "Arena",       href: "/" },
@@ -82,7 +83,7 @@ function AuthWidget() {
         {bmbBalance !== null && (
           <span>
             <span className="auth-chip-bal">{fmtBalance(bmbBalance)}</span>
-            <span style={{ color: "rgba(255,255,255,0.28)", marginLeft: "3px" }}>$BMB</span>
+            <span style={{ color: "rgba(255,255,255,0.28)", marginLeft: "3px" }}>{`$${TOKEN_TICKER}`}</span>
           </span>
         )}
         <span

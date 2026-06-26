@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { TOKEN_TICKER } from "@/lib/token";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -116,7 +117,7 @@ export function FinalCta() {
                 border: "1px solid rgba(10,11,14,0.30)",
               }}
             >
-              💎 Buy $BMB
+              💎 Buy {`$${TOKEN_TICKER}`}
             </a>
           </div>
         </div>
