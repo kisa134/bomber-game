@@ -246,43 +246,9 @@ function RosterCard({ char }: { char: RosterChar }) {
           </span>
         </div>
 
-        {/* Win Rate bar */}
-        <div style={{ padding: "0 12px 4px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "3px" }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.48rem", letterSpacing: "0.12em", color: "rgba(255,255,255,0.30)", textTransform: "uppercase" }}>
-              Win Rate
-            </span>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.54rem", fontWeight: 700, color: char.roleColor }}>
-              {char.winRate}%
-            </span>
-          </div>
-          <div style={{ height: "3px", borderRadius: "999px", background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
-            <motion.div
-              initial={{ width: 0 }}
-              whileInView={{ width: `${char.winRate}%` }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
-              style={{
-                height:       "100%",
-                background:   char.roleColor,
-                borderRadius: "999px",
-                boxShadow:    `0 0 6px ${char.roleColor}70`,
-              }}
-            />
-          </div>
-        </div>
+        <div style={{ padding: "0 12px 12px" }} />
 
-        {/* Avg MMR */}
-        <div style={{ padding: "0 12px 12px" }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.48rem", letterSpacing: "0.10em", color: "rgba(255,255,255,0.25)", textTransform: "uppercase" }}>
-            Avg MMR:{" "}
-            <span style={{ color: "#7fd8ff", fontWeight: 700, fontSize: "0.52rem", textShadow: "0 0 6px rgba(127,216,255,0.6)" }}>
-              {char.avgMMR.toLocaleString()}
-            </span>
-          </span>
-        </div>
-
-        {/* Expandable stats panel */}
+        {/* Expandable stats panel (flavor: signature + specialty + lore) */}
         <AnimatePresence>
           {hovered && (
             <motion.div
@@ -308,7 +274,6 @@ function RosterCard({ char }: { char: RosterChar }) {
                 {[
                   { label: "SIGNATURE", value: char.signature },
                   { label: "SPECIALTY", value: char.specialty },
-                  { label: "PICK RATE", value: `${char.pickRate}%` },
                 ].map((row) => (
                   <div key={row.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.46rem", letterSpacing: "0.10em", color: "rgba(255,255,255,0.28)", textTransform: "uppercase" }}>
@@ -447,8 +412,8 @@ export function RosterSection() {
               letterSpacing: "0.04em",
               textTransform: "uppercase",
               textDecoration: "none",
-              color:         "#111",
-              background:    "linear-gradient(135deg, #f5c842 0%, #7fd8ff 100%)",
+              color:         "#100e16",
+              background:    "#f5c842",
               borderRadius:  "999px",
               padding:       "13px 32px",
               boxShadow:     "0 0 32px rgba(245,200,66,0.35), 0 8px 24px rgba(0,0,0,0.6)",
