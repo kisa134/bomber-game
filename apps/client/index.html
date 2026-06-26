@@ -116,7 +116,7 @@
           <button id="onboard-skip" class="onboard-skip" title="Skip">✕</button>
           <div id="onboard-body" class="onboard-body"></div>
           <div id="onboard-dots" class="onboard-dots"></div>
-          <button id="onboard-next" class="primary big">Next →</button>
+          <button id="onboard-next" class="primary big glass-btn">Next →</button>
         </div>
       </div>
 
@@ -584,12 +584,10 @@
           <!-- Top bar: room identity / type / code / invite -->
           <div class="room-top">
             <button id="leave-room" class="ghost lobby-icon" title="Leave">←</button>
-            <div class="room-id">
-              <span id="room-type" class="room-type">🌐 Public Arena</span>
-              <div id="room-code-box" class="room-code-inline hidden">
-                <span class="room-code-pill"><span class="room-code-label">CODE</span><span id="room-code" class="code"></span></span>
-                <button id="copy-invite" class="room-copy">👥 Invite friends</button>
-              </div>
+            <span id="room-type" class="room-type">🌐 Public Arena</span>
+            <div id="room-code-box" class="room-code-inline hidden">
+              <span class="room-code-pill"><span class="room-code-label">CODE</span><span id="room-code" class="code"></span></span>
+              <button id="copy-invite" class="room-copy">👥 Invite friends</button>
             </div>
             <span id="room-region" class="room-region"></span>
           </div>
@@ -672,7 +670,6 @@
         <div id="hud-panel">
           <div id="hud-left">
             <div id="timer">3:00</div>
-            <div id="hud-stake" class="hud-stake hidden"></div>
             <div id="hud-bottom"></div>
             <div id="players"></div>
             <div id="bal-hud" class="bal-bar hidden"></div>
@@ -725,21 +722,17 @@
             <div id="result-place" class="result-place"></div>
             <h2 id="result-title" class="result-title"></h2>
           </div>
+          <div id="result-rewards" class="result-rewards"></div>
           <div id="result-prize" class="result-prize info-card hidden">
             <span class="rp-label">PRIZE</span>
             <span id="result-prize-val" class="rp-val">0</span>
             <span id="result-prize-sub" class="rp-sub"></span>
           </div>
-          <div id="result-rewards" class="result-rewards"></div>
           <div id="result-lvl" class="result-lvl-wrap hidden"></div>
           <div id="result-prog" class="result-prog-wrap hidden"></div>
           <div class="result-card info-card">
             <div class="result-card-h">STANDINGS</div>
             <ol id="result-board" class="result-board"></ol>
-          </div>
-          <div class="result-foot">
-            <span id="result-ping" class="result-ping"></span>
-            <p id="result-fair" class="status fair"></p>
           </div>
           <div class="result-actions-bar">
             <button id="result-lobby" class="glass-btn big">↩ Back to lobby</button>
@@ -749,6 +742,10 @@
               <button id="result-invite" class="ghost">👥 Invite friends</button>
             </div>
             <button id="result-leave" class="ghost result-leave-btn">Leave to menu</button>
+          </div>
+          <div class="result-foot">
+            <span id="result-ping" class="result-ping"></span>
+            <p id="result-fair" class="status fair"></p>
           </div>
         </div>
       </section>

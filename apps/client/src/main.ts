@@ -166,6 +166,9 @@ interface KillLine {
   until: number;
 }
 const killLines: KillLine[] = [];
+// Reliable per-match frag tally from the EVENT_KILL stream (snapshots are throttled,
+// so the killing-blow frag is often missing from the last snapshot before MATCH_END).
+const matchFrags = new Map<number, number>();
 let toastUntil = 0;
 let hudSig = "";
 let prevMyLives = -1; // track HP to flash on damage
@@ -459,6 +462,7 @@ net.onMessage = (msg) => {
       state.setPhase(msg.phase, msg.timerMs);
       if (msg.phase === MatchPhase.COUNTDOWN) {
         enterGame();
+        matchFrags.clear(); // fresh frag tally for the new match
         lastCountSec = -1;
         renderer?.setCountdown(true); // highlight your corner while 3-2-1 runs
       } else if (msg.phase === MatchPhase.PLAYING) {
@@ -548,6 +552,10 @@ net.onMessage = (msg) => {
     case ServerMsg.EVENT_KILL:
       killLines.push({ killerId: msg.killerId, victimId: msg.victimId, until: performance.now() + 4500 });
       if (killLines.length > 5) killLines.shift();
+      // Real kill (not environment 255, not a self-blast) → credit the killer.
+      if (msg.killerId !== 255 && msg.killerId !== msg.victimId) {
+        matchFrags.set(msg.killerId, (matchFrags.get(msg.killerId) ?? 0) + 1);
+      }
       if (msg.killerId === state.myId && msg.victimId !== state.myId) {
         registerMyKill();
         assets.rewardDing(); // bright casino-style reward chime on your kill
@@ -638,7 +646,10 @@ function enterGame(): void {
 }
 
 function announceResult(winnerId: number): void {
-  const meFrags = state.latest()?.players.find((p) => p.id === state.myId)?.frags ?? 0;
+  const meFrags = Math.max(
+    matchFrags.get(state.myId) ?? 0,
+    state.latest()?.players.find((p) => p.id === state.myId)?.frags ?? 0,
+  );
   track("match_ended", { won: winnerId === state.myId, draw: winnerId === DRAW_WINNER_ID, frags: meFrags });
   // Winner strikes the victory pose on the battlefield during the end linger.
   if (winnerId !== DRAW_WINNER_ID) renderer?.setVictory(winnerId);
@@ -1011,11 +1022,12 @@ function renderResultBoard(winnerId: number, players: { id: number; alive: boole
       (!draw && place <= 3 ? ` place-${place}` : "");
     const av = skinAvatar(skinOf.get(p.id) ?? 0);
     av.classList.add("rb-av");
+    const pFrags = Math.max(matchFrags.get(p.id) ?? 0, p.frags);
     li.append(
       el("span", "rb-rank", draw ? "–" : String(place)),
       av,
       el("span", "rb-name", state.nameOf(p.id) + (p.id === state.myId ? " (you)" : "")),
-      el("span", "rb-frags", `💀 ${p.frags}`),
+      el("span", "rb-frags", `💀 ${pFrags}`),
     );
     const pw = walletOf.get(p.id);
     if (pw) {
@@ -1215,17 +1227,7 @@ function updateHud(): void {
     playersEl.appendChild(card);
   }
 
-  // What's on the line right now (pot) — staked tables only.
-  const stakeEl = document.getElementById("hud-stake");
-  if (stakeEl) {
-    if (state.roomStake > 0) {
-      const sym = state.roomCurrency === 1 ? "💎" : "🪙";
-      stakeEl.textContent = `🏆 ${sym}${(state.roomStake * snap.players.length).toLocaleString()}`;
-      stakeEl.classList.remove("hidden");
-    } else {
-      stakeEl.classList.add("hidden");
-    }
-  }
+  // (The pot at stake is shown on the right balance plaque — #bal-hud — not here.)
 
   // Mini nudge: no wallet → your XP/rating/earnings aren't being saved. Dismissible.
   const nudge = document.getElementById("hud-wallet-nudge");
@@ -3831,8 +3833,8 @@ const ONBOARD: Array<{ icon: string; title: string; text: string; pu?: string[];
   {
     img: "/sprites/skin_0_down_1.webp",
     icon: "🎴",
-    title: "Welcome, fighter!",
-    text: "You've unlocked your <b>starter characters</b> as a joining reward — meet your roster in the card carousel on the hub. Win matches to collect rarer ones.",
+    title: "Welcome — here's your reward 🎁",
+    text: "Just for joining, you've <b>unlocked your first characters</b>! <b>Swipe the card carousel</b> on the hub to pick who you fight as. Win matches to <b>open rarer, flashier ones</b>.",
   },
   {
     icon: "🎯",

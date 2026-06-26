@@ -124,6 +124,11 @@ let onKick: (playerId: number) => void = () => {};
 export function setKickHandler(fn: (playerId: number) => void): void {
   onKick = fn;
 }
+// Which player's kick ✕ is currently armed. Module-level so it SURVIVES the room
+// re-rendering between the two taps (the old per-button dataset was wiped on every
+// re-render, so the kick never completed).
+let armedKickId = -1;
+let armedKickTimer = 0;
 /* Match-length editing is disabled for now (fixed 3-min rounds); the protocol
    hook stays server-side until the in-lobby control is redesigned. */
 /** Tapping an empty seat opens the friends list to invite someone (wired from main). */
@@ -739,22 +744,27 @@ export function renderRoom(state: GameState): void {
     // Host can remove anyone but themselves.
     if (state.isHost && p.id !== state.hostId) {
       const kick = document.createElement("button");
-      kick.className = "kick-btn";
-      kick.textContent = "✕";
+      kick.className = "kick-btn" + (armedKickId === p.id ? " armed" : "");
+      kick.textContent = armedKickId === p.id ? "Kick?" : "✕";
       kick.title = "Kick player";
-      // Two-tap confirm (mobile-reliable, no native dialog): first tap arms the
-      // button, second tap within 2.6s kicks.
+      // Two-tap confirm (mobile-reliable, no native dialog). armedKickId is module-
+      // level so the first tap's armed state survives a room re-render → the second
+      // tap actually kicks.
       kick.addEventListener("click", (e) => {
         e.stopPropagation();
-        if (kick.dataset.armed === "1") { onKick(p.id); return; }
-        kick.dataset.armed = "1";
+        if (armedKickId === p.id) {
+          window.clearTimeout(armedKickTimer);
+          armedKickId = -1;
+          onKick(p.id);
+          return;
+        }
+        armedKickId = p.id;
         kick.textContent = "Kick?";
         kick.classList.add("armed");
-        setTimeout(() => {
-          if (!kick.isConnected) return;
-          kick.dataset.armed = "";
-          kick.textContent = "✕";
-          kick.classList.remove("armed");
+        window.clearTimeout(armedKickTimer);
+        armedKickTimer = window.setTimeout(() => {
+          armedKickId = -1;
+          if (kick.isConnected) { kick.textContent = "✕"; kick.classList.remove("armed"); }
         }, 2600);
       });
       li.appendChild(kick);
