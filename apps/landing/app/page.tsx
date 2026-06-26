@@ -7,7 +7,7 @@ import { LiveStatsBar } from "@/components/LiveStatsBar";
 
 // Below-the-fold: code-split into separate chunks (still SSR'd for SEO),
 // so the initial payload stays light. Nothing removed — just deferred.
-const BentoSection       = dynamic(() => import("@/components/bento/BentoSection").then((m) => m.BentoSection));
+const BentoScene         = dynamic(() => import("@/components/BentoScene").then((m) => m.BentoScene));
 const RosterSection      = dynamic(() => import("@/components/RosterSection").then((m) => m.RosterSection));
 const LiveLeaderboard    = dynamic(() => import("@/components/arena/LiveLeaderboard").then((m) => m.LiveLeaderboard));
 const VideoTrailerSection= dynamic(() => import("@/components/VideoTrailerSection").then((m) => m.VideoTrailerSection));
@@ -35,9 +35,7 @@ export default function Home() {
       </div>
 
       {/* ═══ PRODUCT ─ what it is ══════════════════════════════════════════ */}
-      <div className="mt-28">
-        <BentoSection />
-      </div>
+      <BentoScene />
 
       {/* the fighters — strongest visual hook */}
       <div className="mt-28">
