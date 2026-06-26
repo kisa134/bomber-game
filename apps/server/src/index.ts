@@ -1499,8 +1499,8 @@ app.get("/admin/tournament", (res, req) => {
   res.onAborted(() => {});
   if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
   const id = new URLSearchParams(req.getQuery()).get("id") ?? "";
-  void Promise.all([tournaments.get(id), tournaments.players(id)])
-    .then(([t, players]) => sendJson(res, t ? { tournament: t, players } : { error: "not_found" }, t ? "200 OK" : "404 Not Found"))
+  void Promise.all([tournaments.get(id), tournaments.players(id), tournaments.matches(id)])
+    .then(([t, players, matches]) => sendJson(res, t ? { tournament: t, players, matches } : { error: "not_found" }, t ? "200 OK" : "404 Not Found"))
     .catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 function adminTourneyPost(path: string, fn: (body: Record<string, unknown>) => Promise<unknown>): void {

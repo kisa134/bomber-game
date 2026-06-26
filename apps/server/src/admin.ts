@@ -424,18 +424,49 @@ async function loadTours(){
   try{
     const r=await fetch("/admin/tournaments?token="+encodeURIComponent(token));
     const d=await r.json();const ts=d.tournaments||[];
-    $("#tour-list").innerHTML = ts.length ? ts.map(function(t){
-      var meta=t.format+" · "+t.status+" · "+t.registered+"/"+t.maxPlayers+" · $"+t.prizeUsd+(t.entryType==="buyin"?(" · buy-in "+t.entryAmount):" · free");
-      return '<div class="tile" style="text-align:left;margin-bottom:6px"><b>'+t.name+'</b> <span class="muted">· '+meta+'</span><br>'+
-        tb(t.id,"reg_open","Open reg")+tb(t.id,"checkin","Check-in")+ts2(t.id)+tb(t.id,"live","Start")+tb(t.id,"done","Finish")+tb(t.id,"cancelled","Cancel")+
-        '</div>';
-    }).join("") : '<span class="empty">No tournaments yet — create one above.</span>';
+    $("#tour-list").innerHTML = ts.length ? ts.map(tCard).join("") : '<span class="empty">No tournaments yet — create one above.</span>';
+    // Re-render the detail for whichever card the user had expanded (poll-safe).
+    if(window.__openTour) tourDetail(window.__openTour, true);
   }catch(e){$("#tour-list").innerHTML='<span class="err">'+e+'</span>';}
 }
-function tb(id,status,label){return '<button onclick="tourStatus(\\''+id+'\\',\\''+status+'\\')" style="margin:2px 4px 0 0">'+label+'</button>';}
-function ts2(id){return '<button onclick="tourSeed(\\''+id+'\\')" style="margin:2px 4px 0 0;background:#2d8b57;color:#fff">Seed round</button>';}
-window.tourStatus=async function(id,status){await fetch("/admin/tournament/status?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id,status:status})});loadTours();};
-window.tourSeed=async function(id){const r=await fetch("/admin/tournament/seed?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})});const d=await r.json();var pods=(d.result&&d.result.pods)||[];alert("Seeded "+pods.length+" pod(s). Players will see Join in-game.");loadTours();};
+function tEsc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+function tShort(w){return w?(w.slice(0,4)+'…'+w.slice(-4)):'';}
+function tPill(s){var c={draft:'#8a90a0',reg_open:'#2d8b57',checkin:'#d8a200',live:'#3a7bd5',done:'#6a6f7e',cancelled:'#b5483f'}[s]||'#8a90a0';return '<span style="background:'+c+';color:#fff;padding:1px 8px;border-radius:999px;font-size:.72em">'+s+'</span>';}
+function tSteps(s){var order=['draft','reg_open','checkin','live','done'];var i=order.indexOf(s);return order.map(function(o,k){return '<span style="opacity:'+(k<=i?1:.4)+'">'+(k<i?'●':k===i?'◉':'○')+' '+o+'</span>';}).join(' <span class="muted">→</span> ');}
+function tBtn(id,status,label,bg){return '<button onclick="tourStatus(\\''+id+'\\',\\''+status+'\\')" style="margin:2px 4px 0 0;background:'+bg+';color:#fff">'+label+'</button>';}
+function tSeedBtn(id,label){return '<button onclick="tourSeed(\\''+id+'\\')" style="margin:2px 4px 0 0;background:#2d8b57;color:#fff;font-weight:600">'+label+'</button>';}
+function tNext(t){
+  if(t.status==='draft')return tBtn(t.id,'reg_open','▶ Open registration','#2d8b57');
+  if(t.status==='reg_open')return tBtn(t.id,'checkin','▶ Start check-in','#d8a200');
+  if(t.status==='checkin')return tSeedBtn(t.id,'🎲 Seed round 1 & go live');
+  if(t.status==='live')return tSeedBtn(t.id,'🎲 Seed next round')+tBtn(t.id,'done','🏁 Finish','#6a6f7e');
+  if(t.status==='done')return '<span class="muted">Finished'+(t.winners&&t.winners.length?(' · 🏆 '+tShort(t.winners[0])):'')+'</span>';
+  return '<span class="muted">cancelled</span>';
+}
+function tCard(t){
+  var meta=t.format+' · '+t.registered+'/'+t.maxPlayers+' · $'+t.prizeUsd+(t.entryType==='buyin'?(' · buy-in '+t.entryAmount):' · free')+(t.testFillBots?' · 🤖 test':'');
+  return '<div class="tile" style="text-align:left;margin-bottom:8px">'+
+    '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>'+tEsc(t.name)+'</b> '+tPill(t.status)+' <span class="muted" style="font-size:.82em">· '+meta+'</span></div>'+
+    '<div class="muted" style="font-size:.76em;margin:5px 0">'+tSteps(t.status)+'</div>'+
+    '<div style="margin-top:4px">'+tNext(t)+' '+tBtn(t.id,'cancelled','Cancel','#b5483f')+' <button onclick="tourDetail(\\''+t.id+'\\')" style="margin:2px 4px 0 0">Details ▾</button></div>'+
+    '<div id="tdet_'+t.id+'" style="margin-top:6px"></div></div>';
+}
+window.tourStatus=async function(id,status){if(status==='cancelled'&&!confirm('Cancel this tournament?'))return;await fetch("/admin/tournament/status?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id,status:status})});loadTours();};
+window.tourSeed=async function(id){const r=await fetch("/admin/tournament/seed?token="+encodeURIComponent(token),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id})});const d=await r.json();var pods=(d.result&&d.result.pods)||[];window.__openTour=id;loadTours();if(!pods.length)alert("Nothing to seed — need at least 2 players (or enable 🤖 test mode for solo).");};
+window.tourDetail=async function(id,keepOpen){
+  if(!keepOpen) window.__openTour = (window.__openTour===id? null : id);
+  var box=document.getElementById('tdet_'+id); if(!box)return;
+  if(window.__openTour!==id){box.innerHTML='';return;}
+  if(!keepOpen) box.innerHTML='<span class="muted">loading…</span>';
+  try{
+    var r=await fetch('/admin/tournament?id='+encodeURIComponent(id)+'&token='+encodeURIComponent(token));
+    var d=await r.json(); var ps=(d.players||[]); var ms=(d.matches||[]);
+    var standings=ps.slice().sort(function(a,b){return (b.points||0)-(a.points||0);});
+    var pl=standings.length?standings.map(function(p,k){return '<div style="display:flex;justify-content:space-between;font-size:.82em;padding:1px 0"><span>'+(k+1)+'. '+tEsc(p.name||tShort(p.wallet))+' <span class="muted">'+p.status+'</span></span><b>'+(p.points||0)+' pts</b></div>';}).join(''):'<span class="muted">no players yet</span>';
+    var pods=ms.length?ms.slice().reverse().map(function(m){return '<div style="font-size:.78em" class="muted">R'+m.round+' · pod '+m.pod+' · room <b>'+tEsc(m.roomCode)+'</b> · '+m.status+' · '+((m.players||[]).length)+'p</div>';}).join(''):'<span class="muted">no rounds seeded yet</span>';
+    box.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;border-top:1px solid var(--border);padding-top:6px"><div><div class="label">Standings</div>'+pl+'</div><div><div class="label">Pods / rounds</div>'+pods+'</div></div>';
+  }catch(e){box.innerHTML='<span class="err">'+e+'</span>';}
+};
 $("#t-create").onclick=async function(){
   var s=$("#t-start").value;var startAt=s?new Date(s).getTime():0;
   var body={name:$("#t-name").value||"Tournament",format:$("#t-format").value,entryType:$("#t-entry").value,entryAmount:Number($("#t-amount").value)||0,currency:Number($("#t-cur").value)||0,prizeUsd:Number($("#t-prize").value)||0,maxPlayers:Number($("#t-max").value)||64,startAt:startAt,regOpen:true,testFillBots:$("#t-testbots").checked};
