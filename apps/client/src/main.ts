@@ -4246,7 +4246,10 @@ const updateSW = registerSW({
 // Apply a pending update at a safe moment (not in a match / result screen).
 function maybeApplySWUpdate(): void {
   if (!swUpdateReady) return;
-  if (inGame(state.phase) || onResultScreen()) return; // wait until back on a menu
+  // Block ONLY during a live match (a mid-match reload would be brutal). The result
+  // screen is safe to reload — and it's exactly where players got stuck on a stale
+  // build, so apply it there too.
+  if (inGame(state.phase)) return;
   void updateSW(true); // skipWaiting + reload with the fresh build
 }
 // Poll so a pending update applies AS SOON AS you're on a safe screen — without this
