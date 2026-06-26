@@ -5,6 +5,13 @@
 
 /* ── Design token theme ─────────────────────────────────────────────────── */
 @theme {
+  /* ── ESPORTS SPEC: 5-level darkness model (descend metaphor) ───────────── */
+  --color-bg-0: oklch(0.12 0.01 270);   /* nav / topmost surface */
+  --color-bg-1: oklch(0.10 0.015 270);  /* hero, roster */
+  --color-bg-2: oklch(0.085 0.012 270); /* live arena, leaderboard, trailer */
+  --color-bg-3: oklch(0.07 0.01 270);   /* economy, token, provably-fair */
+  --color-bg-4: oklch(0.055 0.008 270); /* final CTA, guilds, footer */
+
   /* ── BOMBERMEME PREMIUM PALETTE (matches the in-game hub) ───────────────── */
   /* Background layers — warm purple-tinted void, not cold blue-black */
   --color-bg:     #0b0a0e;   /* hub void — primary background */
