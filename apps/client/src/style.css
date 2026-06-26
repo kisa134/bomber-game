@@ -662,6 +662,14 @@ button.glass-btn.primary:hover {
 }
 .create-card .stake-picker {
   width: 100%;
+  /* No gold frame around the stake buttons in the CREATE popup — it read as a stray box.
+     (The propose-raise picker keeps its glowing frame.) */
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 /* Cancel was a fixed-width button pinned to the left — make it full width. */
 .create-card #create-cancel {
