@@ -61,6 +61,10 @@ export function adminPageHtml(): string {
   <p id="msg" class="muted"></p>
   <div id="board" style="display:none">
     <nav id="atabs"></nav>
+    <h3>🛰 Overview <span class="muted" style="font-weight:400;font-size:.8rem">· everything at a glance · tap a card to drill in</span></h3>
+    <div id="ov-flags" style="margin-bottom:8px"></div>
+    <div class="grid" id="overview"></div>
+    <div id="ov-feed" class="feed" style="margin:10px 0 18px"></div>
     <h3>📈 Growth today <span class="muted" style="font-weight:400;font-size:.8rem">· resets at UTC midnight</span></h3>
     <div class="grid" id="growth"></div>
     <h3>🧠 AI Director <span class="muted" style="font-weight:400;font-size:.8rem">· reads every data flow (economy · money · tournaments · players · system · logs) and reports</span></h3>
@@ -208,6 +212,33 @@ async function poll(){
       goalTile("Players",g.players,0,"any match today")+
       goalTile("Matches",g.matches,gt.matches,fmt(g.tokenMatches)+" on tokens")+
       goalTile("Depositors",g.depositors,gt.depositors,"${TOKEN_TICKER} "+fmt(g.depositVolume)+" in");
+    // --- Overview (Admin 3.0): curated KPIs, each card drills into its tab ----
+    var ovc=function(label,value,sub,tab){return '<div class="tile" style="cursor:pointer" onclick="showTab(\\''+tab+'\\')" title="Open '+tab+'"><div class="label">'+label+'</div><div class="value">'+value+'</div><div class="sub">'+sub+' →</div></div>';};
+    var ec=d.economy||{chips:0,tokens:0,players:0};
+    var lo=d.load||{tickMs:0,budgetMs:16.7};
+    var ovEl=document.getElementById("overview");
+    if(ovEl)ovEl.innerHTML=
+      ovc("🟢 Online",fmt(d.online),"app open now","system")+
+      ovc("🎯 Paying today",fmt(g.payingPlayers),"token players","director")+
+      ovc("DAU",fmt(g.dau),"unique devices","director")+
+      ovc("Matches today",fmt(g.matches),fmt(g.tokenMatches)+" on tokens","director")+
+      ovc("In match now",fmt((d.live||{}).humans||0),fmt((d.live||{}).bots||0)+" bots","system")+
+      ovc("Deposits today","${TOKEN_TICKER} "+fmt(g.depositVolume),fmt(g.depositors)+" depositors","money")+
+      ovc("Chips circulating",fmt(ec.chips),"soft currency","money")+
+      ovc("Tokens in play",fmt(ec.tokens),"custodial balances","money")+
+      ovc("Players total",fmt(ec.players),"registered wallets","players")+
+      ovc("Tick load",(lo.tickMs!=null?Number(lo.tickMs).toFixed(1):'—')+"ms","budget "+(lo.budgetMs||16.7)+"ms","system")+
+      ovc("Tournaments",fmt((d.tournaments&&d.tournaments.length)||0),"create / run","tournaments")+
+      ovc("Bans",fmt(d.bans||0),"moderation","players");
+    var ovf=document.getElementById("ov-flags");
+    if(ovf)ovf.innerHTML=
+      pill(cf.rakePct>0, cf.rakePct>0?('Rake '+cf.rakePct+'%'):'Rake 0% — set HOUSE_RAKE_BP')+
+      pill(!!cf.referralRoot, cf.referralRoot?('Referral root '+cf.referralRoot):'Referral root NOT SET')+
+      pill(!!cf.deposits,'Deposits '+(cf.deposits?'on':'off'))+
+      pill(!!cf.withdrawals,'Withdrawals '+(cf.withdrawals?'on':'off'))+
+      pill(((d.system||{}).errors||0)===0, 'Errors '+fmt((d.system||{}).errors||0));
+    var ovfe=document.getElementById("ov-feed");
+    if(ovfe)ovfe.innerHTML=(d.events||[]).slice(0,6).map(function(e){return '<div class="ev"><time>'+new Date(e.t).toLocaleTimeString()+'</time><span>'+e.icon+' '+e.text+'</span></div>';}).join("")||'<div class="empty">No activity yet.</div>';
     // Live activity feed
     const ev=d.events||[];
     $("#feed").innerHTML = ev.length
@@ -481,17 +512,17 @@ setInterval(loadTours,8000);
 function ensureTabs(){
   if(window.__tabsDone)return;
   var board=document.getElementById("board");if(!board)return;
-  var CAT=[[/growth today/i,"director"],[/ai analyst/i,"director"],[/system health/i,"director"],[/activity feed/i,"director"],[/load/i,"system"],[/live now/i,"system"],[/economy/i,"money"],[/rake engine/i,"money"],[/treasury/i,"money"],[/live balances/i,"money"],[/lucky spin/i,"money"],[/wallet lookup/i,"players"],[/since restart/i,"players"],[/top players/i,"players"],[/referral/i,"players"],[/tournaments/i,"tournaments"],[/character cards/i,"growth"],[/analytics/i,"growth"]];
+  var CAT=[[/overview/i,"overview"],[/growth today/i,"director"],[/ai analyst/i,"director"],[/system health/i,"director"],[/activity feed/i,"director"],[/load/i,"system"],[/live now/i,"system"],[/economy/i,"money"],[/rake engine/i,"money"],[/treasury/i,"money"],[/live balances/i,"money"],[/lucky spin/i,"money"],[/wallet lookup/i,"players"],[/since restart/i,"players"],[/top players/i,"players"],[/referral/i,"players"],[/tournaments/i,"tournaments"],[/character cards/i,"growth"],[/analytics/i,"growth"]];
   var cur="director";
   Array.prototype.forEach.call(board.children,function(el){
     if(el.id==="atabs")return;
     if(el.tagName==="H3"){var t=el.textContent||"";for(var i=0;i<CAT.length;i++){if(CAT[i][0].test(t)){cur=CAT[i][1];break;}}}
     el.dataset.cat=cur;
   });
-  var TABS=[["director","🧠 Director"],["money","💰 Money"],["players","👥 Players"],["tournaments","🏆 Tournaments"],["system","📡 System"],["growth","📈 Growth"]];
+  var TABS=[["overview","🛰 Overview"],["director","🧠 Director"],["money","💰 Money"],["players","👥 Players"],["tournaments","🏆 Tournaments"],["system","📡 System"],["growth","📈 Growth"]];
   var nav=document.getElementById("atabs");nav.innerHTML="";
   TABS.forEach(function(t){var b=document.createElement("button");b.textContent=t[1];b.dataset.t=t[0];b.onclick=function(){showTab(t[0]);};nav.appendChild(b);});
-  window.__tabsDone=true;showTab("director");
+  window.__tabsDone=true;showTab("overview");
   var sl=document.getElementById("snap-link");if(sl&&token)sl.href="/admin/snapshot?token="+encodeURIComponent(token);
 }
 function showTab(cat){
