@@ -2420,27 +2420,21 @@ function renderShopGrid(): void {
   if (!grid) return;
   grid.innerHTML = "";
   let shown = 0;
-  if (shopFilter === "all") {
-    // Rank by rarity tier with minimalist subheadings (flashiest tier first).
-    const byTier = new Map<number, number[]>();
-    for (let i = 0; i < SKIN_COUNT; i++) {
-      const t = tierRank(i);
-      (byTier.get(t) ?? byTier.set(t, []).get(t)!).push(i);
-    }
-    for (const t of [...byTier.keys()].sort((a, b) => a - b)) {
-      const idxs = byTier.get(t)!;
-      const head = el("div", "shop-tier-head", "");
-      head.style.setProperty("--rarity", rarityOf(idxs[0]).color);
-      head.append(el("span", "sth-line", ""), el("span", "sth-name", rarityOf(idxs[0]).name), el("span", "sth-line", ""));
-      grid.appendChild(head);
-      for (const i of idxs) { grid.appendChild(makeShopCard(i)); shown++; }
-    }
-  } else {
-    for (let i = 0; i < SKIN_COUNT; i++) {
-      if (!passesFilter(i)) continue;
-      grid.appendChild(makeShopCard(i));
-      shown++;
-    }
+  // Always rank by rarity tier with minimalist subheadings (in EVERY filter, not just
+  // All) — group only the skins that pass the current filter, commons → mythic.
+  const byTier = new Map<number, number[]>();
+  for (let i = 0; i < SKIN_COUNT; i++) {
+    if (!passesFilter(i)) continue;
+    const t = tierRank(i);
+    (byTier.get(t) ?? byTier.set(t, []).get(t)!).push(i);
+  }
+  for (const t of [...byTier.keys()].sort((a, b) => a - b)) {
+    const idxs = byTier.get(t)!;
+    const head = el("div", "shop-tier-head", "");
+    head.style.setProperty("--rarity", rarityOf(idxs[0]).color);
+    head.append(el("span", "sth-line", ""), el("span", "sth-name", rarityOf(idxs[0]).name), el("span", "sth-line", ""));
+    grid.appendChild(head);
+    for (const i of idxs) { grid.appendChild(makeShopCard(i)); shown++; }
   }
   if (!shown) grid.appendChild(el("div", "shop-empty", "Nothing here — try another filter."));
 }

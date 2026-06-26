@@ -5363,12 +5363,22 @@ button.big {
 .wheel-card { align-items: center; }
 .wheel-card #wheel-spin,
 .wheel-card #wheel-close { width: 100%; }
-/* Competitions card — soft inner-glass glow on hover (no fireflies), on-theme purple. */
-.rail-card.season { transition: box-shadow 0.3s ease, border-color 0.3s ease; }
-.rail-card.season:hover {
-  border-color: rgba(150, 110, 255, 0.45);
-  box-shadow: inset 0 0 26px -6px rgba(150, 100, 255, 0.5), 0 8px 22px rgba(40, 20, 90, 0.4);
+/* Hub rail buttons (Friends, Leaderboard, Shop, Invite, Competitions) — soft inner-
+   glass glow + brighter refraction on hover, same principle as the season card (no
+   fireflies). Competitions glows purple. */
+.rail-chip,
+.rail-card { transition: box-shadow 0.3s ease, border-color 0.3s ease; }
+.rail-chip:hover,
+.rail-card:hover {
+  border-color: rgba(255, 230, 150, 0.35);
+  box-shadow: inset 0 0 26px -7px rgba(255, 220, 130, 0.4), 0 8px 22px rgba(0, 0, 0, 0.4);
 }
+.rail-card.season:hover {
+  border-color: rgba(160, 120, 255, 0.5);
+  box-shadow: inset 0 0 30px -6px rgba(155, 105, 255, 0.6), 0 8px 22px rgba(40, 20, 90, 0.4);
+}
+.rail-chip:hover::after,
+.rail-card:hover::after { backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
 
 /* --- PROFILE (full-screen career screen: hero · progression · stats) --- */
 #profile {
@@ -5739,13 +5749,15 @@ button.big {
   gap: 12px;
   overflow: hidden;
 }
-/* Mobile: stack the 3 columns vertically (no fixed-width squish/overlap). */
+/* Mobile: stack the 3 columns vertically (no fixed-width squish/overlap) and let the
+   skin cards shrink into neat small squares instead of stretching into strips. */
 @media (max-width: 760px) {
   .shop-body {
     grid-template-columns: 1fr;
     overflow: visible;
     min-height: auto;
   }
+  .shop-grid { grid-template-columns: repeat(auto-fill, minmax(102px, 1fr)); }
 }
 /* Filters */
 .shop-filters {
