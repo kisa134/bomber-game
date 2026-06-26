@@ -325,6 +325,17 @@ body::after {
 }
 .cta-ghost:hover { border-color: rgba(255,255,255,0.7); color: #fff; }
 
+/* Footer links — yellow on hover, no green */
+.footer-link {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.42);
+  text-decoration: none;
+  width: fit-content;
+  transition: color 0.18s ease;
+}
+.footer-link:hover { color: #f5c842; }
+
 /* Hero fighter idle float (CSS, not GSAP) */
 @keyframes hero-fighter-float {
   0%, 100% { transform: translateY(0); }
