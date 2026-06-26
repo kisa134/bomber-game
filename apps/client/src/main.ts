@@ -1515,6 +1515,7 @@ function syncSettingsUI(): void {
   if (settings.liteGfx) goLite(); // force the lighter render when the player opted in
   document.getElementById("ctl-joystick")!.classList.toggle("active", settings.controls === "joystick");
   document.getElementById("ctl-dpad")!.classList.toggle("active", settings.controls === "dpad");
+  document.getElementById("ctl-tilt")?.classList.toggle("active", settings.controls === "tilt");
   document.getElementById("unit-usd")?.classList.toggle("active", settings.valueUnit === "usd");
   document.getElementById("unit-sol")?.classList.toggle("active", settings.valueUnit === "sol");
   document.body.classList.toggle("unit-sol", settings.valueUnit === "sol"); // SOL gradient on ≈ values
@@ -1622,6 +1623,13 @@ function wireSettings(): void {
   });
   document.getElementById("ctl-joystick")!.addEventListener("click", () => update("controls", "joystick"));
   document.getElementById("ctl-dpad")!.addEventListener("click", () => update("controls", "dpad"));
+  // Tilt needs motion permission (iOS asks on this very tap). Only switch if granted.
+  document.getElementById("ctl-tilt")?.addEventListener("click", () => {
+    void input.enableTilt().then((ok) => {
+      if (ok) { update("controls", "tilt"); setMenuStatus("Tilt on — hold your phone flat, then steer"); }
+      else setMenuStatus("Motion access denied — allow it in Safari site settings");
+    });
+  });
   document.getElementById("unit-usd")?.addEventListener("click", () => { update("valueUnit", "usd"); applyValueUnit(); });
   document.getElementById("unit-sol")?.addEventListener("click", () => { update("valueUnit", "sol"); applyValueUnit(); });
   document.getElementById("mode-token")?.addEventListener("click", () => { update("valueMode", "token"); applyValueUnit(); });

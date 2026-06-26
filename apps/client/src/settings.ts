@@ -1,6 +1,6 @@
 // Player-facing settings, persisted in localStorage.
 
-export type ControlScheme = "joystick" | "dpad";
+export type ControlScheme = "joystick" | "dpad" | "tilt";
 /** Which fiat/crypto unit token values are converted to for display. */
 export type ValueUnit = "usd" | "sol";
 /** How balances read: token amount with an ≈ conversion, or purely the money value. */

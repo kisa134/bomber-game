@@ -121,6 +121,63 @@ export class Input {
     // Reset any held touch direction when switching.
     this.setJoy(Direction.NONE);
     if (scheme === "joystick") this.hideJoy();
+    // Tilt steering drives movement from the device orientation; the bomb button stays.
+    if (scheme === "tilt") this.startTilt();
+    else this.stopTilt();
+  }
+
+  // --- Tilt / accelerometer steering (iPhone + Android) --------------------
+  private tiltHandler: ((e: DeviceOrientationEvent) => void) | null = null;
+  private tiltBase: { b: number; g: number } | null = null;
+  private tiltDir: Direction = Direction.NONE;
+
+  /** Request motion permission (iOS 13+ gesture-gated) and start tilt steering.
+   *  MUST be called from a user gesture on iOS. Returns false if denied. */
+  async enableTilt(): Promise<boolean> {
+    const DOE = window.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> } | undefined;
+    if (DOE && typeof DOE.requestPermission === "function") {
+      try {
+        if ((await DOE.requestPermission()) !== "granted") return false;
+      } catch {
+        return false;
+      }
+    }
+    this.startTilt();
+    return true;
+  }
+
+  /** Re-zero the neutral pose to however the phone is held right now. */
+  recalibrateTilt(): void {
+    this.tiltBase = null;
+  }
+
+  private startTilt(): void {
+    if (this.tiltHandler) return;
+    this.tiltBase = null; // first reading becomes the neutral pose
+    this.tiltHandler = (e: DeviceOrientationEvent): void => {
+      const beta = e.beta ?? 0, gamma = e.gamma ?? 0;
+      if (!this.tiltBase) { this.tiltBase = { b: beta, g: gamma }; return; }
+      const db = beta - this.tiltBase.b;
+      const dg = gamma - this.tiltBase.g;
+      // Rotate the device tilt into screen space (the match runs locked landscape).
+      const deg = ((window.screen?.orientation?.angle ?? (window as unknown as { orientation?: number }).orientation ?? 0) as number);
+      const rad = (deg * Math.PI) / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+      const sx = dg * cos + db * sin; // + = lean right on screen
+      const sy = db * cos - dg * sin; // + = lean toward you (down on screen)
+      const DEAD = 7; // degrees from neutral before moving
+      const ax = Math.abs(sx), ay = Math.abs(sy);
+      let dir = Direction.NONE;
+      if (Math.max(ax, ay) > DEAD) {
+        dir = ax > ay ? (sx > 0 ? Direction.RIGHT : Direction.LEFT) : sy > 0 ? Direction.DOWN : Direction.UP;
+      }
+      if (dir !== this.tiltDir) { this.tiltDir = dir; this.setJoy(dir); }
+    };
+    window.addEventListener("deviceorientation", this.tiltHandler);
+  }
+
+  private stopTilt(): void {
+    if (this.tiltHandler) { window.removeEventListener("deviceorientation", this.tiltHandler); this.tiltHandler = null; }
+    if (this.tiltDir !== Direction.NONE) { this.tiltDir = Direction.NONE; this.setJoy(Direction.NONE); }
   }
 
   private attachBombButton(): void {
