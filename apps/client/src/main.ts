@@ -4936,7 +4936,10 @@ function initCardFireflies(): void {
     const N = liteMode ? 11 : 20;
     const dots = Array.from({ length: N }, () => ({
       x: Math.random(), y: Math.random(), vx: 0, vy: 0,
-      ph: Math.random() * 6.283, sp: 1.4 + Math.random() * 2.2,
+      ph: Math.random() * 6.283, sp: 1.2 + Math.random() * 2.6,
+      g: 0.0003 + Math.random() * 0.0009, // per-dot attraction strength → chaos
+      sw: (Math.random() - 0.5) * 0.0018, // per-dot swirl → vortices
+      sz: 0.6 + Math.random() * 1.1, // slightly different sizes
     }));
     layer.innerHTML = "";
     const els = dots.map(() => {
@@ -4953,9 +4956,11 @@ function initCardFireflies(): void {
       const ar = w / Math.max(1, h); // aspect — keep repulsion even on wide cards
       for (let i = 0; i < dots.length; i++) {
         const d = dots[i];
-        // Loose gravity toward the cursor + weightless brownian wander.
-        d.vx += (mx - d.x) * 0.0006 + (Math.random() - 0.5) * 0.0026;
-        d.vy += (my - d.y) * 0.0006 + (Math.random() - 0.5) * 0.0026;
+        // Per-dot gravity toward the cursor + a perpendicular SWIRL (vortices) + a
+        // strong weightless brownian wander → properly chaotic flight.
+        const gx = mx - d.x, gy = my - d.y;
+        d.vx += gx * d.g - gy * d.sw + (Math.random() - 0.5) * 0.0038;
+        d.vy += gy * d.g + gx * d.sw + (Math.random() - 0.5) * 0.0038;
         // Same-pole-magnet repulsion: motes shove each other apart → they scatter.
         for (let j = i + 1; j < dots.length; j++) {
           const e = dots[j];
@@ -4975,7 +4980,7 @@ function initCardFireflies(): void {
         if (d.y < 0.05) { d.y = 0.05; d.vy = -d.vy * 0.5; }
         if (d.y > 0.95) { d.y = 0.95; d.vy = -d.vy * 0.5; }
         const tw = 0.3 + 0.7 * Math.abs(Math.sin(t * 0.001 * d.sp + d.ph)); // sparkle
-        els[i].style.transform = `translate(${(d.x * w).toFixed(1)}px, ${(d.y * h).toFixed(1)}px)`;
+        els[i].style.transform = `translate(${(d.x * w).toFixed(1)}px, ${(d.y * h).toFixed(1)}px) scale(${d.sz.toFixed(2)})`;
         els[i].style.opacity = String(Math.min(1, tw * boost));
       }
       // Keep drifting through the slow fade-out so the motes dim while still moving.

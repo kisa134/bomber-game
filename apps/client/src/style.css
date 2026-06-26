@@ -8191,13 +8191,14 @@ button.big {
   -webkit-mask: radial-gradient(125% 125% at 50% 50%, #000 58%, transparent 100%);
   mask: radial-gradient(125% 125% at 50% 50%, #000 58%, transparent 100%);
 }
-/* Soft CENTRE glow — radial, fades to nothing before the edges (no hard ring). */
+/* Soft CENTRE glow — radial, fades to nothing before the edges (no hard ring).
+   This is the glow that's ~2x brighter (NOT the motes). */
 .lg-glow {
   z-index: 0;
-  background: radial-gradient(ellipse 72% 64% at 50% 46%, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.05) 42%, transparent 70%);
+  background: radial-gradient(ellipse 72% 64% at 50% 46%, rgba(255, 255, 255, 0.36), rgba(255, 255, 255, 0.11) 42%, transparent 70%);
 }
 .info-card.season-glow .lg-glow {
-  background: radial-gradient(ellipse 72% 64% at 50% 46%, rgba(180, 125, 255, 0.3), rgba(150, 90, 255, 0.09) 42%, transparent 70%);
+  background: radial-gradient(ellipse 72% 64% at 50% 46%, rgba(185, 130, 255, 0.56), rgba(150, 90, 255, 0.18) 42%, transparent 70%);
 }
 .passport-card:hover .lg-fireflies, .passport-card:hover .lg-frost, .passport-card:hover .lg-glow,
 .info-card.season-glow:hover .lg-fireflies, .info-card.season-glow:hover .lg-frost, .info-card.season-glow:hover .lg-glow { opacity: 1; }
@@ -8224,20 +8225,21 @@ button.big {
   backdrop-filter: blur(2.5px);
   -webkit-backdrop-filter: blur(2.5px);
 }
-/* Brighter motes (~2×). */
+/* Tiny core, heavily SMEARED soft halo — diffuse light that won't obscure the text
+   under the glass (per-dot scale set in JS). */
 .lg-fireflies i {
   position: absolute;
   left: 0;
   top: 0;
-  width: 2.5px;
-  height: 2.5px;
+  width: 1px;
+  height: 1px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 9px 2px rgba(255, 255, 255, 0.98), 0 0 2px 0 #fff;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.42), 0 0 14px 4px rgba(255, 255, 255, 0.16);
   opacity: 0;
   will-change: transform, opacity;
 }
 .info-card.season-glow .lg-fireflies i {
-  background: #e6d4ff;
-  box-shadow: 0 0 9px 2px rgba(195, 150, 255, 1), 0 0 2px 0 #f2eaff;
+  background: rgba(235, 220, 255, 0.95);
+  box-shadow: 0 0 6px 1px rgba(190, 145, 255, 0.46), 0 0 14px 4px rgba(165, 110, 255, 0.18);
 }
