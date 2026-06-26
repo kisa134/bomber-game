@@ -42,7 +42,7 @@ function RankMedal({ rank }: { rank: number }) {
 }
 
 function WinRateBar({ pct, trigger }: { pct: number; trigger: boolean }) {
-  const barColor = pct >= 75 ? "#5ad27a" : pct >= 65 ? "#7fd8ff" : pct >= 55 ? "#ffd700" : "#f0a92a";
+  const barColor = pct >= 75 ? "#f5c842" : pct >= 65 ? "#7fd8ff" : pct >= 55 ? "#ffd700" : "#f0a92a";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: "80px" }}>
       <div style={{ flex: 1, height: "4px", borderRadius: "999px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
@@ -86,7 +86,7 @@ function LeaderboardRow({ entry, index, trigger }: { entry: Row; index: number; 
       }}
       whileHover={{
         background: isTop3 ? "rgba(255,215,0,0.07)" : "rgba(255,255,255,0.03)",
-        borderColor: isTop3 ? "rgba(255,215,0,0.22)" : "rgba(90,210,122,0.12)",
+        borderColor: isTop3 ? "rgba(255,215,0,0.22)" : "rgba(245,200,66,0.12)",
       }}
     >
       <div style={{ display: "flex", justifyContent: "center" }}>
@@ -120,7 +120,7 @@ function LeaderboardRow({ entry, index, trigger }: { entry: Row; index: number; 
       </div>
 
       {/* Tokens won (real BGDF) */}
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.70rem", fontWeight: 700, color: "#5ad27a", textShadow: "0 0 8px rgba(90,210,122,0.6)", minWidth: "50px", textAlign: "right", whiteSpace: "nowrap" }}>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.70rem", fontWeight: 700, color: "#f5c842", textShadow: "0 0 8px rgba(245,200,66,0.6)", minWidth: "50px", textAlign: "right", whiteSpace: "nowrap" }}>
         {earnedFmt} <span style={{ opacity: 0.45, fontSize: "0.58rem" }}>{TOKEN_TICKER}</span>
       </span>
 

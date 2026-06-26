@@ -16,7 +16,7 @@ interface HudBracketProps {
 }
 
 const COLOR_MAP: Record<BracketColor, { stroke: string; glow: string }> = {
-  green: { stroke: "rgba(90,210,122,0.85)",  glow: "rgba(90,210,122,0.55)"  },
+  green: { stroke: "rgba(245,200,66,0.85)",  glow: "rgba(245,200,66,0.55)"  },
   pink:  { stroke: "rgba(255,90,77,0.85)", glow: "rgba(255,90,77,0.55)" },
   blue:  { stroke: "rgba(127,216,255,0.85)",  glow: "rgba(127,216,255,0.55)"  },
   gold:  { stroke: "rgba(255,215,0,0.85)",  glow: "rgba(255,215,0,0.55)"  },

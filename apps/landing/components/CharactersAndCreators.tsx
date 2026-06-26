@@ -24,8 +24,8 @@ const CHARACTERS = [
     name: "Pepe",
     placeholder: "https://placehold.co/220x320/0e1018/4ade80?text=PEPE",
     rarity: "RARE",
-    rarityColor: "#4ade80",
-    accentColor: "#4ade80",
+    rarityColor: "#f5c842",
+    accentColor: "#f5c842",
     stats: { winRate: "61%", kd: "1.8", rarity: "★★★☆" },
     status: "EQUIPPED",
     duration: 4.4,
@@ -172,11 +172,11 @@ export function CharactersAndCreators() {
             className="relative overflow-hidden rounded-3xl p-8 lg:p-12 flex flex-col justify-between"
             style={{
               background: "rgba(16,19,34,0.72)",
-              border: "1px solid rgba(74,222,128,0.18)",
+              border: "1px solid rgba(245,200,66,0.18)",
               backdropFilter: "blur(14px) saturate(1.3)",
               WebkitBackdropFilter: "blur(14px) saturate(1.3)",
               boxShadow:
-                "0 2px 0 rgba(255,255,255,0.04) inset, 0 24px 60px rgba(0,0,0,0.55), 0 0 60px rgba(74,222,128,0.06)",
+                "0 2px 0 rgba(255,255,255,0.04) inset, 0 24px 60px rgba(0,0,0,0.55), 0 0 60px rgba(245,200,66,0.06)",
             }}
           >
             <div
@@ -184,7 +184,7 @@ export function CharactersAndCreators() {
               className="pointer-events-none absolute inset-0"
               style={{
                 background:
-                  "radial-gradient(ellipse 80% 55% at 50% 100%, rgba(74,222,128,0.07) 0%, transparent 70%)",
+                  "radial-gradient(ellipse 80% 55% at 50% 100%, rgba(245,200,66,0.07) 0%, transparent 70%)",
               }}
             />
 
@@ -196,8 +196,8 @@ export function CharactersAndCreators() {
                   fontWeight: 700,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
-                  color: "#4ade80",
-                  textShadow: "0 0 10px rgba(74,222,128,0.55)",
+                  color: "#f5c842",
+                  textShadow: "0 0 10px rgba(245,200,66,0.55)",
                   marginBottom: "0.75rem",
                   display: "flex",
                   alignItems: "center",
@@ -209,7 +209,7 @@ export function CharactersAndCreators() {
                     display: "inline-block",
                     width: "24px",
                     height: "1px",
-                    background: "rgba(74,222,128,0.5)",
+                    background: "rgba(245,200,66,0.5)",
                   }}
                 />
                 Creator Program
@@ -230,8 +230,8 @@ export function CharactersAndCreators() {
                 <br />
                 <span
                   style={{
-                    color: "#4ade80",
-                    textShadow: "0 0 18px rgba(74,222,128,0.7), 0 0 40px rgba(74,222,128,0.3)",
+                    color: "#f5c842",
+                    textShadow: "0 0 18px rgba(245,200,66,0.7), 0 0 40px rgba(245,200,66,0.3)",
                   }}
                 >
                   & CREATORS
@@ -249,7 +249,7 @@ export function CharactersAndCreators() {
                 }}
               >
                 Turn your audience into{" "}
-                <span style={{ color: "#4ade80" }}>real yield</span>. Earn up to{" "}
+                <span style={{ color: "#f5c842" }}>real yield</span>. Earn up to{" "}
                 <span
                   style={{
                     color: "#ffcc33",
@@ -274,8 +274,8 @@ export function CharactersAndCreators() {
                         fontFamily: "var(--font-display)",
                         fontWeight: 700,
                         fontSize: "1.1rem",
-                        color: "#4ade80",
-                        textShadow: "0 0 12px rgba(74,222,128,0.6)",
+                        color: "#f5c842",
+                        textShadow: "0 0 12px rgba(245,200,66,0.6)",
                         lineHeight: 1,
                       }}
                     >
@@ -306,22 +306,22 @@ export function CharactersAndCreators() {
                   fontSize: "1.15rem",
                   letterSpacing: "0.02em",
                   color: "#0e1018",
-                  background: "linear-gradient(170deg, #6ee7a0 0%, #4ade80 45%, #22c55e 100%)",
+                  background: "linear-gradient(170deg, #6ee7a0 0%, #f5c842 45%, #e0b633 100%)",
                   padding: "18px 32px",
                   textDecoration: "none",
                   boxShadow:
-                    "0 4px 22px rgba(74,222,128,0.40), 0 0 60px rgba(74,222,128,0.14), inset 0 1px 0 rgba(255,255,255,0.25)",
+                    "0 4px 22px rgba(245,200,66,0.40), 0 0 60px rgba(245,200,66,0.14), inset 0 1px 0 rgba(255,255,255,0.25)",
                   transition: "box-shadow 0.18s ease, transform 0.1s ease",
                   display: "block",
                 }}
                 onMouseEnter={(e) => {
                   (e.currentTarget as HTMLElement).style.boxShadow =
-                    "0 6px 32px rgba(74,222,128,0.58), 0 0 80px rgba(74,222,128,0.26), inset 0 1px 0 rgba(255,255,255,0.30)";
+                    "0 6px 32px rgba(245,200,66,0.58), 0 0 80px rgba(245,200,66,0.26), inset 0 1px 0 rgba(255,255,255,0.30)";
                   (e.currentTarget as HTMLElement).style.transform = "scale(1.02)";
                 }}
                 onMouseLeave={(e) => {
                   (e.currentTarget as HTMLElement).style.boxShadow =
-                    "0 4px 22px rgba(74,222,128,0.40), 0 0 60px rgba(74,222,128,0.14), inset 0 1px 0 rgba(255,255,255,0.25)";
+                    "0 4px 22px rgba(245,200,66,0.40), 0 0 60px rgba(245,200,66,0.14), inset 0 1px 0 rgba(255,255,255,0.25)";
                   (e.currentTarget as HTMLElement).style.transform = "scale(1)";
                 }}
               >

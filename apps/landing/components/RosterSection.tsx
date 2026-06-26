@@ -23,13 +23,13 @@ interface RosterChar {
 
 const ROSTER: RosterChar[] = [
   {
-    id: "pepe", name: "PEPE", role: "TANK", roleColor: "#7fd8ff", tier: "S", tierColor: "#5ad27a",
+    id: "pepe", name: "PEPE", role: "TANK", roleColor: "#7fd8ff", tier: "S", tierColor: "#f5c842",
     sprite: "/sprites/pepe/new/skin_1_side_0.webp",
     lore: "The Frog God of the Blockchain Arena. Unmovable, unbreakable.",
     signature: "BOMB CLUSTER", specialty: "AOE DENIAL", winRate: 61, avgMMR: 7_200, pickRate: 18, locked: false,
   },
   {
-    id: "trump", name: "TRUMP", role: "ASSAULT", roleColor: "#f0a92a", tier: "S", tierColor: "#5ad27a",
+    id: "trump", name: "TRUMP", role: "ASSAULT", roleColor: "#f0a92a", tier: "S", tierColor: "#f5c842",
     sprite: "/sprites/trump/new/skin_2_side_0.webp",
     lore: "The Alpha Blaster. MAGA till you're dead. Maximum aggression.",
     signature: "DEAL BREAKER", specialty: "BURST DAMAGE", winRate: 68, avgMMR: 7_840, pickRate: 14, locked: false,
@@ -41,7 +41,7 @@ const ROSTER: RosterChar[] = [
     signature: "NEURAL LINK BOMB", specialty: "SINGLE TARGET", winRate: 74, avgMMR: 8_420, pickRate: 9, locked: false,
   },
   {
-    id: "vitalik", name: "VITALIK", role: "SUPPORT", roleColor: "#5ad27a", tier: "A", tierColor: "#7fd8ff",
+    id: "vitalik", name: "VITALIK", role: "SUPPORT", roleColor: "#f5c842", tier: "A", tierColor: "#7fd8ff",
     sprite: "/sprites/vitalik/skin_7_side_0.webp",
     lore: "Smart Contract Sage. Gasless kills. On-chain receipts for every frag.",
     signature: "L2 SPEEDRUN", specialty: "UTILITY CONTROL", winRate: 55, avgMMR: 6_100, pickRate: 22, locked: false,
@@ -53,7 +53,7 @@ const ROSTER: RosterChar[] = [
     signature: "MOON BOMB", specialty: "SUSTAINED DAMAGE", winRate: 57, avgMMR: 6_500, pickRate: 20, locked: false,
   },
   {
-    id: "shiba", name: "SHIBA", role: "SUPPORT", roleColor: "#5ad27a", tier: "A", tierColor: "#7fd8ff",
+    id: "shiba", name: "SHIBA", role: "SUPPORT", roleColor: "#f5c842", tier: "A", tierColor: "#7fd8ff",
     sprite: "/sprites/shiba/new/skin_0_side_0.webp",
     lore: "The loyal blade. Inu never dies alone. Zone control mastery.",
     signature: "SAMURAI SHIELD", specialty: "ZONE CONTROL", winRate: 59, avgMMR: 6_300, pickRate: 17, locked: false,
@@ -77,7 +77,7 @@ const ROSTER: RosterChar[] = [
     signature: "SIGMA STRIKE", specialty: "FRONTLINE BRAWL", winRate: 68, avgMMR: 7_800, pickRate: 10, locked: false,
   },
   {
-    id: "bogdanoff", name: "BOGDANOFF", role: "MASTERMIND", roleColor: "#b44fff", tier: "S", tierColor: "#5ad27a",
+    id: "bogdanoff", name: "BOGDANOFF", role: "MASTERMIND", roleColor: "#b44fff", tier: "S", tierColor: "#f5c842",
     sprite: "/sprites/bogdanoff/skin_9_side_0.webp",
     lore: "Pulls strings from the shadows. Dump it. The market bows to Bogdanoff.",
     signature: "PUMP & DUMP", specialty: "MARKET CONTROL", winRate: 72, avgMMR: 8_100, pickRate: 8, locked: false,
@@ -359,11 +359,11 @@ export function RosterSection() {
         >
           {/* Eyebrow */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "10px", marginBottom: "10px" }}>
-            <div style={{ flex: 1, maxWidth: "60px", height: "1px", background: "linear-gradient(90deg, transparent, rgba(90,210,122,0.4))" }} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(90,210,122,0.6)" }}>
+            <div style={{ flex: 1, maxWidth: "60px", height: "1px", background: "linear-gradient(90deg, transparent, rgba(245,200,66,0.4))" }} />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(245,200,66,0.6)" }}>
               Season 1 · 10 Fighters
             </span>
-            <div style={{ flex: 1, maxWidth: "60px", height: "1px", background: "linear-gradient(90deg, rgba(90,210,122,0.4), transparent)" }} />
+            <div style={{ flex: 1, maxWidth: "60px", height: "1px", background: "linear-gradient(90deg, rgba(245,200,66,0.4), transparent)" }} />
           </div>
 
           <h2
@@ -382,11 +382,11 @@ export function RosterSection() {
             ELITE{" "}
             <span
               style={{
-                background:           "linear-gradient(170deg, #5ad27a 0%, #7fd8ff 100%)",
+                background:           "linear-gradient(170deg, #f5c842 0%, #7fd8ff 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor:  "transparent",
                 backgroundClip:       "text",
-                filter:               "drop-shadow(0 0 24px rgba(90,210,122,0.3))",
+                filter:               "drop-shadow(0 0 24px rgba(245,200,66,0.3))",
               }}
             >
               ROSTER
@@ -448,19 +448,19 @@ export function RosterSection() {
               textTransform: "uppercase",
               textDecoration: "none",
               color:         "#111",
-              background:    "linear-gradient(135deg, #5ad27a 0%, #7fd8ff 100%)",
+              background:    "linear-gradient(135deg, #f5c842 0%, #7fd8ff 100%)",
               borderRadius:  "999px",
               padding:       "13px 32px",
-              boxShadow:     "0 0 32px rgba(90,210,122,0.35), 0 8px 24px rgba(0,0,0,0.6)",
+              boxShadow:     "0 0 32px rgba(245,200,66,0.35), 0 8px 24px rgba(0,0,0,0.6)",
               transition:    "transform 0.15s ease, box-shadow 0.15s ease",
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLElement).style.transform = "scale(1.04)";
-              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 48px rgba(90,210,122,0.55), 0 12px 32px rgba(0,0,0,0.7)";
+              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 48px rgba(245,200,66,0.55), 0 12px 32px rgba(0,0,0,0.7)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLElement).style.transform = "scale(1)";
-              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 32px rgba(90,210,122,0.35), 0 8px 24px rgba(0,0,0,0.6)";
+              (e.currentTarget as HTMLElement).style.boxShadow = "0 0 32px rgba(245,200,66,0.35), 0 8px 24px rgba(0,0,0,0.6)";
             }}
           >
             ⚔ SELECT YOUR FIGHTER

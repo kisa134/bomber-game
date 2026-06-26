@@ -111,14 +111,14 @@ export function CreatorCalculator() {
             fontWeight: 700,
             letterSpacing: "0.22em",
             textTransform: "uppercase",
-            color: "#4ade80",
-            textShadow: "0 0 10px rgba(74,222,128,0.6)",
+            color: "#f5c842",
+            textShadow: "0 0 10px rgba(245,200,66,0.6)",
             marginBottom: "4px",
             display: "flex",
             alignItems: "center",
             gap: "8px",
           }}>
-            <span style={{ display: "inline-block", width: "20px", height: "1px", background: "rgba(74,222,128,0.5)" }} />
+            <span style={{ display: "inline-block", width: "20px", height: "1px", background: "rgba(245,200,66,0.5)" }} />
             5-Tier Yield Simulator
           </div>
           <h3 style={{
@@ -220,8 +220,8 @@ export function CreatorCalculator() {
               />
               <TierSlider
                 label="Average Bet Size"
-                color="#4ade80"
-                glow="rgba(74,222,128,0.55)"
+                color="#f5c842"
+                glow="rgba(245,200,66,0.55)"
                 min={1}
                 max={1000}
                 step={1}
@@ -238,12 +238,12 @@ export function CreatorCalculator() {
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <motion.div
               style={{
-                background: "rgba(74,222,128,0.04)",
-                border: "1px solid rgba(74,222,128,0.18)",
+                background: "rgba(245,200,66,0.04)",
+                border: "1px solid rgba(245,200,66,0.18)",
                 borderRadius: "20px",
                 padding: "28px 20px",
                 textAlign: "center",
-                boxShadow: "0 0 60px rgba(74,222,128,0.07), 0 0 0 1px rgba(74,222,128,0.05) inset",
+                boxShadow: "0 0 60px rgba(245,200,66,0.07), 0 0 0 1px rgba(245,200,66,0.05) inset",
                 position: "relative",
                 overflow: "hidden",
               }}
@@ -252,7 +252,7 @@ export function CreatorCalculator() {
               <div aria-hidden style={{
                 position: "absolute",
                 inset: 0,
-                background: "radial-gradient(ellipse 60% 50% at 50% 100%, rgba(74,222,128,0.10) 0%, transparent 70%)",
+                background: "radial-gradient(ellipse 60% 50% at 50% 100%, rgba(245,200,66,0.10) 0%, transparent 70%)",
                 pointerEvents: "none",
               }} />
 
@@ -273,7 +273,7 @@ export function CreatorCalculator() {
               <div style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: "0.60rem",
-                color: "rgba(74,222,128,0.50)",
+                color: "rgba(245,200,66,0.50)",
                 letterSpacing: "0.14em",
                 marginTop: "10px",
               }}>
@@ -660,9 +660,9 @@ function AnimatedDollar({ value }: { value: number }) {
           fontSize: "clamp(2.4rem, 6vw, 3.6rem)",
           letterSpacing: "-0.05em",
           lineHeight: 1,
-          color: "#4ade80",
+          color: "#f5c842",
           textShadow:
-            "0 0 20px rgba(74,222,128,0.85), 0 0 50px rgba(74,222,128,0.50), 0 0 100px rgba(74,222,128,0.25)",
+            "0 0 20px rgba(245,200,66,0.85), 0 0 50px rgba(245,200,66,0.50), 0 0 100px rgba(245,200,66,0.25)",
           display: "inline-block",
         }}
       >
@@ -811,18 +811,18 @@ export function GuildRevenueSimulator() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "22px" }}>
               <GuildTierSlider label="Matches per Fighter / Month" color="#f0a92a" glow="rgba(255,140,0,0.55)" min={1} max={100} step={1} value={net.matchesPerMonth} onChange={(v) => setField("matchesPerMonth", v)} formatValue={(v) => `${v} matches`} />
-              <GuildTierSlider label="Average Bet Size" color="#5ad27a" glow="rgba(90,210,122,0.55)" min={1} max={1000} step={1} value={net.avgBet} onChange={(v) => setField("avgBet", v)} formatValue={(v) => `$${v}`} formatMin="$1" formatMax="$1,000" />
+              <GuildTierSlider label="Average Bet Size" color="#f5c842" glow="rgba(245,200,66,0.55)" min={1} max={1000} step={1} value={net.avgBet} onChange={(v) => setField("avgBet", v)} formatValue={(v) => `$${v}`} formatMin="$1" formatMax="$1,000" />
             </div>
           </div>
           {/* Treasury Output */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <motion.div style={{ background: "rgba(90,210,122,0.04)", border: "1px solid rgba(90,210,122,0.18)", borderRadius: "18px", padding: "24px 18px", textAlign: "center", boxShadow: "0 0 40px rgba(90,210,122,0.06)", position: "relative", overflow: "hidden" }}>
-              <div aria-hidden style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 60% 50% at 50% 100%, rgba(90,210,122,0.08) 0%, transparent 70%)", pointerEvents: "none" }} />
+            <motion.div style={{ background: "rgba(245,200,66,0.04)", border: "1px solid rgba(245,200,66,0.18)", borderRadius: "18px", padding: "24px 18px", textAlign: "center", boxShadow: "0 0 40px rgba(245,200,66,0.06)", position: "relative", overflow: "hidden" }}>
+              <div aria-hidden style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 60% 50% at 50% 100%, rgba(245,200,66,0.08) 0%, transparent 70%)", pointerEvents: "none" }} />
               <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", fontWeight: 700, letterSpacing: "0.20em", textTransform: "uppercase", color: "rgba(255,255,255,0.30)", marginBottom: "8px" }}>
                 Guild Treasury Yield / Month
               </div>
               <AnimatedDollar value={totalIncome} />
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", color: "rgba(90,210,122,0.45)", letterSpacing: "0.12em", marginTop: "8px" }}>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", color: "rgba(245,200,66,0.45)", letterSpacing: "0.12em", marginTop: "8px" }}>
                 Based on 5% House Rake
               </div>
               <div style={{ marginTop: "14px", paddingTop: "12px", borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "center", gap: "6px", alignItems: "baseline" }}>

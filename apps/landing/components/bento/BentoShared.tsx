@@ -31,7 +31,7 @@ export function MiniStat({
   value,
   label,
   mono,
-  color = "#5ad27a",
+  color = "#f5c842",
 }: {
   value: string;
   label: string;
@@ -86,7 +86,7 @@ export function PowerupCard({ image, name, desc }: { image: string; name: string
       </div>
       <div
         className="text-[10px] font-bold uppercase tracking-wider lg:text-xs"
-        style={{ fontFamily: "var(--font-display)", color: "#5ad27a", textShadow: "0 0 8px rgba(90,210,122,0.6)" }}
+        style={{ fontFamily: "var(--font-display)", color: "#f5c842", textShadow: "0 0 8px rgba(245,200,66,0.6)" }}
       >
         {name}
       </div>

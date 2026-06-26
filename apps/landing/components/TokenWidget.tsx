@@ -138,7 +138,7 @@ export function TokenWidget() {
           <span style={{ fontSize: "0.7rem", opacity: 0.8 }}>{isUp ? "↑" : "↓"}</span>
         </span>
       ) : <SkeletonVal />,
-      color: isUp ? "#4ade80" : "#ff5a5f",
+      color: isUp ? "#f5c842" : "#ff5a5f",
     },
     {
       label: "SUPPLY",
@@ -148,7 +148,7 @@ export function TokenWidget() {
     {
       label: "BURNED 🔥",
       value: data ? `${data.burnedPct.toFixed(1)}%` : <SkeletonVal />,
-      color: data && data.burnedPct > 0 ? "#ff5a5f" : "#4ade80",
+      color: data && data.burnedPct > 0 ? "#ff5a5f" : "#f5c842",
     },
     {
       label: "MARKET CAP",
@@ -175,13 +175,13 @@ export function TokenWidget() {
           <span className="relative flex h-2 w-2 shrink-0">
             <span
               className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-80"
-              style={{ background: error ? "#ff5a5f" : "#4ade80" }}
+              style={{ background: error ? "#ff5a5f" : "#f5c842" }}
             />
             <span
               className="relative inline-flex h-2 w-2 rounded-full"
               style={{
-                background: error ? "#ff5a5f" : "#4ade80",
-                boxShadow: `0 0 6px ${error ? "#ff5a5f" : "#4ade80"}`,
+                background: error ? "#ff5a5f" : "#f5c842",
+                boxShadow: `0 0 6px ${error ? "#ff5a5f" : "#f5c842"}`,
               }}
             />
           </span>
@@ -196,10 +196,10 @@ export function TokenWidget() {
           className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest"
           style={{
             fontFamily: "var(--font-mono)",
-            color:      error ? "#ff5a5f" : "#4ade80",
-            background: error ? "rgba(255,90,95,0.10)" : "rgba(74,222,128,0.10)",
-            border:     `1px solid ${error ? "rgba(255,90,95,0.25)" : "rgba(74,222,128,0.25)"}`,
-            textShadow: `0 0 8px ${error ? "rgba(255,90,95,0.6)" : "rgba(74,222,128,0.6)"}`,
+            color:      error ? "#ff5a5f" : "#f5c842",
+            background: error ? "rgba(255,90,95,0.10)" : "rgba(245,200,66,0.10)",
+            border:     `1px solid ${error ? "rgba(255,90,95,0.25)" : "rgba(245,200,66,0.25)"}`,
+            textShadow: `0 0 8px ${error ? "rgba(255,90,95,0.6)" : "rgba(245,200,66,0.6)"}`,
           }}
         >
           {error ? "RETRYING..." : "live on pump.fun"}
@@ -210,24 +210,24 @@ export function TokenWidget() {
       <div
         className="overflow-hidden rounded-2xl"
         style={{
-          background: "rgba(74,222,128,0.03)",
-          border: "1px solid rgba(74,222,128,0.08)",
+          background: "rgba(245,200,66,0.03)",
+          border: "1px solid rgba(245,200,66,0.08)",
         }}
       >
         <svg
           viewBox="0 0 252 80"
           className="w-full"
-          style={{ height: 72, filter: "drop-shadow(0 0 6px rgba(74,222,128,0.5))" }}
+          style={{ height: 72, filter: "drop-shadow(0 0 6px rgba(245,200,66,0.5))" }}
           preserveAspectRatio="none"
         >
           <defs>
             <linearGradient id="sparkGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%"   stopColor="#22c55e" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="#4ade80" stopOpacity="1"   />
+              <stop offset="0%"   stopColor="#e0b633" stopOpacity="0.6" />
+              <stop offset="100%" stopColor="#f5c842" stopOpacity="1"   />
             </linearGradient>
             <linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%"   stopColor="#4ade80" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#4ade80" stopOpacity="0"    />
+              <stop offset="0%"   stopColor="#f5c842" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="#f5c842" stopOpacity="0"    />
             </linearGradient>
           </defs>
           <path d={areaPath} fill="url(#areaGrad)" />
@@ -243,8 +243,8 @@ export function TokenWidget() {
             cx={PTS[PTS.length - 1][0]}
             cy={PTS[PTS.length - 1][1]}
             r="3"
-            fill="#4ade80"
-            style={{ filter: "drop-shadow(0 0 4px #4ade80)" }}
+            fill="#f5c842"
+            style={{ filter: "drop-shadow(0 0 4px #f5c842)" }}
           />
         </svg>
       </div>
@@ -299,7 +299,7 @@ export function TokenWidget() {
           onClick={handleCopy}
           aria-label="Copy contract address"
           className="shrink-0 rounded-lg p-1.5 transition-colors hover:bg-white/10"
-          style={{ color: copied ? "#4ade80" : "rgba(255,255,255,0.4)" }}
+          style={{ color: copied ? "#f5c842" : "rgba(255,255,255,0.4)" }}
         >
           {copied ? (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -322,8 +322,8 @@ export function TokenWidget() {
         className="group relative flex w-full items-center justify-center overflow-hidden rounded-xl px-4 py-3 text-sm font-bold text-black transition-transform duration-200 hover:scale-105 active:scale-95"
         style={{
           fontFamily: "var(--font-display)",
-          background: "linear-gradient(135deg, #22c55e 0%, #4ade80 100%)",
-          boxShadow:  "0 0 20px rgba(74,222,128,0.35)",
+          background: "linear-gradient(135deg, #e0b633 0%, #f5c842 100%)",
+          boxShadow:  "0 0 20px rgba(245,200,66,0.35)",
         }}
       >
         <span className="absolute inset-0 -translate-x-full skew-x-12 bg-white/20 transition-transform duration-500 group-hover:translate-x-[130%]" />

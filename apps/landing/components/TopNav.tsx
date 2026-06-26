@@ -49,7 +49,7 @@ function AuthWidget() {
           fontSize:      "0.66rem",
           fontWeight:    700,
           letterSpacing: "0.10em",
-          color:         "rgba(90,210,122,0.6)",
+          color:         "rgba(245,200,66,0.6)",
         }}
       >
         <span className="connecting-spinner" />
@@ -123,11 +123,11 @@ function AuthWidget() {
                 zIndex:             99,
                 minWidth:           "180px",
                 background:         "rgba(10,12,20,0.96)",
-                border:             "1px solid rgba(90,210,122,0.20)",
+                border:             "1px solid rgba(245,200,66,0.20)",
                 borderRadius:       "12px",
                 backdropFilter:     "blur(20px)",
                 WebkitBackdropFilter: "blur(20px)",
-                boxShadow:          "0 16px 48px rgba(0,0,0,0.75), 0 0 24px rgba(90,210,122,0.06)",
+                boxShadow:          "0 16px 48px rgba(0,0,0,0.75), 0 0 24px rgba(245,200,66,0.06)",
                 overflow:           "hidden",
               }}
             >
@@ -229,10 +229,10 @@ export function TopNav() {
           ? "rgba(7,8,16,0.92)"
           : "rgba(7,8,16,0.55)",
         borderColor: scrolled
-          ? "rgba(90,210,122,0.18)"
-          : "rgba(90,210,122,0.10)",
+          ? "rgba(245,200,66,0.18)"
+          : "rgba(245,200,66,0.10)",
         boxShadow: scrolled
-          ? "0 4px 40px rgba(0,0,0,0.75), 0 0 24px rgba(90,210,122,0.06), inset 0 1px 0 rgba(255,255,255,0.04)"
+          ? "0 4px 40px rgba(0,0,0,0.75), 0 0 24px rgba(245,200,66,0.06), inset 0 1px 0 rgba(255,255,255,0.04)"
           : "0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)",
       }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -270,9 +270,9 @@ export function TopNav() {
             fontSize:      "0.78rem",
             letterSpacing: "0.04em",
             textTransform: "uppercase",
-            color:         pathname === "/" ? "#5ad27a" : "rgba(255,255,255,0.75)",
+            color:         pathname === "/" ? "#f5c842" : "rgba(255,255,255,0.75)",
             textShadow:    pathname === "/"
-              ? "0 0 14px rgba(90,210,122,0.75), 0 0 30px rgba(90,210,122,0.3)"
+              ? "0 0 14px rgba(245,200,66,0.75), 0 0 30px rgba(245,200,66,0.3)"
               : "none",
             transition:    "color 0.18s ease, text-shadow 0.18s ease",
           }}
@@ -284,7 +284,7 @@ export function TopNav() {
       {/* Divider */}
       <div
         aria-hidden
-        style={{ width: "1px", height: "14px", background: "rgba(90,210,122,0.12)", flexShrink: 0 }}
+        style={{ width: "1px", height: "14px", background: "rgba(245,200,66,0.12)", flexShrink: 0 }}
       />
 
       {/* Nav links */}
@@ -301,9 +301,9 @@ export function TopNav() {
               fontWeight:    600,
               letterSpacing: "0.02em",
               textDecoration:"none",
-              color:         active ? "#5ad27a" : "rgba(255,255,255,0.55)",
+              color:         active ? "#f5c842" : "rgba(255,255,255,0.55)",
               textShadow:    active
-                ? "0 0 14px rgba(90,210,122,0.75), 0 0 30px rgba(90,210,122,0.3)"
+                ? "0 0 14px rgba(245,200,66,0.75), 0 0 30px rgba(245,200,66,0.3)"
                 : "none",
               transition:    "color 0.18s ease, text-shadow 0.18s ease",
               position:      "relative",
@@ -329,7 +329,7 @@ export function TopNav() {
       {/* Divider */}
       <div
         aria-hidden
-        style={{ width: "1px", height: "14px", background: "rgba(90,210,122,0.12)", flexShrink: 0 }}
+        style={{ width: "1px", height: "14px", background: "rgba(245,200,66,0.12)", flexShrink: 0 }}
       />
 
       {/* Web3 Auth */}

@@ -24,7 +24,7 @@ interface HudStat {
 /* Real HUD stats, built from the game's /stats (no mocks). Yellow leads. */
 function buildHudStats(s: GameStats | null): HudStat[] {
   return [
-    { icon: "●", target: Math.round(s?.online ?? 0),     suffix: "", label: "PLAYERS ONLINE", color: "#5ad27a", glow: "rgba(90,210,122,0.8)" },
+    { icon: "●", target: Math.round(s?.online ?? 0),     suffix: "", label: "PLAYERS ONLINE", color: "#f5c842", glow: "rgba(245,200,66,0.8)" },
     { icon: "◎", target: Math.round(s?.matches ?? 0),    suffix: "", label: "MATCHES",        color: "#7fd8ff", glow: "rgba(127,216,255,0.8)" },
     { icon: "◎", target: Math.round(s?.prizePaid ?? 0),  suffix: ` ${TOKEN_TICKER}`, label: "PAID OUT", color: "#f5c842", glow: "rgba(245,200,66,0.8)" },
     { icon: "⚡", target: Math.round(s?.topMmr ?? 0),     suffix: "", label: "TOP MMR",        color: "#ff5a4d", glow: "rgba(255,90,77,0.8)" },
@@ -100,7 +100,7 @@ const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
   size:     1.2 + (i % 3) * 0.9,
   delay:    (i * 0.37) % 4,
   duration: 3.5 + (i % 5) * 0.8,
-  color:    i % 4 === 0 ? "#5ad27a" : i % 4 === 1 ? "#7fd8ff" : i % 4 === 2 ? "#ff5a4d" : "#ffd700",
+  color:    i % 4 === 0 ? "#f5c842" : i % 4 === 1 ? "#7fd8ff" : i % 4 === 2 ? "#ff5a4d" : "#ffd700",
   opacity:  0.12 + (i % 4) * 0.07,
 }));
 
@@ -192,7 +192,7 @@ export function Hero() {
             className="pointer-events-none absolute inset-0"
             style={{
               zIndex:     30,
-              background: "radial-gradient(ellipse 120% 100% at 50% 50%, rgba(90,210,122,0.06) 0%, rgba(255,90,77,0.22) 55%, rgba(127,216,255,0.10) 100%)",
+              background: "radial-gradient(ellipse 120% 100% at 50% 50%, rgba(245,200,66,0.06) 0%, rgba(255,90,77,0.22) 55%, rgba(127,216,255,0.10) 100%)",
             }}
           />
         )}

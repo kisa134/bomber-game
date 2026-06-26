@@ -18,7 +18,7 @@ const NETWORK_ROWS = [
 
 /* ── Attribution bars ────────────────────────────────────────────────────── */
 const ATTRIBUTION = [
-  { label: "Attributed (via link)",       value: 78, color: "#4ade80" },
+  { label: "Attributed (via link)",       value: 78, color: "#f5c842" },
   { label: "Unattached (organic core)",   value: 22, color: "#7fd8ff" },
 ];
 
@@ -70,7 +70,7 @@ export default function DashboardPage() {
       <div aria-hidden className="pointer-events-none fixed inset-0" style={{
         background: `
           radial-gradient(ellipse 60% 50% at 50% 0%,   rgba(192,132,252,0.06) 0%, transparent 60%),
-          radial-gradient(ellipse 40% 60% at 90% 50%,  rgba(74,222,128,0.04) 0%, transparent 60%),
+          radial-gradient(ellipse 40% 60% at 90% 50%,  rgba(245,200,66,0.04) 0%, transparent 60%),
           radial-gradient(ellipse 40% 40% at 5%  70%,  rgba(74,163,255,0.04) 0%, transparent 60%)
         `,
       }} />
@@ -394,7 +394,7 @@ function DashboardUI({ onSignOut }: { onSignOut: () => void }) {
           background: "rgba(0,0,0,0.35)",
         }}>
           {/* Mac dots */}
-          {["#ff5a5f", "#ffcc33", "#4ade80"].map((c) => (
+          {["#ff5a5f", "#ffcc33", "#f5c842"].map((c) => (
             <div key={c} style={{ width: "10px", height: "10px", borderRadius: "50%", background: c, opacity: 0.75 }} />
           ))}
 
@@ -412,9 +412,9 @@ function DashboardUI({ onSignOut }: { onSignOut: () => void }) {
           <span style={{
             fontFamily: "var(--font-mono)", fontSize: "0.58rem",
             letterSpacing: "0.12em",
-            color: "#4ade80", textShadow: "0 0 8px rgba(74,222,128,0.6)",
-            background: "rgba(74,222,128,0.08)",
-            border: "1px solid rgba(74,222,128,0.22)",
+            color: "#f5c842", textShadow: "0 0 8px rgba(245,200,66,0.6)",
+            background: "rgba(245,200,66,0.08)",
+            border: "1px solid rgba(245,200,66,0.22)",
             borderRadius: "999px", padding: "2px 10px",
             flexShrink: 0,
           }}>
@@ -601,9 +601,9 @@ function QuadrantLedger() {
               fontFamily: "var(--font-mono)", fontWeight: 700,
               fontSize: "clamp(2rem, 5vw, 2.6rem)",
               letterSpacing: "-0.04em", lineHeight: 1,
-              color: "#4ade80",
-              textShadow: "0 0 16px rgba(74,222,128,0.8), 0 0 48px rgba(74,222,128,0.35)",
-              filter: "drop-shadow(0 0 10px rgba(74,222,128,0.8))",
+              color: "#f5c842",
+              textShadow: "0 0 16px rgba(245,200,66,0.8), 0 0 48px rgba(245,200,66,0.35)",
+              filter: "drop-shadow(0 0 10px rgba(245,200,66,0.8))",
             }}
           >
             $8,342.50
@@ -679,7 +679,7 @@ function QuadrantTopPartners() {
             </span>
             <span style={{
               fontFamily: "var(--font-mono)", fontWeight: 700, fontSize: "0.82rem",
-              color: "#4ade80", textShadow: "0 0 8px rgba(74,222,128,0.5)",
+              color: "#f5c842", textShadow: "0 0 8px rgba(245,200,66,0.5)",
             }}>
               {p.vol}
             </span>

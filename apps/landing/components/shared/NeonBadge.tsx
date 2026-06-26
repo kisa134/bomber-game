@@ -29,7 +29,7 @@ const SIZE_STYLE: Record<BadgeSize, CSSProperties> = {
 };
 
 const DOT_COLOR: Record<BadgeColor, string> = {
-  green: "#5ad27a",
+  green: "#f5c842",
   pink:  "#ff5a4d",
   blue:  "#7fd8ff",
   gold:  "#ffd700",

@@ -25,8 +25,8 @@ const VARIANT_CLASSES: Record<GlassVariant, string> = {
 };
 
 const VARIANT_BORDER: Record<GlassVariant, string> = {
-  default: "rgba(90,210,122,0.12)",
-  green:   "rgba(90,210,122,0.12)",
+  default: "rgba(245,200,66,0.12)",
+  green:   "rgba(245,200,66,0.12)",
   pink:    "rgba(255,90,77,0.12)",
   blue:    "rgba(127,216,255,0.12)",
   gold:    "rgba(255,215,0,0.12)",
@@ -34,8 +34,8 @@ const VARIANT_BORDER: Record<GlassVariant, string> = {
 };
 
 const VARIANT_GLOW: Record<GlassVariant, string> = {
-  default: "rgba(90,210,122,0.08)",
-  green:   "rgba(90,210,122,0.08)",
+  default: "rgba(245,200,66,0.08)",
+  green:   "rgba(245,200,66,0.08)",
   pink:    "rgba(255,90,77,0.10)",
   blue:    "rgba(127,216,255,0.10)",
   gold:    "rgba(255,215,0,0.10)",

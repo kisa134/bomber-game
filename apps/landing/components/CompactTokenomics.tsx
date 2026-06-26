@@ -7,7 +7,7 @@ const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 /* ── Token distribution data ─────────────────────────────────────────────── */
 const SLICES = [
-  { label: "Fair Launch (Public)",       pct: 88, color: "#5ad27a" },
+  { label: "Fair Launch (Public)",       pct: 88, color: "#f5c842" },
   { label: "Liquidity Pool",             pct:  5, color: "#7fd8ff" },
   { label: "Team & Dev (2yr vesting)",   pct:  4, color: "#f0a92a" },
   { label: "DAO Reserve",                pct:  3, color: "#ff5a4d" },
@@ -104,10 +104,10 @@ export function CompactTokenomics() {
           className="overflow-hidden rounded-3xl"
           style={{
             background: "rgba(10,12,20,0.72)",
-            border: "1px solid rgba(90,210,122,0.12)",
+            border: "1px solid rgba(245,200,66,0.12)",
             backdropFilter: "blur(16px)",
             WebkitBackdropFilter: "blur(16px)",
-            boxShadow: "0 0 60px rgba(90,210,122,0.04), 0 24px 80px rgba(0,0,0,0.65)",
+            boxShadow: "0 0 60px rgba(245,200,66,0.04), 0 24px 80px rgba(0,0,0,0.65)",
           }}
         >
           {/* Glow accent */}
@@ -116,7 +116,7 @@ export function CompactTokenomics() {
             className="pointer-events-none absolute inset-0 rounded-3xl"
             style={{
               background:
-                "radial-gradient(ellipse 55% 40% at 50% 0%, rgba(90,210,122,0.05) 0%, transparent 70%)",
+                "radial-gradient(ellipse 55% 40% at 50% 0%, rgba(245,200,66,0.05) 0%, transparent 70%)",
             }}
           />
 
@@ -130,8 +130,8 @@ export function CompactTokenomics() {
                   fontWeight: 700,
                   letterSpacing: "0.22em",
                   textTransform: "uppercase",
-                  color: "#5ad27a",
-                  textShadow: "0 0 10px rgba(90,210,122,0.55)",
+                  color: "#f5c842",
+                  textShadow: "0 0 10px rgba(245,200,66,0.55)",
                 }}
               >
                 ◎ Tokenomics
@@ -141,7 +141,7 @@ export function CompactTokenomics() {
                   flex: 1,
                   height: "1px",
                   background:
-                    "linear-gradient(to right, rgba(90,210,122,0.25), transparent)",
+                    "linear-gradient(to right, rgba(245,200,66,0.25), transparent)",
                 }}
               />
               <a
@@ -151,15 +151,15 @@ export function CompactTokenomics() {
                   fontSize: "0.58rem",
                   letterSpacing: "0.14em",
                   textTransform: "uppercase",
-                  color: "rgba(90,210,122,0.50)",
+                  color: "rgba(245,200,66,0.50)",
                   textDecoration: "none",
                   transition: "color 0.2s ease",
                 }}
                 onMouseEnter={(e) =>
-                  ((e.currentTarget as HTMLElement).style.color = "#5ad27a")
+                  ((e.currentTarget as HTMLElement).style.color = "#f5c842")
                 }
                 onMouseLeave={(e) =>
-                  ((e.currentTarget as HTMLElement).style.color = "rgba(90,210,122,0.50)")
+                  ((e.currentTarget as HTMLElement).style.color = "rgba(245,200,66,0.50)")
                 }
               >
                 Full Details →

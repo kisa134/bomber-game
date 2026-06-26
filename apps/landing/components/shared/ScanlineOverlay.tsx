@@ -22,7 +22,7 @@ interface ScanlineOverlayProps {
  */
 export function ScanlineOverlay({
   intensity = 0.12,
-  color     = "rgba(90,210,122,1)",
+  color     = "rgba(245,200,66,1)",
   speed     = 4.5,
   className = "",
   style,

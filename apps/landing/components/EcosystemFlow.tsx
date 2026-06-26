@@ -25,13 +25,13 @@ interface Node {
  *      active   phase 2                active         active    phase 2
  */
 const NODES: Record<string, Node> = {
-  players:   { cx: 85,  cy: 190, w: 140, h: 66,  label: "PLAYERS",       sub: "Entry Pool",    color: "#5ad27a", icon: "⚔",  phase2: false },
+  players:   { cx: 85,  cy: 190, w: 140, h: 66,  label: "PLAYERS",       sub: "Entry Pool",    color: "#f5c842", icon: "⚔",  phase2: false },
   pot:       { cx: 480, cy: 190, w: 160, h: 72,  label: "MATCH POT",     sub: "Smart Escrow",  color: "#7fd8ff", icon: "💰",  phase2: false },
-  winner:    { cx: 240, cy: 100, w: 150, h: 58,  label: "WINNER",        sub: "95% payout",    color: "#5ad27a", icon: "🏆",  phase2: false },
+  winner:    { cx: 240, cy: 100, w: 150, h: 58,  label: "WINNER",        sub: "95% payout",    color: "#f5c842", icon: "🏆",  phase2: false },
   rake:      { cx: 720, cy: 290, w: 150, h: 58,  label: "5% RAKE",       sub: "Per match",     color: "#ff5a4d", icon: "⚡",  phase2: false },
   burn:      { cx: 480, cy: 390, w: 108, h: 52,  label: "BURN 🔥",       sub: "25% of rake",   color: "#ff5a4d", icon: "",    phase2: false },
   yield:     { cx: 600, cy: 390, w: 108, h: 52,  label: "REAL YIELD",    sub: "🔒 Phase 2",    color: "#7fd8ff", icon: "",    phase2: true  },
-  ecosystem: { cx: 720, cy: 390, w: 108, h: 52,  label: "ECOSYSTEM",     sub: "54% of rake",   color: "#5ad27a", icon: "",    phase2: false },
+  ecosystem: { cx: 720, cy: 390, w: 108, h: 52,  label: "ECOSYSTEM",     sub: "54% of rake",   color: "#f5c842", icon: "",    phase2: false },
   guild:     { cx: 840, cy: 390, w: 108, h: 52,  label: "GUILD YIELD",   sub: "21% of rake",   color: "#ffd700", icon: "",    phase2: false },
   dao:       { cx: 960, cy: 390, w: 108, h: 52,  label: "DAO IMPACT",    sub: "🔒 Phase 2",    color: "#a855f7", icon: "",    phase2: true  },
 };
@@ -41,9 +41,9 @@ interface PathCfg { d: string; color: string; delay: number; width?: number; pha
 
 const PATHS: PathCfg[] = [
   // Players → Match Pot (active)
-  { d: "M 155 190 H 400",                              color: "#5ad27a", delay: 0.0,  width: 2   },
+  { d: "M 155 190 H 400",                              color: "#f5c842", delay: 0.0,  width: 2   },
   // Match Pot → Winner (active)
-  { d: "M 480 190 C 480 145 320 100 315 100",          color: "#5ad27a", delay: 0.4,  width: 2   },
+  { d: "M 480 190 C 480 145 320 100 315 100",          color: "#f5c842", delay: 0.4,  width: 2   },
   // Match Pot → Rake hub (active)
   { d: "M 560 190 C 640 190 720 240 720 261",          color: "#ff5a4d", delay: 0.4,  width: 2   },
   // Rake → Burn (ACTIVE — glowing)
@@ -51,7 +51,7 @@ const PATHS: PathCfg[] = [
   // Rake → Real Yield (PHASE 2 — dim, sparse dash)
   { d: "M 720 319 L 720 350 L 600 350 L 600 364",     color: "#7fd8ff", delay: 0.92, width: 1.2, phase2: true  },
   // Rake → Ecosystem (ACTIVE — glowing)
-  { d: "M 720 319 L 720 364",                          color: "#5ad27a", delay: 0.99, width: 1.8, phase2: false },
+  { d: "M 720 319 L 720 364",                          color: "#f5c842", delay: 0.99, width: 1.8, phase2: false },
   // Rake → Guild Yield (ACTIVE — glowing)
   { d: "M 720 319 L 720 350 L 840 350 L 840 364",     color: "#ffd700", delay: 1.06, width: 1.8, phase2: false },
   // Rake → DAO (PHASE 2 — dim, sparse dash)
@@ -60,7 +60,7 @@ const PATHS: PathCfg[] = [
 
 /* ── SVG marker defs ──────────────────────────────────────────────────────── */
 const MARKER_DEFS = [
-  { id: "eco-arrow-green",  color: "#5ad27a" },
+  { id: "eco-arrow-green",  color: "#f5c842" },
   { id: "eco-arrow-pink",   color: "#ff5a4d" },
   { id: "eco-arrow-blue",   color: "#7fd8ff" },
   { id: "eco-arrow-gold",   color: "#ffd700" },
@@ -68,7 +68,7 @@ const MARKER_DEFS = [
 ];
 
 function markerIdForColor(color: string): string {
-  if (color === "#5ad27a") return "url(#eco-arrow-green)";
+  if (color === "#f5c842") return "url(#eco-arrow-green)";
   if (color === "#ff5a4d") return "url(#eco-arrow-pink)";
   if (color === "#7fd8ff") return "url(#eco-arrow-blue)";
   if (color === "#ffd700") return "url(#eco-arrow-gold)";
@@ -173,7 +173,7 @@ export function EcosystemFlow() {
       >
         <defs>
           <pattern id="ecoDots" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
-            <circle cx="15" cy="15" r="0.8" fill="rgba(90,210,122,0.07)" />
+            <circle cx="15" cy="15" r="0.8" fill="rgba(245,200,66,0.07)" />
           </pattern>
           {MARKER_DEFS.map(({ id, color }) => (
             <marker key={id} id={id} viewBox="0 0 10 10" refX="9" refY="5"
@@ -224,7 +224,7 @@ export function EcosystemFlow() {
 
         {/* Floating labels */}
         <motion.text x="295" y="175" textAnchor="middle"
-          fill="rgba(90,210,122,0.38)" fontSize="8.5" letterSpacing="0.18em" fontFamily="var(--font-mono)"
+          fill="rgba(245,200,66,0.38)" fontSize="8.5" letterSpacing="0.18em" fontFamily="var(--font-mono)"
           initial={{ opacity: 0 }} animate={inView ? { opacity: 1 } : { opacity: 0 }}
           transition={{ delay: 0.2, duration: 0.6 }}
         >ROUND STARTS</motion.text>

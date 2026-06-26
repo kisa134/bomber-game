@@ -93,14 +93,14 @@ export function LiveStatsBar() {
     {
       label: `${TOKEN_TICKER} IN PLAY`,
       value: Math.round(stats?.tokensInPlay ?? 0),
-      color: "#4ade80",
-      glow: "rgba(74,222,128,0.7)",
+      color: "#f5c842",
+      glow: "rgba(245,200,66,0.7)",
     },
     {
       label: "PLAYERS ONLINE",
       value: Math.round(stats?.online ?? 0),
-      color: "#4ade80",
-      glow: "rgba(74,222,128,0.85)",
+      color: "#f5c842",
+      glow: "rgba(245,200,66,0.85)",
       pulse: true,
     },
   ];
@@ -124,7 +124,7 @@ export function LiveStatsBar() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(ellipse 60% 100% at 50% 50%, rgba(74,222,128,0.04) 0%, transparent 70%)",
+            "radial-gradient(ellipse 60% 100% at 50% 50%, rgba(245,200,66,0.04) 0%, transparent 70%)",
         }}
       />
 

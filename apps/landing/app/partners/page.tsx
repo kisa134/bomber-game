@@ -40,8 +40,8 @@ const CONQUEST_STEPS = [
     title: "PLANT YOUR FLAG",
     tag: "?ref=...",
     body: "Deploy your guild link across every channel. When a fighter clicks it, they're tracked. No wallet needed to start — free-chip matches still count.",
-    color: "#5ad27a",
-    glow: "rgba(90,210,122,0.35)",
+    color: "#f5c842",
+    glow: "rgba(245,200,66,0.35)",
   },
   {
     num: "02", icon: "🔐",
@@ -64,8 +64,8 @@ const CONQUEST_STEPS = [
     title: "TREASURY YIELD, INSTANTLY",
     tag: "5% House Rake",
     body: "Every token match your network plays — the house takes 5%. Your guild cut is instantly routed to your treasury wallet. No vesting, no gatekeeping.",
-    color: "#5ad27a",
-    glow: "rgba(90,210,122,0.35)",
+    color: "#f5c842",
+    glow: "rgba(245,200,66,0.35)",
   },
 ];
 
@@ -80,7 +80,7 @@ const CONSTITUTION_CLAUSES = [
   {
     article: "§ 2.0",
     title: "ZERO INFLATION PLEDGE",
-    color: "#5ad27a",
+    color: "#f5c842",
     desc: "Guild rewards originate exclusively from collected rake. Nothing is minted or printed. Real volume = real yield. No dilution. Ever.",
   },
   {
@@ -142,7 +142,7 @@ function FormField({ label, placeholder, value, onChange, type = "text", require
           borderRadius: "10px", padding: "12px 14px", outline: "none", width: "100%",
           transition: "border-color 0.18s ease, box-shadow 0.18s ease",
         }}
-        onFocus={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#5ad27a"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 3px rgba(90,210,122,0.10)"; }}
+        onFocus={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "#f5c842"; (e.currentTarget as HTMLElement).style.boxShadow = "0 0 0 3px rgba(245,200,66,0.10)"; }}
         onBlur={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.10)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
       />
     </div>
@@ -167,7 +167,7 @@ export default function PartnersPage() {
       {/* ── Fixed ambient glows ────────────────────────────────────────────── */}
       <div aria-hidden className="pointer-events-none fixed inset-0" style={{
         background: `
-          radial-gradient(ellipse 70% 40% at 50% 10%, rgba(90,210,122,0.040) 0%, transparent 60%),
+          radial-gradient(ellipse 70% 40% at 50% 10%, rgba(245,200,66,0.040) 0%, transparent 60%),
           radial-gradient(ellipse 50% 60% at 90% 40%, rgba(255,140,0,0.025) 0%, transparent 60%),
           radial-gradient(ellipse 40% 50% at 8% 80%,  rgba(127,216,255,0.025) 0%, transparent 60%)
         `,
@@ -178,7 +178,7 @@ export default function PartnersPage() {
         {/* ── Back link ──────────────────────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, ease }} className="mb-14">
           <Link href="/" style={{ fontFamily: "var(--font-mono)", fontSize: "0.78rem", letterSpacing: "0.15em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "8px", transition: "color 0.18s ease" }}
-            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#5ad27a")}
+            onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#f5c842")}
             onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)")}
           >
             ← Back to Arena
@@ -190,10 +190,10 @@ export default function PartnersPage() {
         {/* ══════════════════════════════════════════════════════════════════ */}
         <motion.section initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease }} className="mb-28 text-center">
           <div className="mx-auto mb-6 inline-flex items-center gap-2.5 rounded-full border px-4 py-1.5"
-            style={{ background: "rgba(90,210,122,0.06)", borderColor: "rgba(90,210,122,0.22)", backdropFilter: "blur(12px)" }}
+            style={{ background: "rgba(245,200,66,0.06)", borderColor: "rgba(245,200,66,0.22)", backdropFilter: "blur(12px)" }}
           >
-            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#5ad27a", boxShadow: "0 0 8px rgba(90,210,122,0.9)", display: "inline-block", animation: "neon-pulse 2s ease-in-out infinite" }} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.20em", textTransform: "uppercase", color: "rgba(90,210,122,0.75)", textShadow: "0 0 8px rgba(90,210,122,0.5)" }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f5c842", boxShadow: "0 0 8px rgba(245,200,66,0.9)", display: "inline-block", animation: "neon-pulse 2s ease-in-out infinite" }} />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.20em", textTransform: "uppercase", color: "rgba(245,200,66,0.75)", textShadow: "0 0 8px rgba(245,200,66,0.5)" }}>
               Esports Guild System · Season 1 · 5-Tier Network
             </span>
           </div>
@@ -204,9 +204,9 @@ export default function PartnersPage() {
             textTransform: "uppercase", marginBottom: "1.2rem",
           }}>
             <span style={{
-              background: "linear-gradient(170deg, #ffffff 0%, #5ad27a 40%, #7fd8ff 90%)",
+              background: "linear-gradient(170deg, #ffffff 0%, #f5c842 40%, #7fd8ff 90%)",
               WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent",
-              filter: "drop-shadow(0 0 30px rgba(90,210,122,0.30))",
+              filter: "drop-shadow(0 0 30px rgba(245,200,66,0.30))",
               display: "block",
             }}>
               BUILD YOUR GUILD.
@@ -226,7 +226,7 @@ export default function PartnersPage() {
             color: "rgba(255,255,255,0.42)", maxWidth: "560px", margin: "0 auto 2rem", lineHeight: 1.7, letterSpacing: "0.04em",
           }}>
             Forge your clan. Recruit fighters. Earn{" "}
-            <span style={{ color: "#5ad27a", textShadow: "0 0 10px rgba(90,210,122,0.6)", fontWeight: 700 }}>perpetual rake</span>{" "}
+            <span style={{ color: "#f5c842", textShadow: "0 0 10px rgba(245,200,66,0.6)", fontWeight: 700 }}>perpetual rake</span>{" "}
             from every match your network plays — up to 5 tiers deep. Once a fighter joins your guild, their yield is yours.{" "}
             <span style={{ color: "rgba(255,255,255,0.65)" }}>Forever.</span>
           </p>
@@ -243,15 +243,15 @@ export default function PartnersPage() {
         {/* ══════════════════════════════════════════════════════════════════ */}
         <motion.section {...fadeUp} className="mt-16 mb-24 relative max-w-4xl mx-auto">
           <div aria-hidden className="absolute inset-0 -z-10 pointer-events-none"
-            style={{ background: "rgba(90,210,122,0.06)", filter: "blur(100px)", borderRadius: "50%", transform: "translateY(-20%)" }}
+            style={{ background: "rgba(245,200,66,0.06)", filter: "blur(100px)", borderRadius: "50%", transform: "translateY(-20%)" }}
           />
           <div style={{
             background: "rgba(7,8,16,0.88)",
-            border: "1px solid rgba(90,210,122,0.14)",
+            border: "1px solid rgba(245,200,66,0.14)",
             borderRadius: "24px",
             padding: "clamp(2rem, 5vw, 3rem)",
             backdropFilter: "blur(24px)",
-            boxShadow: "0 32px 80px rgba(0,0,0,0.7), 0 0 60px rgba(90,210,122,0.04)",
+            boxShadow: "0 32px 80px rgba(0,0,0,0.7), 0 0 60px rgba(245,200,66,0.04)",
           }}>
             <h2 style={{
               fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic",
@@ -259,7 +259,7 @@ export default function PartnersPage() {
               color: "#fff", lineHeight: 1.1, marginBottom: "1.5rem", textTransform: "uppercase",
             }}>
               GUILD WAR PROTOCOL:{" "}
-              <span style={{ color: "#5ad27a", textShadow: "0 0 20px rgba(90,210,122,0.5)" }}>
+              <span style={{ color: "#f5c842", textShadow: "0 0 20px rgba(245,200,66,0.5)" }}>
                 WHY FLAT FEES ARE FOR PEASANTS
               </span>
             </h2>
@@ -268,7 +268,7 @@ export default function PartnersPage() {
               You command a massive crypto clan, and you&apos;re asking:{" "}
               <em style={{ color: "rgba(255,255,255,0.55)" }}>&ldquo;What&apos;s your rate for a sponsored post?&rdquo;</em>{" "}
               Our answer:{" "}
-              <strong style={{ color: "#5ad27a", textShadow: "0 0 12px rgba(90,210,122,0.5)" }}>$0</strong>.{" "}
+              <strong style={{ color: "#f5c842", textShadow: "0 0 12px rgba(245,200,66,0.5)" }}>$0</strong>.{" "}
               We don&apos;t do one-off paid placements. We offer something infinitely better.
             </p>
 
@@ -276,7 +276,7 @@ export default function PartnersPage() {
               Selling a sponsored post is a peasant&apos;s game. You get paid once, the post dies in 24 hours, and your income resets to zero. We are offering you{" "}
               <strong style={{ color: "#fff" }}>Guild Commander Status</strong>{" "}
               — a chance to build a{" "}
-              <strong style={{ color: "#5ad27a", textShadow: "0 0 12px rgba(90,210,122,0.4)" }}>24/7 self-growing treasury engine</strong>.
+              <strong style={{ color: "#f5c842", textShadow: "0 0 12px rgba(245,200,66,0.4)" }}>24/7 self-growing treasury engine</strong>.
             </p>
 
             <p style={{ fontFamily: "var(--font-display)", fontSize: "1.05rem", color: "rgba(255,255,255,0.78)", lineHeight: 1.75, marginBottom: "2rem" }}>
@@ -325,14 +325,14 @@ export default function PartnersPage() {
                 <strong style={{ color: "#fff" }}>WILL</strong> find this game. The only question: Will{" "}
                 <strong style={{ color: "#ffd700" }}>YOU</strong> plant your guild flag and lock them in{" "}
                 <strong style={{ color: "#fff" }}>TODAY</strong>, or will another guild commander drop their link in your comment section tomorrow?{" "}
-                <strong style={{ color: "#5ad27a", textShadow: "0 0 10px rgba(90,210,122,0.4)" }}>Stop selling posts. Start building your empire.</strong>
+                <strong style={{ color: "#f5c842", textShadow: "0 0 10px rgba(245,200,66,0.4)" }}>Stop selling posts. Start building your empire.</strong>
               </p>
             </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
-              <a href="#found-guild" style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", background: "linear-gradient(135deg, #5ad27a, #7fd8ff)", color: "#111", padding: "14px 28px", borderRadius: "999px", textDecoration: "none", letterSpacing: "0.02em", boxShadow: "0 4px 24px rgba(90,210,122,0.35)", display: "inline-flex", alignItems: "center", gap: "8px", transition: "transform 0.18s ease, box-shadow 0.18s ease" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(1.04)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 32px rgba(90,210,122,0.55)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 24px rgba(90,210,122,0.35)"; }}
+              <a href="#found-guild" style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", background: "linear-gradient(135deg, #f5c842, #7fd8ff)", color: "#111", padding: "14px 28px", borderRadius: "999px", textDecoration: "none", letterSpacing: "0.02em", boxShadow: "0 4px 24px rgba(245,200,66,0.35)", display: "inline-flex", alignItems: "center", gap: "8px", transition: "transform 0.18s ease, box-shadow 0.18s ease" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(1.04)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 32px rgba(245,200,66,0.55)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 24px rgba(245,200,66,0.35)"; }}
               >
                 ⚔ FOUND MY GUILD
               </a>
@@ -426,16 +426,16 @@ export default function PartnersPage() {
           <motion.div
             initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }} transition={{ duration: 0.6, ease, delay: 0.2 }}
-            style={{ background: "rgba(90,210,122,0.04)", border: "1px solid rgba(90,210,122,0.18)", borderRadius: "16px", padding: "20px 24px", display: "flex", gap: "16px", alignItems: "flex-start", boxShadow: "0 0 40px rgba(90,210,122,0.04)" }}
+            style={{ background: "rgba(245,200,66,0.04)", border: "1px solid rgba(245,200,66,0.18)", borderRadius: "16px", padding: "20px 24px", display: "flex", gap: "16px", alignItems: "flex-start", boxShadow: "0 0 40px rgba(245,200,66,0.04)" }}
           >
             <span style={{ fontSize: "1.6rem", flexShrink: 0, lineHeight: 1 }}>⚖️</span>
             <div>
-              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", color: "#5ad27a", marginBottom: "6px", textShadow: "0 0 10px rgba(90,210,122,0.4)" }}>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", color: "#f5c842", marginBottom: "6px", textShadow: "0 0 10px rgba(245,200,66,0.4)" }}>
                 Guild Constitution — Golden Rule
               </p>
               <p style={{ fontFamily: "var(--font-display)", fontSize: "0.88rem", color: "rgba(255,255,255,0.48)", lineHeight: 1.65, margin: 0 }}>
                 Total guild payout{" "}
-                <span style={{ color: "#5ad27a", fontWeight: 700 }}>(21% of rake)</span>{" "}
+                <span style={{ color: "#f5c842", fontWeight: 700 }}>(21% of rake)</span>{" "}
                 never exceeds the collected house rake. The platform retains{" "}
                 <span style={{ color: "#7fd8ff", fontWeight: 700 }}>79%</span>{" "}
                 to back the treasury. No tokens are ever minted or printed out of thin air.
@@ -448,7 +448,7 @@ export default function PartnersPage() {
         {/* SECTION 3 — GUILD REVENUE SIMULATOR                              */}
         {/* ══════════════════════════════════════════════════════════════════ */}
         <motion.section {...fadeUp} className="mb-24 mt-16">
-          <GuildSectionLabel color="#5ad27a" glowColor="rgba(90,210,122,0.5)">Simulate</GuildSectionLabel>
+          <GuildSectionLabel color="#f5c842" glowColor="rgba(245,200,66,0.5)">Simulate</GuildSectionLabel>
           <h2 className="section-heading" style={{ textTransform: "uppercase" }}>Guild Treasury Simulator</h2>
           <p style={{ fontFamily: "var(--font-display)", fontSize: "1rem", color: "rgba(255,255,255,0.38)", maxWidth: "520px", marginBottom: "2rem", lineHeight: 1.65 }}>
             Drag the sliders to model your guild network. Treasury yield updates instantly using live rake math.
@@ -468,23 +468,23 @@ export default function PartnersPage() {
             initial={{ opacity: 0, scale: 0.98 }} whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }} transition={{ duration: 0.7, ease }}
             style={{
-              background: "rgba(0,4,0,0.92)", border: "1px solid rgba(90,210,122,0.22)",
+              background: "rgba(0,4,0,0.92)", border: "1px solid rgba(245,200,66,0.22)",
               borderRadius: "16px", overflow: "hidden",
-              boxShadow: "0 0 60px rgba(90,210,122,0.06), 0 24px 64px rgba(0,0,0,0.8)",
+              boxShadow: "0 0 60px rgba(245,200,66,0.06), 0 24px 64px rgba(0,0,0,0.8)",
               marginBottom: "20px",
               fontFamily: "var(--font-mono)",
             }}
           >
             {/* Terminal chrome */}
-            <div style={{ borderBottom: "1px solid rgba(90,210,122,0.14)", padding: "10px 18px", background: "rgba(0,0,0,0.50)", display: "flex", alignItems: "center", gap: "8px" }}>
-              {["#ff5a4d", "#ffd700", "#5ad27a"].map((c) => (
+            <div style={{ borderBottom: "1px solid rgba(245,200,66,0.14)", padding: "10px 18px", background: "rgba(0,0,0,0.50)", display: "flex", alignItems: "center", gap: "8px" }}>
+              {["#ff5a4d", "#ffd700", "#f5c842"].map((c) => (
                 <div key={c} style={{ width: "10px", height: "10px", borderRadius: "50%", background: c, opacity: 0.7 }} />
               ))}
-              <span style={{ fontSize: "0.58rem", letterSpacing: "0.18em", color: "rgba(90,210,122,0.45)", marginLeft: "8px", textTransform: "uppercase" }}>
+              <span style={{ fontSize: "0.58rem", letterSpacing: "0.18em", color: "rgba(245,200,66,0.45)", marginLeft: "8px", textTransform: "uppercase" }}>
                 bombermeme.gg / guild / constitution.sol
               </span>
               <div style={{ marginLeft: "auto" }}>
-                <span style={{ fontSize: "0.56rem", letterSpacing: "0.14em", color: "#5ad27a", textShadow: "0 0 6px rgba(90,210,122,0.6)", background: "rgba(90,210,122,0.08)", border: "1px solid rgba(90,210,122,0.22)", borderRadius: "999px", padding: "2px 10px" }}>
+                <span style={{ fontSize: "0.56rem", letterSpacing: "0.14em", color: "#f5c842", textShadow: "0 0 6px rgba(245,200,66,0.6)", background: "rgba(245,200,66,0.08)", border: "1px solid rgba(245,200,66,0.22)", borderRadius: "999px", padding: "2px 10px" }}>
                   ● ON-CHAIN
                 </span>
               </div>
@@ -493,11 +493,11 @@ export default function PartnersPage() {
             {/* Constitution content */}
             <div style={{ padding: "24px 28px" }}>
               {/* Header */}
-              <div style={{ marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px solid rgba(90,210,122,0.10)" }}>
-                <div style={{ fontSize: "0.56rem", letterSpacing: "0.24em", color: "rgba(90,210,122,0.50)", textTransform: "uppercase", marginBottom: "4px" }}>
+              <div style={{ marginBottom: "20px", paddingBottom: "16px", borderBottom: "1px solid rgba(245,200,66,0.10)" }}>
+                <div style={{ fontSize: "0.56rem", letterSpacing: "0.24em", color: "rgba(245,200,66,0.50)", textTransform: "uppercase", marginBottom: "4px" }}>
                   // GUILD_CONSTITUTION_V1.sol · IMMUTABLE · VERIFIED
                 </div>
-                <div style={{ fontSize: "0.90rem", fontWeight: 700, letterSpacing: "0.06em", color: "#5ad27a", textShadow: "0 0 12px rgba(90,210,122,0.6)", textTransform: "uppercase" }}>
+                <div style={{ fontSize: "0.90rem", fontWeight: 700, letterSpacing: "0.06em", color: "#f5c842", textShadow: "0 0 12px rgba(245,200,66,0.6)", textTransform: "uppercase" }}>
                   BOMBERMEME GUILD FAIR PLAY PROTOCOL
                 </div>
               </div>
@@ -509,7 +509,7 @@ export default function PartnersPage() {
                     key={clause.article}
                     initial={{ opacity: 0, x: -12 }} whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }} transition={{ duration: 0.45, delay: i * 0.08 }}
-                    style={{ padding: "12px 0", borderBottom: i < CONSTITUTION_CLAUSES.length - 1 ? "1px solid rgba(90,210,122,0.06)" : "none" }}
+                    style={{ padding: "12px 0", borderBottom: i < CONSTITUTION_CLAUSES.length - 1 ? "1px solid rgba(245,200,66,0.06)" : "none" }}
                   >
                     <div style={{ display: "flex", gap: "16px", alignItems: "flex-start" }}>
                       <span style={{ fontSize: "0.60rem", fontWeight: 700, color: clause.color, textShadow: `0 0 6px ${clause.color}80`, letterSpacing: "0.10em", minWidth: "36px", flexShrink: 0, marginTop: "2px" }}>
@@ -529,7 +529,7 @@ export default function PartnersPage() {
               </div>
 
               {/* Footer */}
-              <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid rgba(90,210,122,0.10)", fontSize: "0.52rem", color: "rgba(90,210,122,0.30)", letterSpacing: "0.14em" }}>
+              <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid rgba(245,200,66,0.10)", fontSize: "0.52rem", color: "rgba(245,200,66,0.30)", letterSpacing: "0.14em" }}>
                 {'>'} CONSTITUTION_HASH: 0x4f6e2d...cafe ·&nbsp;
                 DEPLOYED: Solana Mainnet ·&nbsp;
                 STATUS: ACTIVE
@@ -551,14 +551,14 @@ export default function PartnersPage() {
           <div style={{ background: "rgba(7,8,16,0.90)", border: "1px solid rgba(255,140,0,0.16)", borderRadius: "24px", overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.7), 0 0 60px rgba(255,140,0,0.04)" }}>
             {/* Mock chrome */}
             <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "14px 20px", display: "flex", alignItems: "center", gap: "8px", background: "rgba(0,0,0,0.30)" }}>
-              {["#ff5a4d", "#ffd700", "#5ad27a"].map((c) => (
+              {["#ff5a4d", "#ffd700", "#f5c842"].map((c) => (
                 <div key={c} style={{ width: "10px", height: "10px", borderRadius: "50%", background: c, opacity: 0.7 }} />
               ))}
               <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.60rem", letterSpacing: "0.14em", color: "rgba(255,255,255,0.20)", marginLeft: "8px", textTransform: "uppercase" }}>
                 bombermeme.gg / guild / command-center
               </span>
               <div style={{ marginLeft: "auto" }}>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", letterSpacing: "0.12em", color: "#5ad27a", textShadow: "0 0 8px rgba(90,210,122,0.5)", background: "rgba(90,210,122,0.08)", border: "1px solid rgba(90,210,122,0.20)", borderRadius: "999px", padding: "2px 10px" }}>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", letterSpacing: "0.12em", color: "#f5c842", textShadow: "0 0 8px rgba(245,200,66,0.5)", background: "rgba(245,200,66,0.08)", border: "1px solid rgba(245,200,66,0.20)", borderRadius: "999px", padding: "2px 10px" }}>
                   ● LIVE
                 </span>
               </div>
@@ -586,7 +586,7 @@ export default function PartnersPage() {
 
               <DashCard title="Territory Control" icon="🌐">
                 <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-                  <AttributionBar label="Guild-attributed" value={78} color="#5ad27a" />
+                  <AttributionBar label="Guild-attributed" value={78} color="#f5c842" />
                   <AttributionBar label="Organic discovery" value={22} color="#7fd8ff" />
                   <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.60rem", color: "rgba(255,255,255,0.20)", letterSpacing: "0.10em", margin: 0, lineHeight: 1.5 }}>
                     78% of network volume directly attributed to your guild links.
@@ -598,7 +598,7 @@ export default function PartnersPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                   <div>
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.25)", marginBottom: "4px" }}>Total Treasury Yield</div>
-                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "2rem", letterSpacing: "-0.04em", color: "#5ad27a", textShadow: "0 0 16px rgba(90,210,122,0.7)", lineHeight: 1 }}>$8,342.50</div>
+                    <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "2rem", letterSpacing: "-0.04em", color: "#f5c842", textShadow: "0 0 16px rgba(245,200,66,0.7)", lineHeight: 1 }}>$8,342.50</div>
                     <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "rgba(255,255,255,0.18)", marginTop: "4px", letterSpacing: "0.10em" }}>≈ 51.2 SOL at current price</div>
                   </div>
                   <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "14px" }}>
@@ -627,7 +627,7 @@ export default function PartnersPage() {
                     <div key={p.rank} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                       <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", fontWeight: 700, color: p.color, width: "16px", textAlign: "center", textShadow: p.rank <= 3 ? `0 0 8px ${p.color}88` : "none" }}>{p.rank}</span>
                       <span style={{ fontFamily: "var(--font-display)", fontSize: "0.85rem", color: "rgba(255,255,255,0.60)", flex: 1 }}>{p.handle}</span>
-                      <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.85rem", color: "#5ad27a", textShadow: "0 0 8px rgba(90,210,122,0.5)" }}>{p.vol}</span>
+                      <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.85rem", color: "#f5c842", textShadow: "0 0 8px rgba(245,200,66,0.5)" }}>{p.vol}</span>
                     </div>
                   ))}
                 </div>
@@ -649,17 +649,17 @@ export default function PartnersPage() {
         {/* APPLICATION FORM — FOUND A GUILD                                 */}
         {/* ══════════════════════════════════════════════════════════════════ */}
         <motion.section {...fadeUp} id="found-guild" className="mb-24">
-          <GuildSectionLabel color="#5ad27a" glowColor="rgba(90,210,122,0.5)">Recruitment</GuildSectionLabel>
+          <GuildSectionLabel color="#f5c842" glowColor="rgba(245,200,66,0.5)">Recruitment</GuildSectionLabel>
           <h2 className="section-heading" style={{ textTransform: "uppercase" }}>Found a Guild</h2>
           <p style={{ fontFamily: "var(--font-display)", fontSize: "1rem", color: "rgba(255,255,255,0.38)", maxWidth: "460px", marginBottom: "2.5rem", lineHeight: 1.65 }}>
             Every application is reviewed manually. Guild commanders with engaged communities in any region are welcome. Season 1 slots are limited.
           </p>
 
-          <div className="bento-card p-7 sm:p-10 max-w-2xl" style={{ border: "1px solid rgba(90,210,122,0.14)" }}>
+          <div className="bento-card p-7 sm:p-10 max-w-2xl" style={{ border: "1px solid rgba(245,200,66,0.14)" }}>
             {submitted ? (
               <motion.div initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, ease }} style={{ textAlign: "center", padding: "2rem 0" }}>
                 <div style={{ fontSize: "3.5rem", marginBottom: "1rem" }}>⚔</div>
-                <h3 style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "1.6rem", textTransform: "uppercase", color: "#5ad27a", textShadow: "0 0 16px rgba(90,210,122,0.7)", marginBottom: "0.75rem" }}>
+                <h3 style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "1.6rem", textTransform: "uppercase", color: "#f5c842", textShadow: "0 0 16px rgba(245,200,66,0.7)", marginBottom: "0.75rem" }}>
                   Guild Application Received
                 </h3>
                 <p style={{ fontFamily: "var(--font-display)", color: "rgba(255,255,255,0.45)", fontSize: "0.95rem", lineHeight: 1.6 }}>

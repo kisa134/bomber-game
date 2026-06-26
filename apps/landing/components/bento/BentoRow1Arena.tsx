@@ -15,14 +15,14 @@ export function BentoRow1Arena() {
       {/* Left — MMR Rank Card */}
       <motion.div variants={iFade} className="cyber-glass relative flex flex-col gap-3 overflow-hidden rounded-3xl p-4 lg:col-span-1">
         {/* Top accent line */}
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", background: "linear-gradient(90deg, transparent, #5ad27a, transparent)", opacity: 0.8 }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "2px", background: "linear-gradient(90deg, transparent, #f5c842, transparent)", opacity: 0.8 }} />
 
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", letterSpacing: "0.22em", color: "rgba(90,210,122,0.6)", textTransform: "uppercase" }}>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", letterSpacing: "0.22em", color: "rgba(245,200,66,0.6)", textTransform: "uppercase" }}>
           MMR System
         </div>
         <div style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "1.1rem", textTransform: "uppercase", letterSpacing: "-0.02em", color: "#fff" }}>
           TRUE SKILL<br />
-          <span style={{ color: "#5ad27a", textShadow: "0 0 14px rgba(90,210,122,0.7)" }}>RANKED LADDER</span>
+          <span style={{ color: "#f5c842", textShadow: "0 0 14px rgba(245,200,66,0.7)" }}>RANKED LADDER</span>
         </div>
         <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", color: "rgba(255,255,255,0.38)", lineHeight: 1.55 }}>
           ELO-based rating. No pay-to-win. Season resets. Decay protection for active players.
@@ -55,19 +55,19 @@ export function BentoRow1Arena() {
         className="cyber-glass relative overflow-hidden rounded-3xl p-4 lg:col-span-2 lg:p-5"
       >
         <div className="relative mb-3 flex items-center justify-between">
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(90,210,122,0.6)" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(245,200,66,0.6)" }}>
             LIVE ARENA
           </span>
           <span
             style={{
               display: "flex", alignItems: "center", gap: "5px",
-              borderRadius: "999px", border: "1px solid rgba(90,210,122,0.30)",
-              background: "rgba(90,210,122,0.10)", padding: "2px 8px",
+              borderRadius: "999px", border: "1px solid rgba(245,200,66,0.30)",
+              background: "rgba(245,200,66,0.10)", padding: "2px 8px",
               fontFamily: "var(--font-mono)", fontSize: "0.58rem", fontWeight: 700,
-              color: "#5ad27a", textShadow: "0 0 8px rgba(90,210,122,0.7)",
+              color: "#f5c842", textShadow: "0 0 8px rgba(245,200,66,0.7)",
             }}
           >
-            <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#5ad27a", boxShadow: "0 0 6px rgba(90,210,122,0.9)", animation: "neon-pulse 2s ease-in-out infinite", display: "inline-block" }} />
+            <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#f5c842", boxShadow: "0 0 6px rgba(245,200,66,0.9)", animation: "neon-pulse 2s ease-in-out infinite", display: "inline-block" }} />
             LIVE
           </span>
         </div>
@@ -77,7 +77,7 @@ export function BentoRow1Arena() {
           <div className="relative xl:col-span-3">
             <div
               className="relative aspect-video overflow-hidden rounded-xl"
-              style={{ border: "1px solid rgba(90,210,122,0.18)" }}
+              style={{ border: "1px solid rgba(245,200,66,0.18)" }}
             >
               <video
                 autoPlay loop muted playsInline
@@ -128,7 +128,7 @@ export function BentoRow1Arena() {
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3 xl:col-span-2 xl:content-center">
-            <MiniStat value="ELO" label="MMR SYSTEM" color="#5ad27a" />
+            <MiniStat value="ELO" label="MMR SYSTEM" color="#f5c842" />
             <MiniStat value="S1"  label="RANKED SEASON" color="#7fd8ff" />
             <MiniStat value="2–8" label="PLAYERS" color="#ffd700" />
             <MiniStat value="ANTI-CHEAT" label="FAIR PLAY" mono color="#ff5a4d" />
@@ -155,7 +155,7 @@ export function BentoRow1Arena() {
         {/* Rake breakdown */}
         <div style={{ display: "flex", flexDirection: "column", gap: "5px", marginTop: "auto" }}>
           {[
-            { label: "WINNER PAYOUT", pct: 95, color: "#5ad27a" },
+            { label: "WINNER PAYOUT", pct: 95, color: "#f5c842" },
             { label: "BURN 🔥",        pct:  2, color: "#ff5a4d" },
             { label: "YIELD POOL",     pct: 1.5, color: "#7fd8ff" },
             { label: "DAO RESERVE",   pct: 1.5, color: "#ffd700" },

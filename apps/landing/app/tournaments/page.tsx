@@ -51,7 +51,7 @@ const MATCHES: BracketMatch[] = [
 function MatchCard({ match, compact = false }: { match: BracketMatch; compact?: boolean }) {
   const [active, setActive] = useState(false);
 
-  const statusColor = match.status === "live" ? "#5ad27a" : match.status === "completed" ? "#7fd8ff" : "rgba(255,255,255,0.25)";
+  const statusColor = match.status === "live" ? "#f5c842" : match.status === "completed" ? "#7fd8ff" : "rgba(255,255,255,0.25)";
   const statusLabel = match.status === "live" ? "● LIVE" : match.status === "completed" ? "DONE" : "SOON";
 
   return (
@@ -60,14 +60,14 @@ function MatchCard({ match, compact = false }: { match: BracketMatch; compact?: 
       whileHover={{ scale: 1.03, y: -2 }}
       whileTap={{ scale: 0.98 }}
       style={{
-        background:    active ? "rgba(90,210,122,0.06)" : "rgba(7,8,16,0.85)",
-        border:        `1px solid ${active ? "rgba(90,210,122,0.40)" : statusColor + "30"}`,
+        background:    active ? "rgba(245,200,66,0.06)" : "rgba(7,8,16,0.85)",
+        border:        `1px solid ${active ? "rgba(245,200,66,0.40)" : statusColor + "30"}`,
         borderRadius:  compact ? "8px" : "12px",
         padding:       compact ? "6px 10px" : "10px 14px",
         cursor:        "pointer",
         minWidth:      compact ? "148px" : "180px",
         backdropFilter: "blur(10px)",
-        boxShadow:     match.status === "live" ? "0 0 16px rgba(90,210,122,0.10)" : "none",
+        boxShadow:     match.status === "live" ? "0 0 16px rgba(245,200,66,0.10)" : "none",
         transition:    "border-color 0.2s, background 0.2s, box-shadow 0.2s",
       }}
     >
@@ -118,8 +118,8 @@ function MatchCard({ match, compact = false }: { match: BracketMatch; compact?: 
               fontFamily:    "var(--font-mono)",
               fontSize:      compact ? "0.62rem" : "0.72rem",
               fontWeight:    700,
-              color:         team.win ? "#5ad27a" : "rgba(255,255,255,0.30)",
-              textShadow:    team.win ? "0 0 6px rgba(90,210,122,0.6)" : "none",
+              color:         team.win ? "#f5c842" : "rgba(255,255,255,0.30)",
+              textShadow:    team.win ? "0 0 6px rgba(245,200,66,0.6)" : "none",
               letterSpacing: "0.04em",
             }}
           >
@@ -143,7 +143,7 @@ function BracketView() {
   const CARD_GAP  = 14;
   const COL_GAP   = 52;
   const CARD_W    = 180;
-  const STROKE    = "#5ad27a";
+  const STROKE    = "#f5c842";
 
   const qfPositions = qf.map((_, i) => (CARD_H + CARD_GAP) * i + CARD_H / 2);
   const sfPositions = [
@@ -252,15 +252,15 @@ function CountdownBlock({ value, label }: { value: number; label: string }) {
           fontSize:      "clamp(2rem, 6vw, 4.5rem)",
           letterSpacing: "-0.05em",
           lineHeight:    0.9,
-          color:         "#5ad27a",
-          textShadow:    "0 0 32px rgba(90,210,122,0.7), 0 0 64px rgba(90,210,122,0.3)",
+          color:         "#f5c842",
+          textShadow:    "0 0 32px rgba(245,200,66,0.7), 0 0 64px rgba(245,200,66,0.3)",
           minWidth:      "2ch",
           textAlign:     "center",
         }}
       >
         {String(value).padStart(2, "0")}
       </div>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.50rem", letterSpacing: "0.20em", color: "rgba(90,210,122,0.45)", textTransform: "uppercase" }}>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.50rem", letterSpacing: "0.20em", color: "rgba(245,200,66,0.45)", textTransform: "uppercase" }}>
         {label}
       </span>
     </div>
@@ -277,19 +277,19 @@ function StreamEmbed() {
         position: "relative",
         borderRadius: "16px",
         overflow: "hidden",
-        border: "1px solid rgba(90,210,122,0.18)",
+        border: "1px solid rgba(245,200,66,0.18)",
         background: "transparent",
-        boxShadow: "0 24px 64px rgba(0,0,0,0.9), 0 0 48px rgba(90,210,122,0.06)",
+        boxShadow: "0 24px 64px rgba(0,0,0,0.9), 0 0 48px rgba(245,200,66,0.06)",
       }}
     >
       {/* Placeholder stream frame */}
       <div style={{ position: "relative", aspectRatio: "16/9", background: "linear-gradient(135deg, #0a0c14 0%, #0e1020 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {/* Scanlines */}
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(90,210,122,0.015) 3px, rgba(90,210,122,0.015) 4px)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(245,200,66,0.015) 3px, rgba(245,200,66,0.015) 4px)", pointerEvents: "none" }} />
 
         {/* Fake stream preview */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
-          <div style={{ fontSize: "3rem", filter: "drop-shadow(0 0 24px rgba(90,210,122,0.6))" }}>⚔</div>
+          <div style={{ fontSize: "3rem", filter: "drop-shadow(0 0 24px rgba(245,200,66,0.6))" }}>⚔</div>
           <div style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "clamp(1rem, 3vw, 2rem)", color: "#fff", textTransform: "uppercase", letterSpacing: "-0.03em" }}>
             GRAND FINALS STREAM
           </div>
@@ -321,15 +321,15 @@ function StreamEmbed() {
           display: "flex", alignItems: "center", gap: "5px",
           fontFamily: "var(--font-mono)", fontSize: "0.60rem", fontWeight: 700,
           letterSpacing: "0.10em", textTransform: "uppercase",
-          color: "#5ad27a", background: "rgba(0,0,0,0.75)",
-          border: "1px solid rgba(90,210,122,0.40)",
+          color: "#f5c842", background: "rgba(0,0,0,0.75)",
+          border: "1px solid rgba(245,200,66,0.40)",
           backdropFilter: "blur(8px)", borderRadius: "6px",
           padding: "4px 10px",
-          textShadow: "0 0 8px rgba(90,210,122,0.8)",
+          textShadow: "0 0 8px rgba(245,200,66,0.8)",
           animation: "neon-pulse 2s ease-in-out infinite",
         }}
       >
-        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#5ad27a", boxShadow: "0 0 6px rgba(90,210,122,0.9)", display: "inline-block" }} />
+        <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#f5c842", boxShadow: "0 0 6px rgba(245,200,66,0.9)", display: "inline-block" }} />
         LIVE
       </div>
 
@@ -370,7 +370,7 @@ function MatchmakingLobby() {
 
   const MODE_CONFIG: Record<GameMode, { label: string; color: string; prize: string; desc: string }> = {
     casual:     { label: "CASUAL",     color: "#7fd8ff", prize: "No entry fee",  desc: "Practice mode · No MMR stakes · Open to all ranks" },
-    ranked:     { label: "RANKED",     color: "#5ad27a", prize: "$5–$500 pool",  desc: "Skill-matched · MMR gains/losses · Season points" },
+    ranked:     { label: "RANKED",     color: "#f5c842", prize: "$5–$500 pool",  desc: "Skill-matched · MMR gains/losses · Season points" },
     tournament: { label: "TOURNAMENT", color: "#ff5a4d", prize: "$500,000 pool", desc: "Bracket entry · ELO required: 6,000+ · 8-team format" },
   };
 
@@ -558,7 +558,7 @@ function MatchmakingLobby() {
 ══════════════════════════════════════════════════════════════════════════ */
 const UPCOMING_TOURNAMENTS = [
   { name: "DAILY DEATHMATCH",      prize: "$1,000",    start: "Today 20:00 UTC",   slots: "32/32", status: "FULL",    color: "#ffd700" },
-  { name: "WEEKLY RANKED CUP",     prize: "$10,000",   start: "Sat 14:00 UTC",     slots: "28/64", status: "OPEN",    color: "#5ad27a" },
+  { name: "WEEKLY RANKED CUP",     prize: "$10,000",   start: "Sat 14:00 UTC",     slots: "28/64", status: "OPEN",    color: "#f5c842" },
   { name: "THE INTERNATIONAL S1",  prize: "$500,000",  start: "Jul 14 · 16:00 UTC",slots: "8/8",   status: "INVITE",  color: "#ff5a4d" },
   { name: "COMMUNITY BLAST",       prize: "$500",      start: "Tomorrow 18:00 UTC",slots: "12/32", status: "OPEN",    color: "#7fd8ff" },
 ];
@@ -596,7 +596,7 @@ function TournamentTable() {
                 <span key="p" style={{ fontFamily: "var(--font-mono)", fontSize: "0.70rem", fontWeight: 700, color: t.color, textShadow: `0 0 8px ${t.color}80` }}>{t.prize}</span>,
                 <span key="s" style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "rgba(255,255,255,0.45)" }}>{t.start}</span>,
                 <span key="sl" style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", color: "rgba(255,255,255,0.40)" }}>{t.slots}</span>,
-                <span key="st" style={{ fontFamily: "var(--font-mono)", fontSize: "0.52rem", fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase", color: t.status === "FULL" ? "#ff5a4d" : t.status === "INVITE" ? "#f0a92a" : "#5ad27a", background: `${t.status === "FULL" ? "#ff5a4d" : t.status === "INVITE" ? "#f0a92a" : "#5ad27a"}18`, border: `1px solid ${t.status === "FULL" ? "#ff5a4d" : t.status === "INVITE" ? "#f0a92a" : "#5ad27a"}30`, borderRadius: "5px", padding: "2px 8px" }}>{t.status}</span>,
+                <span key="st" style={{ fontFamily: "var(--font-mono)", fontSize: "0.52rem", fontWeight: 700, letterSpacing: "0.10em", textTransform: "uppercase", color: t.status === "FULL" ? "#ff5a4d" : t.status === "INVITE" ? "#f0a92a" : "#f5c842", background: `${t.status === "FULL" ? "#ff5a4d" : t.status === "INVITE" ? "#f0a92a" : "#f5c842"}18`, border: `1px solid ${t.status === "FULL" ? "#ff5a4d" : t.status === "INVITE" ? "#f0a92a" : "#f5c842"}30`, borderRadius: "5px", padding: "2px 8px" }}>{t.status}</span>,
               ].map((cell, ci) => (
                 <td
                   key={ci}
@@ -664,8 +664,8 @@ export default function TournamentsPage() {
       >
 
         {/* Background ambience */}
-        <div aria-hidden style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 80% 70% at 50% 40%, rgba(90,210,122,0.04) 0%, transparent 70%)", pointerEvents: "none" }} />
-        <div aria-hidden style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "1px", background: "linear-gradient(90deg, transparent, rgba(90,210,122,0.25), transparent)" }} />
+        <div aria-hidden style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 80% 70% at 50% 40%, rgba(245,200,66,0.04) 0%, transparent 70%)", pointerEvents: "none" }} />
+        <div aria-hidden style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "1px", background: "linear-gradient(90deg, transparent, rgba(245,200,66,0.25), transparent)" }} />
 
         <div style={{ maxWidth: "900px", margin: "0 auto", textAlign: "center" }}>
           {/* Eyebrow */}
@@ -721,7 +721,7 @@ export default function TournamentsPage() {
 
           {/* Countdown */}
           <div className="banner-sub" style={{ marginBottom: "32px" }}>
-            <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", letterSpacing: "0.18em", color: "rgba(90,210,122,0.5)", textTransform: "uppercase", marginBottom: "12px" }}>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", letterSpacing: "0.18em", color: "rgba(245,200,66,0.5)", textTransform: "uppercase", marginBottom: "12px" }}>
               Bracket Locks In
             </div>
             <div
@@ -730,19 +730,19 @@ export default function TournamentsPage() {
                 alignItems:     "center",
                 gap:            "clamp(12px, 3vw, 32px)",
                 background:     "rgba(7,8,16,0.85)",
-                border:         "1px solid rgba(90,210,122,0.15)",
+                border:         "1px solid rgba(245,200,66,0.15)",
                 borderRadius:   "16px",
                 padding:        "16px 32px",
                 backdropFilter: "blur(16px)",
-                boxShadow:      "0 0 48px rgba(90,210,122,0.06), 0 24px 64px rgba(0,0,0,0.8)",
+                boxShadow:      "0 0 48px rgba(245,200,66,0.06), 0 24px 64px rgba(0,0,0,0.8)",
               }}
             >
               <CountdownBlock value={d} label="Days" />
-              <span style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "clamp(1.5rem, 4vw, 3rem)", color: "rgba(90,210,122,0.25)", lineHeight: 0.9 }}>:</span>
+              <span style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "clamp(1.5rem, 4vw, 3rem)", color: "rgba(245,200,66,0.25)", lineHeight: 0.9 }}>:</span>
               <CountdownBlock value={h} label="Hours" />
-              <span style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "clamp(1.5rem, 4vw, 3rem)", color: "rgba(90,210,122,0.25)", lineHeight: 0.9 }}>:</span>
+              <span style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "clamp(1.5rem, 4vw, 3rem)", color: "rgba(245,200,66,0.25)", lineHeight: 0.9 }}>:</span>
               <CountdownBlock value={m} label="Minutes" />
-              <span style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "clamp(1.5rem, 4vw, 3rem)", color: "rgba(90,210,122,0.25)", lineHeight: 0.9 }}>:</span>
+              <span style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "clamp(1.5rem, 4vw, 3rem)", color: "rgba(245,200,66,0.25)", lineHeight: 0.9 }}>:</span>
               <CountdownBlock value={s} label="Seconds" />
             </div>
           </div>
@@ -770,10 +770,10 @@ export default function TournamentsPage() {
                 display: "inline-flex", alignItems: "center", gap: "8px",
                 fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.90rem",
                 letterSpacing: "0.04em", textTransform: "uppercase",
-                color: "#5ad27a", background: "rgba(90,210,122,0.08)",
-                border: "1px solid rgba(90,210,122,0.30)",
+                color: "#f5c842", background: "rgba(245,200,66,0.08)",
+                border: "1px solid rgba(245,200,66,0.30)",
                 borderRadius: "999px", padding: "13px 28px", textDecoration: "none",
-                boxShadow: "0 0 16px rgba(90,210,122,0.10)",
+                boxShadow: "0 0 16px rgba(245,200,66,0.10)",
               }}
             >
               ▶ View Bracket
@@ -798,10 +798,10 @@ export default function TournamentsPage() {
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
             <h2 style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", textTransform: "uppercase", fontSize: "clamp(1.2rem, 3vw, 1.8rem)", letterSpacing: "-0.03em", color: "#fff" }}>
               LIVE{" "}
-              <span style={{ color: "#5ad27a", textShadow: "0 0 16px rgba(90,210,122,0.7)" }}>BRACKET</span>
+              <span style={{ color: "#f5c842", textShadow: "0 0 16px rgba(245,200,66,0.7)" }}>BRACKET</span>
             </h2>
-            <div style={{ flex: 1, height: "1px", background: "linear-gradient(90deg, rgba(90,210,122,0.3), transparent)" }} />
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.50rem", fontWeight: 700, letterSpacing: "0.14em", color: "rgba(90,210,122,0.6)", textTransform: "uppercase", background: "rgba(90,210,122,0.08)", border: "1px solid rgba(90,210,122,0.20)", borderRadius: "5px", padding: "3px 8px" }}>
+            <div style={{ flex: 1, height: "1px", background: "linear-gradient(90deg, rgba(245,200,66,0.3), transparent)" }} />
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.50rem", fontWeight: 700, letterSpacing: "0.14em", color: "rgba(245,200,66,0.6)", textTransform: "uppercase", background: "rgba(245,200,66,0.08)", border: "1px solid rgba(245,200,66,0.20)", borderRadius: "5px", padding: "3px 8px" }}>
               Double Elimination
             </span>
           </div>
@@ -809,7 +809,7 @@ export default function TournamentsPage() {
           {/* Round labels */}
           <div style={{ display: "grid", gridTemplateColumns: "180px 52px 180px 52px 180px", marginBottom: "8px", opacity: 0.5 }}>
             {["QUARTER FINALS", "", "SEMI FINALS", "", "GRAND FINAL"].map((label, i) => (
-              <div key={i} style={{ fontFamily: "var(--font-mono)", fontSize: "0.46rem", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(90,210,122,0.55)", textAlign: i % 2 === 0 ? "center" : "center" }}>
+              <div key={i} style={{ fontFamily: "var(--font-mono)", fontSize: "0.46rem", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(245,200,66,0.55)", textAlign: i % 2 === 0 ? "center" : "center" }}>
                 {label}
               </div>
             ))}
@@ -818,7 +818,7 @@ export default function TournamentsPage() {
           <div
             style={{
               background:     "rgba(7,8,16,0.70)",
-              border:         "1px solid rgba(90,210,122,0.08)",
+              border:         "1px solid rgba(245,200,66,0.08)",
               borderRadius:   "16px",
               padding:        "24px",
               backdropFilter: "blur(12px)",

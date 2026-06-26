@@ -18,8 +18,8 @@ const ALLOCATIONS = [
     chartLabel: "FREE MARKET",
     sublabel: "Fair Launch Liquidity",
     tag: "FAIR LAUNCH LIQUIDITY",
-    color: "#4ade80",
-    rgb: "74,222,128",
+    color: "#f5c842",
+    rgb: "245,200,66",
     body: "Total decentralization from second one. No hidden pre-sales, VC bags, or private rounds — the market and liquidity are 100% owned by the community.",
   },
   {
@@ -71,7 +71,7 @@ const RAKE_DIST: readonly RakeBucket[] = [
   {
     pct: 54, share: 0.54, phase2: false,
     icon: "⚙️", label: "Ecosystem & Infrastructure", sublabel: "Operational Reserve", tag: "ECOSYSTEM CORE",
-    color: "#5ad27a", rgb: "90,210,122",
+    color: "#f5c842", rgb: "245,200,66",
     body: "Funds 20Hz ultra-low latency servers, anti-cheat AI, continuous gameplay evolution, and seeds upcoming tournament prize pools.",
   },
   {
@@ -98,7 +98,7 @@ const RAKE_DIST: readonly RakeBucket[] = [
 interface FlowLine { cx: number; color: string; delay: string; phase2: boolean; }
 const FLOW_LINES: readonly FlowLine[] = [
   { cx: 100, color: "#ff5a4d", delay: "0s",     phase2: false },
-  { cx: 300, color: "#5ad27a", delay: "-0.12s", phase2: false },
+  { cx: 300, color: "#f5c842", delay: "-0.12s", phase2: false },
   { cx: 500, color: "#ffd700", delay: "-0.24s", phase2: false },
   { cx: 700, color: "#7fd8ff", delay: "-0.36s", phase2: true  },
   { cx: 900, color: "#a855f7", delay: "-0.48s", phase2: true  },
@@ -359,8 +359,8 @@ function RakeSimulator() {
         <div style={{
           fontFamily: "var(--font-display)", fontWeight: 700,
           fontSize: "clamp(2.2rem, 8vw, 3.5rem)", letterSpacing: "-0.04em",
-          color: "#5ad27a",
-          textShadow: "0 0 24px rgba(90,210,122,0.55), 0 0 60px rgba(90,210,122,0.25)",
+          color: "#f5c842",
+          textShadow: "0 0 24px rgba(245,200,66,0.55), 0 0 60px rgba(245,200,66,0.25)",
           lineHeight: 1,
         }}>
           <AnimatedNumber value={pool} />
@@ -384,8 +384,8 @@ function RakeSimulator() {
             <div style={{
               height: "100%", borderRadius: 999,
               width: `${pct}%`,
-              background: "linear-gradient(90deg, #5ad27a, #7fd8ff)",
-              boxShadow: "0 0 10px rgba(90,210,122,0.5)",
+              background: "linear-gradient(90deg, #f5c842, #7fd8ff)",
+              boxShadow: "0 0 10px rgba(245,200,66,0.5)",
               transition: "width 0.04s linear",
             }} />
           </div>
@@ -395,8 +395,8 @@ function RakeSimulator() {
             left: `${pct}%`,
             transform: "translateX(-50%)",
             width: 16, height: 16, borderRadius: "50%",
-            background: "#5ad27a",
-            boxShadow: "0 0 0 3px rgba(90,210,122,0.2), 0 0 16px rgba(90,210,122,0.5)",
+            background: "#f5c842",
+            boxShadow: "0 0 0 3px rgba(245,200,66,0.2), 0 0 16px rgba(245,200,66,0.5)",
             pointerEvents: "none",
             transition: "left 0.04s linear",
             zIndex: 1,
@@ -439,10 +439,10 @@ function RakeSimulator() {
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               cursor: "pointer",
-              border: `1px solid ${pool === v ? "rgba(90,210,122,0.40)" : "rgba(255,255,255,0.1)"}`,
-              background: pool === v ? "rgba(90,210,122,0.08)" : "rgba(255,255,255,0.05)",
-              color: pool === v ? "#5ad27a" : "rgba(255,255,255,0.4)",
-              boxShadow: pool === v ? "0 0 10px rgba(90,210,122,0.25)" : "none",
+              border: `1px solid ${pool === v ? "rgba(245,200,66,0.40)" : "rgba(255,255,255,0.1)"}`,
+              background: pool === v ? "rgba(245,200,66,0.08)" : "rgba(255,255,255,0.05)",
+              color: pool === v ? "#f5c842" : "rgba(255,255,255,0.4)",
+              boxShadow: pool === v ? "0 0 10px rgba(245,200,66,0.25)" : "none",
               transition: "all 0.15s ease",
             }}
           >
@@ -453,8 +453,8 @@ function RakeSimulator() {
 
       {/* Rake total */}
       <div style={{
-        background: "rgba(90,210,122,0.05)",
-        border: "1px solid rgba(90,210,122,0.18)",
+        background: "rgba(245,200,66,0.05)",
+        border: "1px solid rgba(245,200,66,0.18)",
         borderRadius: 14,
         padding: "14px 20px",
         marginBottom: 16,
@@ -475,7 +475,7 @@ function RakeSimulator() {
         <div style={{
           fontFamily: "var(--font-display)", fontWeight: 700,
           fontSize: "clamp(1.3rem, 4vw, 1.9rem)", letterSpacing: "-0.03em",
-          color: "#5ad27a", textShadow: "0 0 20px rgba(90,210,122,0.65)",
+          color: "#f5c842", textShadow: "0 0 20px rgba(245,200,66,0.65)",
         }}>
           <AnimatedNumber value={rake} />
         </div>
@@ -552,21 +552,21 @@ function SectionLabel({ pillar, title, subtitle }: {
       style={{ textAlign: "center", marginBottom: 56 }}
     >
       <div style={{ display: "inline-flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
-        <div style={{ width: 36, height: 1, background: "rgba(90,210,122,0.25)" }} />
+        <div style={{ width: 36, height: 1, background: "rgba(245,200,66,0.25)" }} />
         <span style={{
           fontFamily: "var(--font-mono)", fontSize: "0.62rem", letterSpacing: "0.28em",
-          color: "rgba(90,210,122,0.55)", textTransform: "uppercase",
-          textShadow: "0 0 8px rgba(90,210,122,0.4)",
+          color: "rgba(245,200,66,0.55)", textTransform: "uppercase",
+          textShadow: "0 0 8px rgba(245,200,66,0.4)",
         }}>
           {pillar}
         </span>
-        <div style={{ width: 36, height: 1, background: "rgba(90,210,122,0.25)" }} />
+        <div style={{ width: 36, height: 1, background: "rgba(245,200,66,0.25)" }} />
       </div>
       <h2 style={{
         fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic",
         fontSize: "clamp(1.9rem, 4.5vw, 3rem)", letterSpacing: "-0.04em",
         color: "#fff", margin: "0 0 10px", textTransform: "uppercase",
-        filter: "drop-shadow(0 0 20px rgba(90,210,122,0.15))",
+        filter: "drop-shadow(0 0 20px rgba(245,200,66,0.15))",
       }}>
         {title}
       </h2>
@@ -697,10 +697,10 @@ export default function TokenomicsPage() {
         style={{
           zIndex: 0,
           background: `
-            radial-gradient(ellipse 65% 45% at 50% 0%,   rgba(90,210,122,0.040)   0%, transparent 62%),
+            radial-gradient(ellipse 65% 45% at 50% 0%,   rgba(245,200,66,0.040)   0%, transparent 62%),
             radial-gradient(ellipse 40% 55% at 8%  50%,  rgba(127,216,255,0.025)   0%, transparent 60%),
             radial-gradient(ellipse 40% 55% at 92% 60%,  rgba(255,90,77,0.020)  0%, transparent 60%),
-            radial-gradient(ellipse 50% 40% at 50% 90%,  rgba(90,210,122,0.018)   0%, transparent 60%)
+            radial-gradient(ellipse 50% 40% at 50% 90%,  rgba(245,200,66,0.018)   0%, transparent 60%)
           `,
         }}
       />
@@ -721,15 +721,15 @@ export default function TokenomicsPage() {
               transition={{ duration: 0.6, ease, delay: 0.1 }}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 10,
-                background: "rgba(90,210,122,0.06)", border: "1px solid rgba(90,210,122,0.15)",
+                background: "rgba(245,200,66,0.06)", border: "1px solid rgba(245,200,66,0.15)",
                 borderRadius: 999, padding: "6px 18px",
                 fontFamily: "var(--font-mono)", fontSize: "0.62rem",
-                letterSpacing: "0.22em", color: "rgba(90,210,122,0.75)",
+                letterSpacing: "0.22em", color: "rgba(245,200,66,0.75)",
                 textTransform: "uppercase", marginBottom: 28,
               }}
             >
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#5ad27a",
-                boxShadow: "0 0 8px #5ad27a", display: "inline-block", animation: "neon-pulse 2s ease-in-out infinite" }} />
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f5c842",
+                boxShadow: "0 0 8px #f5c842", display: "inline-block", animation: "neon-pulse 2s ease-in-out infinite" }} />
               $BMB · Solana · Economic Architecture
             </motion.div>
 
@@ -737,10 +737,10 @@ export default function TokenomicsPage() {
               fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic",
               fontSize: "clamp(3.8rem, 12vw, 8.5rem)", lineHeight: 0.88,
               letterSpacing: "-0.05em",
-              background: "linear-gradient(170deg, #ffffff 0%, #5ad27a 40%, #7fd8ff 80%)",
+              background: "linear-gradient(170deg, #ffffff 0%, #f5c842 40%, #7fd8ff 80%)",
               WebkitBackgroundClip: "text", backgroundClip: "text",
               WebkitTextFillColor: "transparent",
-              filter: "drop-shadow(0 0 40px rgba(90,210,122,0.30)) drop-shadow(0 0 80px rgba(127,216,255,0.15))",
+              filter: "drop-shadow(0 0 40px rgba(245,200,66,0.30)) drop-shadow(0 0 80px rgba(127,216,255,0.15))",
               marginBottom: 28,
             }}>
               TOKENOMICS
@@ -768,7 +768,7 @@ export default function TokenomicsPage() {
               style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 10, marginTop: 36 }}
             >
               {[
-                { label: "Total Supply", value: "1,000,000,000", color: "#5ad27a" },
+                { label: "Total Supply", value: "1,000,000,000", color: "#f5c842" },
                 { label: "House Rake",   value: "5% per match",  color: "#7fd8ff" },
                 { label: "Token",        value: "$BMB",           color: "#ffd700" },
                 { label: "Network",      value: "Solana",         color: "#ff5a4d" },
@@ -953,15 +953,15 @@ export default function TokenomicsPage() {
           >
             <div style={{ textAlign: "center", marginBottom: 40 }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 14, marginBottom: 12 }}>
-                <div style={{ width: 36, height: 1, background: "rgba(90,210,122,0.25)" }} />
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", letterSpacing: "0.28em", color: "rgba(90,210,122,0.55)", textTransform: "uppercase" }}>
+                <div style={{ width: 36, height: 1, background: "rgba(245,200,66,0.25)" }} />
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", letterSpacing: "0.28em", color: "rgba(245,200,66,0.55)", textTransform: "uppercase" }}>
                   Token Flow
                 </span>
-                <div style={{ width: 36, height: 1, background: "rgba(90,210,122,0.25)" }} />
+                <div style={{ width: 36, height: 1, background: "rgba(245,200,66,0.25)" }} />
               </div>
               <h2 style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", fontSize: "clamp(1.5rem, 3.5vw, 2.4rem)", letterSpacing: "-0.04em", color: "#fff", margin: "0 0 10px", textTransform: "uppercase" }}>
                 ECOSYSTEM{" "}
-                <span style={{ color: "#5ad27a", textShadow: "0 0 20px rgba(90,210,122,0.6)" }}>FLOW</span>
+                <span style={{ color: "#f5c842", textShadow: "0 0 20px rgba(245,200,66,0.6)" }}>FLOW</span>
               </h2>
               <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", letterSpacing: "0.12em", color: "rgba(255,255,255,0.22)", textTransform: "uppercase", margin: 0 }}>
                 Players → Match Pot → Winner 95% + 5% Rake → Burn 25% · Ecosystem 54% · Guild 21% · [Phase 2: Yield + DAO]
@@ -970,7 +970,7 @@ export default function TokenomicsPage() {
 
             <div style={{
               background: "rgba(7,8,16,0.75)",
-              border: "1px solid rgba(90,210,122,0.08)",
+              border: "1px solid rgba(245,200,66,0.08)",
               borderRadius: 20,
               padding: "28px 20px",
               backdropFilter: "blur(12px)",

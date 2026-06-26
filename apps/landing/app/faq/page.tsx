@@ -287,7 +287,7 @@ function AccordionItem({
       style={{
         borderRadius: 12,
         border: open
-          ? "1px solid rgba(90,210,122,0.22)"
+          ? "1px solid rgba(245,200,66,0.22)"
           : "1px solid rgba(255,255,255,0.06)",
         background: open ? "rgba(7,8,16,0.97)" : "rgba(255,255,255,0.015)",
         backdropFilter: "blur(20px) saturate(1.3)",
@@ -295,7 +295,7 @@ function AccordionItem({
         overflow: "hidden",
         transition: "border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease",
         boxShadow: open
-          ? "0 0 28px rgba(90,210,122,0.07), 0 6px 28px rgba(0,0,0,0.45)"
+          ? "0 0 28px rgba(245,200,66,0.07), 0 6px 28px rgba(0,0,0,0.45)"
           : "0 2px 10px rgba(0,0,0,0.22)",
       }}
     >
@@ -312,7 +312,7 @@ function AccordionItem({
         {/* Line number prefix */}
         <span style={{
           fontFamily: "var(--font-mono)", fontSize: "0.56rem",
-          color: "rgba(90,210,122,0.28)", letterSpacing: "0.06em",
+          color: "rgba(245,200,66,0.28)", letterSpacing: "0.06em",
           flexShrink: 0, minWidth: 28,
         }}>
           {String(index + 1).padStart(2, "0")}
@@ -330,7 +330,7 @@ function AccordionItem({
           animate={{ rotate: open ? 180 : 0 }}
           transition={{ duration: 0.28, ease }}
           style={{
-            color: open ? "#5ad27a" : "rgba(255,255,255,0.22)",
+            color: open ? "#f5c842" : "rgba(255,255,255,0.22)",
             transition: "color 0.22s ease", display: "inline-flex", flexShrink: 0,
           }}
         >
@@ -354,7 +354,7 @@ function AccordionItem({
             <div style={{ padding: "0 20px 18px 20px" }}>
               <div style={{
                 background: "#050609",
-                border: "1px solid rgba(90,210,122,0.12)",
+                border: "1px solid rgba(245,200,66,0.12)",
                 borderRadius: 10,
                 padding: "14px 16px",
                 fontFamily: "var(--font-mono)",
@@ -363,36 +363,36 @@ function AccordionItem({
               }}>
                 {/* Command line header */}
                 <div style={{
-                  color: "rgba(90,210,122,0.35)", fontSize: "0.58rem",
+                  color: "rgba(245,200,66,0.35)", fontSize: "0.58rem",
                   letterSpacing: "0.14em", marginBottom: 10,
-                  borderBottom: "1px solid rgba(90,210,122,0.07)",
+                  borderBottom: "1px solid rgba(245,200,66,0.07)",
                   paddingBottom: 8,
                 }}>
-                  <span style={{ color: "#5ad27a" }}>~</span>
+                  <span style={{ color: "#f5c842" }}>~</span>
                   {" / "}
-                  <span style={{ color: "rgba(90,210,122,0.55)" }}>intel</span>
+                  <span style={{ color: "rgba(245,200,66,0.55)" }}>intel</span>
                   {" "}
                   <span style={{ color: "rgba(255,255,255,0.22)" }}>--query &quot;{categoryKey}&quot;</span>
                 </div>
                 {/* Response */}
                 <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                   <span style={{
-                    color: "#5ad27a", flexShrink: 0,
-                    textShadow: "0 0 6px rgba(90,210,122,0.7)",
+                    color: "#f5c842", flexShrink: 0,
+                    textShadow: "0 0 6px rgba(245,200,66,0.7)",
                     fontSize: "0.80rem",
                   }}>{">"}</span>
                   <span style={{ color: "rgba(255,255,255,0.72)" }}>{answer}</span>
                 </div>
                 {/* Blinking cursor at end */}
                 <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ color: "rgba(90,210,122,0.4)", fontSize: "0.58rem" }}>$</span>
+                  <span style={{ color: "rgba(245,200,66,0.4)", fontSize: "0.58rem" }}>$</span>
                   <motion.span
                     animate={{ opacity: [1, 0, 1] }}
                     transition={{ duration: 1.1, repeat: Infinity, ease: [0, 0, 1, 1] }}
                     style={{
                       display: "inline-block", width: 8, height: 14,
-                      background: "#5ad27a", opacity: 0.7,
-                      boxShadow: "0 0 6px rgba(90,210,122,0.8)",
+                      background: "#f5c842", opacity: 0.7,
+                      boxShadow: "0 0 6px rgba(245,200,66,0.8)",
                     }}
                   />
                 </div>
@@ -427,18 +427,18 @@ function CategorySection({
           <h2 style={{
             fontFamily: "var(--font-mono)", fontWeight: 700,
             fontSize: "0.68rem", letterSpacing: "0.22em",
-            color: "#5ad27a", margin: 0, textTransform: "uppercase",
-            textShadow: "0 0 12px rgba(90,210,122,0.5)",
+            color: "#f5c842", margin: 0, textTransform: "uppercase",
+            textShadow: "0 0 12px rgba(245,200,66,0.5)",
           }}>
             {category}
           </h2>
-          <div style={{ flex: 1, height: 1, background: "rgba(90,210,122,0.08)", marginLeft: 6 }} />
+          <div style={{ flex: 1, height: 1, background: "rgba(245,200,66,0.08)", marginLeft: 6 }} />
           <span style={{
             fontFamily: "var(--font-mono)", fontSize: "0.52rem",
-            color: "rgba(90,210,122,0.35)", letterSpacing: "0.14em",
+            color: "rgba(245,200,66,0.35)", letterSpacing: "0.14em",
             textTransform: "uppercase",
-            background: "rgba(90,210,122,0.04)",
-            border: "1px solid rgba(90,210,122,0.12)",
+            background: "rgba(245,200,66,0.04)",
+            border: "1px solid rgba(245,200,66,0.12)",
             borderRadius: 999, padding: "2px 9px",
           }}>
             {questions.length} {questions.length === 1 ? "entry" : "entries"}
@@ -528,11 +528,11 @@ function ConsoleModal({
           style={{
             width: "min(680px, 90vw)",
             background: "rgba(7,8,16,0.99)",
-            border: "1px solid rgba(90,210,122,0.40)",
+            border: "1px solid rgba(245,200,66,0.40)",
             borderRadius: 16,
             boxShadow:
-              "0 0 0 1px rgba(90,210,122,0.06), " +
-              "0 0 60px rgba(90,210,122,0.12), " +
+              "0 0 0 1px rgba(245,200,66,0.06), " +
+              "0 0 60px rgba(245,200,66,0.12), " +
               "0 32px 80px rgba(0,0,0,0.75)",
             overflow: "hidden",
           }}
@@ -540,12 +540,12 @@ function ConsoleModal({
           {/* Console title bar */}
           <div style={{
             padding: "10px 18px",
-            borderBottom: "1px solid rgba(90,210,122,0.10)",
+            borderBottom: "1px solid rgba(245,200,66,0.10)",
             display: "flex", alignItems: "center", justifyContent: "space-between",
           }}>
             <span style={{
               fontFamily: "var(--font-mono)", fontSize: "0.54rem",
-              letterSpacing: "0.20em", color: "rgba(90,210,122,0.38)",
+              letterSpacing: "0.20em", color: "rgba(245,200,66,0.38)",
               textTransform: "uppercase",
             }}>
               // BOMBERMEME · INTEL DATABASE v1.0
@@ -566,12 +566,12 @@ function ConsoleModal({
             display: "flex", alignItems: "center", gap: 12,
             padding: "14px 18px",
             borderBottom: results.length > 0
-              ? "1px solid rgba(90,210,122,0.08)"
+              ? "1px solid rgba(245,200,66,0.08)"
               : "none",
           }}>
             <span style={{
               fontFamily: "var(--font-mono)", fontSize: "1rem", flexShrink: 0,
-              color: "#5ad27a", textShadow: "0 0 10px rgba(90,210,122,0.9)",
+              color: "#f5c842", textShadow: "0 0 10px rgba(245,200,66,0.9)",
             }}>$</span>
             <input
               ref={inputRef}
@@ -582,18 +582,18 @@ function ConsoleModal({
               style={{
                 flex: 1, background: "none", border: "none", outline: "none",
                 fontFamily: "var(--font-mono)", fontSize: "1rem",
-                color: "#5ad27a", letterSpacing: "0.02em",
-                caretColor: "#5ad27a",
+                color: "#f5c842", letterSpacing: "0.02em",
+                caretColor: "#f5c842",
               }}
             />
             {query && (
               <button
                 onClick={() => setQuery("")}
                 style={{
-                  background: "rgba(90,210,122,0.06)", border: "1px solid rgba(90,210,122,0.14)",
+                  background: "rgba(245,200,66,0.06)", border: "1px solid rgba(245,200,66,0.14)",
                   borderRadius: 999, width: 22, height: 22, cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "rgba(90,210,122,0.5)", fontSize: "0.75rem",
+                  color: "rgba(245,200,66,0.5)", fontSize: "0.75rem",
                 }}
               >✕</button>
             )}
@@ -621,12 +621,12 @@ function ConsoleModal({
                     style={{
                       width: "100%", display: "flex", alignItems: "flex-start",
                       gap: 12, padding: "12px 18px", background: "none",
-                      border: "none", borderBottom: "1px solid rgba(90,210,122,0.05)",
+                      border: "none", borderBottom: "1px solid rgba(245,200,66,0.05)",
                       cursor: "pointer", textAlign: "left",
                       transition: "background 0.14s ease",
                     }}
                     onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(90,210,122,0.04)";
+                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(245,200,66,0.04)";
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLButtonElement).style.background = "none";
@@ -636,7 +636,7 @@ function ConsoleModal({
                     <div style={{ flex: 1, overflow: "hidden" }}>
                       <div style={{
                         fontFamily: "var(--font-mono)", fontSize: "0.56rem",
-                        letterSpacing: "0.18em", color: "rgba(90,210,122,0.45)",
+                        letterSpacing: "0.18em", color: "rgba(245,200,66,0.45)",
                         textTransform: "uppercase", marginBottom: 3,
                       }}>{r.category}</div>
                       <div style={{
@@ -646,7 +646,7 @@ function ConsoleModal({
                     </div>
                     <span style={{
                       fontFamily: "var(--font-mono)", fontSize: "0.50rem",
-                      color: "rgba(90,210,122,0.3)", letterSpacing: "0.08em",
+                      color: "rgba(245,200,66,0.3)", letterSpacing: "0.08em",
                       flexShrink: 0, marginTop: 2,
                     }}>↵ select</span>
                   </motion.button>
@@ -664,9 +664,9 @@ function ConsoleModal({
               <div style={{
                 padding: "20px 18px",
                 fontFamily: "var(--font-mono)", fontSize: "0.75rem",
-                color: "rgba(90,210,122,0.38)", letterSpacing: "0.08em",
+                color: "rgba(245,200,66,0.38)", letterSpacing: "0.08em",
               }}>
-                <span style={{ color: "#5ad27a" }}>!</span> No intel found for &quot;{query}&quot;
+                <span style={{ color: "#f5c842" }}>!</span> No intel found for &quot;{query}&quot;
               </div>
             ) : (
               <div style={{
@@ -677,8 +677,8 @@ function ConsoleModal({
                 <div>Available commands:</div>
                 {faqData.map((cat) => (
                   <div key={cat.category} style={{ marginTop: 6, paddingLeft: 16, display: "flex", gap: 10 }}>
-                    <span style={{ color: "rgba(90,210,122,0.40)" }}>{cat.icon}</span>
-                    <span style={{ color: "rgba(90,210,122,0.55)", letterSpacing: "0.10em", textTransform: "uppercase", fontSize: "0.58rem" }}>
+                    <span style={{ color: "rgba(245,200,66,0.40)" }}>{cat.icon}</span>
+                    <span style={{ color: "rgba(245,200,66,0.55)", letterSpacing: "0.10em", textTransform: "uppercase", fontSize: "0.58rem" }}>
                       {cat.category}
                     </span>
                     <span style={{ color: "rgba(255,255,255,0.18)", fontSize: "0.58rem" }}>
@@ -744,7 +744,7 @@ export default function FAQPage() {
       <div aria-hidden className="pointer-events-none fixed inset-0" style={{
         zIndex: 0,
         background: `
-          radial-gradient(ellipse 55% 35% at 50% 0%,   rgba(90,210,122,0.05)   0%, transparent 65%),
+          radial-gradient(ellipse 55% 35% at 50% 0%,   rgba(245,200,66,0.05)   0%, transparent 65%),
           radial-gradient(ellipse 35% 45% at 5%  40%,  rgba(255,90,77,0.022) 0%, transparent 60%),
           radial-gradient(ellipse 30% 45% at 95% 55%,  rgba(127,216,255,0.018)  0%, transparent 60%),
           radial-gradient(ellipse 50% 30% at 50% 98%,  rgba(168,85,247,0.02)  0%, transparent 60%)
@@ -778,11 +778,11 @@ export default function FAQPage() {
               transition={{ duration: 0.55, ease, delay: 0.1 }}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 10,
-                background: "rgba(90,210,122,0.05)",
-                border: "1px solid rgba(90,210,122,0.18)",
+                background: "rgba(245,200,66,0.05)",
+                border: "1px solid rgba(245,200,66,0.18)",
                 borderRadius: 999, padding: "6px 18px",
                 fontFamily: "var(--font-mono)", fontSize: "0.58rem",
-                letterSpacing: "0.26em", color: "rgba(90,210,122,0.65)",
+                letterSpacing: "0.26em", color: "rgba(245,200,66,0.65)",
                 textTransform: "uppercase", marginBottom: 24,
               }}
             >
@@ -791,7 +791,7 @@ export default function FAQPage() {
                 transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
                 style={{
                   width: 5, height: 5, borderRadius: "50%",
-                  background: "#5ad27a", boxShadow: "0 0 8px #5ad27a",
+                  background: "#f5c842", boxShadow: "0 0 8px #f5c842",
                   display: "inline-block",
                 }}
               />
@@ -803,15 +803,15 @@ export default function FAQPage() {
               fontFamily: "var(--font-display)", fontWeight: 700,
               fontSize: "clamp(4rem, 13vw, 9rem)",
               lineHeight: 0.88, letterSpacing: "-0.05em",
-              background: "linear-gradient(170deg, #fff 0%, #c8ffc8 30%, #5ad27a 58%, #1aad00 85%)",
+              background: "linear-gradient(170deg, #fff 0%, #c8ffc8 30%, #f5c842 58%, #e0b633 85%)",
               WebkitBackgroundClip: "text", backgroundClip: "text",
               WebkitTextFillColor: "transparent",
               filter:
-                "drop-shadow(0 1px 0 rgba(90,210,122,0.9)) " +
+                "drop-shadow(0 1px 0 rgba(245,200,66,0.9)) " +
                 "drop-shadow(0 2px 0 rgba(20,140,0,0.7)) " +
                 "drop-shadow(0 4px 0 rgba(10,80,0,0.5)) " +
-                "drop-shadow(0 12px 40px rgba(90,210,122,0.22)) " +
-                "drop-shadow(0 0 80px rgba(90,210,122,0.14))",
+                "drop-shadow(0 12px 40px rgba(245,200,66,0.22)) " +
+                "drop-shadow(0 0 80px rgba(245,200,66,0.14))",
               marginBottom: 24,
             }}>
               INTEL
@@ -828,7 +828,7 @@ export default function FAQPage() {
               }}
             >
               Classified field intel for arena operatives.{" "}
-              <span style={{ color: "rgba(90,210,122,0.55)" }}>Read before you drop.</span>
+              <span style={{ color: "rgba(245,200,66,0.55)" }}>Read before you drop.</span>
             </motion.p>
 
             {/* Cmd+K hint */}
@@ -839,14 +839,14 @@ export default function FAQPage() {
               onClick={() => setModalOpen(true)}
               style={{
                 marginTop: 28, display: "inline-flex", alignItems: "center", gap: 10,
-                background: "rgba(90,210,122,0.04)",
-                border: "1px solid rgba(90,210,122,0.18)",
+                background: "rgba(245,200,66,0.04)",
+                border: "1px solid rgba(245,200,66,0.18)",
                 borderRadius: 10, padding: "9px 20px",
                 cursor: "pointer", transition: "background 0.18s ease, box-shadow 0.18s ease",
               }}
               whileHover={{
-                background: "rgba(90,210,122,0.07)",
-                boxShadow: "0 0 20px rgba(90,210,122,0.10)",
+                background: "rgba(245,200,66,0.07)",
+                boxShadow: "0 0 20px rgba(245,200,66,0.10)",
               }}
             >
               <SearchIcon size={14} />
@@ -858,8 +858,8 @@ export default function FAQPage() {
               </span>
               <kbd style={{
                 fontFamily: "var(--font-mono)", fontSize: "0.56rem",
-                color: "rgba(90,210,122,0.50)", background: "rgba(90,210,122,0.06)",
-                border: "1px solid rgba(90,210,122,0.16)", borderRadius: 5,
+                color: "rgba(245,200,66,0.50)", background: "rgba(245,200,66,0.06)",
+                border: "1px solid rgba(245,200,66,0.16)", borderRadius: 5,
                 padding: "2px 7px", letterSpacing: "0.08em",
               }}>⌘K</kbd>
             </motion.button>
@@ -883,7 +883,7 @@ export default function FAQPage() {
             >
               <div style={{
                 position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)",
-                color: "rgba(90,210,122,0.40)", pointerEvents: "none",
+                color: "rgba(245,200,66,0.40)", pointerEvents: "none",
                 display: "flex", alignItems: "center",
               }}>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.88rem", marginRight: 8 }}>$</span>
@@ -897,22 +897,22 @@ export default function FAQPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
                   width: "100%", background: "rgba(7,8,16,0.85)",
-                  border: "1px solid rgba(90,210,122,0.14)",
+                  border: "1px solid rgba(245,200,66,0.14)",
                   borderRadius: 10, padding: "14px 50px 14px 52px",
                   fontFamily: "var(--font-mono)", fontSize: "0.90rem",
-                  color: "#5ad27a", letterSpacing: "0.02em",
-                  outline: "none", caretColor: "#5ad27a",
+                  color: "#f5c842", letterSpacing: "0.02em",
+                  outline: "none", caretColor: "#f5c842",
                   backdropFilter: "blur(24px) saturate(1.3)",
                   WebkitBackdropFilter: "blur(24px) saturate(1.3)",
                   transition: "border-color 0.2s ease, box-shadow 0.2s ease",
                   boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
                 }}
                 onFocus={(e) => {
-                  e.target.style.borderColor = "rgba(90,210,122,0.35)";
-                  e.target.style.boxShadow = "0 0 0 3px rgba(90,210,122,0.06), 0 4px 20px rgba(0,0,0,0.3)";
+                  e.target.style.borderColor = "rgba(245,200,66,0.35)";
+                  e.target.style.boxShadow = "0 0 0 3px rgba(245,200,66,0.06), 0 4px 20px rgba(0,0,0,0.3)";
                 }}
                 onBlur={(e) => {
-                  e.target.style.borderColor = "rgba(90,210,122,0.14)";
+                  e.target.style.borderColor = "rgba(245,200,66,0.14)";
                   e.target.style.boxShadow = "0 4px 20px rgba(0,0,0,0.3)";
                 }}
                 aria-label="Search intel database"
@@ -929,8 +929,8 @@ export default function FAQPage() {
                 >
                   <kbd style={{
                     fontFamily: "var(--font-mono)", fontSize: "0.54rem",
-                    color: "rgba(90,210,122,0.40)", background: "rgba(90,210,122,0.05)",
-                    border: "1px solid rgba(90,210,122,0.12)", borderRadius: 5,
+                    color: "rgba(245,200,66,0.40)", background: "rgba(245,200,66,0.05)",
+                    border: "1px solid rgba(245,200,66,0.12)", borderRadius: 5,
                     padding: "2px 7px", letterSpacing: "0.06em",
                   }}>⌘K</kbd>
                 </button>
@@ -940,10 +940,10 @@ export default function FAQPage() {
                   onClick={() => setSearch("")}
                   style={{
                     position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
-                    background: "rgba(90,210,122,0.07)", border: "1px solid rgba(90,210,122,0.15)",
+                    background: "rgba(245,200,66,0.07)", border: "1px solid rgba(245,200,66,0.15)",
                     borderRadius: 999, width: 23, height: 23, cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    color: "rgba(90,210,122,0.55)", fontSize: "0.78rem",
+                    color: "rgba(245,200,66,0.55)", fontSize: "0.78rem",
                   }}
                   aria-label="Clear search"
                 >✕</button>
@@ -971,14 +971,14 @@ export default function FAQPage() {
                       fontSize: "0.58rem", cursor: "pointer", whiteSpace: "nowrap",
                       letterSpacing: "0.12em", textTransform: "uppercase",
                       border: isActive
-                        ? "1px solid rgba(90,210,122,0.38)"
-                        : "1px solid rgba(90,210,122,0.08)",
+                        ? "1px solid rgba(245,200,66,0.38)"
+                        : "1px solid rgba(245,200,66,0.08)",
                       background: isActive
-                        ? "rgba(90,210,122,0.10)"
-                        : "rgba(90,210,122,0.02)",
-                      color: isActive ? "#5ad27a" : "rgba(255,255,255,0.30)",
+                        ? "rgba(245,200,66,0.10)"
+                        : "rgba(245,200,66,0.02)",
+                      color: isActive ? "#f5c842" : "rgba(255,255,255,0.30)",
                       boxShadow: isActive
-                        ? "0 0 14px rgba(90,210,122,0.14), inset 0 1px 0 rgba(90,210,122,0.10)"
+                        ? "0 0 14px rgba(245,200,66,0.14), inset 0 1px 0 rgba(245,200,66,0.10)"
                         : "none",
                       transition: "all 0.16s ease",
                     }}
@@ -1002,7 +1002,7 @@ export default function FAQPage() {
               >
                 <p style={{
                   fontFamily: "var(--font-mono)", fontSize: "0.62rem",
-                  color: "rgba(90,210,122,0.40)", letterSpacing: "0.14em", textTransform: "uppercase",
+                  color: "rgba(245,200,66,0.40)", letterSpacing: "0.14em", textTransform: "uppercase",
                 }}>
                   {totalVisible === 0
                     ? "! no intel found"
@@ -1023,14 +1023,14 @@ export default function FAQPage() {
                 transition={{ duration: 0.3 }}
                 style={{
                   textAlign: "center", padding: "72px 20px",
-                  background: "rgba(90,210,122,0.02)",
-                  border: "1px solid rgba(90,210,122,0.08)",
+                  background: "rgba(245,200,66,0.02)",
+                  border: "1px solid rgba(245,200,66,0.08)",
                   borderRadius: 16,
                 }}
               >
                 <div style={{
                   fontFamily: "var(--font-mono)", fontSize: "0.70rem",
-                  color: "#5ad27a", letterSpacing: "0.14em", marginBottom: 12,
+                  color: "#f5c842", letterSpacing: "0.14em", marginBottom: 12,
                 }}>! ERROR 404 — INTEL NOT FOUND</div>
                 <p style={{ fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "rgba(255,255,255,0.28)" }}>
                   Try different keywords or{" "}
@@ -1038,7 +1038,7 @@ export default function FAQPage() {
                     onClick={() => { setSearch(""); setActiveCategory("All"); }}
                     style={{
                       background: "none", border: "none", cursor: "pointer",
-                      color: "#5ad27a", fontFamily: "var(--font-mono)", fontSize: "inherit",
+                      color: "#f5c842", fontFamily: "var(--font-mono)", fontSize: "inherit",
                       textDecoration: "underline", textUnderlineOffset: 3, padding: 0,
                     }}
                   >clear filters</button>
@@ -1069,16 +1069,16 @@ export default function FAQPage() {
             transition={{ duration: 0.6, ease }}
             style={{
               marginTop: 72, textAlign: "center",
-              background: "rgba(90,210,122,0.02)",
-              border: "1px solid rgba(90,210,122,0.10)",
+              background: "rgba(245,200,66,0.02)",
+              border: "1px solid rgba(245,200,66,0.10)",
               borderRadius: 20, padding: "44px 32px",
               backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-              boxShadow: "0 8px 40px rgba(0,0,0,0.40), inset 0 1px 0 rgba(90,210,122,0.05)",
+              boxShadow: "0 8px 40px rgba(0,0,0,0.40), inset 0 1px 0 rgba(245,200,66,0.05)",
             }}
           >
             <div style={{
               fontFamily: "var(--font-mono)", fontSize: "0.60rem",
-              letterSpacing: "0.20em", color: "rgba(90,210,122,0.40)",
+              letterSpacing: "0.20em", color: "rgba(245,200,66,0.40)",
               textTransform: "uppercase", marginBottom: 12,
             }}>// STILL NEED BACKUP?</div>
             <h3 style={{
@@ -1101,20 +1101,20 @@ export default function FAQPage() {
                 style={{
                   display: "inline-flex", alignItems: "center", gap: 8,
                   padding: "11px 28px", borderRadius: 999,
-                  background: "linear-gradient(135deg, #5fff3a 0%, #5ad27a 45%, #1fd600 100%)",
-                  border: "1px solid rgba(90,210,122,0.5)",
+                  background: "linear-gradient(135deg, #ffd95e 0%, #f5c842 45%, #e0b633 100%)",
+                  border: "1px solid rgba(245,200,66,0.5)",
                   color: "#030f01", fontFamily: "var(--font-display)",
                   fontWeight: 700, fontSize: "0.88rem", textDecoration: "none",
                   letterSpacing: "0.01em",
-                  boxShadow: "0 4px 22px rgba(90,210,122,0.35), 0 0 60px rgba(90,210,122,0.12)",
+                  boxShadow: "0 4px 22px rgba(245,200,66,0.35), 0 0 60px rgba(245,200,66,0.12)",
                   transition: "box-shadow 0.2s ease, transform 0.1s ease",
                 }}
                 onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 6px 32px rgba(90,210,122,0.55)";
+                  (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 6px 32px rgba(245,200,66,0.55)";
                   (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-1px)";
                 }}
                 onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 4px 22px rgba(90,210,122,0.35)";
+                  (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 4px 22px rgba(245,200,66,0.35)";
                   (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(0)";
                 }}
               >

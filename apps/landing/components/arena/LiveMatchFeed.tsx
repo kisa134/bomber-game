@@ -57,7 +57,7 @@ function SpriteChip({ char, handle }: { char: string; handle: string }) {
           style={{
             objectFit:   "contain",
             imageRendering: "pixelated",
-            filter:      "drop-shadow(0 0 4px rgba(90,210,122,0.4))",
+            filter:      "drop-shadow(0 0 4px rgba(245,200,66,0.4))",
             flexShrink:  0,
           }}
         />
@@ -81,7 +81,7 @@ function SpriteChip({ char, handle }: { char: string; handle: string }) {
 /* ── Single feed item ───────────────────────────────────────────────────── */
 function FeedItem(ev: KillEvent) {
   const isInternational = ev.arena === "THE INT.";
-  const mmrColor = ev.mmrDelta > 40 ? "#7fd8ff" : "#5ad27a";
+  const mmrColor = ev.mmrDelta > 40 ? "#7fd8ff" : "#f5c842";
 
   return (
     <span className="mx-6 inline-flex items-center gap-2.5" style={{ flexShrink: 0 }}>
@@ -115,8 +115,8 @@ function FeedItem(ev: KillEvent) {
           fontFamily: "var(--font-mono)",
           fontSize:   "0.74rem",
           fontWeight: 700,
-          color:      "#5ad27a",
-          textShadow: "0 0 10px rgba(90,210,122,0.7)",
+          color:      "#f5c842",
+          textShadow: "0 0 10px rgba(245,200,66,0.7)",
         }}
       >
         {ev.amount}

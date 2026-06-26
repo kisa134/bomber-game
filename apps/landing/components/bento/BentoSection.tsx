@@ -27,13 +27,13 @@ export function BentoSection() {
             <span
               style={{
                 width: "6px", height: "6px", borderRadius: "50%",
-                background: "#5ad27a", boxShadow: "0 0 8px rgba(90,210,122,0.9)",
+                background: "#f5c842", boxShadow: "0 0 8px rgba(245,200,66,0.9)",
                 display: "inline-block", animation: "neon-pulse 2s ease-in-out infinite",
               }}
             />
             <span
               className="text-[10px] font-bold uppercase tracking-[0.22em]"
-              style={{ fontFamily: "var(--font-mono)", color: "rgba(90,210,122,0.7)" }}
+              style={{ fontFamily: "var(--font-mono)", color: "rgba(245,200,66,0.7)" }}
             >
               THE ARENA
             </span>
@@ -41,11 +41,11 @@ export function BentoSection() {
           <h2
             className="esports-heading text-3xl sm:text-4xl lg:text-5xl"
             style={{
-              background: "linear-gradient(170deg, #ffffff 0%, #5ad27a 45%, #7fd8ff 100%)",
+              background: "linear-gradient(170deg, #ffffff 0%, #f5c842 45%, #7fd8ff 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
-              filter: "drop-shadow(0 0 30px rgba(90,210,122,0.25))",
+              filter: "drop-shadow(0 0 30px rgba(245,200,66,0.25))",
             }}
           >
             BUILT DIFFERENT

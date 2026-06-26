@@ -25,7 +25,7 @@ const PILLARS: PillarCard[] = [
     title:   "TRUE SKILL",
     titleHl: "NO LUCK",
     body:    "ELO-based MMR. Anti-smurf detection. Season leaderboards. Performance-based rank decay — only the consistently skilled climb.",
-    color:   "#5ad27a",
+    color:   "#f5c842",
     stats:   [
       { value: "ELO + MMR", label: "RATING SYSTEM" },
       { value: "Anti-Smurf", label: "DETECTION" },

@@ -103,7 +103,7 @@ export function BottomNav() {
               justifyContent: "center",
               gap:            "16px",
               background:     "rgba(7,8,16,0.82)",
-              borderTop:      "1px solid rgba(90,210,122,0.08)",
+              borderTop:      "1px solid rgba(245,200,66,0.08)",
               backdropFilter: "blur(12px)",
               WebkitBackdropFilter: "blur(12px)",
               fontSize:       "0.58rem",
@@ -113,7 +113,7 @@ export function BottomNav() {
             }}
           >
             <span style={{ color: "rgba(255,255,255,0.35)" }}>{`$${TOKEN_TICKER}`}</span>
-            <span style={{ color: "#5ad27a", textShadow: "0 0 8px rgba(90,210,122,0.6)" }}>
+            <span style={{ color: "#f5c842", textShadow: "0 0 8px rgba(245,200,66,0.6)" }}>
               {fmtBalance(bmbBalance)}
             </span>
             <span style={{ color: "rgba(255,255,255,0.18)" }}>|</span>
@@ -150,9 +150,9 @@ export function BottomNav() {
                     width:        "7px",
                     height:       "7px",
                     borderRadius: "50%",
-                    background:   "#5ad27a",
+                    background:   "#f5c842",
                     border:       "1.5px solid #070810",
-                    boxShadow:    "0 0 6px rgba(90,210,122,0.9)",
+                    boxShadow:    "0 0 6px rgba(245,200,66,0.9)",
                   }}
                 />
               )}
