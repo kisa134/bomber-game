@@ -8362,6 +8362,23 @@ button.big {
 }
 /* Reveal smoothly from darkness when you hover the corner. */
 #now-playing:hover { opacity: 1; transform: none; }
+
+/* Easter-egg confetti / emoji rain. */
+.egg-confetti {
+  position: fixed;
+  top: -40px;
+  z-index: 99999;
+  pointer-events: none;
+  user-select: none;
+  animation-name: eggFall;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+}
+@keyframes eggFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(112vh) rotate(680deg); opacity: 0.85; }
+}
 #now-playing.show {
   opacity: 1;
   transform: translateY(0);

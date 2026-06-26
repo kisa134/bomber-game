@@ -4661,6 +4661,44 @@ document.querySelectorAll<HTMLElement>(".glass-btn").forEach((b) => {
   b.addEventListener("click", () => sparkBurst(b, 20));
 });
 
+// ── Easter eggs ────────────────────────────────────────────────────────────
+/** Rain a burst of emoji down the whole screen. */
+function emojiRain(set: string[], count = 44): void {
+  for (let i = 0; i < count; i++) {
+    const e = document.createElement("div");
+    e.className = "egg-confetti";
+    e.textContent = set[Math.floor(Math.random() * set.length)];
+    e.style.left = `${Math.random() * 100}vw`;
+    e.style.fontSize = `${16 + Math.random() * 26}px`;
+    e.style.animationDuration = `${1.8 + Math.random() * 1.9}s`;
+    e.style.animationDelay = `${Math.random() * 0.5}s`;
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), 4400);
+  }
+}
+// 1) Konami code (↑↑↓↓←→←→ b a) → meme explosion.
+const KONAMI = ["arrowup", "arrowup", "arrowdown", "arrowdown", "arrowleft", "arrowright", "arrowleft", "arrowright", "b", "a"];
+let konamiIdx = 0;
+window.addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  konamiIdx = k === KONAMI[konamiIdx] ? konamiIdx + 1 : k === KONAMI[0] ? 1 : 0;
+  if (konamiIdx === KONAMI.length) {
+    konamiIdx = 0;
+    emojiRain(["💣", "🔥", "💎", "🤑", "🚀", "😎", "🐸"], 64);
+    assets.rewardDing();
+    renderer?.shake(12, 420);
+    showCallout("GODLIKE!");
+  }
+});
+// 2) Triple-click the result title (YOU WIN! / DRAW!) → celebration burst.
+let titleClicks = 0, titleClickTimer = 0;
+document.getElementById("result-title")?.addEventListener("click", () => {
+  titleClicks++;
+  window.clearTimeout(titleClickTimer);
+  titleClickTimer = window.setTimeout(() => { titleClicks = 0; }, 600);
+  if (titleClicks >= 3) { titleClicks = 0; emojiRain(["🎉", "🏆", "💥", "✨", "💰", "👑"], 56); assets.rewardDing(); }
+});
+
 // Stylish warm-spark burst when the main PLAY button is pressed.
 function burstButton(btn: HTMLElement): void {
   const r = btn.getBoundingClientRect();
