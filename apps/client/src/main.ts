@@ -657,7 +657,7 @@ function announceResult(winnerId: number): void {
     title = "🤝 Draw!";
     assets.play("draw");
   } else if (winnerId === state.myId) {
-    title = "🏆 You win!";
+    title = "You win!";
     assets.play("victory");
   } else {
     title = `${state.nameOf(winnerId)} wins`;

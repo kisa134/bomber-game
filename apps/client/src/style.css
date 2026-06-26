@@ -817,7 +817,17 @@ button.glass-btn.primary:hover {
    and a drop-shadow. Neutralise all three. */
 #result .result-card,
 #result-prize { order: 0; align-self: center; }
-#result .result-card { box-shadow: none; } /* no own shadow under the standings block */
+/* No outer shell on the standings — just the place rows on the rating-bar width. */
+#result .result-card {
+  box-shadow: none;
+  background: none;
+  border: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 0;
+}
+#result .result-card::after { display: none; } /* kill the info-card refraction overlay */
+#result .result-card-h { margin: 0 0 8px 2px; }
 /* Wider lvl + rating bars so the fill is satisfying to watch — and everything UNDER
    the bars (standings, buttons, footer) matches that same width. */
 .result-lvl-wrap,
@@ -1096,20 +1106,23 @@ button.glass-btn.primary:hover {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--bg2);
-  border: 1px solid transparent;
-  border-radius: 8px;
-  padding: 9px 12px;
+  /* Light glass pill — same family as the Share / Leave action buttons. */
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  padding: 11px 14px;
   font-size: 0.95rem;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
 }
-.rb-row.win {
-  border-color: var(--accent);
-  background: rgba(255, 204, 51, 0.1);
+/* 1st keeps a persistent soft gold; 2nd/3rd light up silver/bronze ONLY on hover;
+   4th+ (no place class) stays neutral — no highlight. */
+.rb-row.place-1 {
+  border-color: rgba(255, 210, 63, 0.42);
+  background: rgba(255, 210, 63, 0.07);
 }
-.rb-row.me {
-  border-color: rgba(255, 204, 51, 0.5);
-  background: rgba(255, 204, 51, 0.06);
-}
+.rb-row.place-1:hover { box-shadow: 0 0 22px -2px rgba(255, 210, 63, 0.5); border-color: rgba(255, 210, 63, 0.62); }
+.rb-row.place-2:hover { box-shadow: 0 0 20px -2px rgba(216, 221, 230, 0.42); border-color: rgba(216, 221, 230, 0.55); }
+.rb-row.place-3:hover { box-shadow: 0 0 20px -2px rgba(224, 154, 90, 0.48); border-color: rgba(224, 154, 90, 0.6); }
 .rb-row.me .rb-name {
   font-weight: 800;
 }
