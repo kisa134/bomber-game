@@ -1,127 +1,83 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { TOKEN_TICKER } from "@/lib/token";
+import { GAME_URL } from "@/lib/gameApi";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export function FinalCta() {
   return (
-    <section className="relative w-full px-5 py-20 sm:px-8" style={{ background: "transparent" }}>
-      <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        whileInView={{ opacity: 1, y: 0 }}
+    <section
+      className="relative flex w-full items-center overflow-hidden"
+      style={{
+        minHeight: "100vh",
+        background: "var(--color-bg-4, #07060d)",
+        paddingInline: "var(--section-px, 1.5rem)",
+        paddingBlock: "clamp(4rem, 8vw, 8rem)",
+      }}
+    >
+      {/* faint overhead spotlight */}
+      <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse 55% 45% at 30% 30%, rgba(245,200,66,0.04) 0%, transparent 60%)" }} />
+
+      {/* mirrored fighter on the right, dim */}
+      <motion.img
+        src="/sprites/skin_3.webp"
+        alt=""
+        aria-hidden
+        initial={{ opacity: 0, x: 40 }}
+        whileInView={{ opacity: 0.4, x: 0 }}
         viewport={{ once: true, margin: "-80px" }}
-        transition={{ duration: 0.8, ease }}
-        className="relative mx-auto max-w-5xl overflow-hidden p-10 text-center sm:p-14 lg:p-16"
-        style={{
-          borderRadius: "22px",
-          background: "linear-gradient(135deg, #ff5a1f 0%, #ff8a3c 100%)",
-          boxShadow: "0 40px 120px rgba(255,90,31,0.30), inset 0 1px 0 rgba(255,255,255,0.25)",
-        }}
-      >
-        {/* Dot-matrix overlay */}
-        <div className="dot-matrix pointer-events-none absolute inset-0 opacity-[0.18]" aria-hidden />
+        transition={{ duration: 1, ease }}
+        className="pointer-events-none absolute bottom-0 right-0 hidden lg:block"
+        style={{ height: "82vh", width: "auto", objectFit: "contain", transform: "scaleX(-1)", imageRendering: "pixelated", filter: "drop-shadow(0 24px 48px rgba(0,0,0,0.7))", zIndex: 1 }}
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+      />
 
-        {/* Soft top sheen */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(ellipse 70% 60% at 50% 0%, rgba(255,255,255,0.22) 0%, transparent 60%)",
-          }}
-        />
-
-        <div className="relative z-10 flex flex-col items-center">
-          {/* Eyebrow */}
-          <span
-            className="mb-5 inline-flex items-center gap-2 rounded-full px-3.5 py-1.5"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.6rem",
-              fontWeight: 700,
-              letterSpacing: "0.22em",
-              textTransform: "uppercase",
-              color: "#0a0b0e",
-              background: "rgba(0,0,0,0.18)",
-              border: "1px solid rgba(0,0,0,0.20)",
-            }}
-          >
-            ● Free to play · pump.fun arena
+      <div className="relative mx-auto w-full max-w-[1200px]" style={{ zIndex: 10 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.8, ease }}
+          className="flex max-w-[760px] flex-col items-start"
+        >
+          <span style={{ fontFamily: "var(--font-pixel)", fontSize: "0.6rem", letterSpacing: "0.06em", color: "rgba(245,200,66,0.85)", marginBottom: "1.5rem" }}>
+            LAST CALL
           </span>
 
-          {/* Huge black heading */}
           <h2
-            className="detonate-heading"
             style={{
-              fontSize: "clamp(2.6rem, 9vw, 6rem)",
-              color: "#0a0b0e",
-              textShadow: "0 2px 0 rgba(255,255,255,0.18)",
+              fontFamily: "var(--font-display)",
+              fontWeight: 800,
+              textTransform: "uppercase",
+              fontSize: "var(--text-hero, clamp(3.5rem, 8vw, 9rem))",
+              lineHeight: 0.86,
+              letterSpacing: "-0.01em",
+              color: "#fff",
+              margin: 0,
             }}
           >
-            Winner takes
-            <br />
-            the pot.
+            JOIN THE<br />ARENA.
           </h2>
 
-          <p
-            className="mt-5 max-w-md"
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: "0.78rem",
-              letterSpacing: "0.06em",
-              lineHeight: 1.6,
-              color: "rgba(10,11,14,0.72)",
-            }}
-          >
-            Last bomber standing scoops the entire prize pool. No house edge on the
-            outcome. Drop in, blow up your friends, walk away rich.
+          <p style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-base, 1rem)", lineHeight: 1.6, color: "var(--color-text-secondary, rgba(255,255,255,0.6))", margin: "1.5rem 0 2rem", maxWidth: "42ch" }}>
+            Free to play, browser-native, provably fair. The next pot is already forming.
           </p>
 
-          {/* CTA buttons */}
-          <div className="mt-9 flex w-full flex-col items-stretch justify-center gap-3 sm:w-auto sm:flex-row">
-            <a
-              href="http://bombermeme.fun/play"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl px-9 py-4 text-center transition-transform duration-150 hover:scale-[1.03] active:scale-95"
-              style={{
-                fontFamily: "var(--font-heading)",
-                fontWeight: 900,
-                fontStyle: "italic",
-                textTransform: "uppercase",
-                letterSpacing: "0.02em",
-                fontSize: "1.05rem",
-                color: "#ff5a1f",
-                background: "#0a0b0e",
-                boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
-              }}
-            >
-              ⚡ Play Now
+          <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto">
+            <a href={`${GAME_URL}/play`} target="_blank" rel="noopener noreferrer"
+              className="cta-yellow inline-flex items-center justify-center rounded-md px-9"
+              style={{ height: "64px", fontSize: "1.05rem" }}>
+              ▶ Play Now
             </a>
-            <a
-              href="https://pump.fun/coin/2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-xl px-9 py-4 text-center transition-transform duration-150 hover:scale-[1.03] active:scale-95"
-              style={{
-                fontFamily: "var(--font-heading)",
-                fontWeight: 900,
-                fontStyle: "italic",
-                textTransform: "uppercase",
-                letterSpacing: "0.02em",
-                fontSize: "1.05rem",
-                color: "#0a0b0e",
-                background: "rgba(10,11,14,0.14)",
-                border: "1px solid rgba(10,11,14,0.30)",
-              }}
-            >
-              💎 Buy {`$${TOKEN_TICKER}`}
+            <a href="/tournaments"
+              className="cta-ghost inline-flex items-center justify-center rounded-md px-9"
+              style={{ height: "52px", fontSize: "0.9rem" }}>
+              View Leaderboard
             </a>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </section>
   );
 }
