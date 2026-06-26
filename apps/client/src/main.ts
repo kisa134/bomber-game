@@ -2365,14 +2365,16 @@ async function openLeaderboard(): Promise<void> {
       // Always show the league badge + name; the score column depends on the board.
       const score =
         lbBoard === "tokens"
-          ? `💎 ${tokWhole(r.tokens_won ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
+          ? `💎 ${tokWhole(r.tokens_won ?? 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}<span class="lb-usd">${usdOf(tokWhole(r.tokens_won ?? 0))}</span>`
           : lbBoard === "chips"
             ? `🪙 ${(r.chips_won ?? 0).toLocaleString()}`
             : `${r.rating}`;
+      const xpEl = el("span", "lb-xp", "");
+      xpEl.innerHTML = score; // score may carry a ≈$/◎ <span>
       li.append(
         el("span", "lb-rank", medal),
         el("span", "lb-name", `${lg.emoji} ${r.name || shortAddr(r.wallet)}${isMe ? " (you)" : ""}`),
-        el("span", "lb-xp", score),
+        xpEl,
       );
       li.style.cursor = "pointer";
       li.addEventListener("click", () => void openPublicProfile(r.wallet));
@@ -4524,7 +4526,7 @@ async function openReferral(): Promise<void> {
   const network = s.network ?? [];
   const net = network.reduce((a, b) => a + b, 0);
   kpis.innerHTML =
-    kpi("Earned", `💎 ${s.earned.toLocaleString()}`, "token") +
+    kpi("Earned", `💎 ${s.earned.toLocaleString()}<span class="ref-kpi-usd">${usdOf(s.earned)}</span>`, "token") +
     kpi("Direct refs", s.direct.toLocaleString()) +
     kpi("Network", net.toLocaleString());
   renderLevels(pcts, network);
@@ -4534,17 +4536,31 @@ async function openReferral(): Promise<void> {
     empty.classList.remove("hidden");
   } else {
     empty.classList.add("hidden");
-    const max = Math.max(1, ...network);
-    tree.innerHTML = pcts
-      .map((_pct, i) => {
-        const c = network[i] ?? 0;
-        return (
-          `<div class="ref-treerow"><span class="ref-treelvl">L${i + 1}</span>` +
-          `<div class="ref-treebar"><div class="ref-treefill" style="width:${(c / max) * 100}%"></div></div>` +
-          `<span class="ref-treecnt">${c.toLocaleString()}</span></div>`
-        );
-      })
-      .join("");
+    // Referral network as a pyramid graph: YOU at the top, each level a node sized by how
+    // many people are on it, branching down and connected by a glowing spine.
+    const maxC = Math.max(1, ...network);
+    const cx = 50, top = 26, rowH = 52, W = 320;
+    const svgH = top + pcts.length * rowH + 14;
+    let lines = "";
+    let nodes = `<circle cx="${cx}" cy="${top}" r="15" fill="url(#rpYou)" stroke="#ffd84d" stroke-width="1.5"/><text x="${cx}" y="${top + 4}" text-anchor="middle" class="rp-you">YOU</text>`;
+    pcts.forEach((pct, i) => {
+      const y = top + (i + 1) * rowH;
+      const c = network[i] ?? 0;
+      const k = c / maxC;
+      const rad = 9 + k * 17;
+      const yPrev = top + i * rowH + (i === 0 ? 15 : 0);
+      lines += `<line x1="${cx}" y1="${yPrev}" x2="${cx}" y2="${(y - rad).toFixed(1)}" stroke="rgba(160,110,255,0.45)" stroke-width="2"/>`;
+      nodes +=
+        `<circle cx="${cx}" cy="${y}" r="${rad.toFixed(1)}" fill="rgba(160,110,255,${(0.18 + 0.5 * k).toFixed(2)})" stroke="#a06eff" stroke-width="1.5"/>` +
+        `<text x="${cx}" y="${(y + 4).toFixed(1)}" text-anchor="middle" class="rp-c">${c}</text>` +
+        `<text x="${(cx + rad + 12).toFixed(1)}" y="${(y - 2).toFixed(1)}" class="rp-l">L${i + 1} · ${(c).toLocaleString()} ${c === 1 ? "person" : "people"}</text>` +
+        `<text x="${(cx + rad + 12).toFixed(1)}" y="${(y + 13).toFixed(1)}" class="rp-p">${pct}% of rake</text>`;
+    });
+    tree.innerHTML =
+      `<svg class="ref-pyramid" viewBox="0 0 ${W} ${svgH}" aria-hidden="true">` +
+      `<defs><radialGradient id="rpYou"><stop offset="0" stop-color="#ffe9a8"/><stop offset="1" stop-color="#f0a92a"/></radialGradient></defs>` +
+      lines + nodes +
+      `</svg>`;
   }
   calcRakePct = s.rakePct ?? 0;
   calcL1Pct = pcts[0] ?? 10;
@@ -4567,8 +4583,8 @@ function updateCalc(): void {
   }
   const perDay = refs * matches * stake * (calcRakePct / 100) * (calcL1Pct / 100);
   out.innerHTML =
-    `<div class="calc-result"><span class="calc-big">${Math.round(perDay).toLocaleString()}</span><span class="calc-tick">${TOKEN_TICKER} / day</span></div>` +
-    `<div class="calc-sub">≈ <b>${Math.round(perDay * 30).toLocaleString()}</b>/month · <b>${Math.round(perDay * 365).toLocaleString()}</b>/year</div>` +
+    `<div class="calc-result"><span class="calc-big">${Math.round(perDay).toLocaleString()}</span><span class="calc-tick">${TOKEN_TICKER} / day<span class="calc-usd">${usdOf(perDay)}</span></span></div>` +
+    `<div class="calc-sub">≈ <b>${Math.round(perDay * 30).toLocaleString()}</b>/month<span class="calc-usd">${usdOf(perDay * 30)}</span> · <b>${Math.round(perDay * 365).toLocaleString()}</b>/year</div>` +
     `<div class="calc-note">from direct (L1) referrals · ${calcL1Pct}% of the ${calcRakePct}% rake · deeper levels add more</div>`;
 }
 

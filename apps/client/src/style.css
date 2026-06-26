@@ -683,10 +683,19 @@ button.glass-btn.primary:hover {
 .cs-val .cs-usd { font-size: 0.8rem; font-weight: 600; color: var(--good, #5fe08a); margin-left: 6px; }
 /* SOL value-unit selected → the ≈ balance conversions render in the Solana brand gradient
    (purple → mint) instead of the green $ colour. */
+.lb-usd, .ref-kpi-usd, .calc-usd {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--good, #5fe08a);
+  margin-left: 4px;
+}
 body.unit-sol .token-usd,
 body.unit-sol .td-conv,
 body.unit-sol .cs-val .cs-usd,
-body.unit-sol .prize-usd {
+body.unit-sol .prize-usd,
+body.unit-sol .lb-usd,
+body.unit-sol .ref-kpi-usd,
+body.unit-sol .calc-usd {
   background: linear-gradient(90deg, #9945ff, #19c2ff 45%, #14f195);
   -webkit-background-clip: text;
   background-clip: text;
@@ -3680,6 +3689,12 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .calc-sub b { color: var(--cream); }
 .calc-note { text-align: center; font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
 .ref-card-btn { width: 100%; margin-top: 8px; }
+/* Referral network pyramid graph. */
+.ref-pyramid { width: 100%; height: auto; display: block; }
+.rp-you { font-size: 9px; font-weight: 800; fill: #2a1a05; }
+.rp-c { font-size: 11px; font-weight: 800; fill: #fff; }
+.rp-l { font-size: 11px; font-weight: 700; fill: var(--cream); }
+.rp-p { font-size: 9px; fill: var(--muted); }
 /* Settings bug-report form. */
 .bug-form { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .bug-form textarea {
