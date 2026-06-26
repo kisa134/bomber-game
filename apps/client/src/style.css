@@ -8160,63 +8160,67 @@ button.big {
 }
 
 /* ── Fireflies-under-glass + soft inner glow on the hub profile / season cards ─ */
-.passport-card > :not(.lg-fireflies),
-.info-card > :not(.lg-fireflies) { position: relative; z-index: 1; }
-.lg-fireflies {
+.passport-card > :not(.lg-fireflies):not(.lg-frost),
+.info-card > :not(.lg-fireflies):not(.lg-frost) { position: relative; z-index: 1; }
+.lg-fireflies,
+.lg-frost {
   position: absolute;
-  inset: 7px; /* INSIDE the edges (not on them) → soft + natural */
+  inset: 7px; /* INSIDE the edges → soft + natural, never on the border */
   border-radius: 9px;
-  overflow: hidden;
   pointer-events: none;
-  z-index: 0;
   opacity: 0;
-  transition: opacity 0.45s ease;
+  transition: opacity 0.5s ease;
+}
+.lg-fireflies { overflow: hidden; z-index: 0; }
+/* Frosted pane OVER the motes → the glass "blurs" the fireflies under it. */
+.lg-frost {
+  z-index: 0;
+  backdrop-filter: blur(2.5px);
+  -webkit-backdrop-filter: blur(2.5px);
 }
 .passport-card:hover .lg-fireflies,
-.info-card.season-glow:hover .lg-fireflies { opacity: 1; }
+.passport-card:hover .lg-frost,
+.info-card.season-glow:hover .lg-fireflies,
+.info-card.season-glow:hover .lg-frost { opacity: 1; }
+/* Tiny glowing motes — transform + opacity driven by JS (mouse-gravity physics). */
 .lg-fireflies i {
   position: absolute;
-  width: 3px;
-  height: 3px;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 2px;
   border-radius: 50%;
   background: #fff;
-  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 5px 1px rgba(255, 255, 255, 0.85), 0 0 1px 0 #fff;
   opacity: 0;
-  animation: fireflyTwinkle 5.5s ease-in-out infinite;
+  will-change: transform, opacity;
 }
-.lg-fireflies i:nth-child(1) { left: 14%; top: 28%; animation-delay: 0s; }
-.lg-fireflies i:nth-child(2) { left: 72%; top: 18%; animation-delay: 0.8s; }
-.lg-fireflies i:nth-child(3) { left: 40%; top: 62%; animation-delay: 1.6s; }
-.lg-fireflies i:nth-child(4) { left: 86%; top: 54%; animation-delay: 2.3s; }
-.lg-fireflies i:nth-child(5) { left: 24%; top: 78%; animation-delay: 3.1s; }
-.lg-fireflies i:nth-child(6) { left: 58%; top: 40%; animation-delay: 3.9s; }
-.lg-fireflies i:nth-child(7) { left: 8%; top: 56%; animation-delay: 4.6s; }
-@keyframes fireflyTwinkle {
-  0%, 100% { opacity: 0; transform: translate(0, 0) scale(0.7); }
-  25% { opacity: 0.95; transform: translate(5px, -6px) scale(1); }
-  55% { opacity: 0.35; transform: translate(-4px, 5px) scale(0.85); }
-  80% { opacity: 0.9; transform: translate(7px, 3px) scale(1.05); }
+.info-card.season-glow .lg-fireflies i {
+  background: #d7bcff;
+  box-shadow: 0 0 5px 1px rgba(176, 130, 255, 0.9), 0 0 1px 0 #e9dcff;
 }
-/* Soft INNER glow (within the edges) on hover — profile card. */
-.passport-card:hover {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.75),
-    inset 0 0 32px -6px rgba(255, 255, 255, 0.22),
-    0 14px 34px rgba(0, 0, 0, 0.34);
+/* Soft INNER glow (well within the edges) that fades in smoothly + flickers gently
+   like a warming lightbulb. */
+.passport-card { transition: box-shadow 0.5s ease; }
+.passport-card:hover { animation: cardGlowFlicker 3.4s ease-in-out infinite; }
+@keyframes cardGlowFlicker {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), inset 0 0 36px -8px rgba(255,255,255,0.24), 0 14px 34px rgba(0,0,0,0.34); }
+  6% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), inset 0 0 28px -8px rgba(255,255,255,0.14), 0 14px 34px rgba(0,0,0,0.34); }
+  10% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), inset 0 0 46px -6px rgba(255,255,255,0.34), 0 14px 34px rgba(0,0,0,0.34); }
+  14% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), inset 0 0 36px -8px rgba(255,255,255,0.24), 0 14px 34px rgba(0,0,0,0.34); }
+  52% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.8), inset 0 0 42px -6px rgba(255,255,255,0.3), 0 14px 34px rgba(0,0,0,0.34); }
 }
-/* Season card → PURPLE on hover (like the tournaments card) + inner glow; stronger
-   glow + full fireflies on press. */
+.info-card.season-glow { transition: box-shadow 0.5s ease, border-color 0.5s ease; }
 .info-card.season-glow:hover {
-  border-color: rgba(168, 120, 255, 0.32);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 0 40px -6px rgba(150, 90, 255, 0.5),
-    0 14px 34px rgba(60, 20, 120, 0.4);
+  border-color: rgba(168, 120, 255, 0.4);
+  animation: seasonGlowFlicker 3.4s ease-in-out infinite;
 }
-.info-card.season-glow:active .lg-fireflies { opacity: 1; }
+@keyframes seasonGlowFlicker {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 0 44px -8px rgba(160,100,255,0.55), 0 14px 34px rgba(60,20,120,0.4); }
+  8% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 0 32px -8px rgba(160,100,255,0.38), 0 14px 34px rgba(60,20,120,0.4); }
+  12% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.65), inset 0 0 58px -6px rgba(170,110,255,0.72), 0 14px 34px rgba(60,20,120,0.4); }
+  16% { box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), inset 0 0 44px -8px rgba(160,100,255,0.55), 0 14px 34px rgba(60,20,120,0.4); }
+}
 .info-card.season-glow:active {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.7),
-    inset 0 0 54px -4px rgba(165, 105, 255, 0.72),
-    0 14px 34px rgba(70, 25, 130, 0.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7), inset 0 0 62px -4px rgba(175,115,255,0.82), 0 14px 34px rgba(70,25,130,0.5) !important;
 }

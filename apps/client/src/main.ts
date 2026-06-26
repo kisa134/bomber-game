@@ -4927,6 +4927,62 @@ function buildEmoteBar(id: string): void {
 buildEmoteBar("room-emotes");
 buildEmoteBar("game-emotes");
 
+// Hub card fireflies: tiny, twinkling motes that gravitate toward the cursor under a
+// frosted glass pane (profile + season cards). The rAF loop runs ONLY while hovered,
+// so it's free when idle. White on the profile, purple on the season card.
+function initCardFireflies(): void {
+  document.querySelectorAll<HTMLElement>(".lg-fireflies").forEach((layer) => {
+    const card = layer.parentElement;
+    if (!card) return;
+    // Frosted pane so the glass blurs the motes beneath it.
+    if (!card.querySelector(".lg-frost")) {
+      const frost = document.createElement("div");
+      frost.className = "lg-frost";
+      layer.insertAdjacentElement("afterend", frost);
+    }
+    const N = liteMode ? 7 : 12;
+    const dots = Array.from({ length: N }, () => ({
+      x: Math.random(), y: Math.random(), vx: 0, vy: 0,
+      ph: Math.random() * 6.283, sp: 1.4 + Math.random() * 2.2,
+    }));
+    layer.innerHTML = "";
+    const els = dots.map(() => {
+      const el = document.createElement("i");
+      layer.appendChild(el);
+      return el;
+    });
+    let mx = 0.5, my = 0.5, hovering = false, raf = 0, boost = 1;
+    const tick = (t: number): void => {
+      const w = card.clientWidth, h = card.clientHeight;
+      for (let i = 0; i < dots.length; i++) {
+        const d = dots[i];
+        // Gentle gravity toward the cursor + weightless brownian wander.
+        d.vx += (mx - d.x) * 0.0011 + (Math.random() - 0.5) * 0.0018;
+        d.vy += (my - d.y) * 0.0011 + (Math.random() - 0.5) * 0.0018;
+        d.vx *= 0.9; d.vy *= 0.9;
+        d.x += d.vx; d.y += d.vy;
+        if (d.x < 0.03) { d.x = 0.03; d.vx = -d.vx * 0.5; }
+        if (d.x > 0.97) { d.x = 0.97; d.vx = -d.vx * 0.5; }
+        if (d.y < 0.05) { d.y = 0.05; d.vy = -d.vy * 0.5; }
+        if (d.y > 0.95) { d.y = 0.95; d.vy = -d.vy * 0.5; }
+        const tw = 0.3 + 0.7 * Math.abs(Math.sin(t * 0.001 * d.sp + d.ph)); // sparkle
+        els[i].style.transform = `translate(${(d.x * w).toFixed(1)}px, ${(d.y * h).toFixed(1)}px)`;
+        els[i].style.opacity = String(Math.min(1, tw * boost));
+      }
+      raf = hovering ? requestAnimationFrame(tick) : 0;
+    };
+    card.addEventListener("pointerenter", () => { hovering = true; if (!raf) raf = requestAnimationFrame(tick); });
+    card.addEventListener("pointermove", (e) => {
+      const b = card.getBoundingClientRect();
+      mx = Math.min(1, Math.max(0, (e.clientX - b.left) / b.width));
+      my = Math.min(1, Math.max(0, (e.clientY - b.top) / b.height));
+    });
+    card.addEventListener("pointerleave", () => { hovering = false; });
+    card.addEventListener("pointerdown", () => { boost = 1.9; setTimeout(() => { boost = 1; }, 700); });
+  });
+}
+initCardFireflies();
+
 /** Show a reaction: a bubble over the player in-game, plus a floating lobby pop.
  *  Lobby pops spawn at a random x with a little drift and rise up, so multiple
  *  reactions scatter across the screen instead of stacking in one place. */
