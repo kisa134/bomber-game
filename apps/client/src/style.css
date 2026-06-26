@@ -3864,11 +3864,17 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   font-size: 0.72rem;
 }
 /* ≈$/◎ conversion shown right after the headline stake amount. */
+.table-row .td-main {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 6px;
+}
 .table-row .td-conv {
   color: #7bd66a;
   font-weight: 700;
   font-size: 0.82rem;
-  margin-left: 4px;
+  white-space: nowrap;
 }
 .table-row .td-players {
   display: flex;

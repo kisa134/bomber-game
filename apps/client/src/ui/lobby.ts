@@ -662,7 +662,9 @@ function drawTables(): void {
     const status = t.live ? "in progress" : t.players >= t.max ? "full" : t.players >= 2 ? "filling…" : "open";
     const label = t.live ? "🔴 LIVE" : lock + stakeTag;
     row.innerHTML =
-      `<span class="td-stake">${label}<small>${potTag}</small></span>` +
+      // .td-stake is a flex COLUMN, so the stake number + its USD conv must share ONE
+      // wrapper (.td-main) or they each become their own row (the USD dropped to line 2).
+      `<span class="td-stake"><span class="td-main">${label}</span><small>${potTag}</small></span>` +
       `<span class="td-players">${t.players}/${t.max}<small>${status}</small></span>` +
       `<span class="td-action">${action}</span>`;
     row.addEventListener("click", () => (t.live ? lastOnWatch(t.code) : lastOnJoin(t.code)));
