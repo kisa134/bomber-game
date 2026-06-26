@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { TOKEN_MINT, TOKEN_TICKER, TOTAL_SUPPLY } from "@bomberpump/shared";
 
 export const dynamic = "force-dynamic";
 
-const CA = "2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump";
-const INITIAL_SUPPLY = 1_000_000_000;
+const CA = TOKEN_MINT; // single source of truth (shared)
+const INITIAL_SUPPLY = TOTAL_SUPPLY;
 
 export interface TokenData {
   price: number;
@@ -40,7 +41,7 @@ async function fetchDexScreener(): Promise<PriceSource | null> {
   return {
     price:          parseFloat(pair.priceUsd ?? "0"),
     marketCap:      (pair.marketCap ?? pair.fdv ?? 0) as number,
-    symbol:         ((pair.baseToken?.symbol as string) ?? "BOMBER").trim(),
+    symbol:         ((pair.baseToken?.symbol as string) ?? TOKEN_TICKER).trim(),
     priceChange24h: (pair.priceChange?.h24 ?? 0) as number,
   };
 }
@@ -71,7 +72,7 @@ async function fetchPumpFun(): Promise<PriceSource | null> {
     return {
       price,
       marketCap,
-      symbol: ((json?.symbol as string) ?? "BOMBER").trim() || "BOMBER",
+      symbol: ((json?.symbol as string) ?? TOKEN_TICKER).trim() || TOKEN_TICKER,
       priceChange24h: 0,
     };
   } catch (err) {
@@ -98,7 +99,7 @@ async function fetchBirdeye(): Promise<PriceSource | null> {
     return {
       price,
       marketCap: price * INITIAL_SUPPLY,
-      symbol: "BOMBER",
+      symbol: TOKEN_TICKER,
       priceChange24h: 0,
     };
   } catch (err) {
@@ -161,7 +162,7 @@ export async function GET() {
       marketCap:      source?.marketCap ?? 0,
       supply:         currentSupply,
       burnedPct,
-      symbol:         source?.symbol ?? "BOMBER",
+      symbol:         source?.symbol ?? TOKEN_TICKER,
       priceChange24h: source?.priceChange24h ?? 0,
     };
 
@@ -181,7 +182,7 @@ export async function GET() {
         marketCap: 0,
         supply: INITIAL_SUPPLY,
         burnedPct: 0,
-        symbol: "BOMBER",
+        symbol: TOKEN_TICKER,
         priceChange24h: 0,
         warning: message,
       },

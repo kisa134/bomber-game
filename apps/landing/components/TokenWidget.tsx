@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { TokenData } from "@/app/api/token/route";
+import { TOKEN_MINT, TOKEN_TICKER, PUMP_URL } from "@/lib/token";
 
-const CA = "2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump";
-const PUMP_URL = "https://pump.fun/coin/2Lbnrt7iRx2RHGBXXXc3z8Do3bp3oZ9FtkAohLvxpump";
+const CA = TOKEN_MINT; // single source of truth (shared)
 const POLL_MS_BASE = 15_000;
 const POLL_MS_MAX  = 60_000;
 
@@ -189,7 +189,7 @@ export function TokenWidget() {
             className="text-base font-bold tracking-wide text-white"
             style={{ fontFamily: "var(--font-display)", letterSpacing: "0.04em" }}
           >
-            {data?.symbol ? `$${data.symbol.toUpperCase()}` : "$BOMBER"}
+            {data?.symbol ? `$${data.symbol.toUpperCase()}` : `$${TOKEN_TICKER}`}
           </span>
         </div>
         <span
