@@ -662,6 +662,11 @@ button.glass-btn.primary:hover {
 }
 .create-card .stake-picker {
   width: 100%;
+  /* Symmetric, centered grid of stake tiles instead of a tall single column. */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
+  gap: 8px;
+  justify-content: center;
   /* No gold frame around the stake buttons in the CREATE popup — it read as a stray box.
      (The propose-raise picker keeps its glowing frame.) */
   padding: 0;
@@ -671,6 +676,7 @@ button.glass-btn.primary:hover {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+#create-modal .stake-btn { min-width: 0; width: auto; }
 /* Cancel was a fixed-width button pinned to the left — make it full width. */
 .create-card #create-cancel {
   width: 100%;
