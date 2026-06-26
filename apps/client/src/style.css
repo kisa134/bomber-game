@@ -5372,25 +5372,24 @@ button.big {
    there's no inner edge and no contour. */
 .rail-chip:hover,
 .rail-card:hover {
-  box-shadow: 0 0 18px 0 rgba(255, 255, 255, 0.18), 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 26px 0 rgba(255, 255, 255, 0.32), 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 .rail-card.season:hover {
-  box-shadow: 0 0 20px 0 rgba(155, 105, 255, 0.34), 0 8px 24px rgba(40, 20, 90, 0.45);
+  box-shadow: 0 0 28px 0 rgba(160, 110, 255, 0.46), 0 8px 24px rgba(40, 20, 90, 0.45);
 }
-/* Stronger refraction on hover → light bends at the glass (Apple-style, alive). */
-.rail-chip:hover::after,
-.rail-card:hover::after { filter: url(#lg-distort-64); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px); }
+/* (No hover refraction swap on the rail buttons — the stronger #lg-distort-64 created
+   a warm gold fringe at the edges that read as an unwanted contour.) */
 /* Incandescent-bulb cool-down when you leave (matches the cards). */
 .rail-chip.fx-cooling,
 .rail-card.fx-cooling { animation: railBulbOut 2.3s ease-out forwards; }
 @keyframes railBulbOut {
-  0% { box-shadow: 0 0 18px 0 rgba(255,255,255,.18); }
-  10% { box-shadow: 0 0 10px 0 rgba(255,255,255,.09); }
-  16% { box-shadow: 0 0 16px 0 rgba(255,255,255,.15); }
-  30% { box-shadow: 0 0 7px 0 rgba(255,255,255,.05); }
-  37% { box-shadow: 0 0 11px 0 rgba(255,255,255,.09); }
-  55% { box-shadow: 0 0 4px 0 rgba(255,255,255,.03); }
-  62% { box-shadow: 0 0 7px 0 rgba(255,255,255,.05); }
+  0% { box-shadow: 0 0 26px 0 rgba(255,255,255,.32); }
+  10% { box-shadow: 0 0 14px 0 rgba(255,255,255,.15); }
+  16% { box-shadow: 0 0 22px 0 rgba(255,255,255,.26); }
+  30% { box-shadow: 0 0 9px 0 rgba(255,255,255,.08); }
+  37% { box-shadow: 0 0 15px 0 rgba(255,255,255,.16); }
+  55% { box-shadow: 0 0 5px 0 rgba(255,255,255,.04); }
+  62% { box-shadow: 0 0 9px 0 rgba(255,255,255,.07); }
   100% { box-shadow: 0 0 0 rgba(255,255,255,0); }
 }
 /* Profile + season cards — soft OUTER halo on hover (box-shadow lives purely OUTSIDE
@@ -5423,10 +5422,12 @@ button.big {
   0%, 100% { text-shadow: 0 0 0 rgba(255, 255, 255, 0); }
   50% { text-shadow: 0 0 6px rgba(255, 255, 255, 0.22); }
 }
-/* Foil-tinted emojis on the rail buttons. */
+/* Rail emojis — plain (the foil-tint filter read as an ugly yellow wash). */
 .rc-em { display: inline-block; }
-.em-gold { filter: sepia(0.6) saturate(2.4) hue-rotate(-8deg) brightness(1.06) drop-shadow(0 0 4px rgba(255, 200, 80, 0.4)); }
-.em-steel { filter: grayscale(1) brightness(1.25) contrast(1.05) drop-shadow(0 0 3px rgba(255, 255, 255, 0.3)); }
+.em-gold,
+.em-steel { filter: none; }
+/* Friends label stays on one line even with no wallet (was wrapping to two). */
+.rail-chip .rc-k { white-space: nowrap; }
 
 /* --- PROFILE (full-screen career screen: hero · progression · stats) --- */
 #profile {
@@ -6414,7 +6415,53 @@ button.big {
   place-items: center;
   padding: max(64px, calc(20px + env(safe-area-inset-top))) 22px max(40px, calc(20px + env(safe-area-inset-bottom)));
   isolation: isolate;
-  background: #0b070e;
+  /* Just a readability veil over the standard blurred background (#bg.art). */
+  background: radial-gradient(ellipse at center, rgba(10, 8, 14, 0.18), rgba(8, 6, 12, 0.55));
+}
+/* Centred content, no card — floats on the blurred background. */
+.splash-content {
+  position: relative;
+  z-index: 4;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: min(560px, 92vw);
+}
+.splash-content .splash-logo {
+  font-size: clamp(2rem, 13cqw, 3.4rem);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7)) drop-shadow(0 8px 26px rgba(239, 175, 44, 0.22));
+}
+/* SEASON 1 · LIVE — green blinking text + its own pulsing light, no plaque. */
+.splash-season {
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: #62e58c;
+  text-shadow: 0 0 12px rgba(95, 224, 138, 0.5);
+  animation: seasonBlink 2.4s ease-in-out infinite;
+}
+.splash-season .ss-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #62e58c;
+  box-shadow: 0 0 10px rgba(95, 224, 138, 0.95);
+  animation: seasonPulse 1.5s ease-in-out infinite;
+}
+@keyframes seasonBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+@keyframes seasonPulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.45); opacity: 0.55; }
 }
 /* (1) Background scene — the art, dimmed, slow ken-burns drift. */
 .splash-hero {

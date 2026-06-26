@@ -4057,13 +4057,8 @@ function setupOnboarding(): void {
   });
   document.getElementById("onboard-skip")!.addEventListener("click", closeOnboarding);
   document.getElementById("open-help")!.addEventListener("click", showOnboarding);
-  let seen = false;
-  try {
-    seen = !!localStorage.getItem(ONBOARD_KEY);
-  } catch {
-    // ignore
-  }
-  if (!seen) showOnboarding();
+  // First-run onboarding opens AFTER the splash "Enter game" (see splash-enter handler),
+  // NOT on page load — so a fresh browser shows the entry screen first.
 }
 
 function wireMenuLinks(): void {
@@ -5296,7 +5291,10 @@ document.getElementById("profile-share")?.addEventListener("click", () => void o
 document.getElementById("splash-enter")?.addEventListener("click", () => {
   localStorage.setItem("bp_entered", "1"); // returning visitors skip the splash next time
   showScreen("menu");
-  music("lobby");
+  music("lobby"); // music starts in the hub, not on the splash
+  let onbSeen = false;
+  try { onbSeen = !!localStorage.getItem(ONBOARD_KEY); } catch { /* ignore */ }
+  if (!onbSeen) showOnboarding(); // first-timers get the how-to right after entering
 });
 document.getElementById("splash-connect")?.addEventListener("click", () => {
   document.getElementById("wallet-btn")?.click(); // reuse the connect flow
