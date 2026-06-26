@@ -5396,6 +5396,18 @@ button.big {
   62% { box-shadow: 0 0 9px 0 rgba(255,255,255,.07); }
   100% { box-shadow: 0 0 0 rgba(255,255,255,0); }
 }
+/* Competitions glows purple → cools down in purple too (not white). */
+.rail-card.season.fx-cooling { animation: railBulbOutPurple 2.3s ease-out forwards; }
+@keyframes railBulbOutPurple {
+  0% { box-shadow: 0 0 28px 0 rgba(160,110,255,.46); }
+  10% { box-shadow: 0 0 15px 0 rgba(160,110,255,.22); }
+  16% { box-shadow: 0 0 24px 0 rgba(160,110,255,.38); }
+  30% { box-shadow: 0 0 9px 0 rgba(160,110,255,.12); }
+  37% { box-shadow: 0 0 16px 0 rgba(160,110,255,.24); }
+  55% { box-shadow: 0 0 5px 0 rgba(160,110,255,.06); }
+  62% { box-shadow: 0 0 9px 0 rgba(160,110,255,.1); }
+  100% { box-shadow: 0 0 0 rgba(160,110,255,0); }
+}
 /* Profile + season cards — soft OUTER halo on hover (box-shadow lives purely OUTSIDE
    the card → no visible inner edge). Small + feathered; edges still distort via the
    #lg-distort refraction. */
@@ -8304,7 +8316,7 @@ button.big {
   left: calc(18px + env(safe-area-inset-left));
   bottom: calc(16px + env(safe-area-inset-bottom));
   z-index: 9998;
-  pointer-events: none; /* never blocks the lobby UI while hidden */
+  pointer-events: auto; /* hoverable: hover the corner to smoothly fade it back in */
   display: flex;
   align-items: center;
   gap: 10px;
@@ -8315,6 +8327,8 @@ button.big {
   transform: translateY(6px);
   transition: opacity 0.9s ease, transform 0.9s ease;
 }
+/* Reveal smoothly from darkness when you hover the corner. */
+#now-playing:hover { opacity: 1; transform: none; }
 #now-playing.show {
   opacity: 1;
   transform: translateY(0);
