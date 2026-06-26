@@ -5467,6 +5467,11 @@ document.getElementById("sc-copy")?.addEventListener("click", () => {
 
 document.getElementById("result-share")?.addEventListener("click", () => void openShareCard("result"));
 document.getElementById("profile-share")?.addEventListener("click", () => void openShareCard("profile"));
+// Referral "Share as image" → the profile card already embeds your referral link + QR.
+document.getElementById("ref-share-card")?.addEventListener("click", () => {
+  if (!loadWallet()) return setMenuStatus("Connect a wallet to get your link");
+  void openShareCard("profile");
+});
 
 // Splash entry screen: Enter game · Connect wallet (if none) · About → landing.
 document.getElementById("splash-enter")?.addEventListener("click", () => {

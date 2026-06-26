@@ -3679,6 +3679,7 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
 .calc-sub { text-align: center; font-size: 0.86rem; margin-top: 2px; }
 .calc-sub b { color: var(--cream); }
 .calc-note { text-align: center; font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+.ref-card-btn { width: 100%; margin-top: 8px; }
 .ref-disclaimer {
   font-size: 0.72rem;
   color: var(--muted);
