@@ -5739,6 +5739,14 @@ button.big {
   gap: 12px;
   overflow: hidden;
 }
+/* Mobile: stack the 3 columns vertically (no fixed-width squish/overlap). */
+@media (max-width: 760px) {
+  .shop-body {
+    grid-template-columns: 1fr;
+    overflow: visible;
+    min-height: auto;
+  }
+}
 /* Filters */
 .shop-filters {
   display: flex;

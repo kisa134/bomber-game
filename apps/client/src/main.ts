@@ -2427,7 +2427,7 @@ function renderShopGrid(): void {
       const t = tierRank(i);
       (byTier.get(t) ?? byTier.set(t, []).get(t)!).push(i);
     }
-    for (const t of [...byTier.keys()].sort((a, b) => b - a)) {
+    for (const t of [...byTier.keys()].sort((a, b) => a - b)) {
       const idxs = byTier.get(t)!;
       const head = el("div", "shop-tier-head", "");
       head.style.setProperty("--rarity", rarityOf(idxs[0]).color);
@@ -4255,6 +4255,10 @@ function maybeApplySWUpdate(): void {
   if (inGame(state.phase) || onResultScreen()) return; // wait until back on a menu
   void updateSW(true); // skipWaiting + reload with the fresh build
 }
+// Poll so a pending update applies AS SOON AS you're on a safe screen — without this
+// it only fired on tab-focus, so players stayed stuck on a stale build (e.g. while
+// sitting on the result screen) even though a fresh deploy was already cached.
+setInterval(maybeApplySWUpdate, 6000);
 setInterval(maybeApplySWUpdate, 15_000); // catch the case where the update arrived mid-match
 
 // Surface otherwise-invisible failures (esp. on mobile, where there's no
