@@ -781,10 +781,29 @@ button.glass-btn.primary:hover {
   flex-wrap: wrap;
   width: min(560px, 100%);
 }
-/* The stat cards reuse the .info-card glass class, which carries HUB-layout rules
-   (width:100% / grid-area) that stretched them across the whole row. Override with a
-   higher-specificity selector so they size to their content (compact squares). */
-#result-rewards .result-rew { width: auto; }
+/* The result cards reuse the .info-card glass class, which carries HUB-layout rules
+   (width:100% / order:4 / grid-area) that (a) stretched the stat cards full-width and
+   (b) dumped the STANDINGS card to the very bottom of the column. Override them. */
+.result-rewards { align-items: stretch; } /* equal-height cubes */
+#result-rewards .result-rew {
+  width: auto;
+  min-height: 68px;
+  justify-content: center;
+  order: 0;
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+.result-rew.minor { min-height: 68px; } /* same height as the rest */
+/* Hover glow like the hub cards (no fireflies). */
+#result-rewards .result-rew:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 0 18px 0 rgba(255, 255, 255, 0.18);
+}
+/* Keep the standings + prize in DOM order (kill the inherited info-card order:4). */
+#result .result-card,
+#result-prize { order: 0; }
+/* Wider lvl + rating bars so the fill is satisfying to watch. */
+.result-lvl-wrap,
+.result-prog-wrap { width: min(460px, 94%); }
 .result-rew {
   flex: 0 1 auto; /* wrap around the number, don't stretch across the whole row */
   min-width: 84px;

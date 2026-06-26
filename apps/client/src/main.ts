@@ -745,14 +745,16 @@ function animateCount(elx: HTMLElement, to: number, from = 0, ms = 700): void {
 function countUpStat(
   el: HTMLElement,
   to: number,
-  opts: { prefix?: string; suffix?: string; ms?: number; sign?: boolean; sound?: boolean } = {},
+  opts: { prefix?: string; suffix?: string; ms?: number; sign?: boolean; sound?: boolean; delay?: number } = {},
 ): void {
-  const { prefix = "", suffix = "", ms = 900, sign = false, sound = false } = opts;
-  const t0 = performance.now();
+  const { prefix = "", suffix = "", ms = 900, sign = false, sound = false, delay = 0 } = opts;
+  const t0 = performance.now() + delay;
   let lastTick = 0;
   const fmt = (n: number): string =>
     `${prefix}${sign && n > 0 ? "+" : ""}${Math.round(n).toLocaleString()}${suffix}`;
+  el.textContent = fmt(0); // hold at the prefix+0 until the staggered start
   const step = (now: number): void => {
+    if (now < t0) { requestAnimationFrame(step); return; } // wait out the delay
     const k = Math.min(1, (now - t0) / ms);
     const eased = 1 - Math.pow(1 - k, 3);
     el.textContent = fmt(to * eased);
@@ -863,12 +865,14 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
       return c;
     };
     const vOf = (c: HTMLElement): HTMLElement => c.querySelector(".result-rew-v") as HTMLElement;
+    // Main numeric cubes count up + flash in SEQUENCE, biggest value first, over ~3s.
+    const seq: Array<{ el: HTMLElement; to: number; opts: { prefix: string; sign?: boolean } }> = [];
     // XP earned.
     const xpGain = (lastMatch?.xpTo ?? 0) - (lastMatch?.xpFrom ?? 0);
     if (xpGain > 0) {
       const c = statCard("XP earned", "xp");
       rew.append(c);
-      countUpStat(vOf(c), xpGain, { prefix: "✦ ", sign: true, ms: 850 });
+      seq.push({ el: vOf(c), to: xpGain, opts: { prefix: "✦ ", sign: true } });
     }
     // Coins — the genuine soft reward on CASUAL tables. On staked tables the reward
     // IS the PRIZE above, so there's no duplicate coins card.
@@ -879,12 +883,17 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
     } else if (stake === 0) {
       const c = statCard("Coins", "coins");
       rew.append(c);
-      countUpStat(vOf(c), won ? 100 : 20, { prefix: "🪙 ", sign: true, ms: 850 });
+      seq.push({ el: vOf(c), to: won ? 100 : 20, opts: { prefix: "🪙 ", sign: true } });
     }
     // Frags.
     const fc = statCard("Frags", "frags");
     rew.append(fc);
-    countUpStat(vOf(fc), frags, { prefix: "💀 ", ms: 800 });
+    seq.push({ el: vOf(fc), to: frags, opts: { prefix: "💀 " } });
+    // Run them descending by value, each starting after the previous so the cubes
+    // flash one-by-one (the biggest number first).
+    seq.sort((a, b) => b.to - a.to);
+    const stagger = Math.min(750, 2400 / Math.max(1, seq.length));
+    seq.forEach((s, i) => countUpStat(s.el, s.to, { ...s.opts, ms: 720, delay: i * stagger, sound: true }));
     // Rating delta (PvP only).
     if (!practiceMode) {
       const delta = lastMatch?.ratingDelta ?? 0;
