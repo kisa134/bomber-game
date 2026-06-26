@@ -5359,6 +5359,17 @@ button.big {
 .pp-stat.gold .pp-stat-v { color: var(--accent-bright); }
 .pp-addr { font-size: 0.66rem; text-align: center; }
 
+/* Lucky-spin popup — centred, full-width glass spin button. */
+.wheel-card { align-items: center; }
+.wheel-card #wheel-spin,
+.wheel-card #wheel-close { width: 100%; }
+/* Competitions card — soft inner-glass glow on hover (no fireflies), on-theme purple. */
+.rail-card.season { transition: box-shadow 0.3s ease, border-color 0.3s ease; }
+.rail-card.season:hover {
+  border-color: rgba(150, 110, 255, 0.45);
+  box-shadow: inset 0 0 26px -6px rgba(150, 100, 255, 0.5), 0 8px 22px rgba(40, 20, 90, 0.4);
+}
+
 /* --- PROFILE (full-screen career screen: hero · progression · stats) --- */
 #profile {
   justify-content: flex-start;
