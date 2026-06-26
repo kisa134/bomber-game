@@ -1,96 +1,61 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useMotionValue, useTransform, animate } from "framer-motion";
+import { fetchStats, type GameStats } from "@/lib/gameApi";
+import { TOKEN_TICKER } from "@/lib/token";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-interface StatConfig {
+interface StatView {
   label: string;
-  target: number;
+  value: number;
   prefix?: string;
   suffix?: string;
-  decimals?: number;
   color: string;
   glow: string;
   pulse?: boolean;
 }
 
-const STATS: StatConfig[] = [
-  {
-    label: "GAMES PLAYED",
-    target: 12847,
-    suffix: "+",
-    color: "#ffcc33",
-    glow: "rgba(255,204,51,0.7)",
-  },
-  {
-    label: "TOTAL POT VALUE",
-    target: 284193,
-    prefix: "$",
-    color: "#4ade80",
-    glow: "rgba(74,222,128,0.7)",
-  },
-  {
-    label: "ACTIVE PLAYERS",
-    target: 341,
-    color: "#4ade80",
-    glow: "rgba(74,222,128,0.85)",
-    pulse: true,
-  },
-];
-
 function AnimatedCounter({
-  target,
+  value,
   prefix = "",
   suffix = "",
-  decimals = 0,
   color,
   glow,
   pulse,
   trigger,
-}: StatConfig & { trigger: boolean }) {
-  const value = useMotionValue(0);
-  const display = useTransform(value, (v) => {
-    const num = decimals > 0 ? v.toFixed(decimals) : Math.floor(v).toLocaleString("en-US");
-    return `${prefix}${num}${suffix}`;
-  });
+}: StatView & { trigger: boolean }) {
+  const mv = useMotionValue(0);
+  const display = useTransform(mv, (v) => `${prefix}${Math.floor(v).toLocaleString("en-US")}${suffix}`);
 
   useEffect(() => {
     if (!trigger) return;
-    const ctrl = animate(value, target, { duration: 2.2, ease: [0.16, 1, 0.3, 1] });
+    const ctrl = animate(mv, value, { duration: 1.6, ease });
     return () => ctrl.stop();
-  }, [trigger, target, value]);
+  }, [trigger, value, mv]);
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="flex items-center gap-2">
-        {pulse && (
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span
-              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
-              style={{ background: color }}
-            />
-            <span
-              className="relative inline-flex h-2 w-2 rounded-full"
-              style={{ background: color }}
-            />
-          </span>
-        )}
-        <motion.span
-          className="tabular-nums"
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(1.4rem, 3vw, 2rem)",
-            fontWeight: 700,
-            color,
-            textShadow: `0 0 18px ${glow}, 0 0 36px ${glow.replace("0.7", "0.3")}`,
-            lineHeight: 1,
-          }}
-        >
-          {display}
-        </motion.span>
-      </div>
+    <div className="flex items-center gap-2">
+      {pulse && (
+        <span className="relative flex h-2 w-2 shrink-0">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75" style={{ background: color }} />
+          <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: color }} />
+        </span>
+      )}
+      <motion.span
+        className="tabular-nums"
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: "clamp(1.4rem, 3vw, 2rem)",
+          fontWeight: 700,
+          color,
+          textShadow: `0 0 18px ${glow}, 0 0 36px ${glow.replace("0.7", "0.3")}`,
+          lineHeight: 1,
+        }}
+      >
+        {display}
+      </motion.span>
     </div>
   );
 }
@@ -98,6 +63,47 @@ function AnimatedCounter({
 export function LiveStatsBar() {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
+  const [stats, setStats] = useState<GameStats | null>(null);
+
+  // Real data only — polled from the game server's public /stats (CORS-enabled).
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      void fetchStats().then((d) => {
+        if (alive && d) setStats(d);
+      });
+    };
+    load();
+    const id = setInterval(load, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
+  }, []);
+
+  const ready = inView && stats !== null;
+
+  const views: StatView[] = [
+    {
+      label: "MATCHES PLAYED",
+      value: Math.round(stats?.matches ?? 0),
+      color: "#ffcc33",
+      glow: "rgba(255,204,51,0.7)",
+    },
+    {
+      label: `${TOKEN_TICKER} IN PLAY`,
+      value: Math.round(stats?.tokensInPlay ?? 0),
+      color: "#4ade80",
+      glow: "rgba(74,222,128,0.7)",
+    },
+    {
+      label: "PLAYERS ONLINE",
+      value: Math.round(stats?.online ?? 0),
+      color: "#4ade80",
+      glow: "rgba(74,222,128,0.85)",
+      pulse: true,
+    },
+  ];
 
   return (
     <motion.section
@@ -113,7 +119,6 @@ export function LiveStatsBar() {
         borderBottom: "1px solid rgba(255,255,255,0.05)",
       }}
     >
-      {/* Subtle radial glow */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
@@ -124,9 +129,9 @@ export function LiveStatsBar() {
       />
 
       <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-5 px-5 sm:flex-row sm:justify-around">
-        {STATS.map((stat, i) => (
+        {views.map((stat, i) => (
           <div key={stat.label} className="flex flex-col items-center gap-1.5">
-            <AnimatedCounter {...stat} trigger={inView} />
+            <AnimatedCounter {...stat} trigger={ready} />
             <span
               style={{
                 fontFamily: "var(--font-mono)",
@@ -140,8 +145,7 @@ export function LiveStatsBar() {
               {stat.label}
             </span>
 
-            {/* Separator — visible only between items on desktop */}
-            {i < STATS.length - 1 && (
+            {i < views.length - 1 && (
               <div
                 className="hidden sm:block"
                 style={{
@@ -160,7 +164,6 @@ export function LiveStatsBar() {
         ))}
       </div>
 
-      {/* "LIVE" marquee label */}
       <div className="absolute left-4 top-1/2 hidden -translate-y-1/2 items-center gap-1.5 lg:flex">
         <span className="relative flex h-1.5 w-1.5 shrink-0">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
