@@ -781,6 +781,10 @@ button.glass-btn.primary:hover {
   flex-wrap: wrap;
   width: min(560px, 100%);
 }
+/* The stat cards reuse the .info-card glass class, which carries HUB-layout rules
+   (width:100% / grid-area) that stretched them across the whole row. Override with a
+   higher-specificity selector so they size to their content (compact squares). */
+#result-rewards .result-rew { width: auto; }
 .result-rew {
   flex: 0 1 auto; /* wrap around the number, don't stretch across the whole row */
   min-width: 84px;
