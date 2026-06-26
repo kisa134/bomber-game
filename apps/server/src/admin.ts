@@ -11,9 +11,11 @@ export function adminPageHtml(): string {
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&family=Orbitron:wght@600;700;800;900&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#070b14;--panel:#0f1828;--panel2:#13203a;--border:#22304b;--text:#e6eefc;--muted:#8b97ad;--accent:#38bdf8;--accent2:#a78bfa;--good:#34d399;--font-disp:'Orbitron',system-ui,sans-serif;--font-ui:'Inter',system-ui,-apple-system,sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace}
+  /* Palette matched to Kirill's marketing hub (index.css): near-black violet-
+     tinted base, violet primary + cyan secondary. */
+  :root{--bg:#07060f;--panel:#110f18;--panel2:#1a1822;--border:#232230;--text:#ffffff;--muted:#717a90;--accent:#7c3aed;--accent2:#22d3ee;--good:#34d399;--font-disp:'Orbitron',system-ui,sans-serif;--font-ui:'Inter',system-ui,-apple-system,sans-serif;--font-mono:'JetBrains Mono',ui-monospace,monospace}
   *{box-sizing:border-box;font-family:var(--font-ui)}
-  body{margin:0;background:radial-gradient(1100px 700px at 80% -10%,rgba(56,189,248,.12),transparent 55%),radial-gradient(900px 600px at 10% 0%,rgba(167,139,250,.10),transparent 50%),var(--bg);color:var(--text);min-height:100vh}
+  body{margin:0;background:radial-gradient(1100px 700px at 80% -10%,rgba(124,58,237,.16),transparent 55%),radial-gradient(900px 600px at 10% 0%,rgba(34,211,238,.10),transparent 50%),var(--bg);color:var(--text);min-height:100vh}
   header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border)}
   header h1{font-size:1.05rem;margin:0;font-family:var(--font-disp);font-weight:800;letter-spacing:.04em}
   h3{font-family:var(--font-disp);font-weight:700;letter-spacing:.02em;font-size:1rem}
@@ -22,7 +24,7 @@ export function adminPageHtml(): string {
   main{padding:18px;max-width:1100px;margin:0 auto}
   .gate{display:flex;gap:8px;margin:18px 0}
   .gate input{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:#0c0e14;color:var(--text)}
-  button{padding:10px 14px;border:0;border-radius:9px;background:var(--accent);color:#04222e;font-weight:700;cursor:pointer;font-family:var(--font-ui)}
+  button{padding:10px 14px;border:0;border-radius:9px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:var(--font-ui)}
   button:hover{filter:brightness(1.08)}
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-bottom:18px}
   .tile{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--border);border-radius:14px;padding:15px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
@@ -53,7 +55,7 @@ export function adminPageHtml(): string {
   #atabs{position:sticky;top:0;z-index:20;display:flex;gap:6px;flex-wrap:wrap;padding:10px 0;margin:0 0 8px;background:linear-gradient(180deg,var(--bg) 70%,transparent);backdrop-filter:blur(6px)}
   #atabs button{padding:9px 16px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--muted);font-weight:700;font-size:.85rem;cursor:pointer;transition:all .15s}
   #atabs button:hover{color:var(--text)}
-  #atabs button.on{background:var(--accent);color:#04222e;border-color:var(--accent)}
+  #atabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 </style></head><body>
 <header><span id="dot"></span><h1>🎮 Bombermeme — Admin</h1><span id="meta" class="muted"></span></header>
 <main>
