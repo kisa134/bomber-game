@@ -1438,6 +1438,8 @@ function syncSettingsUI(): void {
   document.getElementById("ctl-dpad")!.classList.toggle("active", settings.controls === "dpad");
   document.getElementById("unit-usd")?.classList.toggle("active", settings.valueUnit === "usd");
   document.getElementById("unit-sol")?.classList.toggle("active", settings.valueUnit === "sol");
+  document.body.classList.toggle("unit-sol", settings.valueUnit === "sol"); // SOL gradient on ≈ values
+
   document.getElementById("mode-token")?.classList.toggle("active", settings.valueMode === "token");
   document.getElementById("mode-fiat")?.classList.toggle("active", settings.valueMode === "fiat");
 }
@@ -1550,6 +1552,8 @@ function wireSettings(): void {
 
 /** Re-apply the chosen USD/SOL unit across every live value readout. */
 function applyValueUnit(): void {
+  // SOL selected → ≈ conversions render in the Solana brand gradient (see CSS); USD → green.
+  document.body.classList.toggle("unit-sol", settings.valueUnit === "sol");
   setTokenUsd(tokenUsd, tokenSol, settings.valueUnit); // redraws the table browser
   setTokenBadge(lastTokens); // balance badge ≈ value
   updateBalanceBars(); // HUD / waiting-room balance + pot

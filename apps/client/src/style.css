@@ -681,6 +681,18 @@ button.glass-btn.primary:hover {
   color: var(--accent-bright);
 }
 .cs-val .cs-usd { font-size: 0.8rem; font-weight: 600; color: var(--good, #5fe08a); margin-left: 6px; }
+/* SOL value-unit selected → the ≈ balance conversions render in the Solana brand gradient
+   (purple → mint) instead of the green $ colour. */
+body.unit-sol .token-usd,
+body.unit-sol .td-conv,
+body.unit-sol .cs-val .cs-usd,
+body.unit-sol .prize-usd {
+  background: linear-gradient(90deg, #9945ff, #19c2ff 45%, #14f195);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
 .cs-slider { width: 100%; }
 .cs-ticks {
   display: flex;
