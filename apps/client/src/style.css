@@ -5835,6 +5835,18 @@ button.big {
 /* Profile winnings accent + the Invite & Earn jump button. */
 .prof-row-v.accent-gold { color: var(--accent-bright); }
 .prof-ref-btn { width: 100%; margin-top: 8px; }
+/* Profit (PnL) chart card. */
+.pnl-card { display: flex; flex-direction: column; gap: 6px; }
+.pnl-net {
+  font-family: var(--font-disp);
+  font-weight: 900;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+.pnl-net.up { color: #5fe08a; }
+.pnl-net.down { color: #ff6b6b; }
+.pnl-svg { width: 100%; height: 110px; display: block; overflow: visible; }
+.pnl-note { font-size: 0.68rem; color: var(--muted); }
 .prof-prog {
   height: 12px;
   border-radius: 8px;

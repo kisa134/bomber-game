@@ -178,6 +178,58 @@ let iGotFirstBlood = false; // did the local player take first blood this match
 let myPickupStep = 0; // count of bonuses I've collected this match -> rising pickup pitch
 let hitStopUntil = 0; // brief full-view freeze for kill impact (game feel)
 let lastMatch: { won: boolean; draw: boolean; frags: number; earnText: string; ratingDelta: number; firstBlood: boolean; streak: number; xpFrom: number; xpTo: number; level: number } | null = null;
+/** Append a match money-swing to the local PnL history (capped). c: 0=chips, 1=token. */
+function recordPnl(c: number, n: number): void {
+  try {
+    const arr = JSON.parse(localStorage.getItem("bp_pnl") || "[]") as { t: number; c: number; n: number }[];
+    arr.push({ t: Date.now(), c, n });
+    while (arr.length > 150) arr.shift();
+    localStorage.setItem("bp_pnl", JSON.stringify(arr));
+  } catch {
+    /* storage full / disabled — PnL chart just stays empty */
+  }
+}
+/** Build the profile PnL line chart from local history, or null if too little data. */
+function buildPnlChart(): HTMLElement | null {
+  let arr: { t: number; c: number; n: number }[];
+  try {
+    arr = JSON.parse(localStorage.getItem("bp_pnl") || "[]");
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(arr) || arr.length < 2) return null;
+  const cur = arr.some((e) => e.c === 1) ? 1 : 0; // prefer real-token PnL if any exists
+  const pts = arr.filter((e) => e.c === cur);
+  if (pts.length < 2) return null;
+  let cum = 0;
+  const ys = pts.map((p) => (cum += p.n));
+  const lo = Math.min(0, ...ys), hi = Math.max(0, ...ys);
+  const span = hi - lo || 1;
+  const W = 320, H = 110, pad = 7;
+  const px = (i: number): number => pad + (i / (ys.length - 1)) * (W - pad * 2);
+  const py = (v: number): number => pad + (1 - (v - lo) / span) * (H - pad * 2);
+  const line = ys.map((v, i) => `${i ? "L" : "M"}${px(i).toFixed(1)} ${py(v).toFixed(1)}`).join(" ");
+  const area = `${line} L${px(ys.length - 1).toFixed(1)} ${py(lo).toFixed(1)} L${px(0).toFixed(1)} ${py(lo).toFixed(1)} Z`;
+  const last = ys[ys.length - 1];
+  const up = last >= 0;
+  const col = up ? "#5fe08a" : "#ff6b6b";
+  const z = py(0).toFixed(1);
+  const sym = cur === 1 ? "💎" : "🪙";
+  const card = el("div", "prof-card pnl-card", "");
+  card.appendChild(el("div", "prof-card-h", `📈 Profit · ${pts.length} matches`));
+  card.insertAdjacentHTML(
+    "beforeend",
+    `<div class="pnl-net ${up ? "up" : "down"}">${up ? "+" : "−"}${sym}${Math.abs(last).toLocaleString()}</div>` +
+      `<svg class="pnl-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">` +
+      `<defs><linearGradient id="pnlg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity="0.32"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>` +
+      `<line x1="0" y1="${z}" x2="${W}" y2="${z}" stroke="rgba(255,255,255,0.14)" stroke-dasharray="3 3"/>` +
+      `<path d="${area}" fill="url(#pnlg)"/>` +
+      `<path d="${line}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` +
+      `</svg>` +
+      `<div class="pnl-note">Cumulative ${cur === 1 ? "token" : "chip"} swing across your matches on this device.</div>`,
+  );
+  return card;
+}
 // Ping samples collected during the live match → averaged on the result screen.
 let matchPings: number[] = [];
 // Handle for the 3s "result screen" timer, so a new match starting within that
@@ -697,6 +749,11 @@ function announceResult(winnerId: number): void {
     }
   } else {
     earnText = won ? "+🪙100" : "+🪙20";
+  }
+  // Record this match's money swing locally for the profile PnL chart — real deltas the
+  // player actually experienced (honest, no backend; accumulates per-device going forward).
+  if (!practiceMode && state.myId >= 0) {
+    recordPnl(stake > 0 ? state.roomCurrency : 0, stake > 0 ? net : won ? 100 : 20);
   }
   const prevXp = lastXp;
   lastMatch = { won, draw, frags: meFrags, earnText, ratingDelta: 0, firstBlood: iGotFirstBlood, streak: 0, xpFrom: prevXp, xpTo: prevXp, level: lastLevel };
@@ -2166,6 +2223,10 @@ async function openProfile(): Promise<void> {
     rankCard.appendChild(buildRankLadder(p.rating));
     rankCard.appendChild(el("div", "prof-sub", pr.label));
     body.append(rankCard); // full width on its own row
+
+    // Profit (PnL) chart from local match history — real swings, shown when there's data.
+    const pnl = buildPnlChart();
+    if (pnl) body.append(pnl);
 
     // Account level / XP (separate, calmer progression).
     const lvlCard = card("📊 Account level");
