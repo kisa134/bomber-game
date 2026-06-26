@@ -177,15 +177,15 @@
 
           <!-- LEFT: social chips -->
           <div class="hub-rail hub-rail-left">
-            <button id="open-referral" class="rail-chip">
-              <span class="rc-k"><span class="rc-em em-gold">👥</span> Invite &amp; Earn</span><span class="rc-v">5-level rake</span>
+            <button id="open-leaderboard" class="rail-chip">
+              <span class="rc-k"><span class="rc-em em-gold">🏆</span> Leaderboard</span><span class="rc-v">Top →</span>
             </button>
             <button id="hub-friends" class="rail-chip">
               <span class="rc-k"><span class="rc-em em-steel">👤</span> Friends <span id="hub-friends-count" class="friends-count"></span></span>
               <span id="hub-friends-sub" class="rc-v">online</span>
             </button>
-            <button id="open-leaderboard" class="rail-chip">
-              <span class="rc-k"><span class="rc-em em-gold">🏆</span> Leaderboard</span><span class="rc-v">Top →</span>
+            <button id="open-referral" class="rail-chip">
+              <span class="rc-k"><span class="rc-em em-gold">👥</span> Invite &amp; Earn</span><span class="rc-v">5-level rake</span>
             </button>
           </div>
 
@@ -253,8 +253,12 @@
 
       <!-- Friends: add by nickname, accept requests, see who's online -->
       <div id="friends-modal" class="modal hidden">
-        <div class="modal-card">
-          <h3>Friends</h3>
+        <div class="modal-card friends-card">
+          <div class="fr-top">
+            <button id="friends-close" class="ghost lobby-icon">←</button>
+            <h2 class="lobby-title">Friends</h2>
+            <span class="lobby-icon" style="visibility:hidden">.</span>
+          </div>
           <div class="friends-add">
             <input id="friend-add-name" maxlength="16" placeholder="Add by nickname" autocomplete="off" />
             <button id="friend-add-btn" class="primary glass-btn">Add</button>
@@ -263,7 +267,6 @@
           <div id="friends-requests" class="friends-section"></div>
           <div id="friends-list" class="friends-section"></div>
           <p id="friends-empty" class="status fair hidden">No friends yet — add someone by their nickname.</p>
-          <button id="friends-close" class="ghost">Close</button>
         </div>
       </div>
 
@@ -501,15 +504,18 @@
 
       <!-- Leaderboard -->
       <section id="leaderboard" class="screen hidden">
-        <div class="panel">
-          <h2>Leaderboard</h2>
+        <div class="lb-wrap">
+          <div class="lb-top">
+            <button id="leaderboard-back" class="ghost lobby-icon">←</button>
+            <h2 class="lobby-title">Leaderboard</h2>
+            <span class="lobby-icon" style="visibility:hidden">.</span>
+          </div>
           <div class="seg lb-period">
             <button id="lb-rating" class="seg-btn active">🏆 Rating</button>
             <button id="lb-tokens" class="seg-btn">💎 Earned</button>
             <button id="lb-chips" class="seg-btn">🪙 Free</button>
           </div>
           <ol id="leaderboard-body" class="lb-list"></ol>
-          <button id="leaderboard-back" class="primary glass-btn">Back</button>
         </div>
       </section>
 
