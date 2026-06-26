@@ -4944,15 +4944,30 @@ function initCardFireflies(): void {
       layer.appendChild(el);
       return el;
     });
-    let mx = 0.5, my = 0.5, hovering = false, raf = 0, boost = 1;
+    let mx = 0.5, my = 0.5, hovering = false, raf = 0, boost = 1, fadeUntil = 0;
+    const fxLayers = (): HTMLElement[] =>
+      [layer, card.querySelector<HTMLElement>(".lg-frost"), card.querySelector<HTMLElement>(".lg-glow")]
+        .filter((l): l is HTMLElement => !!l);
     const tick = (t: number): void => {
       const w = card.clientWidth, h = card.clientHeight;
+      const ar = w / Math.max(1, h); // aspect — keep repulsion even on wide cards
       for (let i = 0; i < dots.length; i++) {
         const d = dots[i];
-        // LOOSE gravity toward the cursor (they stay spread, not clumped) + a livelier
-        // weightless brownian wander so the whole field shimmers.
+        // Loose gravity toward the cursor + weightless brownian wander.
         d.vx += (mx - d.x) * 0.0006 + (Math.random() - 0.5) * 0.0026;
         d.vy += (my - d.y) * 0.0006 + (Math.random() - 0.5) * 0.0026;
+        // Same-pole-magnet repulsion: motes shove each other apart → they scatter.
+        for (let j = i + 1; j < dots.length; j++) {
+          const e = dots[j];
+          const ddx = (d.x - e.x) * ar, ddy = d.y - e.y;
+          const dist = Math.hypot(ddx, ddy);
+          if (dist < 0.26 && dist > 0.0001) {
+            const f = (1 - dist / 0.26) * 0.0019;
+            const fx = (ddx / dist) * f, fy = (ddy / dist) * f;
+            d.vx += fx; d.vy += fy;
+            e.vx -= fx; e.vy -= fy;
+          }
+        }
         d.vx *= 0.9; d.vy *= 0.9;
         d.x += d.vx; d.y += d.vy;
         if (d.x < 0.03) { d.x = 0.03; d.vx = -d.vx * 0.5; }
@@ -4963,10 +4978,12 @@ function initCardFireflies(): void {
         els[i].style.transform = `translate(${(d.x * w).toFixed(1)}px, ${(d.y * h).toFixed(1)}px)`;
         els[i].style.opacity = String(Math.min(1, tw * boost));
       }
-      raf = hovering ? requestAnimationFrame(tick) : 0;
+      // Keep drifting through the slow fade-out so the motes dim while still moving.
+      raf = hovering || t < fadeUntil ? requestAnimationFrame(tick) : 0;
     };
     card.addEventListener("pointerenter", () => {
       hovering = true;
+      fxLayers().forEach((l) => { l.style.transitionDuration = "0.4s"; }); // quick in
       // "Bah" — a little burst of magic dust the moment you hover in.
       for (const d of dots) { d.vx += (Math.random() - 0.5) * 0.06; d.vy += (Math.random() - 0.5) * 0.06; }
       if (!raf) raf = requestAnimationFrame(tick);
@@ -4976,7 +4993,11 @@ function initCardFireflies(): void {
       mx = Math.min(1, Math.max(0, (e.clientX - b.left) / b.width));
       my = Math.min(1, Math.max(0, (e.clientY - b.top) / b.height));
     });
-    card.addEventListener("pointerleave", () => { hovering = false; });
+    card.addEventListener("pointerleave", () => {
+      hovering = false;
+      fadeUntil = performance.now() + 3100; // keep drifting while the slow fade plays
+      fxLayers().forEach((l) => { l.style.transitionDuration = "3s"; }); // slow, gentle out
+    });
     card.addEventListener("pointerdown", () => { boost = 1.9; setTimeout(() => { boost = 1; }, 700); });
   });
 }
