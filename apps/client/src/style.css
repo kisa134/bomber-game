@@ -662,13 +662,11 @@ button.glass-btn.primary:hover {
 }
 .create-card .stake-picker {
   width: 100%;
-  /* Symmetric, centered grid of stake tiles instead of a tall single column. */
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
-  gap: 8px;
-  justify-content: center;
-  /* No gold frame around the stake buttons in the CREATE popup — it read as a stray box.
-     (The propose-raise picker keeps its glowing frame.) */
+  /* Slider + value + ticks + Create button, stacked and centered. */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* No gold frame in the CREATE popup (the propose-raise picker keeps its glowing frame). */
   padding: 0;
   border: none;
   background: none;
@@ -676,7 +674,28 @@ button.glass-btn.primary:hover {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
-#create-modal .stake-btn { min-width: 0; width: auto; }
+.cs-val {
+  font-family: var(--font-disp);
+  font-weight: 800;
+  font-size: 1.5rem;
+  color: var(--accent-bright);
+}
+.cs-val .cs-usd { font-size: 0.8rem; font-weight: 600; color: var(--good, #5fe08a); margin-left: 6px; }
+.cs-slider { width: 100%; }
+.cs-ticks {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  margin-top: -2px;
+}
+.cs-tick {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--muted);
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.cs-tick.on { color: var(--accent-bright); transform: scale(1.18); font-weight: 700; }
+.cs-create { width: 100%; margin-top: 2px; }
 /* Cancel was a fixed-width button pinned to the left — make it full width. */
 .create-card #create-cancel {
   width: 100%;

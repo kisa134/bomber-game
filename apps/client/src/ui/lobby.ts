@@ -299,19 +299,38 @@ export function setupMenu(h: MenuHandlers): void {
   const stakeEl = document.getElementById("stake-picker")!;
   let createCurrency = 0;
   let createPublic = true; // 🌐 public (listed/quick-matchable) vs 🔒 private (code-only)
+  let stakeIdx = 1; // selected stop on the slider (defaults to the first paid tier)
   const renderStakes = (): void => {
-    const tiers =
-      createCurrency === 1
-        ? TOKEN_BET_SIZES.map((v) => ({ v, label: `💎${v.toLocaleString()}` }))
-        : [{ v: 0, label: "🆓 Casual" }, ...BET_SIZES.map((v) => ({ v, label: `🪙${v}` }))];
-    stakeEl.innerHTML = "";
-    for (const s of tiers) {
-      const b = document.createElement("button");
-      b.className = "stake-btn";
-      b.textContent = s.label;
-      b.addEventListener("click", () => h.create(makeChoice(s.v, createCurrency, createPublic)));
-      stakeEl.appendChild(b);
-    }
+    const isToken = createCurrency === 1;
+    // Discrete stops so the slider only ever lands on a server-valid tier; chips also get
+    // a 🆓 Casual (0) stop at the bottom.
+    const stops = isToken
+      ? TOKEN_BET_SIZES.map((v) => ({ v, label: `💎${v.toLocaleString()}` }))
+      : [{ v: 0, label: "🆓 Casual" }, ...BET_SIZES.map((v) => ({ v, label: `🪙${v.toLocaleString()}` }))];
+    stakeIdx = Math.min(stakeIdx, stops.length - 1);
+    const tick = (v: number): string => (v === 0 ? "Free" : v >= 1000 ? `${v / 1000}k` : `${v}`);
+    stakeEl.innerHTML =
+      `<div class="cs-val" id="cs-val"></div>` +
+      `<input id="cs-slider" class="sp-slider cs-slider" type="range" min="0" max="${stops.length - 1}" step="1" value="${stakeIdx}" />` +
+      `<div class="cs-ticks">${stops.map((s) => `<span class="cs-tick">${tick(s.v)}</span>`).join("")}</div>` +
+      `<button id="cs-create" class="glass-btn primary big cs-create">Create lobby</button>`;
+    const slider = stakeEl.querySelector("#cs-slider") as HTMLInputElement;
+    const valEl = stakeEl.querySelector("#cs-val") as HTMLElement;
+    const ticks = [...stakeEl.querySelectorAll<HTMLElement>(".cs-tick")];
+    const update = (): void => {
+      stakeIdx = Number(slider.value);
+      const s = stops[stakeIdx];
+      const usd = isToken && s.v > 0 ? ` ${usdSuffix(s.v).trim()}` : "";
+      valEl.innerHTML =
+        s.v === 0 ? "🆓 <b>Casual</b> · for fun" : `<b>${s.label}</b><span class="cs-usd">${usd}</span>`;
+      slider.style.setProperty("--sp-fill", `${((stakeIdx / Math.max(1, stops.length - 1)) * 100).toFixed(1)}%`);
+      ticks.forEach((t, i) => t.classList.toggle("on", i === stakeIdx));
+    };
+    slider.addEventListener("input", update);
+    update();
+    (stakeEl.querySelector("#cs-create") as HTMLElement).addEventListener("click", () =>
+      h.create(makeChoice(stops[stakeIdx].v, createCurrency, createPublic)),
+    );
   };
   renderStakes();
 
