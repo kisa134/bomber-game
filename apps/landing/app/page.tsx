@@ -13,8 +13,7 @@ const LiveLeaderboard    = dynamic(() => import("@/components/arena/LiveLeaderbo
 const VideoTrailerSection= dynamic(() => import("@/components/VideoTrailerSection").then((m) => m.VideoTrailerSection));
 const RoadmapSection     = dynamic(() => import("@/components/RoadmapSection").then((m) => m.RoadmapSection));
 const ProvablyFairTerminal = dynamic(() => import("@/components/ProvablyFairTerminal").then((m) => m.ProvablyFairTerminal));
-const CompactTokenomics  = dynamic(() => import("@/components/CompactTokenomics").then((m) => m.CompactTokenomics));
-const TokenWidget        = dynamic(() => import("@/components/TokenWidget").then((m) => m.TokenWidget));
+const EconomyScene       = dynamic(() => import("@/components/EconomyScene").then((m) => m.EconomyScene));
 const HomeFaqAccordion   = dynamic(() => import("@/components/HomeFaqAccordion").then((m) => m.HomeFaqAccordion));
 const FinalCta           = dynamic(() => import("@/components/FinalCta").then((m) => m.FinalCta));
 const Footer             = dynamic(() => import("@/components/Footer").then((m) => m.Footer));
@@ -64,14 +63,7 @@ export default function Home() {
         <ProvablyFairTerminal />
       </div>
 
-      <section id="token" className="mt-28 py-24 px-5">
-        <div className="mx-auto max-w-5xl flex flex-col gap-10 items-center">
-          <CompactTokenomics />
-          <div className="flex justify-center">
-            <TokenWidget />
-          </div>
-        </div>
-      </section>
+      <EconomyScene />
 
       <div className="mt-20">
         <HomeFaqAccordion />
