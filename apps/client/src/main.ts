@@ -1226,17 +1226,7 @@ function updateHud(): void {
     playersEl.appendChild(card);
   }
 
-  // What's on the line right now (pot) — staked tables only.
-  const stakeEl = document.getElementById("hud-stake");
-  if (stakeEl) {
-    if (state.roomStake > 0) {
-      const sym = state.roomCurrency === 1 ? "💎" : "🪙";
-      stakeEl.textContent = `🏆 ${sym}${(state.roomStake * snap.players.length).toLocaleString()}`;
-      stakeEl.classList.remove("hidden");
-    } else {
-      stakeEl.classList.add("hidden");
-    }
-  }
+  // (The pot at stake is shown ONCE — on the right balance plaque #bal-hud, not here.)
 }
 
 let bottomSig = "";
