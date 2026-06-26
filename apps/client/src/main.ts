@@ -895,11 +895,13 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
     // Run them descending by value, each starting after the previous so the cubes
     // flash one-by-one (the biggest number first).
     seq.sort((a, b) => b.to - a.to);
-    const cubeMs = 1300;
-    const stagger = Math.min(1300, 3600 / Math.max(1, seq.length));
+    // Cubes count up over ~5s total — staggered so the LAST one lands right at ~5s.
+    const cubeTotal = 5000;
+    const cubeMs = seq.length <= 1 ? cubeTotal : Math.min(2200, Math.max(1400, cubeTotal * 0.42));
+    const stagger = seq.length <= 1 ? 0 : (cubeTotal - cubeMs) / (seq.length - 1);
     seq.forEach((s, i) => countUpStat(s.el, s.to, { ...s.opts, ms: cubeMs, delay: i * stagger, sound: true }));
-    // The lvl/rating bars start AFTER the cubes finish + a 0.5s pause.
-    barStartDelay = Math.max(0, seq.length - 1) * stagger + cubeMs + 500;
+    // The lvl/rating bars start 0.5s AFTER the cubes finish.
+    barStartDelay = cubeTotal + 500;
     // Rating delta (PvP only).
     if (!practiceMode) {
       const delta = lastMatch?.ratingDelta ?? 0;
@@ -942,7 +944,7 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
       const numEl = lvlWrap.querySelector(".lvl-num") as HTMLElement | null;
       const xpEl = lvlWrap.querySelector(".lvl-xp") as HTMLElement | null;
       if (fill) {
-        const ms = 1100;
+        const ms = 4800; // ~5s fill, matching the cubes
         let t0 = 0;
         const step = (now: number): void => {
           const k = Math.min(1, (now - t0) / ms);
@@ -977,7 +979,7 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
       const fill = progWrap.querySelector(".result-progfill") as HTMLElement | null;
       const sub = progWrap.querySelector(".prof-sub") as HTMLElement | null;
       if (fill && delta !== 0) {
-        setTimeout(() => animateProgressBar(fill, sub, fromRating, lastRating, 1100), barStartDelay);
+        setTimeout(() => animateProgressBar(fill, sub, fromRating, lastRating, 4800), barStartDelay);
       }
     } else {
       progWrap.classList.add("hidden");
