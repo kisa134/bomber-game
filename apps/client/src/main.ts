@@ -2252,7 +2252,9 @@ async function openLeaderboard(): Promise<void> {
     rows.forEach((r, i) => {
       const li = document.createElement("li");
       const isMe = r.wallet === myWallet;
-      li.className = "lb-row" + (isMe ? " me" : "");
+      // Top-3 get strong medal styling; 4–10 a subtle accent; the rest plain.
+      li.className =
+        "lb-row" + (isMe ? " me" : "") + (i < 3 ? ` lb-${i + 1}` : i < 10 ? " lb-top10" : "");
       const lg = leagueFor(r.rating);
       const medal = ["🥇", "🥈", "🥉"][i] ?? `${i + 1}`;
       // Always show the league badge + name; the score column depends on the board.
