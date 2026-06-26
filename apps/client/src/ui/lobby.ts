@@ -699,11 +699,10 @@ export function renderRoom(state: GameState): void {
   // Match parameters list (under the players).
   const infoEl = document.getElementById("room-match-info");
   if (infoEl) {
-    const mode = state.roomStake > 0 ? (isToken ? "Token Arena" : "Chips Table") : "Casual";
-    const buyin = state.roomStake > 0 ? `${sym} ${state.roomStake.toLocaleString()}` : "Free";
+    const mode = state.roomStake > 0 ? (isToken ? "Token Arena" : "Chips Table") : "Casual · for fun";
+    // Buy-in lives in the Prize-pool panel only — it used to be duplicated here.
     const rows: Array<[string, string]> = [
       ["Mode", mode],
-      ["Buy-in", buyin],
       ["Players", `up to ${MAX_PLAYERS_PER_ROOM}`],
       ["Round", "3 min"],
     ];
