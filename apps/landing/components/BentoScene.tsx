@@ -1,3 +1,5 @@
+"use client";
+
 import { LEAGUES, MAX_PLAYERS_PER_ROOM, ELO_K } from "@/lib/token";
 
 /* Real power-ups (match shared gameplay constants). */
