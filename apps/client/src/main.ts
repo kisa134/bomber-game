@@ -5042,6 +5042,18 @@ function initCardFireflies(): void {
 }
 initCardFireflies();
 
+// Incandescent-bulb cool-down on every hub rail button too (Friends / Leaderboard /
+// Invite / Shop / Competitions) — matches the cards.
+document.querySelectorAll<HTMLElement>(".rail-chip, .rail-card").forEach((b) => {
+  let t = 0;
+  b.addEventListener("pointerenter", () => { b.classList.remove("fx-cooling"); window.clearTimeout(t); });
+  b.addEventListener("pointerleave", () => {
+    b.classList.add("fx-cooling");
+    window.clearTimeout(t);
+    t = window.setTimeout(() => b.classList.remove("fx-cooling"), 2400);
+  });
+});
+
 /** Show a reaction: a bubble over the player in-game, plus a floating lobby pop.
  *  Lobby pops spawn at a random x with a little drift and rise up, so multiple
  *  reactions scatter across the screen instead of stacking in one place. */
