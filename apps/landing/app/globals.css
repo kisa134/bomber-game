@@ -271,6 +271,69 @@ body::after {
   text-rendering: optimizeLegibility;
 }
 
+/* ── Spec foil: moving gold sheen on a display word (e.g. "PAID") ────────── */
+.foil-paid {
+  background: linear-gradient(115deg, #e0b633 0%, #f5c842 32%, #fff6d0 50%, #f5c842 68%, #e0b633 100%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: foil-sweep 3.6s linear infinite;
+  filter: drop-shadow(0 0 28px rgba(245,200,66,0.35));
+}
+@keyframes foil-sweep {
+  from { background-position: 220% 0; }
+  to   { background-position: -20% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .foil-paid { animation: none; background-position: 50% 0; }
+}
+
+/* ── Spec hero: arena spotlight from above on a flat dark floor ──────────── */
+.hero-spec-bg {
+  background:
+    radial-gradient(ellipse 60% 50% at 50% 0%, rgba(245,200,66,0.05) 0%, transparent 60%),
+    radial-gradient(ellipse 90% 80% at 50% 45%, rgba(10,9,16,0.55) 30%, rgba(7,6,13,0.9) 100%),
+    #08070e;
+}
+
+/* ── Spec yellow CTA (solid, never gradient) ───────────────────────────────*/
+.cta-yellow {
+  background: var(--color-yellow);
+  color: #100e16;
+  font-family: var(--font-display);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(245,200,66,0.6);
+  box-shadow: var(--glow-yellow, 0 0 24px rgba(245,200,66,0.25));
+  transition: transform 0.12s ease, box-shadow 0.18s ease, background 0.15s ease;
+}
+.cta-yellow:hover { transform: translateY(-2px); background: var(--color-yellow-hover); box-shadow: 0 0 32px rgba(245,200,66,0.4); }
+.cta-yellow:active { transform: translateY(0); background: var(--color-yellow-active); }
+
+.cta-ghost {
+  background: transparent;
+  color: rgba(255,255,255,0.85);
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(255,255,255,0.35);
+  transition: border-color 0.18s ease, color 0.18s ease;
+}
+.cta-ghost:hover { border-color: rgba(255,255,255,0.7); color: #fff; }
+
+/* Hero fighter idle float (CSS, not GSAP) */
+@keyframes hero-fighter-float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-fighter { animation: none !important; }
+}
+
 /* ── Primary CTA button ────────────────────────────────────────────────────*/
 .cta-primary {
   background: linear-gradient(170deg, #ffe266 0%, #ffcc33 45%, #ff9a3d 100%);

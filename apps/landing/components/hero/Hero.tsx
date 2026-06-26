@@ -1,366 +1,202 @@
 "use client";
 
 import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
-import { useState, useEffect, useRef } from "react";
-import { AnimatedTitle } from "./AnimatedTitle";
-import { PrizePoolCounter } from "./PrizePoolCounter";
-import { MatchmakingCta } from "./MatchmakingCta";
-import { fetchStats, type GameStats } from "@/lib/gameApi";
+import { useState, useEffect } from "react";
+import { fetchStats, type GameStats, GAME_URL } from "@/lib/gameApi";
 import { TOKEN_TICKER } from "@/lib/token";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const PLAY_URL = `${GAME_URL}/play`;
 
-/* ── HUD stat chips ──────────────────────────────────────────────────────── */
-interface HudStat {
-  icon:   string;
-  target: number;
-  prefix?: string;
+/* ── Real HUD chip (count-up to a real /stats value) ─────────────────────── */
+function HudChip({
+  value,
+  label,
+  suffix = "",
+  color,
+  trigger,
+}: {
+  value: number;
+  label: string;
   suffix?: string;
-  label:  string;
-  color:  string;
-  glow:   string;
-}
-
-/* Real HUD stats, built from the game's /stats (no mocks). Yellow leads. */
-function buildHudStats(s: GameStats | null): HudStat[] {
-  return [
-    { icon: "●", target: Math.round(s?.online ?? 0),     suffix: "", label: "PLAYERS ONLINE", color: "#f5c842", glow: "rgba(245,200,66,0.8)" },
-    { icon: "◎", target: Math.round(s?.matches ?? 0),    suffix: "", label: "MATCHES",        color: "#7fd8ff", glow: "rgba(127,216,255,0.8)" },
-    { icon: "◎", target: Math.round(s?.prizePaid ?? 0),  suffix: ` ${TOKEN_TICKER}`, label: "PAID OUT", color: "#f5c842", glow: "rgba(245,200,66,0.8)" },
-    { icon: "⚡", target: Math.round(s?.topMmr ?? 0),     suffix: "", label: "TOP MMR",        color: "#ff5a4d", glow: "rgba(255,90,77,0.8)" },
-  ];
-}
-
-function HudChip({ icon, target, prefix = "", suffix = "", label, color, glow, trigger }: HudStat & { trigger: boolean }) {
-  const value   = useMotionValue(0);
-  const display = useTransform(value, (v) => {
-    const rounded = suffix === "M" ? v.toFixed(1) : Math.floor(v).toLocaleString("en-US");
-    return `${prefix}${rounded}${suffix}`;
-  });
-
+  color: string;
+  trigger: boolean;
+}) {
+  const mv = useMotionValue(0);
+  const display = useTransform(mv, (v) => `${Math.floor(v).toLocaleString("en-US")}${suffix}`);
   useEffect(() => {
     if (!trigger) return;
-    const ctrl = animate(value, target, { duration: 1.8, ease: [0.16, 1, 0.3, 1] });
+    const ctrl = animate(mv, value, { duration: 1.4, ease });
     return () => ctrl.stop();
-  }, [trigger, target, value]);
+  }, [trigger, value, mv]);
 
   return (
-    <div
-      className="flex flex-col items-center gap-1"
-      style={{
-        background:     "rgba(10,12,20,0.68)",
-        border:         `1px solid ${color}22`,
-        borderRadius:   "12px",
-        padding:        "10px 16px",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
-        minWidth:       "100px",
-        boxShadow:      `0 0 20px ${color}08, inset 0 1px 0 rgba(255,255,255,0.04)`,
-        transition:     "border-color 0.25s ease, box-shadow 0.25s ease",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-        <span style={{ color, fontSize: "0.65rem", textShadow: `0 0 8px ${glow}` }}>{icon}</span>
-        <motion.span
-          className="tabular-nums"
-          style={{
-            fontFamily:    "var(--font-hud)",
-            fontSize:      "clamp(0.95rem, 2.5vw, 1.25rem)",
-            fontWeight:    700,
-            color,
-            textShadow:    `0 0 14px ${glow}, 0 0 32px ${glow.replace("0.8", "0.35")}`,
-            lineHeight:    1,
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {display}
-        </motion.span>
-      </div>
-      <span
-        style={{
-          fontFamily:    "var(--font-mono)",
-          fontSize:      "0.50rem",
-          letterSpacing: "0.16em",
-          color:         "rgba(255,255,255,0.30)",
-          textTransform: "uppercase",
-          whiteSpace:    "nowrap",
-        }}
+    <div className="flex flex-col gap-0.5">
+      <motion.span
+        className="tabular-nums"
+        style={{ fontFamily: "var(--font-display)", fontSize: "clamp(1.1rem,2.4vw,1.6rem)", fontWeight: 800, color, lineHeight: 1 }}
       >
+        {display}
+      </motion.span>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.5rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.32)" }}>
         {label}
       </span>
     </div>
   );
 }
 
-/* ── Ambient CSS particles ───────────────────────────────────────────────── */
-const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
-  id:       i,
-  left:     `${5 + (i * 397) % 90}%`,
-  top:      `${10 + (i * 613) % 80}%`,
-  size:     1.2 + (i % 3) * 0.9,
-  delay:    (i * 0.37) % 4,
-  duration: 3.5 + (i % 5) * 0.8,
-  color:    i % 4 === 0 ? "#f5c842" : i % 4 === 1 ? "#7fd8ff" : i % 4 === 2 ? "#ff5a4d" : "#ffd700",
-  opacity:  0.12 + (i % 4) * 0.07,
-}));
-
-/* ── Component ───────────────────────────────────────────────────────────── */
 export function Hero() {
-  const [detonateFlash, setDetonateFlash] = useState(false);
-  const [showFallback, setShowFallback]   = useState(false);
-  const [statsVisible, setStatsVisible]   = useState(false);
-  const [stats, setStats]                 = useState<GameStats | null>(null);
-  const videoRef   = useRef<HTMLVideoElement>(null);
-  const statsRef   = useRef<HTMLDivElement>(null);
+  const [stats, setStats] = useState<GameStats | null>(null);
+  const [ready, setReady] = useState(false);
+  const [flash, setFlash] = useState(false);
 
-  /* ── Real HUD numbers from the game server (no mocks) ─────────────────── */
   useEffect(() => {
     let alive = true;
     const load = () => void fetchStats().then((d) => { if (alive && d) setStats(d); });
     load();
     const id = setInterval(load, 30_000);
-    return () => { alive = false; clearInterval(id); };
+    const t = setTimeout(() => setReady(true), 500);
+    return () => { alive = false; clearInterval(id); clearTimeout(t); };
   }, []);
 
-  /* ── Video fallback: if video doesn't play within 3s, show static image ─ */
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const timeout = setTimeout(() => setShowFallback(true), 3_000);
-
-    const onPlaying = () => clearTimeout(timeout);
-    const onError   = () => { clearTimeout(timeout); setShowFallback(true); };
-
-    video.addEventListener("playing", onPlaying);
-    video.addEventListener("error",   onError);
-    return () => {
-      clearTimeout(timeout);
-      video.removeEventListener("playing", onPlaying);
-      video.removeEventListener("error",   onError);
-    };
-  }, []);
-
-  /* ── Trigger HUD stats count-up on mount ─────────────────────────────── */
-  useEffect(() => {
-    const timer = setTimeout(() => setStatsVisible(true), 600);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const triggerExplosion = () => {
-    setDetonateFlash(true);
-    setTimeout(() => setDetonateFlash(false), 700);
-  };
+  const detonate = () => { setFlash(true); setTimeout(() => setFlash(false), 650); };
 
   return (
     <section
-      className="hero-section relative flex min-h-screen w-full flex-col items-center
-                 justify-center overflow-hidden px-5 pt-24 pb-16 text-center"
-      style={{ background: "transparent" }}
+      className="hero-spec-bg relative flex min-h-[100svh] w-full items-center overflow-hidden"
+      style={{ paddingTop: "88px", paddingBottom: "64px", paddingInline: "var(--section-px, 1.5rem)" }}
     >
-      {/* ═══ BACKGROUND LAYER — clean: sits directly on the unified site bg ══ */}
-
-      {/* Soft scrim only — keeps hero text legible over the blurred art */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          zIndex:     2,
-          background: `
-            radial-gradient(ellipse 72% 56% at 50% 46%, rgba(11,10,14,0) 0%, rgba(11,10,14,0.16) 70%, rgba(8,6,14,0.34) 100%),
-            linear-gradient(to bottom, rgba(11,10,14,0.22) 0%, transparent 24%, transparent 82%, rgba(8,6,14,0.40) 100%)
-          `,
-        }}
-      />
-
-      {/* Bottom fade to next section */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute bottom-0 left-0 right-0 h-36"
-        style={{ zIndex: 4, background: "linear-gradient(to bottom, transparent, rgba(11,10,14,0.5))" }}
-      />
-
-      {/* ═══ DETONATION FLASH (easter egg) ══════════════════════════════════ */}
+      {/* detonation flash easter egg */}
       <AnimatePresence>
-        {detonateFlash && (
+        {flash && (
           <motion.div
-            key="flash"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 1, 0.7, 0] }}
-            transition={{ duration: 0.7, times: [0, 0.08, 0.35, 1], ease: "easeOut" }}
-            aria-hidden
+            key="flash" aria-hidden
+            initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0.6, 0] }}
+            transition={{ duration: 0.65, times: [0, 0.08, 0.35, 1], ease: "easeOut" }}
             className="pointer-events-none absolute inset-0"
-            style={{
-              zIndex:     30,
-              background: "radial-gradient(ellipse 120% 100% at 50% 50%, rgba(245,200,66,0.06) 0%, rgba(255,90,77,0.22) 55%, rgba(127,216,255,0.10) 100%)",
-            }}
+            style={{ zIndex: 30, background: "radial-gradient(ellipse 120% 100% at 35% 55%, rgba(245,200,66,0.10) 0%, rgba(212,64,48,0.22) 55%, transparent 100%)" }}
           />
         )}
       </AnimatePresence>
 
-      {/* ═══ CONTENT LAYER ══════════════════════════════════════════════════ */}
-      <div className="relative flex w-full flex-col items-center gap-6" style={{ zIndex: 10 }}>
+      <div className="relative mx-auto grid w-full max-w-[1200px] grid-cols-1 items-center gap-8 lg:grid-cols-12" style={{ zIndex: 10 }}>
+        {/* ── LEFT: headline + CTAs (cols 1–7) ───────────────────────────── */}
+        <div className="flex flex-col items-start gap-6 lg:col-span-7">
+          {/* status pill */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease }}
+            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5"
+            style={{ border: "1px solid rgba(245,200,66,0.22)", background: "rgba(245,200,66,0.06)" }}
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-80" style={{ background: "#f09020" }} />
+              <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: "#f09020" }} />
+            </span>
+            <span style={{ fontFamily: "var(--font-pixel)", fontSize: "0.55rem", letterSpacing: "0.06em", color: "rgba(245,200,66,0.9)" }}>
+              SEASON 01
+            </span>
+            <span style={{ color: "rgba(255,255,255,0.2)" }}>·</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.4)" }}>
+              Solana Deathmatch
+            </span>
+          </motion.div>
 
-        {/* ── Status pill ─────────────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.55, ease }}
-          style={{
-            display:        "flex",
-            alignItems:     "center",
-            gap:            "8px",
-            borderRadius:   "999px",
-            border:         "1px solid rgba(245,200,66,0.22)",
-            background:     "rgba(245,200,66,0.07)",
-            backdropFilter: "blur(14px)",
-            WebkitBackdropFilter: "blur(14px)",
-            padding:        "6px 16px",
-            boxShadow:      "0 0 24px rgba(245,200,66,0.07), inset 0 1px 0 rgba(255,255,255,0.04)",
-          }}
-        >
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span
-              className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-80"
-              style={{ background: "#ff5a4d" }}
-            />
-            <span
-              className="relative inline-flex h-2 w-2 rounded-full"
-              style={{ background: "#ff5a4d", boxShadow: "0 0 6px rgba(255,90,77,0.9)" }}
-            />
-          </span>
-          <span
+          {/* headline FIGHT / EXPLODE / GET PAID */}
+          <h1
+            onClick={detonate}
+            title="detonate"
+            className="cursor-pointer select-none"
             style={{
-              fontFamily:    "var(--font-mono)",
-              fontSize:      "0.60rem",
-              fontWeight:    700,
-              letterSpacing: "0.20em",
+              fontFamily: "var(--font-display)",
+              fontWeight: 800,
               textTransform: "uppercase",
-              color:         "rgba(245,200,66,0.85)",
+              fontSize: "var(--text-hero, clamp(3.5rem, 7vw, 9rem))",
+              lineHeight: 0.86,
+              letterSpacing: "-0.01em",
+              color: "#fff",
+              margin: 0,
             }}
           >
-            Ranked Season 1
-          </span>
-          <span style={{ color: "rgba(255,255,255,0.18)", fontSize: "0.5rem" }}>·</span>
-          <span
-            style={{
-              fontFamily:    "var(--font-mono)",
-              fontSize:      "0.55rem",
-              letterSpacing: "0.16em",
-              color:         "rgba(255,255,255,0.35)",
-              textTransform: "uppercase",
-            }}
-          >
-            Esports Deathmatch · Solana
-          </span>
-        </motion.div>
-
-        {/* ── BOMBERMEME animated mascot title ─────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 28, filter: "blur(14px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          whileTap={{ scale: 0.97 }}
-          transition={{ duration: 0.85, ease }}
-          className="relative z-10 flex h-[200px] w-full cursor-pointer select-none
-                     justify-center overflow-visible sm:h-[220px] md:h-[180px] lg:h-[220px]"
-          onClick={triggerExplosion}
-          title="💣 Click to detonate"
-        >
-          <AnimatedTitle />
-        </motion.div>
-
-        {/* ── Sub-headline ─────────────────────────────────────────────────── */}
-        <motion.p
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.65, ease, delay: 0.18 }}
-          style={{
-            fontFamily:    "var(--font-mono)",
-            fontSize:      "0.72rem",
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
-            color:         "rgba(255,255,255,0.35)",
-            marginTop:     "-16px",
-          }}
-        >
-          Pure Skill.{" "}
-          <span style={{ color: "#ff5a4d", textShadow: "0 0 12px rgba(255,90,77,0.7)" }}>
-            Massive Stakes.
-          </span>
-          {" "}No Luck.
-        </motion.p>
-
-        {/* ── Prize Pool Counter ───────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.7, ease, delay: 0.28 }}
-        >
-          <PrizePoolCounter />
-        </motion.div>
-
-        {/* ── Matchmaking CTAs ─────────────────────────────────────────────── */}
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease, delay: 0.40 }}
-        >
-          <MatchmakingCta />
-        </motion.div>
-
-        {/* ── HUD Stats Strip ──────────────────────────────────────────────── */}
-        <motion.div
-          ref={statsRef}
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease, delay: 0.54 }}
-          className="flex flex-wrap items-center justify-center gap-3"
-        >
-          {buildHudStats(stats).map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease, delay: 0.56 + i * 0.08 }}
+            {["FIGHT.", "EXPLODE."].map((line, i) => (
+              <motion.span
+                key={line}
+                initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease, delay: 0.1 + i * 0.1 }}
+                style={{ display: "block" }}
+              >
+                {line}
+              </motion.span>
+            ))}
+            <motion.span
+              initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, ease, delay: 0.3 }}
+              style={{ display: "block" }}
             >
-              <HudChip {...stat} trigger={statsVisible} />
-            </motion.div>
-          ))}
-        </motion.div>
+              GET <span className="foil-paid">PAID.</span>
+            </motion.span>
+          </h1>
 
+          {/* body line */}
+          <motion.p
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.45 }}
+            style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-base, 1rem)", lineHeight: 1.6, color: "var(--color-text-secondary, rgba(255,255,255,0.6))", maxWidth: "44ch" }}
+          >
+            A real-time PvP bomber arena on Solana. Pure skill, no luck —{" "}
+            <span style={{ color: "#d44030" }}>last bomber standing takes the pot.</span>
+          </motion.p>
+
+          {/* CTAs */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease, delay: 0.55 }}
+            className="flex flex-wrap items-center gap-3"
+          >
+            <a href={PLAY_URL} target="_blank" rel="noopener noreferrer"
+              className="cta-yellow inline-flex items-center justify-center rounded-md px-7"
+              style={{ height: "52px", fontSize: "0.95rem" }}>
+              ▶ Play Now
+            </a>
+            <a href="/faq"
+              className="cta-ghost inline-flex items-center justify-center rounded-md px-7"
+              style={{ height: "52px", fontSize: "0.9rem" }}>
+              How It Works
+            </a>
+          </motion.div>
+
+          {/* real HUD strip */}
+          <motion.div
+            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease, delay: 0.7 }}
+            className="mt-2 flex flex-wrap items-center gap-x-8 gap-y-4"
+          >
+            <HudChip value={Math.round(stats?.online ?? 0)}     label="Players Online" color="#f5c842" trigger={ready} />
+            <HudChip value={Math.round(stats?.matches ?? 0)}    label="Matches"        color="#7fd8ff" trigger={ready} />
+            <HudChip value={Math.round(stats?.prizePaid ?? 0)}  label="Paid Out"       suffix={` ${TOKEN_TICKER}`} color="#f5c842" trigger={ready} />
+            <HudChip value={Math.round(stats?.topMmr ?? 0)}     label="Top MMR"        color="#3a9e9e" trigger={ready} />
+          </motion.div>
+        </div>
+
+        {/* ── RIGHT: fighter (cols 8–12) ──────────────────────────────────── */}
+        <div className="relative flex justify-center lg:col-span-5 lg:justify-end">
+          {/* bomb glow halo behind the fighter */}
+          <div aria-hidden className="pointer-events-none absolute" style={{ right: "8%", bottom: "10%", width: "min(60vw,360px)", height: "min(60vw,360px)", background: "radial-gradient(circle, rgba(212,64,48,0.18) 0%, transparent 65%)", filter: "blur(8px)", animation: "neon-pulse 2.4s ease-in-out infinite" }} />
+          <motion.img
+            src="/sprites/skin_2.webp"
+            alt="BomberMeme fighter"
+            initial={{ opacity: 0, x: 60 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 1, ease, delay: 0.25 }}
+            className="hero-fighter relative"
+            style={{ height: "min(58vh, 520px)", width: "auto", objectFit: "contain", imageRendering: "pixelated", filter: "drop-shadow(0 24px 48px rgba(0,0,0,0.6))", animation: "hero-fighter-float 3s ease-in-out infinite", zIndex: 10 }}
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+          />
+        </div>
       </div>
 
-      {/* ── Scroll cue ───────────────────────────────────────────────────── */}
+      {/* scroll cue */}
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.2, duration: 1 }}
-        className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2"
-        style={{ zIndex: 10 }}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1, duration: 1 }}
+        className="absolute bottom-7 left-1/2 -translate-x-1/2" style={{ zIndex: 10 }}
       >
-        <motion.div
-          animate={{ y: [0, 8, 0] }}
-          transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }}
-          className="flex flex-col items-center gap-1.5"
-        >
-          <span
-            style={{
-              fontFamily:    "var(--font-mono)",
-              fontSize:      "0.56rem",
-              letterSpacing: "0.28em",
-              color:         "rgba(245,200,66,0.30)",
-              textTransform: "uppercase",
-            }}
-          >
-            explore
-          </span>
-          <div
-            style={{
-              width:      "1px",
-              height:     "36px",
-              background: "linear-gradient(to bottom, rgba(245,200,66,0.35), transparent)",
-            }}
-          />
+        <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }} className="flex flex-col items-center gap-1.5">
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", letterSpacing: "0.28em", color: "rgba(245,200,66,0.35)", textTransform: "uppercase" }}>scroll</span>
+          <div style={{ width: "1px", height: "34px", background: "linear-gradient(to bottom, rgba(245,200,66,0.4), transparent)" }} />
         </motion.div>
       </motion.div>
     </section>
