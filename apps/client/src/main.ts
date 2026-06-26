@@ -2243,26 +2243,38 @@ async function openPublicProfile(wallet: string): Promise<void> {
     const lg = leagueFor(p.rating);
     const wr = p.matches ? Math.round((p.wins / p.matches) * 100) : 0;
     body.innerHTML = "";
-    body.append(
-      el("div", "prof-addr", p.name || shortAddr(wallet)),
-      el("div", "prof-level", `${lg.emoji} ${lg.name} · ${p.rating}`),
-    );
-    const grid = document.createElement("div");
-    grid.className = "prof-grid";
+    // Hero: avatar + name + league badge.
+    const hero = el("div", "pp-hero", "");
+    const av = skinAvatar(p.skin ?? 0);
+    av.classList.add("pp-av");
+    const info = el("div", "pp-info", "");
+    info.append(el("div", "pp-name", p.name || shortAddr(wallet)), el("div", "pp-league", `${lg.emoji} ${lg.name}`));
+    hero.append(av, info);
+    body.append(hero);
+    // Headline accent: rating.
+    const rt = el("div", "pp-rating", "");
+    rt.append(el("span", "pp-rating-v", String(p.rating)), el("span", "pp-rating-l", "RATING"));
+    body.append(rt);
+    // Stat grid with accents.
+    const grid = el("div", "pp-grid", "");
+    const stat = (label: string, value: string | number, cls = ""): HTMLElement => {
+      const c = el("div", `pp-stat ${cls}`, "");
+      c.append(el("span", "pp-stat-v", String(value)), el("span", "pp-stat-l", label));
+      return c;
+    };
     grid.append(
-      profCell("Level", p.level ?? 1),
-      profCell("Rating", p.rating),
-      profCell("Matches", p.matches),
-      profCell("Wins", p.wins),
-      profCell("Win rate", `${wr}%`),
-      profCell("Frags", p.frags),
-      profCell("Deaths", p.deaths),
-      profCell("Best streak", p.best_streak),
-      profCell("⏱ Time", formatPlaytime(p.playtime_sec)),
-      profCell("💎 Won", Math.round((p.tokens_won ?? 0) / 10 ** TOKEN_DECIMALS).toLocaleString()),
+      stat("Level", p.level ?? 1),
+      stat("Win rate", `${wr}%`, wr >= 50 ? "good" : ""),
+      stat("Matches", p.matches),
+      stat("Wins", p.wins, "good"),
+      stat("Frags", p.frags),
+      stat("Deaths", p.deaths),
+      stat("Best streak", `🔥 ${p.best_streak}`),
+      stat("Time", formatPlaytime(p.playtime_sec)),
+      stat("💎 Won", Math.round((p.tokens_won ?? 0) / 10 ** TOKEN_DECIMALS).toLocaleString(), "gold"),
     );
     body.append(grid);
-    body.append(el("div", "status fair", shortAddr(wallet)));
+    body.append(el("div", "pp-addr status fair", shortAddr(wallet)));
     appendKickAction(body, wallet, p.name);
   } catch {
     body.innerHTML = '<p class="status">Failed to load.</p>';

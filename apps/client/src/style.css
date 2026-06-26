@@ -5310,6 +5310,54 @@ button.big {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
+/* ── Public profile popup — hero + accent rating + clean stat grid ─────────── */
+.pp-hero { display: flex; align-items: center; gap: 12px; text-align: left; }
+.pp-av { width: 56px; height: 56px; border-radius: 12px; flex: 0 0 auto; overflow: hidden; background: rgba(255, 255, 255, 0.05); }
+.pp-av img { width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; }
+.pp-info { min-width: 0; }
+.pp-name {
+  font-family: var(--font-disp);
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: var(--cream);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pp-league { font-size: 0.8rem; color: var(--accent-bright); font-weight: 700; }
+.pp-rating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.pp-rating-v {
+  font-family: var(--font-disp);
+  font-weight: 900;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: var(--accent-bright);
+  text-shadow: 0 0 22px rgba(255, 216, 77, 0.35);
+}
+.pp-rating-l { font-size: 0.6rem; letter-spacing: 0.2em; color: var(--muted); margin-top: 3px; }
+.pp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.pp-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 9px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.pp-stat-v { font-weight: 800; font-size: 0.95rem; white-space: nowrap; }
+.pp-stat-l { font-size: 0.56rem; letter-spacing: 0.05em; color: var(--muted); text-transform: uppercase; }
+.pp-stat.good .pp-stat-v { color: #5fe08a; }
+.pp-stat.gold .pp-stat-v { color: var(--accent-bright); }
+.pp-addr { font-size: 0.66rem; text-align: center; }
 
 /* --- PROFILE (full-screen career screen: hero · progression · stats) --- */
 #profile {
