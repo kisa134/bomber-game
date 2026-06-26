@@ -4460,8 +4460,9 @@ function updateCalc(): void {
   }
   const perDay = refs * matches * stake * (calcRakePct / 100) * (calcL1Pct / 100);
   out.innerHTML =
-    `≈ <b>${Math.round(perDay).toLocaleString()} ${TOKEN_TICKER}/day</b> · ${Math.round(perDay * 30).toLocaleString()}/month<br>` +
-    `<span class="muted">from direct (L1) referrals · ${calcL1Pct}% of the ${calcRakePct}% rake · deeper levels add more</span>`;
+    `<div class="calc-result"><span class="calc-big">${Math.round(perDay).toLocaleString()}</span><span class="calc-tick">${TOKEN_TICKER} / day</span></div>` +
+    `<div class="calc-sub">≈ <b>${Math.round(perDay * 30).toLocaleString()}</b>/month · <b>${Math.round(perDay * 365).toLocaleString()}</b>/year</div>` +
+    `<div class="calc-note">from direct (L1) referrals · ${calcL1Pct}% of the ${calcRakePct}% rake · deeper levels add more</div>`;
 }
 
 function referralLink(): string {

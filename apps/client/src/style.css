@@ -3659,6 +3659,26 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   padding: 8px 6px;
   font-size: 0.95rem;
 }
+/* Calculator result — big gold headline, calm secondary lines. */
+.calc-result {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.calc-big {
+  font-family: var(--font-disp);
+  font-weight: 900;
+  font-size: 2rem;
+  line-height: 1;
+  color: var(--accent-bright);
+  text-shadow: 0 0 22px rgba(255, 216, 77, 0.35);
+}
+.calc-tick { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; color: var(--accent-lite); }
+.calc-sub { text-align: center; font-size: 0.86rem; margin-top: 2px; }
+.calc-sub b { color: var(--cream); }
+.calc-note { text-align: center; font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
 .ref-disclaimer {
   font-size: 0.72rem;
   color: var(--muted);
