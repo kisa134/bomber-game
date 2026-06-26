@@ -2518,7 +2518,9 @@ button.hub-chip:hover { background: rgba(255, 255, 255, 0.06); }
   flex-direction: column;
   gap: 12px;
   background: rgba(13, 16, 26, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  /* No visible 1px edge — the Ready button's glow hit it; the glass bg + shadow keep
+     the block defined while light passes through the edge as if it were transparent. */
+  border: none;
   border-radius: 18px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(22px) saturate(1.3);
