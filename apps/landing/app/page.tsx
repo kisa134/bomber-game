@@ -11,7 +11,7 @@ const BentoScene         = dynamic(() => import("@/components/BentoScene").then(
 const RosterSection      = dynamic(() => import("@/components/RosterSection").then((m) => m.RosterSection));
 const LiveLeaderboard    = dynamic(() => import("@/components/arena/LiveLeaderboard").then((m) => m.LiveLeaderboard));
 const VideoTrailerSection= dynamic(() => import("@/components/VideoTrailerSection").then((m) => m.VideoTrailerSection));
-const RoadmapSection     = dynamic(() => import("@/components/RoadmapSection").then((m) => m.RoadmapSection));
+const RoadmapScene       = dynamic(() => import("@/components/RoadmapScene").then((m) => m.RoadmapScene));
 const ProvablyFairTerminal = dynamic(() => import("@/components/ProvablyFairTerminal").then((m) => m.ProvablyFairTerminal));
 const EconomyScene       = dynamic(() => import("@/components/EconomyScene").then((m) => m.EconomyScene));
 const HomeFaqAccordion   = dynamic(() => import("@/components/HomeFaqAccordion").then((m) => m.HomeFaqAccordion));
@@ -52,9 +52,7 @@ export default function Home() {
       </div>
 
       {/* ═══ VISION ─ where it's going ═════════════════════════════════════ */}
-      <div className="mt-28">
-        <RoadmapSection />
-      </div>
+      <RoadmapScene />
 
       {/* ═══ DETAILS ─ moved lower, spaced out (trust → token → faq) ════════ */}
       <div className="mt-28">
