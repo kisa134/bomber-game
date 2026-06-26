@@ -8337,6 +8337,27 @@ button.big {
 }
 .info-card.season-glow:hover { border-color: rgba(168, 120, 255, 0.4); transition: border-color 0.4s ease; }
 .info-card.season-glow:active .lg-glow { opacity: 1; filter: brightness(1.6); }
+/* Cinematic incandescent-bulb cool-down on mouse-leave — flickers + dims unevenly. */
+.passport-card.fx-cooling .lg-glow,
+.passport-card.fx-cooling .lg-fireflies,
+.passport-card.fx-cooling .lg-frost,
+.info-card.season-glow.fx-cooling .lg-glow,
+.info-card.season-glow.fx-cooling .lg-fireflies,
+.info-card.season-glow.fx-cooling .lg-frost {
+  animation: bulbCool 2.5s ease-out forwards;
+}
+@keyframes bulbCool {
+  0% { opacity: 1; }
+  10% { opacity: 0.5; }
+  16% { opacity: 0.88; }
+  28% { opacity: 0.3; }
+  35% { opacity: 0.62; }
+  52% { opacity: 0.16; }
+  60% { opacity: 0.34; }
+  74% { opacity: 0.07; }
+  82% { opacity: 0.15; }
+  100% { opacity: 0; }
+}
 /* Interactive liquid-glass (Apple-style): the refraction layer comes ALIVE on hover —
    stronger displacement (#lg-distort-64) so light visibly bends at the glass. */
 .passport-card::after,

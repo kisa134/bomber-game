@@ -4980,9 +4980,6 @@ function initCardFireflies(): void {
       return el;
     });
     let mx = 0.5, my = 0.5, hovering = false, raf = 0, boost = 1, fadeUntil = 0;
-    const fxLayers = (): HTMLElement[] =>
-      [layer, card.querySelector<HTMLElement>(".lg-frost"), card.querySelector<HTMLElement>(".lg-glow")]
-        .filter((l): l is HTMLElement => !!l);
     const tick = (t: number): void => {
       const w = card.clientWidth, h = card.clientHeight;
       const ar = w / Math.max(1, h); // aspect — keep repulsion even on wide cards
@@ -5018,9 +5015,11 @@ function initCardFireflies(): void {
       // Keep drifting through the slow fade-out so the motes dim while still moving.
       raf = hovering || t < fadeUntil ? requestAnimationFrame(tick) : 0;
     };
+    let coolTimer = 0;
     card.addEventListener("pointerenter", () => {
       hovering = true;
-      fxLayers().forEach((l) => { l.style.transitionDuration = "0.4s"; }); // quick in
+      card.classList.remove("fx-cooling"); // cancel any bulb-cooldown
+      window.clearTimeout(coolTimer);
       // "Bah" — a little burst of magic dust the moment you hover in.
       for (const d of dots) { d.vx += (Math.random() - 0.5) * 0.06; d.vy += (Math.random() - 0.5) * 0.06; }
       if (!raf) raf = requestAnimationFrame(tick);
@@ -5032,8 +5031,11 @@ function initCardFireflies(): void {
     });
     card.addEventListener("pointerleave", () => {
       hovering = false;
-      fadeUntil = performance.now() + 3100; // keep drifting while the slow fade plays
-      fxLayers().forEach((l) => { l.style.transitionDuration = "3s"; }); // slow, gentle out
+      fadeUntil = performance.now() + 2700; // keep drifting while the bulb cools
+      // Cinematic incandescent-bulb cool-down: flicker + dim unevenly, then off.
+      card.classList.add("fx-cooling");
+      window.clearTimeout(coolTimer);
+      coolTimer = window.setTimeout(() => card.classList.remove("fx-cooling"), 2600);
     });
     card.addEventListener("pointerdown", () => { boost = 1.9; setTimeout(() => { boost = 1; }, 700); });
   });
