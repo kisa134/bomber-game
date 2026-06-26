@@ -2374,39 +2374,61 @@ function passesFilter(i: number): boolean {
   }
 }
 
+function makeShopCard(i: number): HTMLElement {
+  const owns = skinOwned(i);
+  const r = rarityOf(i);
+  const locked = !owns && shop.level < (SKIN_UNLOCK_LEVEL[i] ?? 0);
+  const card = document.createElement("button");
+  card.className =
+    "shop-card" +
+    (i === shopSelected ? " selected" : "") +
+    (i === shop.equipped ? " equipped" : "") +
+    (owns ? " owned" : " unowned") +
+    (locked ? " locked" : "");
+  card.style.setProperty("--rarity", r.color);
+  card.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
+  card.appendChild(el("div", "shop-card-name", SKIN_NAMES[i] ?? `Skin ${i}`));
+  let tag: HTMLElement;
+  if (i === shop.equipped) tag = el("div", "shop-card-tag equipped", "✔ Equipped");
+  else if (owns) tag = el("div", "shop-card-tag owned", "Owned");
+  else if (locked) tag = el("div", "shop-card-tag locked", `🔒 LV ${SKIN_UNLOCK_LEVEL[i]}`);
+  else tag = el("div", "shop-card-tag price", `🪙 ${SKIN_PRICES[i].toLocaleString()}`);
+  card.appendChild(tag);
+  if (!owns) card.appendChild(el("div", "shop-card-rarity", r.name));
+  card.addEventListener("click", () => {
+    shopSelected = i;
+    renderShopGrid();
+    renderShopDetail();
+  });
+  return card;
+}
+
 function renderShopGrid(): void {
   const grid = document.getElementById("shop-grid");
   if (!grid) return;
   grid.innerHTML = "";
   let shown = 0;
-  for (let i = 0; i < SKIN_COUNT; i++) {
-    if (!passesFilter(i)) continue;
-    shown++;
-    const owns = skinOwned(i);
-    const r = rarityOf(i);
-    const card = document.createElement("button");
-    card.className =
-      "shop-card" +
-      (i === shopSelected ? " selected" : "") +
-      (i === shop.equipped ? " equipped" : "") +
-      (owns ? " owned" : " unowned");
-    card.style.setProperty("--rarity", r.color);
-    card.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
-    card.appendChild(el("div", "shop-card-name", SKIN_NAMES[i] ?? `Skin ${i}`));
-    // Status line: equipped / owned / price / locked-by-level.
-    let tag: HTMLElement;
-    if (i === shop.equipped) tag = el("div", "shop-card-tag equipped", "✔ Equipped");
-    else if (owns) tag = el("div", "shop-card-tag owned", "Owned");
-    else if (shop.level < (SKIN_UNLOCK_LEVEL[i] ?? 0)) tag = el("div", "shop-card-tag locked", `🔒 LV ${SKIN_UNLOCK_LEVEL[i]}`);
-    else tag = el("div", "shop-card-tag price", `🪙 ${SKIN_PRICES[i].toLocaleString()}`);
-    card.appendChild(tag);
-    if (!owns) card.appendChild(el("div", "shop-card-rarity", r.name));
-    card.addEventListener("click", () => {
-      shopSelected = i;
-      renderShopGrid();
-      renderShopDetail();
-    });
-    grid.appendChild(card);
+  if (shopFilter === "all") {
+    // Rank by rarity tier with minimalist subheadings (flashiest tier first).
+    const byTier = new Map<number, number[]>();
+    for (let i = 0; i < SKIN_COUNT; i++) {
+      const t = tierRank(i);
+      (byTier.get(t) ?? byTier.set(t, []).get(t)!).push(i);
+    }
+    for (const t of [...byTier.keys()].sort((a, b) => b - a)) {
+      const idxs = byTier.get(t)!;
+      const head = el("div", "shop-tier-head", "");
+      head.style.setProperty("--rarity", rarityOf(idxs[0]).color);
+      head.append(el("span", "sth-line", ""), el("span", "sth-name", rarityOf(idxs[0]).name), el("span", "sth-line", ""));
+      grid.appendChild(head);
+      for (const i of idxs) { grid.appendChild(makeShopCard(i)); shown++; }
+    }
+  } else {
+    for (let i = 0; i < SKIN_COUNT; i++) {
+      if (!passesFilter(i)) continue;
+      grid.appendChild(makeShopCard(i));
+      shown++;
+    }
   }
   if (!shown) grid.appendChild(el("div", "shop-empty", "Nothing here — try another filter."));
 }
@@ -2463,17 +2485,17 @@ function renderShopDetail(): void {
   const actions = el("div", "shop-actions", "");
   if (i === shop.equipped) {
     const b = document.createElement("button");
-    b.className = "primary big"; b.textContent = "✔ Equipped"; b.disabled = true;
+    b.className = "glass-btn primary big"; b.textContent = "✔ Equipped"; b.disabled = true;
     actions.appendChild(b);
   } else if (owns) {
     const b = document.createElement("button");
-    b.className = "primary big"; b.textContent = "Equip";
+    b.className = "glass-btn primary big"; b.textContent = "Equip";
     b.addEventListener("click", () => void doSelectSkin(i));
     actions.appendChild(b);
   } else {
     // Chips path (gated by level + balance), then token path.
     const chip = document.createElement("button");
-    chip.className = "primary big";
+    chip.className = "glass-btn primary big";
     if (shop.level < needLevel) {
       chip.textContent = `🔒 Reach LV ${needLevel}`; chip.disabled = true;
     } else if (shop.chips < chipPrice) {
@@ -2485,7 +2507,7 @@ function renderShopDetail(): void {
     actions.appendChild(chip);
 
     const tok = document.createElement("button");
-    tok.className = "big shop-token-btn";
+    tok.className = "glass-btn big shop-token-btn";
     if (shop.tokens < tokPrice) {
       tok.textContent = `💎 ${tokPrice.toLocaleString()} — not enough`; tok.disabled = true;
     } else {

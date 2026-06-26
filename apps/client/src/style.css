@@ -5615,6 +5615,49 @@ button.big {
   align-items: center;
   gap: 10px;
 }
+/* Title sits right next to the back arrow (gold, no emoji); econ pushed right. */
+.shop-title {
+  margin: 0;
+  font-family: var(--font-disp);
+  font-weight: 800;
+  font-size: clamp(1.3rem, 2.4vw, 1.9rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: linear-gradient(180deg, #ffe9a8, var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  white-space: nowrap;
+}
+.shop-top .shop-econ { margin-left: auto; }
+/* Unowned skins dimmed; level-locked ones dimmed harder. Clear on hover/selected. */
+.shop-card.unowned { filter: grayscale(0.35) brightness(0.72); }
+.shop-card.locked { filter: grayscale(0.62) brightness(0.48); opacity: 0.82; }
+.shop-card.unowned:hover,
+.shop-card.locked:hover,
+.shop-card.selected { filter: none; opacity: 1; }
+/* Tier subheading (All view) — minimalist rule + rarity-coloured label. */
+.shop-tier-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 2px 0;
+}
+.shop-tier-head .sth-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--rarity) 45%, transparent), transparent);
+}
+.shop-tier-head .sth-name {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--rarity);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--rarity) 50%, transparent);
+}
 .shop-top .lobby-title {
   flex: 1 1 auto;
   text-align: center;
