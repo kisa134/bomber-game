@@ -5482,6 +5482,8 @@ button.big {
 .pp-grid { gap: 10px; }
 #pubprofile-modal .modal-card { align-items: stretch; }
 #pubprofile-close { width: 100%; margin-top: 6px; text-align: center; }
+/* Symmetric finish across modals: the trailing Close/Later/Cancel button spans the card. */
+.modal-card > .ghost:last-child { width: 100%; margin-top: 6px; text-align: center; }
 
 /* Lucky-spin popup — centred, full-width glass spin button. */
 .wheel-card { align-items: center; }
