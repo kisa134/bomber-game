@@ -6350,8 +6350,6 @@ button.big {
 }
 /* 4–10 — a quiet gold edge so the top ten reads as a tier. */
 .lb-row.lb-top10 { border-left: 3px solid rgba(255, 216, 77, 0.4); }
-/* Glass Back button. */
-#leaderboard-back { width: 100%; }
 
 /* Wallet picker modal */
 .modal {
