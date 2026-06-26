@@ -21,7 +21,9 @@ export interface GameStats {
 export interface LeaderRow {
   name?: string;
   rating?: number;
-  tokens_won?: number;
+  wins?: number;
+  matches?: number;
+  tokens_won?: number; // base units (token decimals); divide by 1e6 for whole tokens
   chips_won?: number;
 }
 
@@ -43,7 +45,19 @@ async function getJson<T>(path: string): Promise<T | null> {
 
 export const fetchStats = () => getJson<GameStats>("/stats");
 export const fetchOnline = () => getJson<{ online?: number }>("/online");
-export const fetchLeaderboard = (board: "rating" | "tokens" | "chips") =>
-  getJson<{ leaderboard?: LeaderRow[] } | LeaderRow[]>(`/leaderboard?board=${board}`);
-export const fetchTournaments = () =>
-  getJson<{ tournaments?: Tournament[] } | Tournament[]>("/tournaments");
+
+/** Real leaderboard rows from /leaderboard?board=… (server returns { rows }). */
+export async function fetchLeaderboard(board: "rating" | "tokens" | "chips"): Promise<LeaderRow[]> {
+  const d = await getJson<{ rows?: LeaderRow[] }>(`/leaderboard?board=${board}`);
+  return d?.rows ?? [];
+}
+
+/** Real tournaments from /tournaments (shape tolerant: array or { tournaments }). */
+export async function fetchTournaments(): Promise<Tournament[]> {
+  const d = await getJson<{ tournaments?: Tournament[] } | Tournament[]>("/tournaments");
+  if (Array.isArray(d)) return d;
+  return d?.tournaments ?? [];
+}
+
+/** Whole-token amount from base units (token uses 6 decimals). */
+export const toTokens = (base: number | undefined): number => (base ?? 0) / 1_000_000;
