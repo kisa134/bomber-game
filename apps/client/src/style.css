@@ -8379,6 +8379,21 @@ button.big {
   0% { transform: translateY(0) rotate(0deg); opacity: 1; }
   100% { transform: translateY(112vh) rotate(680deg); opacity: 0.85; }
 }
+/* Easter egg: disco hue pulse on the carousel (5× the LIVE badge). */
+#menu.disco .hub-stage { animation: discoHue 2.6s linear; }
+@keyframes discoHue {
+  0%, 100% { filter: none; }
+  50% { filter: hue-rotate(310deg) saturate(1.6); }
+}
+/* Easter egg: secret nickname shimmers gold. */
+.nick-secret {
+  color: #ffd23f !important;
+  animation: nickPulse 1.6s ease-in-out infinite;
+}
+@keyframes nickPulse {
+  0%, 100% { text-shadow: 0 0 6px rgba(255, 210, 63, 0.4); }
+  50% { text-shadow: 0 0 14px rgba(255, 210, 63, 0.85); }
+}
 #now-playing.show {
   opacity: 1;
   transform: translateY(0);

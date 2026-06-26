@@ -803,6 +803,8 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
   showResult(title);
   const won = !!lastMatch?.won;
   const draw = !!lastMatch?.draw;
+  // Easter egg: a hot win-streak rains confetti when the result appears.
+  if (won && (lastMatch?.streak ?? 0) >= 5) setTimeout(() => emojiRain(["🔥", "🏆", "💥", "👑"], 52), 500);
   const frags = lastMatch?.frags ?? 0;
 
   // Hero mood (drives the celebratory glow).
@@ -2932,6 +2934,7 @@ let mVelX = 0; // spring velocity → weightless float/overshoot
 let mVelY = 0;
 let dustTarget = 0.5; // sparkle intensity of the active card's tier
 let dustCur = 0.5; // eased
+let musicBeat = 0; // smoothed music loudness (0..~1) — drives subtle hub reactivity
 let hoverTarget = 0; // 1 while the cursor is over the carousel
 let hoverCur = 0; // eased → active card grows + lifts toward the viewer
 let dragMoved = false; // set while a swipe/drag is in progress on the carousel
@@ -3185,6 +3188,9 @@ function startFighterFloat(): void {
     mVelY += (mTargetY - mCurY) * 0.015; mVelY *= 0.86; mCurY += mVelY;
     dustCur += (dustTarget - dustCur) * 0.04;
     hoverCur += (hoverTarget - hoverCur) * 0.05;
+    // Subtle music reactivity: the magic dust breathes a touch brighter on the beat —
+    // atmospheric, never in-your-face.
+    musicBeat += (assets.musicLevel() - musicBeat) * 0.25;
     const t = now * 0.001;
     // While the deck easter egg owns the cards, don't let the float loop fight
     // it for the transforms (dust keeps whirling below).
@@ -3253,7 +3259,7 @@ function startFighterFloat(): void {
           m.el.style.opacity = "0";
           continue;
         }
-        m.el.style.opacity = (m.tw * m.dim * (0.4 + dustCur) * (0.55 + 0.45 * Math.sin(t * 1.5 + m.ph))).toFixed(2);
+        m.el.style.opacity = (m.tw * m.dim * (0.4 + dustCur + musicBeat * 0.7) * (0.55 + 0.45 * Math.sin(t * 1.5 + m.ph))).toFixed(2);
       }
     }
     // Edge sparks: while the centre card is held, spray sparks from its edges
@@ -4697,6 +4703,35 @@ document.getElementById("result-title")?.addEventListener("click", () => {
   window.clearTimeout(titleClickTimer);
   titleClickTimer = window.setTimeout(() => { titleClicks = 0; }, 600);
   if (titleClicks >= 3) { titleClicks = 0; emojiRain(["🎉", "🏆", "💥", "✨", "💰", "👑"], 56); assets.rewardDing(); }
+});
+// 3) Click the season LIVE badge 5× → disco pulse on the hub.
+let liveClicks = 0, liveTimer = 0;
+document.querySelector(".ic-badge")?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  liveClicks++;
+  window.clearTimeout(liveTimer);
+  liveTimer = window.setTimeout(() => { liveClicks = 0; }, 700);
+  if (liveClicks >= 5) {
+    liveClicks = 0;
+    const m = document.getElementById("menu");
+    m?.classList.add("disco");
+    window.setTimeout(() => m?.classList.remove("disco"), 2600);
+    emojiRain(["🪩", "🕺", "💃", "✨", "🔥"], 40);
+  }
+});
+// 4) Click the header token/coin chip 7× → coin rain.
+let coinClicks = 0, coinTimer = 0;
+document.querySelector(".hub-top-actions .stat-badge")?.addEventListener("click", () => {
+  coinClicks++;
+  window.clearTimeout(coinTimer);
+  coinTimer = window.setTimeout(() => { coinClicks = 0; }, 800);
+  if (coinClicks >= 7) { coinClicks = 0; emojiRain(["🪙", "🤑", "💰", "💵"], 52); assets.rewardDing(); }
+});
+// 5) Secret nicknames → your name shimmers gold.
+const SECRET_NICKS = ["moon", "satoshi", "wagmi", "kisa", "gigachad", "1000x", "pump"];
+document.getElementById("nickname")?.addEventListener("input", (e) => {
+  const t = e.target as HTMLInputElement;
+  t.classList.toggle("nick-secret", SECRET_NICKS.includes(t.value.trim().toLowerCase()));
 });
 
 // Stylish warm-spark burst when the main PLAY button is pressed.

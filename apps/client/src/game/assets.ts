@@ -154,6 +154,47 @@ export class Assets {
   private fadeTimers = new Map<HTMLAudioElement, ReturnType<typeof setInterval>>();
   private active = new Map<string, HTMLAudioElement>(); // last-played instance per key
   private audioCtx: AudioContext | null = null; // lazy Web Audio (for fx with reverb)
+  // Optional music analyser — drives subtle hub visuals. Hooked only once the audio
+  // context is actually running (post-gesture) so it never silences the music.
+  private musicAnalyser: AnalyserNode | null = null;
+  private musicSourced = new WeakSet<HTMLAudioElement>();
+  private musicBuf: Uint8Array<ArrayBuffer> | null = null;
+  private musicLvl = 0;
+
+  /** Route a playing music element into an analyser (idempotent, fail-safe). */
+  private hookMusicAnalyser(a: HTMLAudioElement): void {
+    const ctx = this.audioCtx;
+    if (!ctx || ctx.state !== "running" || this.musicSourced.has(a)) return;
+    try {
+      const src = ctx.createMediaElementSource(a);
+      if (!this.musicAnalyser) {
+        this.musicAnalyser = ctx.createAnalyser();
+        this.musicAnalyser.fftSize = 256;
+        this.musicAnalyser.smoothingTimeConstant = 0.8;
+        this.musicAnalyser.connect(ctx.destination);
+        this.musicBuf = new Uint8Array(this.musicAnalyser.fftSize);
+      }
+      src.connect(this.musicAnalyser);
+      this.musicSourced.add(a);
+    } catch {
+      /* element already sourced / not allowed — leave music untouched */
+    }
+  }
+
+  /** 0..~1 smoothed loudness of the music right now (0 if no analyser). */
+  musicLevel(): number {
+    const an = this.musicAnalyser, buf = this.musicBuf;
+    if (!an || !buf) return 0;
+    an.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const v = (buf[i] - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / buf.length);
+    this.musicLvl += (rms - this.musicLvl) * 0.2; // extra smoothing
+    return this.musicLvl;
+  }
   private reverbIR: AudioBuffer | null = null;
   private fxBuffers = new Map<string, AudioBuffer>();
   private noiseBuf: AudioBuffer | null = null; // cached white noise for crack transients
@@ -898,6 +939,7 @@ export class Assets {
       void a
         .play()
         .then(() => {
+          this.hookMusicAnalyser(a); // music is playing + ctx live → safe to analyse
           this.fadeVolume(a, volume, 1200);
           // Announce only once the track truly starts (autoplay may defer it to the
           // first tap), and only for hub tracks — this feeds the "now playing" chip.
