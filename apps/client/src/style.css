@@ -5866,7 +5866,8 @@ button.big {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr) 300px;
+  /* Side columns shrink with the window so the card grid keeps room instead of squishing. */
+  grid-template-columns: clamp(118px, 15vw, 150px) minmax(0, 1fr) clamp(232px, 26vw, 300px);
   gap: 12px;
   overflow: hidden;
 }
@@ -5907,7 +5908,7 @@ button.big {
   overflow-x: hidden;
   align-content: start;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
   gap: 12px;
   padding-right: 4px;
 }
