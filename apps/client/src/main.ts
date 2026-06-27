@@ -1694,9 +1694,7 @@ function refreshWalletBtn(): void {
         shop.owned = p.skins ?? DEFAULT_SKINS;
         shop.level = p.level ?? shop.level;
         if (typeof p.skin === "number") shop.equipped = p.skin;
-        document.querySelectorAll<HTMLElement>("#fighter-carousel .fighter-card").forEach((card) => {
-          card.querySelector(".fc-lock")?.classList.toggle("hidden", skinOwned(Number(card.dataset.skin)));
-        });
+        syncHubCardLocks();
         loadHubTop(); // re-render now that we know who "you" are (show your own row right away)
         // Show the wallet's claimed (unique) nickname in the field.
         const nick = document.getElementById("nickname") as HTMLInputElement | null;
@@ -1872,7 +1870,7 @@ function setStats(chips: number, rating: number): void {
   setRatingRail(rating);
   updateBalanceBars();
   syncChrome();
-  refreshHub(); // equipped character may have synced from the profile
+  syncHubCardLocks(); // chips/rating poll — don't reset carousel browse position
 }
 /** Update the PRIMARY rating rail in the HUD (rank + progress toward next league). */
 function setRatingRail(rating: number): void {
@@ -3633,18 +3631,23 @@ function showFighter(skin: number, equip = false): void {
 
 function cycleFighter(delta: number): void {
   if (hubBrowseSkin < 0) hubBrowseSkin = hubEquipped();
-  showFighter((hubBrowseSkin + delta + SKIN_COUNT) % SKIN_COUNT, true);
+  showFighter((hubBrowseSkin + delta + SKIN_COUNT) % SKIN_COUNT, false);
 }
 document.getElementById("fighter-prev")?.addEventListener("click", () => cycleFighter(-1));
 document.getElementById("fighter-next")?.addEventListener("click", () => cycleFighter(1));
 window.addEventListener("resize", () => { if (hubBrowseSkin >= 0) layoutCarousel(hubBrowseSkin); });
 
-/** Refresh the hub fighter carousel (equipped character). */
-function refreshHub(): void {
-  buildCarousel();
+/** Update lock overlays on carousel cards without changing the centred fighter. */
+function syncHubCardLocks(): void {
   document.querySelectorAll<HTMLElement>("#fighter-carousel .fighter-card").forEach((card) => {
     card.querySelector(".fc-lock")?.classList.toggle("hidden", skinOwned(Number(card.dataset.skin)));
   });
+}
+
+/** Refresh the hub fighter carousel (equipped character). */
+function refreshHub(): void {
+  buildCarousel();
+  syncHubCardLocks();
   showFighter(hubEquipped(), false);
 }
 /** Update the level / XP progress bar from a profile (200 XP per level). */
