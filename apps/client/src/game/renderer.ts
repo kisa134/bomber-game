@@ -2,6 +2,16 @@ import { GRID_W, GRID_H, TileType, BOMB_TIMER_MS, EXPLOSION_LIFETIME_MS, START_L
 import type { RenderView } from "./state.js";
 import type { Assets } from "./assets.js";
 import { ASSET_VER } from "./assets.js";
+import type { ArenaTheme } from "../settings.js";
+
+// Arena block skins: each themed set maps the base hard/soft/floor sprite to a
+// themed material variant. "classic" is absent here (it uses the base sprites).
+// NOTE: void temporarily reuses floor_grate until a dedicated floor_void exists.
+const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft: string; floor: string }> = {
+  vault: { hard: "hard_gold", soft: "soft_ammo", floor: "floor_grate" },
+  cyber: { hard: "hard_stone", soft: "soft_tech", floor: "floor_neon" },
+  void: { hard: "hard_obsidian", soft: "soft_meme", floor: "floor_grate" },
+};
 
 // One unique colour per player slot — supports a full 8-player arena (1 human +
 // up to 7 bots) with no duplicates. Index is assigned in the lobby, independent
@@ -138,6 +148,7 @@ export class Renderer {
   // procedural shadows for cheap ellipses, skips ambient/wind/light-bounce and
   // thins out particles. Keeps the board smooth and the phone cool.
   private lowFx = false;
+  private arenaTheme: ArenaTheme = "classic"; // block/floor material set (Settings → Arena)
   private fxScale = 1; // particle-count multiplier (0.5 in lowFx)
   private maxParticles = MAX_PARTICLES;
   // The grass floor is static, so render it once into an offscreen canvas and
@@ -316,8 +327,10 @@ export class Renderer {
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.clearRect(0, 0, W, H);
     // On phones use the flat floor sprite (cheap, no procedural blades); on
-    // desktop keep the richer procedural grass. Both are baked once, here.
-    const floorImg = this.lowFx ? this.assets?.img("floor") : null;
+    // desktop keep the richer procedural grass. A non-classic arena theme forces
+    // its themed floor sprite everywhere (so the theme reads on desktop too).
+    const themed = this.arenaTheme !== "classic";
+    const floorImg = themed ? this.assets?.img(this.blockKey("floor")) : this.lowFx ? this.assets?.img("floor") : null;
     this.floorSpriteBaked = !!floorImg;
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
@@ -337,6 +350,8 @@ export class Renderer {
     "hard_dmg1_v1", "hard_dmg1_v2", "hard_dmg2_v1", "hard_dmg2_v2", "hard_dmg3_v1", "hard_dmg3_v2",
     "hard_dmg4_v1", "hard_dmg4_v2", "hard_dmg5_v1", "hard_dmg5_v2", "hard_dmg6_v1", "hard_dmg6_v2",
     "soft", "soft_mobile", "bomb",
+    // arena-theme block variants (prescaled so a theme switch is instant)
+    "hard_gold", "hard_stone", "hard_obsidian", "soft_ammo", "soft_tech", "soft_meme",
     "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
@@ -360,9 +375,25 @@ export class Renderer {
     }
   }
 
-  /** Pre-scaled tile sprite for `key` (1:1 blit), or the raw image, or null. */
+  /** Map a base block key to the active arena theme's variant (or itself). */
+  private blockKey(base: "hard" | "soft" | "floor"): string {
+    const set = ARENA_THEMES[this.arenaTheme as Exclude<ArenaTheme, "classic">];
+    return set ? set[base] : base;
+  }
+
+  /** Pre-scaled tile sprite for `key` (1:1 blit), or the raw image, or null.
+   *  hard/soft resolve through the active arena theme (falls back to the base
+   *  sprite if a themed variant is missing). */
   private sprite(key: string): CanvasImageSource | null {
-    return this.scaled.get(key) ?? this.assets?.img(key) ?? null;
+    const k = key === "hard" || key === "soft" ? this.blockKey(key) : key;
+    return this.scaled.get(k) ?? this.assets?.img(k) ?? this.scaled.get(key) ?? this.assets?.img(key) ?? null;
+  }
+
+  /** Switch the arena block/floor material set and rebake (instant once loaded). */
+  setArenaTheme(t: ArenaTheme): void {
+    if (t === this.arenaTheme) return;
+    this.arenaTheme = t;
+    this.buildFloor(); // re-bakes the floor + re-prescales themed blocks (no-op pre-resize)
   }
 
   // -- VFX API ---------------------------------------------------------------

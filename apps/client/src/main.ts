@@ -684,6 +684,7 @@ function enterGame(): void {
     renderer.skinOf = (id) => state.skinOf(id);
     renderer.colorOf = (id) => state.colorOf(id);
     renderer.setGore(settings.gore);
+    renderer.setArenaTheme(settings.arenaTheme);
   }
   renderer.resize();
   renderer.remeasure(); // re-fit after the game screen has actually laid out
@@ -1499,6 +1500,7 @@ function applySettings(): void {
   assets.setSfxEnabled(settings.sfx);
   input.setControlScheme(settings.controls);
   renderer?.setGore(settings.gore);
+  renderer?.setArenaTheme(settings.arenaTheme);
   syncSettingsUI();
 }
 
@@ -1523,6 +1525,10 @@ function syncSettingsUI(): void {
 
   document.getElementById("mode-token")?.classList.toggle("active", settings.valueMode === "token");
   document.getElementById("mode-fiat")?.classList.toggle("active", settings.valueMode === "fiat");
+
+  for (const t of ["classic", "vault", "cyber", "void"]) {
+    document.getElementById("arena-" + t)?.classList.toggle("active", settings.arenaTheme === t);
+  }
 }
 
 function update<K extends keyof Settings>(key: K, value: Settings[K]): void {
@@ -1635,6 +1641,9 @@ function wireSettings(): void {
   document.getElementById("unit-sol")?.addEventListener("click", () => { update("valueUnit", "sol"); applyValueUnit(); });
   document.getElementById("mode-token")?.addEventListener("click", () => { update("valueMode", "token"); applyValueUnit(); });
   document.getElementById("mode-fiat")?.addEventListener("click", () => { update("valueMode", "fiat"); applyValueUnit(); });
+  for (const t of ["classic", "vault", "cyber", "void"] as const) {
+    document.getElementById("arena-" + t)?.addEventListener("click", () => update("arenaTheme", t));
+  }
   // Day / night backdrop theme — a single emoji toggle (persisted)
   const applyTheme = (theme: string): void => {
     const day = theme === "day";

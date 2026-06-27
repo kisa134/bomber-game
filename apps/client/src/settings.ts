@@ -5,6 +5,8 @@ export type ControlScheme = "joystick" | "dpad" | "tilt";
 export type ValueUnit = "usd" | "sol";
 /** How balances read: token amount with an ≈ conversion, or purely the money value. */
 export type ValueMode = "token" | "fiat";
+/** Arena block skin: the classic grass/blocks, or a themed material set. */
+export type ArenaTheme = "classic" | "vault" | "cyber" | "void";
 
 export interface Settings {
   music: boolean;
@@ -15,6 +17,7 @@ export interface Settings {
   valueMode: ValueMode; // "token" = 💎1,000 ≈$x · "fiat" = show the $/◎ value as primary
   repeatOne: boolean; // BOMBERMEME FM: loop the current lobby track instead of shuffling on
   liteGfx: boolean; // force the lighter render (no blur/fireflies/dust) for weak devices
+  arenaTheme: ArenaTheme; // which block/floor material set the arena renders with
 }
 
 const KEY = "bp_settings";
@@ -30,6 +33,7 @@ const DEFAULTS: Settings = {
   valueMode: "token",
   repeatOne: false,
   liteGfx: false,
+  arenaTheme: "classic",
 };
 
 export function loadSettings(): Settings {

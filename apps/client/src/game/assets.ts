@@ -12,6 +12,16 @@ export const SPRITE_FILES: Record<string, string> = {
   hard: "/sprites/hard",
   soft: "/sprites/soft",
   soft_mobile: "/sprites/soft_mobile", // meme crate used on phones (lowFx)
+  // Arena-theme block variants (selectable in Settings → Arena). Same 2.5D
+  // structure as the base hard/soft/floor; only the surface/material differs.
+  hard_gold: "/sprites/hard_gold",
+  hard_stone: "/sprites/hard_stone",
+  hard_obsidian: "/sprites/hard_obsidian",
+  soft_ammo: "/sprites/soft_ammo",
+  soft_tech: "/sprites/soft_tech",
+  soft_meme: "/sprites/soft_meme",
+  floor_grate: "/sprites/floor_grate",
+  floor_neon: "/sprites/floor_neon",
   bomb: "/sprites/bomb",
   // Explosion animation frames (ignite -> expand -> peak -> collapse -> fade).
   // A single explosion is used as a fallback if frames are absent.
@@ -47,7 +57,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "32";
+export const ASSET_VER = "33";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.
