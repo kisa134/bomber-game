@@ -2476,7 +2476,7 @@ function openPlayerCard(p: { wallet?: string | null; name: string; skin: number 
 
 // --- skin shop ------------------------------------------------------------
 
-const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad", "Doomer", "Bloomer", "Stonks", "Satoshi", "SBF", "CZ", "Laser Eyes", "WAGMI", "Diamond", "Rich Pepe", "Bonk", "WIF", "Popcat", "Titan", "Salt Bae", "Harold", "Paper Hands", "Moonboy", "Brett", "Andy", "GOAT", "Pnut", "Moodeng", "MEW", "Ponke", "Sigma", "Boomer", "Zoomer", "Chemist", "Galaxy Brain", "Cry Jordan", "Disaster", "Leeroy", "MLG", "Keanu", "Rick", "Crewmate", "Grogu", "Voxel", "Skibidi", "Ohio", "Rizzler", "Zuck", "Bezos", "Gates", "Jobs", "Success", "Bad Luck", "Drake", "Distracted", "Two Buttons", "Philosoraptor", "Y U NO", "Good Guy Greg", "Smudge", "Fwog"];
+const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad", "Doomer", "Bloomer", "Stonks", "Satoshi", "SBF", "CZ", "Laser Eyes", "WAGMI", "Diamond", "Rich Pepe", "Bonk", "WIF", "Popcat", "Titan", "Salt Bae", "Harold", "Paper Hands", "Moonboy", "Brett", "Andy", "GOAT", "Pnut", "Moodeng", "MEW", "Ponke", "Sigma", "Boomer", "Zoomer", "Chemist", "Galaxy Brain", "Cry Jordan", "Disaster", "Leeroy", "MLG", "Keanu", "Rick", "Crewmate", "Grogu", "Voxel", "Skibidi", "Ohio", "Rizzler", "Zuck", "Bezos", "Gates", "Jobs", "Success", "Bad Luck", "Drake", "Distracted", "Two Buttons", "Philosoraptor", "Y U NO", "Good Guy Greg", "Smudge", "Fwog", "Woman Yelling", "Math Lady", "Scumbag", "Blinking Guy", "Overly GF", "Based Ape", "Michi", "Dank Pepe"];
 
 /** Rarity by index (price tier) — drives the card/border colour + label. */
 const RARITY_TIERS = [
@@ -2487,7 +2487,7 @@ const RARITY_TIERS = [
   { name: "Mythic", color: "#ff5a5a" },
 ] as const;
 // Expanded roster (skins 11+) is spread across EVERY tier so the shop isn't all-Mythic.
-const EXT_RARITY = [3, 2, 3, 4, 1, 0, 0, 1, 2, 1, 2, 4, 1, 2, 3, 1, 4, 2, 1, 1, 3, 2, 3, 0, 2, 1, 0, 3, 1, 2, 4, 1, 3, 2, 1, 1, 4, 2, 0, 3, 1, 2, 3, 0, 4, 1, 2, 3, 4, 1, 2, 0, 3, 2, 1, 4, 2, 3, 1, 4, 0, 2, 1, 3];
+const EXT_RARITY = [3, 2, 3, 4, 1, 0, 0, 1, 2, 1, 2, 4, 1, 2, 3, 1, 4, 2, 1, 1, 3, 2, 3, 0, 2, 1, 0, 3, 1, 2, 4, 1, 3, 2, 1, 1, 4, 2, 0, 3, 1, 2, 3, 0, 4, 1, 2, 3, 4, 1, 2, 0, 3, 2, 1, 4, 2, 3, 1, 4, 0, 2, 1, 3, 3, 1, 2, 0, 1, 3, 2, 4];
 function rarityOf(i: number): { name: string; color: string } {
   if (i < 4) return RARITY_TIERS[0];
   if (i < 6) return RARITY_TIERS[1];
