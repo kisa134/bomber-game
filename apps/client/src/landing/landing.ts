@@ -27,7 +27,7 @@ import "./landing.css";
 
 const PUMP_URL = `https://pump.fun/coin/${TOKEN_MINT}`;
 const TELEGRAM_URL = "https://t.me/bombermeme";
-const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad"];
+const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad", "Doomer", "Bloomer", "Stonks", "Satoshi", "SBF", "CZ", "Laser Eyes", "WAGMI"];
 const REFERRAL_LEVELS = [10, 5, 3, 2, 1]; // % of rake, L1..L5 (mirrors referral.ts)
 let priceUsd = 0;
 

@@ -2478,7 +2478,7 @@ function openPlayerCard(p: { wallet?: string | null; name: string; skin: number 
 
 // --- skin shop ------------------------------------------------------------
 
-const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad"];
+const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad", "Doomer", "Bloomer", "Stonks", "Satoshi", "SBF", "CZ", "Laser Eyes", "WAGMI"];
 
 /** Rarity by index (price tier) — drives the card/border colour + label. */
 function rarityOf(i: number): { name: string; color: string } {
