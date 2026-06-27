@@ -104,17 +104,17 @@ export const DAILY_XP_PER_DAY = 15; // XP per streak day (capped like chips)
 // --- Skins (cosmetic; unlock by leveling up + chips, OR buy with token) -----
 // Index: 0 Shiba, 1 Pepe, 2 Trump, 3 Musk, 4 Doge, 5 Pump, 6 Durov, 7 Vitalik,
 //        8 Troll, 9 Bogdanoff, 10 Gigachad. The cooler/rarer it is, the dearer.
-export const SKIN_COUNT = 51;
+export const SKIN_COUNT = 59;
 // The first 4 are free & owned from the start, plus a free starter rare (Doge, #4).
 export const DEFAULT_SKINS = 0b0001_1111;
 // Chip price to UNLOCK a skin (also requires reaching SKIN_UNLOCK_LEVEL). 0 = free.
 // Tuned so the full set is grindable in ~a week of casual play (#4 free starter).
 // 11-18: expanded meme roster (nyan, grumpy, harambe, shrek, fine-dog, wojak, npc, chad).
-export const SKIN_PRICES = [0, 0, 0, 0, 0, 2500, 4000, 6000, 8000, 11000, 16000, 18000, 20000, 22000, 24000, 27000, 30000, 34000, 38000, 40000, 42000, 45000, 48000, 51000, 54000, 58000, 62000, 65000, 68000, 72000, 76000, 80000, 85000, 90000, 96000, 100000, 105000, 110000, 115000, 120000, 126000, 132000, 140000, 148000, 156000, 165000, 174000, 184000, 195000, 207000, 220000] as const;
+export const SKIN_PRICES = [0, 0, 0, 0, 0, 2500, 4000, 6000, 8000, 11000, 16000, 18000, 20000, 22000, 24000, 27000, 30000, 34000, 38000, 40000, 42000, 45000, 48000, 51000, 54000, 58000, 62000, 65000, 68000, 72000, 76000, 80000, 85000, 90000, 96000, 100000, 105000, 110000, 115000, 120000, 126000, 132000, 140000, 148000, 156000, 165000, 174000, 184000, 195000, 207000, 220000, 232000, 244000, 257000, 270000, 284000, 300000, 316000, 333000] as const;
 // Player level required before a skin can be bought with chips. 0 = no gate.
-export const SKIN_UNLOCK_LEVEL = [0, 0, 0, 0, 0, 4, 7, 10, 14, 18, 22, 24, 26, 28, 30, 33, 36, 39, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 93, 94, 95, 96, 97, 98, 99] as const;
+export const SKIN_UNLOCK_LEVEL = [0, 0, 0, 0, 0, 4, 7, 10, 14, 18, 22, 24, 26, 28, 30, 33, 36, 39, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 93, 94, 95, 96, 97, 98, 99, 99, 99, 99, 99, 99, 99, 99, 99] as const;
 // Whole-token price to buy a skin INSTANTLY (bypasses the level gate). 0 = free.
-export const SKIN_TOKEN_PRICES = [0, 0, 0, 0, 0, 10000, 20000, 35000, 50000, 80000, 150000, 170000, 185000, 200000, 220000, 245000, 270000, 300000, 330000, 350000, 370000, 390000, 410000, 440000, 470000, 500000, 540000, 580000, 620000, 660000, 700000, 750000, 800000, 860000, 920000, 980000, 1040000, 1100000, 1160000, 1220000, 1290000, 1360000, 1440000, 1520000, 1610000, 1700000, 1800000, 1900000, 2010000, 2130000, 2260000] as const;
+export const SKIN_TOKEN_PRICES = [0, 0, 0, 0, 0, 10000, 20000, 35000, 50000, 80000, 150000, 170000, 185000, 200000, 220000, 245000, 270000, 300000, 330000, 350000, 370000, 390000, 410000, 440000, 470000, 500000, 540000, 580000, 620000, 660000, 700000, 750000, 800000, 860000, 920000, 980000, 1040000, 1100000, 1160000, 1220000, 1290000, 1360000, 1440000, 1520000, 1610000, 1700000, 1800000, 1900000, 2010000, 2130000, 2260000, 2400000, 2540000, 2690000, 2850000, 3010000, 3190000, 3370000, 3570000] as const;
 
 // --- Lucky Spin (free chips wheel; "always something", pure fun) ------------
 export const SPIN_COST_CHIPS = 200; // cost per spin
