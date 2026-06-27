@@ -19,7 +19,6 @@ import {
   TOKEN_DECIMALS,
   CalloutType,
   SKIN_COUNT,
-  SKIN_NAMES,
   SKIN_PRICES,
   DEFAULT_SKINS,
   BET_SIZES,
@@ -27,9 +26,6 @@ import {
   SKIN_UNLOCK_LEVEL,
   SKIN_TOKEN_PRICES,
   WHEEL_PRIZES,
-  skinRarity,
-  skinTier,
-  skinGemCount,
 } from "./net/protocol.js";
 import {
   Net,
@@ -2482,6 +2478,17 @@ function openPlayerCard(p: { wallet?: string | null; name: string; skin: number 
 
 // --- skin shop ------------------------------------------------------------
 
+const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad"];
+
+/** Rarity by index (price tier) — drives the card/border colour + label. */
+function rarityOf(i: number): { name: string; color: string } {
+  if (i < 4) return { name: "Common", color: "#9aa3b2" };
+  if (i < 6) return { name: "Rare", color: "#4aa3ff" };
+  if (i < 8) return { name: "Epic", color: "#c879ff" };
+  if (i < 10) return { name: "Legendary", color: "#ffcc33" };
+  return { name: "Mythic", color: "#ff5a5a" };
+}
+
 // Shop state (a real screen: filters → grid → focused detail panel).
 type ShopFilter = "all" | "owned" | "available" | "locked";
 let shopFilter: ShopFilter = "all";
@@ -2543,7 +2550,7 @@ function passesFilter(i: number): boolean {
 
 function makeShopCard(i: number): HTMLElement {
   const owns = skinOwned(i);
-  const r = skinRarity(i);
+  const r = rarityOf(i);
   const locked = !owns && shop.level < (SKIN_UNLOCK_LEVEL[i] ?? 0);
   const card = document.createElement("button");
   card.className =
@@ -2580,14 +2587,14 @@ function renderShopGrid(): void {
   const byTier = new Map<number, number[]>();
   for (let i = 0; i < SKIN_COUNT; i++) {
     if (!passesFilter(i)) continue;
-    const t = skinTier(i);
+    const t = tierRank(i);
     (byTier.get(t) ?? byTier.set(t, []).get(t)!).push(i);
   }
   for (const t of [...byTier.keys()].sort((a, b) => a - b)) {
     const idxs = byTier.get(t)!;
     const head = el("div", "shop-tier-head", "");
-    head.style.setProperty("--rarity", skinRarity(idxs[0]).color);
-    head.append(el("span", "sth-line", ""), el("span", "sth-name", skinRarity(idxs[0]).name), el("span", "sth-line", ""));
+    head.style.setProperty("--rarity", rarityOf(idxs[0]).color);
+    head.append(el("span", "sth-line", ""), el("span", "sth-name", rarityOf(idxs[0]).name), el("span", "sth-line", ""));
     grid.appendChild(head);
     for (const i of idxs) { grid.appendChild(makeShopCard(i)); shown++; }
   }
@@ -2622,7 +2629,7 @@ function renderShopDetail(): void {
   if (!panel) return;
   const i = shopSelected;
   const owns = skinOwned(i);
-  const r = skinRarity(i);
+  const r = rarityOf(i);
   const needLevel = SKIN_UNLOCK_LEVEL[i] ?? 0;
   const chipPrice = SKIN_PRICES[i];
   const tokPrice = SKIN_TOKEN_PRICES[i];
@@ -2853,13 +2860,13 @@ function animateActiveHero(skin: number): void {
 let hubBrowseSkin = -1; // skin centred in the carousel (lazy-init to equipped)
 let carouselBuilt = false;
 const hubEquipped = (): number => Number(localStorage.getItem("bp_skin")) || 0;
+const GEM_COUNT = (i: number): number => (i < 4 ? 2 : i < 6 ? 3 : i < 8 ? 4 : i < 10 ? 5 : 6);
 const padNo = (n: number): string => String(n).padStart(3, "0");
 
 // Per-character signature colour → each fighter gets its own card backdrop.
 const CARD_HUE = [
   "#d98a3a", "#3fbf5a", "#e0533a", "#3a8ad9", "#e0a52a", "#2fcf6a",
   "#3a6ad9", "#8a5cff", "#8a90a8", "#c99a3a", "#ff4a5a",
-  "#7fd8ff", "#9aa3b2", "#6b8f71", "#4ade80", "#f97316", "#ffd84d", "#e8dcc8", "#b0b0b0", "#5a9fd4", "#c4a882",
 ];
 const cardHue = (i: number): string => CARD_HUE[i] ?? "#9aa3b2";
 
@@ -2871,7 +2878,7 @@ const cardHue = (i: number): string => CARD_HUE[i] ?? "#9aa3b2";
 //   circuit · pantheon · founder · season — reserved (need set metadata)
 const BACK_FAMILY_BY_TIER = ["classic", "classic", "foil", "foil", "foil"];
 const CARD_BACK: Record<number, string> = {};
-const backFamily = (i: number): string => CARD_BACK[i] ?? BACK_FAMILY_BY_TIER[skinTier(i)];
+const backFamily = (i: number): string => CARD_BACK[i] ?? BACK_FAMILY_BY_TIER[tierRank(i)];
 // Faint meme-DNA glyph tile (bombs/coins/frogs) drifting behind the seal.
 const BACK_MEMES = ("💣🪙🐸🚀💎🔥🎮💀⚡🐶📈🌙🤡🛸💥").repeat(26);
 const cardBackHTML = (skin: number): string => {
@@ -2899,7 +2906,7 @@ const cardBackHTML = (skin: number): string => {
 // Legendary mixes in tier-colour stars; mythic adds rainbow ones.
 const STAR_RAINBOW = ["#ff5a8a", "#ffd84d", "#5ad27a", "#7fd8ff", "#b07cff"];
 function cardStarsHTML(skin: number): string {
-  const tier = skinTier(skin);
+  const tier = tierRank(skin);
   if (tier < 1) return ""; // common cards stay clean
   const n = 3 + tier * 2; // rare 5 … mythic 11
   const hash = (k: number): number => { const x = Math.sin(k * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -2921,7 +2928,7 @@ function cardStarsHTML(skin: number): string {
 /** Inner HTML for one collectible card (static pose; active card animates).
     All visible layers live inside .fc-tilt, which floats + tilts to the cursor. */
 function fighterCardHTML(skin: number): string {
-  const r = skinRarity(skin);
+  const r = rarityOf(skin);
   const hue = cardHue(skin);
   return (
     '<div class="fc-tilt">' +
@@ -2939,7 +2946,7 @@ function fighterCardHTML(skin: number): string {
     '<div class="fc-frame"></div>' +
     '<span class="fc-corner tl"></span><span class="fc-corner tr"></span><span class="fc-corner bl"></span><span class="fc-corner br"></span>' +
     `<div class="fc-toprow"><span class="fc-rarity">${r.name.toUpperCase()}</span><span class="fc-no">${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}</span></div>` +
-    `<div class="fc-namerow"><div class="fc-name">${SKIN_NAMES[skin] ?? `Skin ${skin}`}</div><div class="fc-gems">${"◆".repeat(skinGemCount(skin))}</div></div>` +
+    `<div class="fc-namerow"><div class="fc-name">${SKIN_NAMES[skin] ?? `Skin ${skin}`}</div><div class="fc-gems">${"◆".repeat(GEM_COUNT(skin))}</div></div>` +
     '<div class="fc-stamp" aria-hidden="true"></div>' +
     '<div class="fc-edge" aria-hidden="true"></div>' +
     cardStarsHTML(skin) +
@@ -2950,14 +2957,15 @@ function fighterCardHTML(skin: number): string {
 }
 
 // Rarity tier 0..4 (common→mythic) → drives how much a card glows + sparkles.
-const tierPower = (i: number): number => 0.3 + skinTier(i) * 0.175; // 0.30 … 1.0
+const tierRank = (i: number): number => (i < 4 ? 0 : i < 6 ? 1 : i < 8 ? 2 : i < 10 ? 3 : 4);
+const tierPower = (i: number): number => 0.3 + tierRank(i) * 0.175; // 0.30 … 1.0
 
 // Foil finish system. Default finish follows rarity, but any card can be
 // assigned its own finish in CARD_FINISH (handy as the roster grows).
 //   silver · pearl · gold · holo · prismatic
 const FINISH_BY_TIER = ["silver", "pearl", "gold", "holo", "prismatic"];
 const CARD_FINISH: Record<number, string> = {};
-const finishOf = (i: number): string => CARD_FINISH[i] ?? FINISH_BY_TIER[skinTier(i)];
+const finishOf = (i: number): string => CARD_FINISH[i] ?? FINISH_BY_TIER[tierRank(i)];
 
 function buildCarousel(): void {
   const wrap = document.getElementById("fighter-carousel");
@@ -2969,8 +2977,8 @@ function buildCarousel(): void {
     // Per-card float phase/speed → each card drifts on its own little orbit.
     card.dataset.ph = String((i * 2.39996) % (Math.PI * 2));
     card.dataset.sp = String(0.62 + (i % 4) * 0.13);
-    const r = skinRarity(i);
-    const rank = skinTier(i);
+    const r = rarityOf(i);
+    const rank = tierRank(i);
     card.style.setProperty("--tier", r.color);
     card.style.setProperty("--holo", String(0.12 + rank * 0.052)); // rarer = stronger foil
     // Rarer = bigger, brighter tier glow halo.
@@ -3233,7 +3241,7 @@ function startFighterFloat(): void {
       const r = act.getBoundingClientRect();
       if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
         pressActive = true; pressStart = performance.now(); pressWasHold = false;
-        pressTier = skinTier(hubBrowseSkin >= 0 ? hubBrowseSkin : hubEquipped());
+        pressTier = tierRank(hubBrowseSkin >= 0 ? hubBrowseSkin : hubEquipped());
         if (pressTier >= 4) act.classList.add("charging-mythic"); // mythic pulses with its own light
       }
     }
@@ -3581,7 +3589,7 @@ function showFighter(skin: number, equip = false): void {
   layoutCarousel(skin);
   animateActiveHero(skin);
   renderFighterDots(skin);
-  const r = skinRarity(skin);
+  const r = rarityOf(skin);
   // Sparkle/glow intensity + dust-glow colour follow the active card's rarity.
   dustTarget = tierPower(skin);
   document.getElementById("fighter-dustfield")?.style.setProperty("--dusttint", r.color);

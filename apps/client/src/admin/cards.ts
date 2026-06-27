@@ -5,9 +5,19 @@
 import qrcode from "qrcode-generator";
 import { GIFEncoder, quantize, applyPalette } from "gifenc";
 import { ASSET_VER } from "../game/assets.js";
-import { SKIN_NAMES, skinRarity } from "@bomberpump/shared";
 
-export { SKIN_NAMES, skinRarity as rarityOf };
+export const SKIN_NAMES = [
+  "Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad",
+];
+
+/** Rarity tier by index — mirrors the shop, drives the card accent colour. */
+export function rarityOf(i: number): { name: string; color: string } {
+  if (i < 4) return { name: "Common", color: "#9aa3b2" };
+  if (i < 6) return { name: "Rare", color: "#4aa3ff" };
+  if (i < 8) return { name: "Epic", color: "#c879ff" };
+  if (i < 10) return { name: "Legendary", color: "#ffcc33" };
+  return { name: "Mythic", color: "#ff5a5a" };
+}
 
 /** Selectable rarity presets — the admin can override the per-character rarity. */
 export interface Rarity { name: string; color: string; }
@@ -534,7 +544,7 @@ export async function buildBase(index: number, size: number, opts: BaseOpts): Pr
   const cv = document.createElement("canvas");
   cv.width = cv.height = size;
   const ctx = cv.getContext("2d")!;
-  const rar = opts.rarity ?? skinRarity(index);
+  const rar = opts.rarity ?? rarityOf(index);
   await drawBackground(ctx, index, size, opts.bgKind, opts.props, rar.color);
   if (opts.ring) drawRing(ctx, size, rar.color);
   drawOverlay(ctx, index, size, opts.link, rar, opts.showLabel !== false);

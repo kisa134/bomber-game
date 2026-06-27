@@ -23,11 +23,11 @@ import {
 } from "@bomberpump/shared";
 import { SERVER_HTTP } from "../config.js";
 import { initAnalytics, captureAttribution, track, initErrorTracking } from "../analytics.js";
-import { SKIN_NAMES } from "../net/protocol.js";
 import "./landing.css";
 
 const PUMP_URL = `https://pump.fun/coin/${TOKEN_MINT}`;
 const TELEGRAM_URL = "https://t.me/bombermeme";
+const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad"];
 const REFERRAL_LEVELS = [10, 5, 3, 2, 1]; // % of rake, L1..L5 (mirrors referral.ts)
 let priceUsd = 0;
 
