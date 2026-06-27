@@ -1,6 +1,6 @@
 import { PLAYER_COLORS, COLOR_NAMES, skinAvatar } from "../game/renderer.js";
 import { ASSET_VER } from "../game/assets.js";
-import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, DEFAULT_SKINS, PRACTICE_MAX_BOTS, DEFAULT_SANDBOX, type SandboxOpts } from "../net/protocol.js";
+import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, SKIN_NAMES, DEFAULT_SKINS, PRACTICE_MAX_BOTS, DEFAULT_SANDBOX, type SandboxOpts } from "../net/protocol.js";
 
 /** Which skins the local player owns (bitmask) + their level — for the lobby
  *  character strip (set from main after the profile loads). */
@@ -19,8 +19,7 @@ export function setShopHandler(fn: () => void): void {
   onOpenShop = fn;
 }
 
-/** Character names by skin index — verified against the actual sprites. */
-const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad"];
+/** Character names by skin index — from shared roster. */
 const skinName = (skin: number): string => SKIN_NAMES[skin] ?? `Fighter ${skin + 1}`;
 
 // Character stage: cycle the walk frames so the picked skin "runs on the spot"

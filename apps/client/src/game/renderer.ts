@@ -19,7 +19,10 @@ export const PLAYER_COLORS = [
 // Human-readable names for each colour slot (same order as PLAYER_COLORS), so a
 // player can be told "you're the Red bomber" in the lobby before the match.
 export const COLOR_NAMES = ["Red", "Blue", "Green", "Yellow", "Purple", "Orange", "Cyan", "Pink"];
-export const SKIN_EMOJI = ["🐕", "🐸", "🦊", "😐", "🐶", "🥚", "🕶", "🦄", "🧌", "📞", "💪"];
+export const SKIN_EMOJI = [
+  "🐕", "🐸", "🦊", "😐", "🐶", "🥚", "🕶", "🦄", "🧌", "📞", "💪",
+  "🌈", "😾", "🦍", "👹", "👀", "🐕‍🦺", "😔", "🤖", "😎", "👴",
+];
 
 /** DOM avatar showing the character sprite (emoji fallback), with an optional
  *  colored ring. Shared by the skin picker, room list and HUD. */

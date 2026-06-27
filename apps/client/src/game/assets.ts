@@ -5,6 +5,8 @@
 // Drop files into apps/client/public/sprites and apps/client/public/sounds with
 // the exact names below (see those folders' README.md).
 
+import { SKIN_COUNT } from "@bomberpump/shared";
+
 // Sprite base paths (no extension). The loader tries .webp then .png, so new
 // art can be dropped in as PNG with no conversion needed.
 export const SPRITE_FILES: Record<string, string> = {
@@ -38,6 +40,16 @@ export const SPRITE_FILES: Record<string, string> = {
   skin8: "/sprites/skin_8",
   skin9: "/sprites/skin_9",
   skin10: "/sprites/skin_10",
+  skin11: "/sprites/skin_11",
+  skin12: "/sprites/skin_12",
+  skin13: "/sprites/skin_13",
+  skin14: "/sprites/skin_14",
+  skin15: "/sprites/skin_15",
+  skin16: "/sprites/skin_16",
+  skin17: "/sprites/skin_17",
+  skin18: "/sprites/skin_18",
+  skin19: "/sprites/skin_19",
+  skin20: "/sprites/skin_20",
 };
 
 // Image formats tried in order (first that loads wins). PNG support means new
@@ -47,7 +59,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "17";
+export const ASSET_VER = "20";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.
@@ -69,7 +81,7 @@ for (const b of ["hard", "soft"]) {
 // Directional walk frames (optional): skin<id>_<down|up|side>_<0..2>.
 // "side" is used for right; left is the same sprite mirrored. Missing frames
 // fall back to the static skin sprite, so this is purely additive.
-for (let s = 0; s < 11; s++) {
+for (let s = 0; s < SKIN_COUNT; s++) {
   for (const dir of ["down", "up", "side"]) {
     for (let f = 0; f < 3; f++) {
       SPRITE_FILES[`skin${s}_${dir}_${f}`] = `/sprites/skin_${s}_${dir}_${f}`;
@@ -79,7 +91,7 @@ for (let s = 0; s < 11; s++) {
 
 // Action-state frames (optional): skin<id>_<place_bomb|hurt|victory>. Missing
 // ones fall back to the walk/static sprite, so this is purely additive.
-for (let s = 0; s < 11; s++) {
+for (let s = 0; s < SKIN_COUNT; s++) {
   for (const st of ["place_bomb", "hurt", "victory"]) {
     SPRITE_FILES[`skin${s}_${st}`] = `/sprites/skin_${s}_${st}`;
   }

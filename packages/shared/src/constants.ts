@@ -102,18 +102,52 @@ export const DAILY_WEEK_BONUS_CHIPS = 500; // milestone bonus on every 7th day
 export const DAILY_XP_PER_DAY = 15; // XP per streak day (capped like chips)
 
 // --- Skins (cosmetic; unlock by leveling up + chips, OR buy with token) -----
-// Index: 0 Shiba, 1 Pepe, 2 Trump, 3 Musk, 4 Doge, 5 Pump, 6 Durov, 7 Vitalik,
-//        8 Troll, 9 Bogdanoff, 10 Gigachad. The cooler/rarer it is, the dearer.
-export const SKIN_COUNT = 11;
+// Index: 0 Shiba … 10 Gigachad, 11 Nyan … 20 Boomer. Rarer = dearer.
+export const SKIN_COUNT = 21;
+export const SKIN_NAMES = [
+  "Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik",
+  "Troll", "Bogdanoff", "Gigachad",
+  "Nyan", "Grumpy", "Harambe", "Ogre", "Distracted", "Fine Dog", "Wojak", "NPC", "Chad", "Boomer",
+] as const;
+/** Rarity tier 0=Common … 4=Mythic. Existing 0–10 keep legacy index bands; 11–20 shuffled. */
+export const SKIN_TIER = [
+  0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4,
+  0, 1, 2, 3, 4, 3, 4, 0, 1, 2,
+] as const;
+export const RARITY_NAMES = ["Common", "Rare", "Epic", "Legendary", "Mythic"] as const;
+export const RARITY_COLORS = ["#9aa3b2", "#4aa3ff", "#c879ff", "#ffcc33", "#ff5a5a"] as const;
+const GEM_BY_TIER = [2, 3, 4, 5, 6] as const;
+
+export function skinTier(i: number): number {
+  return SKIN_TIER[i] ?? 0;
+}
+
+export function skinRarity(i: number): { name: string; color: string; tier: number } {
+  const tier = skinTier(i);
+  return { name: RARITY_NAMES[tier]!, color: RARITY_COLORS[tier]!, tier };
+}
+
+export function skinGemCount(i: number): number {
+  return GEM_BY_TIER[skinTier(i)] ?? 2;
+}
+
 // The first 4 are free & owned from the start, plus a free starter rare (Doge, #4).
 export const DEFAULT_SKINS = 0b0001_1111;
 // Chip price to UNLOCK a skin (also requires reaching SKIN_UNLOCK_LEVEL). 0 = free.
-// Tuned so the full set is grindable in ~a week of casual play (#4 free starter).
-export const SKIN_PRICES = [0, 0, 0, 0, 0, 2500, 4000, 6000, 8000, 11000, 16000] as const;
+export const SKIN_PRICES = [
+  0, 0, 0, 0, 0, 2500, 4000, 6000, 8000, 11000, 16000,
+  19000, 22000, 26000, 30000, 35000, 41000, 48000, 55000, 63000, 72000,
+] as const;
 // Player level required before a skin can be bought with chips. 0 = no gate.
-export const SKIN_UNLOCK_LEVEL = [0, 0, 0, 0, 0, 4, 7, 10, 14, 18, 22] as const;
+export const SKIN_UNLOCK_LEVEL = [
+  0, 0, 0, 0, 0, 4, 7, 10, 14, 18, 22,
+  26, 29, 32, 35, 38, 41, 44, 47, 50, 53,
+] as const;
 // Whole-token price to buy a skin INSTANTLY (bypasses the level gate). 0 = free.
-export const SKIN_TOKEN_PRICES = [0, 0, 0, 0, 0, 10000, 20000, 35000, 50000, 80000, 150000] as const;
+export const SKIN_TOKEN_PRICES = [
+  0, 0, 0, 0, 0, 10000, 20000, 35000, 50000, 80000, 150000,
+  180000, 220000, 270000, 330000, 400000, 480000, 570000, 680000, 800000, 950000,
+] as const;
 
 // --- Lucky Spin (free chips wheel; "always something", pure fun) ------------
 export const SPIN_COST_CHIPS = 200; // cost per spin
