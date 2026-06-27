@@ -27,7 +27,7 @@ import "./landing.css";
 
 const PUMP_URL = `https://pump.fun/coin/${TOKEN_MINT}`;
 const TELEGRAM_URL = "https://t.me/bombermeme";
-const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad", "Doomer", "Bloomer", "Stonks", "Satoshi", "SBF", "CZ", "Laser Eyes", "WAGMI", "Diamond", "Rich Pepe", "Bonk", "WIF", "Popcat", "Titan", "Salt Bae", "Harold", "Paper Hands", "Moonboy", "Brett", "Andy", "GOAT", "Pnut", "Moodeng", "MEW", "Ponke", "Sigma", "Boomer", "Zoomer", "Chemist", "Galaxy Brain", "Cry Jordan", "Disaster", "Leeroy", "MLG", "Keanu", "Rick", "Crewmate", "Grogu", "Voxel", "Skibidi"];
+const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad", "Doomer", "Bloomer", "Stonks", "Satoshi", "SBF", "CZ", "Laser Eyes", "WAGMI", "Diamond", "Rich Pepe", "Bonk", "WIF", "Popcat", "Titan", "Salt Bae", "Harold", "Paper Hands", "Moonboy", "Brett", "Andy", "GOAT", "Pnut", "Moodeng", "MEW", "Ponke", "Sigma", "Boomer", "Zoomer", "Chemist", "Galaxy Brain", "Cry Jordan", "Disaster", "Leeroy", "MLG", "Keanu", "Rick", "Crewmate", "Grogu", "Voxel", "Skibidi", "Ohio", "Rizzler", "Zuck", "Bezos", "Gates", "Jobs", "Success", "Bad Luck"];
 const REFERRAL_LEVELS = [10, 5, 3, 2, 1]; // % of rake, L1..L5 (mirrors referral.ts)
 let priceUsd = 0;
 
