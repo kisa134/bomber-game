@@ -575,6 +575,39 @@ app.get("/online", (res, req) => {
   sendJson(res, { online: onlineCount() });
 });
 
+// In-game admin live overlay feed. Gated by SESSION (the connected wallet must
+// be an admin wallet) — no admin token needed in the game client. Returns the
+// live numbers an admin wants to watch while playing.
+app.get("/admin/live", (res, req) => {
+  res.onAborted(() => {});
+  const wallet = verifySession(new URLSearchParams(req.getQuery()).get("session") ?? "");
+  if (!isAdminWallet(wallet)) return sendJson(res, { error: "forbidden" }, "403 Forbidden");
+  void store.economyStats().then((econ) => {
+    const g = metrics.snapshot() as any;
+    const live = mm.adminStats as any;
+    const lo = mm.load as any;
+    const sysH = systemHealth() as any;
+    sendJson(res, {
+      online: onlineCount(),
+      inMatchHumans: live?.humans ?? 0,
+      inMatchBots: live?.bots ?? 0,
+      rooms: lo?.rooms ?? 0,
+      tickMs: lo?.tickMs ?? 0,
+      dau: g?.dau ?? 0,
+      matchesToday: g?.matches ?? 0,
+      tokenMatchesToday: g?.tokenMatches ?? 0,
+      payingToday: g?.payingPlayers ?? 0,
+      depositVolToday: g?.depositVolume ?? 0,
+      players: econ.players,
+      chips: econ.chips,
+      tokens: fromBaseUnits(econ.tokenBase),
+      errors: (sysH.errors as number) ?? 0,
+      ticker: TOKEN_TICKER,
+      now: Date.now(),
+    });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
 // Public landing stats — safe aggregate numbers for the marketing site (no PII).
 // Cached ~10s so the landing can poll cheaply. Everything here is REAL; numbers
 // the backend doesn't track yet are simply omitted (the landing shows "Soon").
@@ -901,8 +934,17 @@ app.get("/admin", (res) => {
   });
 });
 
-// Admin/dev wallets — every skin unlocked + effectively infinite balance, server-side.
-const ADMIN_WALLETS = new Set(["2R2bPfdExGKXmmKA4gKhtfn2SQzM5kZo1y7sgv74HUrS"]);
+// Admin/dev wallets — every skin unlocked + effectively infinite balance, plus
+// the in-game live-stats overlay. Owner + Kirill by default; extend via the
+// ADMIN_WALLETS env (comma-separated) on the server.
+const ADMIN_WALLETS = new Set([
+  "2R2bPfdExGKXmmKA4gKhtfn2SQzM5kZo1y7sgv74HUrS", // owner
+  "E3djf4oheszHuEUaeqyXQT4mhe8iVuGzca4f55z6WGa1", // Kirill
+  ...(process.env.ADMIN_WALLETS ?? "").split(",").map((w) => w.trim()).filter(Boolean),
+]);
+export function isAdminWallet(w: string | null | undefined): boolean {
+  return !!w && ADMIN_WALLETS.has(w);
+}
 
 app.get("/profile", (res, req) => {
   res.onAborted(() => {});
@@ -921,14 +963,15 @@ app.get("/profile", (res, req) => {
         prof.chips = Math.max(prof.chips ?? 0, 999_999_999); // effectively infinite chips
         prof.level = Math.max(prof.level ?? 1, 99);
       }
+      const admin = ADMIN_WALLETS.has(wallet);
       if (isOwner) {
-        sendJson(res, { ...prof, walletTokens: tok, gameTokens: fromBaseUnits(prof.token_balance) });
+        sendJson(res, { ...prof, walletTokens: tok, gameTokens: fromBaseUnits(prof.token_balance), admin });
       } else {
         // Strip every balance/financial field for non-owners.
         const { chips: _c, token_balance: _t, referral_earned: _r, ...pub } = prof as typeof prof & {
           referral_earned?: number;
         };
-        sendJson(res, pub);
+        sendJson(res, { ...pub, admin });
       }
     })
     .catch(() => sendJson(res, { error: "profile_failed" }, "500 Internal Server Error"));

@@ -87,6 +87,7 @@ import {
 } from "./net/wallet.js";
 import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setInviteSeatHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState, setActiveRoom, type ScreenName } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
+import { initAdminMode } from "./ui/adminOverlay.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram, getStartParam } from "./platform/telegram.js";
@@ -1683,6 +1684,8 @@ function refreshWalletBtn(): void {
     void fetchProfile(w.address)
       .then((p) => {
         myProfile = p; // for the "you" row in the hub leaderboard
+        // Admin wallets get the in-game live-stats overlay (🛡 toggle).
+        initAdminMode(!!(p as { admin?: boolean }).admin, () => loadWallet()?.session ?? "");
         setStats(p.chips, p.rating);
         setTokenBadge(p.gameTokens);
         setProgress(p.level ?? 1, p.xp ?? 0);
