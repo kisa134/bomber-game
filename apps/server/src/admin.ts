@@ -57,7 +57,7 @@ export function adminPageHtml(): string {
   #atabs button:hover{color:var(--text)}
   #atabs button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 </style></head><body>
-<header><span id="dot"></span><h1>🎮 Bombermeme — Admin</h1><span id="meta" class="muted"></span></header>
+<header><span id="dot"></span><h1>🎮 Bombermeme — Admin</h1><span id="meta" class="muted"></span><a href="/admin/marketing/" style="margin-left:auto;background:linear-gradient(135deg,#7c3aed,#22d3ee);color:#fff;padding:8px 16px;border-radius:10px;font-weight:700;text-decoration:none;font-size:.85rem">📣 Marketing Hub ↗</a></header>
 <main>
   <div id="config" class="cfg"></div>
   <div class="gate" id="gate">

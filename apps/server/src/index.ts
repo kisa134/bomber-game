@@ -337,10 +337,17 @@ function serveStatic(res: uWS.HttpResponse, urlPath: string): void {
   if (rel === "/" || rel === "") rel = "/index.html";
   else if (rel === "/landing" || rel === "/landing/" || rel.startsWith("/landing/")) rel = "/landing.html";
   else if (rel === "/play" || rel === "/play/" || rel.startsWith("/play/")) rel = "/index.html";
+  // Marketing/admin hub (prebuilt React app shipped in client/public/admin/marketing).
+  // HashRouter, so the only HTML entry is its index.html; assets are real files.
+  else if (rel === "/admin/marketing" || rel === "/admin/marketing/") rel = "/admin/marketing/index.html";
   const full = normalize(join(CLIENT_DIST, rel));
   // SPA fallback + path-traversal guard. Unknown routes fall back to the game
-  // shell; only explicit /landing paths fall back to the landing.
-  const fallback = rel.startsWith("/landing") ? "/landing.html" : "/index.html";
+  // shell; /landing → landing; /admin/marketing → the marketing hub shell.
+  const fallback = rel.startsWith("/admin/marketing")
+    ? "/admin/marketing/index.html"
+    : rel.startsWith("/landing")
+      ? "/landing.html"
+      : "/index.html";
   const safe = full.startsWith(CLIENT_DIST) && existsSync(full) && statSync(full).isFile()
     ? full
     : join(CLIENT_DIST, fallback);

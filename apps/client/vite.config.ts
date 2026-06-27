@@ -48,6 +48,9 @@ export default defineConfig({
       workbox: {
         // Precache the app shell only; big media is runtime-cached on demand.
         globPatterns: ["**/*.{js,css,html}"],
+        // The marketing/admin hub (admin/marketing/*) is a separate prebuilt app
+        // — never precache its ~1MB bundle into the game's service worker.
+        globIgnores: ["**/admin/**"],
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
           // The marketing landing must hit the network (not the cached game shell).
