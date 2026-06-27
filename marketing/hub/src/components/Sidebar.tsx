@@ -3,6 +3,11 @@ import { NavLink, useLocation } from 'react-router';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
+  Users,
+  Coins,
+  Trophy,
+  Activity,
+  Brain,
   Video,
   BarChart3,
   CalendarDays,
@@ -18,11 +23,19 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/video-hub', label: 'Video Hub', icon: Video },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { path: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { path: '/market-intel', label: 'Market Intel', icon: Globe },
+  // Real operations (live project data)
+  { path: '/', label: 'Mission Control', icon: LayoutDashboard, group: 'ops' },
+  { path: '/players', label: 'Players', icon: Users, group: 'ops' },
+  { path: '/money', label: 'Money', icon: Coins, group: 'ops' },
+  { path: '/tournaments', label: 'Tournaments', icon: Trophy, group: 'ops' },
+  { path: '/system', label: 'System', icon: Activity, group: 'ops' },
+  { path: '/ai', label: 'AI Director', icon: Brain, group: 'ops' },
+  // Marketing / content hub
+  { path: '/market-intel', label: 'Market Intel', icon: Globe, group: 'mkt' },
+  { path: '/content', label: 'Content Hub', icon: Video, group: 'mkt' },
+  { path: '/calendar', label: 'Calendar', icon: CalendarDays, group: 'mkt' },
+  { path: '/analytics', label: 'Analytics', icon: BarChart3, group: 'mkt' },
+  { path: '/video-hub', label: 'Video Hub', icon: Video, group: 'mkt' },
 ];
 
 const Sidebar: FC<SidebarProps> = ({ collapsed, onToggle }) => {
@@ -63,13 +76,16 @@ const Sidebar: FC<SidebarProps> = ({ collapsed, onToggle }) => {
 
       {/* Nav items */}
       <nav className="flex-1 py-4 px-2 space-y-1">
-        {navItems.map((item) => {
+        {navItems.map((item, idx) => {
           const isActive = location.pathname === item.path;
           const Icon = item.icon;
+          const divider = item.group === 'mkt' && navItems[idx - 1]?.group !== 'mkt';
 
           return (
+            <div key={item.path}>
+            {divider && !collapsed && <div className="mb-1 mt-3 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">Marketing</div>}
+            {divider && collapsed && <div className="my-2 mx-3 border-t border-white/[0.06]" />}
             <NavLink
-              key={item.path}
               to={item.path}
               className={`
                 relative flex items-center gap-3 h-10 px-3 rounded-lg
@@ -119,6 +135,7 @@ const Sidebar: FC<SidebarProps> = ({ collapsed, onToggle }) => {
                 )}
               </AnimatePresence>
             </NavLink>
+            </div>
           );
         })}
       </nav>
