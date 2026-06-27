@@ -13,12 +13,22 @@ export const SKIN_NAMES = [
 ];
 
 /** Rarity tier by index — mirrors the shop, drives the card accent colour. */
+const RARITY_TIERS = [
+  { name: "Common", color: "#9aa3b2" },
+  { name: "Rare", color: "#4aa3ff" },
+  { name: "Epic", color: "#c879ff" },
+  { name: "Legendary", color: "#ffcc33" },
+  { name: "Mythic", color: "#ff5a5a" },
+];
+// Expanded roster (skins 11+) spread across EVERY tier so the shop isn't all-Mythic.
+const EXT_RARITY = [3, 2, 3, 4, 1, 0, 0, 1, 2, 1, 2, 4, 1, 2, 3, 1, 4, 2, 1, 1, 3, 2, 3, 0];
 export function rarityOf(i: number): { name: string; color: string } {
-  if (i < 4) return { name: "Common", color: "#9aa3b2" };
-  if (i < 6) return { name: "Rare", color: "#4aa3ff" };
-  if (i < 8) return { name: "Epic", color: "#c879ff" };
-  if (i < 10) return { name: "Legendary", color: "#ffcc33" };
-  return { name: "Mythic", color: "#ff5a5a" };
+  if (i < 4) return RARITY_TIERS[0];
+  if (i < 6) return RARITY_TIERS[1];
+  if (i < 8) return RARITY_TIERS[2];
+  if (i < 10) return RARITY_TIERS[3];
+  if (i === 10) return RARITY_TIERS[4];
+  return RARITY_TIERS[EXT_RARITY[i - 11] ?? 4];
 }
 
 /** Selectable rarity presets — the admin can override the per-character rarity. */

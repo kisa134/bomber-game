@@ -2481,12 +2481,22 @@ function openPlayerCard(p: { wallet?: string | null; name: string; skin: number 
 const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad", "Doomer", "Bloomer", "Stonks", "Satoshi", "SBF", "CZ", "Laser Eyes", "WAGMI"];
 
 /** Rarity by index (price tier) — drives the card/border colour + label. */
+const RARITY_TIERS = [
+  { name: "Common", color: "#9aa3b2" },
+  { name: "Rare", color: "#4aa3ff" },
+  { name: "Epic", color: "#c879ff" },
+  { name: "Legendary", color: "#ffcc33" },
+  { name: "Mythic", color: "#ff5a5a" },
+] as const;
+// Expanded roster (skins 11+) is spread across EVERY tier so the shop isn't all-Mythic.
+const EXT_RARITY = [3, 2, 3, 4, 1, 0, 0, 1, 2, 1, 2, 4, 1, 2, 3, 1, 4, 2, 1, 1, 3, 2, 3, 0];
 function rarityOf(i: number): { name: string; color: string } {
-  if (i < 4) return { name: "Common", color: "#9aa3b2" };
-  if (i < 6) return { name: "Rare", color: "#4aa3ff" };
-  if (i < 8) return { name: "Epic", color: "#c879ff" };
-  if (i < 10) return { name: "Legendary", color: "#ffcc33" };
-  return { name: "Mythic", color: "#ff5a5a" };
+  if (i < 4) return RARITY_TIERS[0];
+  if (i < 6) return RARITY_TIERS[1];
+  if (i < 8) return RARITY_TIERS[2];
+  if (i < 10) return RARITY_TIERS[3];
+  if (i === 10) return RARITY_TIERS[4];
+  return RARITY_TIERS[EXT_RARITY[i - 11] ?? 4];
 }
 
 // Shop state (a real screen: filters → grid → focused detail panel).
@@ -2495,6 +2505,10 @@ let shopFilter: ShopFilter = "all";
 let shopSelected = -1; // skin focused in the detail panel
 let shopReturn: ScreenName = "menu"; // where ← goes back to
 const shop = { owned: DEFAULT_SKINS, equipped: 0, level: 1, chips: 0, tokens: 0, wallet: false };
+
+// Admin/dev wallets: everything unlocked + a huge balance in the shop UI.
+const ADMIN_WALLETS = new Set(["2R2bPfdExGKXmmKA4gKhtfn2SQzM5kZo1y7sgv74HUrS"]);
+const isAdminWallet = (addr?: string): boolean => !!addr && ADMIN_WALLETS.has(addr);
 
 const skinOwned = (i: number): boolean => (shop.owned & (1 << i)) !== 0;
 const skinBuyableChips = (i: number): boolean =>
@@ -2512,6 +2526,12 @@ async function loadShopData(): Promise<void> {
       shop.level = p.level ?? 1;
       shop.chips = p.chips ?? 0;
       shop.tokens = p.gameTokens ?? 0;
+      if (isAdminWallet(w.address)) {
+        shop.owned = 0x7fffffff;                       // every skin unlocked
+        shop.chips = Math.max(shop.chips, 999_999_999); // effectively infinite chips
+        shop.tokens = Math.max(shop.tokens, 9_999_999);
+        shop.level = Math.max(shop.level, 99);
+      }
       localStorage.setItem("bp_skin", String(shop.equipped));
     } catch {
       /* keep last known */

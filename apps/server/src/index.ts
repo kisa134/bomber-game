@@ -894,6 +894,9 @@ app.get("/admin", (res) => {
   });
 });
 
+// Admin/dev wallets — every skin unlocked + effectively infinite balance, server-side.
+const ADMIN_WALLETS = new Set(["2R2bPfdExGKXmmKA4gKhtfn2SQzM5kZo1y7sgv74HUrS"]);
+
 app.get("/profile", (res, req) => {
   res.onAborted(() => {});
   const qs = new URLSearchParams(req.getQuery());
@@ -906,6 +909,11 @@ app.get("/profile", (res, req) => {
   Promise.all([store.getProfile(wallet), isOwner ? tokenBalance(wallet) : Promise.resolve(0)])
     .then(([p, tok]) => {
       const prof = p ?? blank;
+      if (ADMIN_WALLETS.has(wallet)) {
+        prof.skins = 0x7fffffff;                          // every skin unlocked
+        prof.chips = Math.max(prof.chips ?? 0, 999_999_999); // effectively infinite chips
+        prof.level = Math.max(prof.level ?? 1, 99);
+      }
       if (isOwner) {
         sendJson(res, { ...prof, walletTokens: tok, gameTokens: fromBaseUnits(prof.token_balance) });
       } else {
