@@ -11,6 +11,7 @@ export const SKIN_NAMES = [
   "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad",
   "Doomer", "Bloomer", "Stonks", "Satoshi", "SBF", "CZ", "Laser Eyes", "WAGMI",
   "Diamond", "Rich Pepe", "Bonk", "WIF", "Popcat", "Titan", "Salt Bae", "Harold",
+  "Paper Hands", "Moonboy", "Brett", "Andy", "GOAT", "Pnut", "Moodeng", "MEW",
 ];
 
 /** Rarity tier by index — mirrors the shop, drives the card accent colour. */
@@ -22,7 +23,7 @@ const RARITY_TIERS = [
   { name: "Mythic", color: "#ff5a5a" },
 ];
 // Expanded roster (skins 11+) spread across EVERY tier so the shop isn't all-Mythic.
-const EXT_RARITY = [3, 2, 3, 4, 1, 0, 0, 1, 2, 1, 2, 4, 1, 2, 3, 1, 4, 2, 1, 1, 3, 2, 3, 0];
+const EXT_RARITY = [3, 2, 3, 4, 1, 0, 0, 1, 2, 1, 2, 4, 1, 2, 3, 1, 4, 2, 1, 1, 3, 2, 3, 0, 2, 1, 0, 3, 1, 2, 4, 1];
 export function rarityOf(i: number): { name: string; color: string } {
   if (i < 4) return RARITY_TIERS[0];
   if (i < 6) return RARITY_TIERS[1];

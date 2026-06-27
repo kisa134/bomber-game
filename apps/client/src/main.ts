@@ -2478,7 +2478,7 @@ function openPlayerCard(p: { wallet?: string | null; name: string; skin: number 
 
 // --- skin shop ------------------------------------------------------------
 
-const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad", "Doomer", "Bloomer", "Stonks", "Satoshi", "SBF", "CZ", "Laser Eyes", "WAGMI", "Diamond", "Rich Pepe", "Bonk", "WIF", "Popcat", "Titan", "Salt Bae", "Harold"];
+const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad", "Nyan", "Grumpy", "Harambe", "Shrek", "Fine Dog", "Wojak", "NPC", "Chad", "Doomer", "Bloomer", "Stonks", "Satoshi", "SBF", "CZ", "Laser Eyes", "WAGMI", "Diamond", "Rich Pepe", "Bonk", "WIF", "Popcat", "Titan", "Salt Bae", "Harold", "Paper Hands", "Moonboy", "Brett", "Andy", "GOAT", "Pnut", "Moodeng", "MEW"];
 
 /** Rarity by index (price tier) — drives the card/border colour + label. */
 const RARITY_TIERS = [
@@ -2489,7 +2489,7 @@ const RARITY_TIERS = [
   { name: "Mythic", color: "#ff5a5a" },
 ] as const;
 // Expanded roster (skins 11+) is spread across EVERY tier so the shop isn't all-Mythic.
-const EXT_RARITY = [3, 2, 3, 4, 1, 0, 0, 1, 2, 1, 2, 4, 1, 2, 3, 1, 4, 2, 1, 1, 3, 2, 3, 0];
+const EXT_RARITY = [3, 2, 3, 4, 1, 0, 0, 1, 2, 1, 2, 4, 1, 2, 3, 1, 4, 2, 1, 1, 3, 2, 3, 0, 2, 1, 0, 3, 1, 2, 4, 1];
 function rarityOf(i: number): { name: string; color: string } {
   if (i < 4) return RARITY_TIERS[0];
   if (i < 6) return RARITY_TIERS[1];
