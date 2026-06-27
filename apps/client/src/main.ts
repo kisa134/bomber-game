@@ -1639,6 +1639,9 @@ function wireSettings(): void {
   const applyTheme = (theme: string): void => {
     const day = theme === "day";
     document.getElementById("bg")?.classList.toggle("day", day);
+    // Mirror the mode onto <body> so CSS can lift low-contrast (muted) text in
+    // the light/day theme only — dark theme is untouched.
+    document.body.classList.toggle("day", day);
     const t = document.getElementById("theme-toggle");
     if (t) t.textContent = day ? "☀️" : "🌙";
   };

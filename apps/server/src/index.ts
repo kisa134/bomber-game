@@ -925,7 +925,13 @@ app.get("/admin/export", (res, req) => {
 });
 
 // The dashboard page itself (HTML asks for the token, then polls /admin/stats).
+// /admin now opens the NEW unified hub by default. The old vanilla panel stays
+// reachable at /admin/legacy until every last tool is ported into the new admin.
 app.get("/admin", (res) => {
+  res.onAborted(() => {});
+  res.cork(() => { res.writeStatus("302 Found"); res.writeHeader("Location", "/admin/marketing/"); res.end(); });
+});
+app.get("/admin/legacy", (res) => {
   res.onAborted(() => {});
   res.cork(() => {
     res.writeHeader("Content-Type", "text/html; charset=utf-8");

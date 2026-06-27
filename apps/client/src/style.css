@@ -8840,3 +8840,16 @@ button.big {
   background: rgba(235, 220, 255, 0.95);
   box-shadow: 0 0 6px 1px rgba(190, 145, 255, 0.46), 0 0 14px 4px rgba(165, 110, 255, 0.18);
 }
+
+/* ── Light/day theme: lift low-contrast text so it never gets lost on the
+   lighter backdrop. Scoped to body.day — the dark (night) theme is untouched. */
+body.day { --muted: #d6d2e4; }
+body.day .status,
+body.day .muted,
+body.day .pc-tier,
+body.day .rc-sub,
+body.day .stat-cap,
+body.day .splash-tagline,
+body.day .fighter-bigrarity {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+}
