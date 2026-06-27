@@ -47,7 +47,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "25";
+export const ASSET_VER = "26";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.
@@ -67,14 +67,14 @@ for (const b of ["hard", "soft"]) {
 }
 
 // Base portraits for the expanded meme roster (11-18); 0-10 are in SPRITE_FILES above.
-for (let s = 11; s < 43; s++) {
+for (let s = 11; s < 51; s++) {
   SPRITE_FILES[`skin${s}`] = `/sprites/skin_${s}`;
 }
 
 // Directional walk frames (optional): skin<id>_<down|up|side>_<0..2>.
 // "side" is used for right; left is the same sprite mirrored. Missing frames
 // fall back to the static skin sprite, so this is purely additive.
-for (let s = 0; s < 43; s++) {
+for (let s = 0; s < 51; s++) {
   for (const dir of ["down", "up", "side"]) {
     for (let f = 0; f < 3; f++) {
       SPRITE_FILES[`skin${s}_${dir}_${f}`] = `/sprites/skin_${s}_${dir}_${f}`;
@@ -84,7 +84,7 @@ for (let s = 0; s < 43; s++) {
 
 // Action-state frames (optional): skin<id>_<place_bomb|hurt|victory>. Missing
 // ones fall back to the walk/static sprite, so this is purely additive.
-for (let s = 0; s < 43; s++) {
+for (let s = 0; s < 51; s++) {
   for (const st of ["place_bomb", "hurt", "victory"]) {
     SPRITE_FILES[`skin${s}_${st}`] = `/sprites/skin_${s}_${st}`;
   }
