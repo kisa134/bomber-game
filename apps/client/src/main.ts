@@ -2592,7 +2592,10 @@ function makeShopCard(i: number): HTMLElement {
   if (!owns) card.appendChild(el("div", "shop-card-rarity", r.name));
   card.addEventListener("click", () => {
     shopSelected = i;
-    renderShopGrid();
+    // Update selection WITHOUT rebuilding the grid — rebuilding resets scrollTop and
+    // makes the list "jump back" on every click. Just move the .selected class.
+    document.querySelectorAll("#shop-grid .shop-card.selected").forEach((c) => c.classList.remove("selected"));
+    card.classList.add("selected");
     renderShopDetail();
   });
   return card;

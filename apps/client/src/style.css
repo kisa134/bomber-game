@@ -5967,8 +5967,8 @@ button.big {
 }
 .shop-top .shop-econ { margin-left: auto; }
 /* Unowned skins dimmed; level-locked ones dimmed harder. Clear on hover/selected. */
-.shop-card.unowned { filter: grayscale(0.35) brightness(0.72); }
-.shop-card.locked { filter: grayscale(0.62) brightness(0.48); opacity: 0.82; }
+.shop-card.unowned { filter: brightness(0.9); }
+.shop-card.locked { filter: brightness(0.78); opacity: 0.9; }
 .shop-card.unowned:hover,
 .shop-card.locked:hover,
 .shop-card.selected { filter: none; opacity: 1; }
@@ -6095,18 +6095,27 @@ button.big {
 .shop-card.equipped {
   background: rgba(57, 255, 155, 0.08);
 }
+/* Unowned = dark SILHOUETTE (intrigue): you see the shape + rarity, not who it is —
+   unlock to reveal the real art. Name/price/rarity stay readable. */
 .shop-card.unowned .avatar {
-  opacity: 0.55;
-  filter: grayscale(0.4);
+  opacity: 1;
+}
+.shop-card.unowned .avatar img {
+  filter: brightness(0.1) grayscale(1) contrast(0.95);
 }
 .shop-card .avatar {
-  width: 56px;
-  height: 56px;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  background: radial-gradient(ellipse 82% 72% at 50% 32%, color-mix(in srgb, var(--rarity) 16%, transparent), rgba(0, 0, 0, 0.38));
   font-size: 2rem;
 }
 .shop-card .avatar img {
   width: 100%;
   height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
 }
 .shop-card-name {
   font-family: var(--font-disp);
