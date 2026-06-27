@@ -104,16 +104,17 @@ export const DAILY_XP_PER_DAY = 15; // XP per streak day (capped like chips)
 // --- Skins (cosmetic; unlock by leveling up + chips, OR buy with token) -----
 // Index: 0 Shiba, 1 Pepe, 2 Trump, 3 Musk, 4 Doge, 5 Pump, 6 Durov, 7 Vitalik,
 //        8 Troll, 9 Bogdanoff, 10 Gigachad. The cooler/rarer it is, the dearer.
-export const SKIN_COUNT = 11;
+export const SKIN_COUNT = 19;
 // The first 4 are free & owned from the start, plus a free starter rare (Doge, #4).
 export const DEFAULT_SKINS = 0b0001_1111;
 // Chip price to UNLOCK a skin (also requires reaching SKIN_UNLOCK_LEVEL). 0 = free.
 // Tuned so the full set is grindable in ~a week of casual play (#4 free starter).
-export const SKIN_PRICES = [0, 0, 0, 0, 0, 2500, 4000, 6000, 8000, 11000, 16000] as const;
+// 11-18: expanded meme roster (nyan, grumpy, harambe, shrek, fine-dog, wojak, npc, chad).
+export const SKIN_PRICES = [0, 0, 0, 0, 0, 2500, 4000, 6000, 8000, 11000, 16000, 18000, 20000, 22000, 24000, 27000, 30000, 34000, 38000] as const;
 // Player level required before a skin can be bought with chips. 0 = no gate.
-export const SKIN_UNLOCK_LEVEL = [0, 0, 0, 0, 0, 4, 7, 10, 14, 18, 22] as const;
+export const SKIN_UNLOCK_LEVEL = [0, 0, 0, 0, 0, 4, 7, 10, 14, 18, 22, 24, 26, 28, 30, 33, 36, 39, 42] as const;
 // Whole-token price to buy a skin INSTANTLY (bypasses the level gate). 0 = free.
-export const SKIN_TOKEN_PRICES = [0, 0, 0, 0, 0, 10000, 20000, 35000, 50000, 80000, 150000] as const;
+export const SKIN_TOKEN_PRICES = [0, 0, 0, 0, 0, 10000, 20000, 35000, 50000, 80000, 150000, 170000, 185000, 200000, 220000, 245000, 270000, 300000, 330000] as const;
 
 // --- Lucky Spin (free chips wheel; "always something", pure fun) ------------
 export const SPIN_COST_CHIPS = 200; // cost per spin
