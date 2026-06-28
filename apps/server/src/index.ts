@@ -118,10 +118,11 @@ void (async function reconcileOpenStakes(): Promise<void> {
     if (!stuck.length) return;
     let refunded = 0;
     for (const s of stuck) {
+      const ctx = { type: "stake_refund", actor: "system" as const, ref: "boot-reconcile", note: "boot recovery of stranded stake" };
       const r =
         s.currency === Currency.TOKEN
-          ? await store.adjustToken(s.wallet, s.amount)
-          : await store.adjustChips(s.wallet, s.amount);
+          ? await store.adjustToken(s.wallet, s.amount, ctx)
+          : await store.adjustChips(s.wallet, s.amount, ctx);
       if (r !== null) refunded++;
     }
     alert(`boot: refunded ${refunded}/${stuck.length} stranded stake(s) from a previous crash`);
@@ -924,7 +925,8 @@ app.post("/admin/bulk-grant", (res, req) => {
     let ok = 0;
     for (const w of wallets) {
       const delta = currency === 1 ? toBaseUnits(amount) : amount;
-      const r = currency === 1 ? await store.adjustToken(w, delta) : await store.adjustChips(w, delta);
+      const ctx = { type: "grant", actor: "admin" as const, ref: "bulk-grant", note: "admin bulk grant" };
+      const r = currency === 1 ? await store.adjustToken(w, delta, ctx) : await store.adjustChips(w, delta, ctx);
       if (r !== null) ok++;
     }
     logEvent("🎁", `bulk grant ${currency === 1 ? "💎" : "🪙"}${amount} × ${ok}/${wallets.length} wallets`);
@@ -948,6 +950,47 @@ app.get("/admin/export", (res, req) => {
       res.writeStatus("200 OK");
       res.writeHeader("Content-Type", "text/csv; charset=utf-8");
       res.writeHeader("Content-Disposition", `attachment; filename="${kind}.csv"`);
+      res.end(header + body);
+    });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
+// Immutable financial audit ledger — every chips/token movement (deposit, withdraw,
+// stake, payout, refund, grant, referral, spin, skin, daily). Newest first. This is
+// the line auditors read: who moved what, when, why, against what reference.
+app.get("/admin/ledger", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const q = new URLSearchParams(req.getQuery());
+  const limit = Math.min(5000, Math.max(1, Number(q.get("limit")) || 500));
+  void store.recentLedger(limit).then((rows) => {
+    // token deltas are in base units → show in whole tokens; chips are 1:1.
+    const out = rows.map((r) => ({
+      ...r,
+      amount: r.currency === "token" ? fromBaseUnits(r.delta) : r.delta,
+      balance: r.balanceAfter == null ? null : r.currency === "token" ? fromBaseUnits(r.balanceAfter) : r.balanceAfter,
+    }));
+    sendJson(res, { rows: out });
+  }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
+});
+
+// CSV of the full audit ledger for off-line books / external auditors.
+app.get("/admin/ledger.csv", (res, req) => {
+  res.onAborted(() => {});
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const limit = Math.min(50000, Math.max(1, Number(new URLSearchParams(req.getQuery()).get("limit")) || 10000));
+  void store.recentLedger(limit).then((rows) => {
+    const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const header = "id,ts,type,wallet,currency,amount,balance_after,actor,ref,note\n";
+    const body = rows.map((r) => {
+      const amount = r.currency === "token" ? fromBaseUnits(r.delta) : r.delta;
+      const bal = r.balanceAfter == null ? "" : r.currency === "token" ? fromBaseUnits(r.balanceAfter) : r.balanceAfter;
+      return [r.id, r.ts, r.type, r.wallet, r.currency, amount, bal, r.actor, esc(r.ref), esc(r.note)].join(",");
+    }).join("\n");
+    res.cork(() => {
+      res.writeStatus("200 OK");
+      res.writeHeader("Content-Type", "text/csv; charset=utf-8");
+      res.writeHeader("Content-Disposition", `attachment; filename="ledger.csv"`);
       res.end(header + body);
     });
   }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
@@ -1243,7 +1286,7 @@ app.post("/admin/dev-set", (res, req) => {
     } else {
       if (typeof j.level === "number" && j.level >= 1) await store.setXp(wallet, Math.floor((j.level - 1) * 200));
       if (typeof j.addXp === "number" && j.addXp > 0) await store.addXp(wallet, Math.floor(j.addXp));
-      if (typeof j.addChips === "number" && j.addChips !== 0) await store.adjustChips(wallet, Math.floor(j.addChips));
+      if (typeof j.addChips === "number" && j.addChips !== 0) await store.adjustChips(wallet, Math.floor(j.addChips), { type: "grant", actor: "admin", ref: shortWallet(wallet), note: "admin dev-set chips" });
     }
     const p = await store.getProfile(wallet);
     sendJson(res, { ok: true, level: p?.level ?? 1, xp: p?.xp ?? 0, chips: p?.chips ?? 0, gameTokens: fromBaseUnits(p?.token_balance ?? 0) });
@@ -1269,7 +1312,7 @@ app.post("/wheel/spin", (res, req) => {
     const { wallet } = parseSkinReq(body);
     if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
     // Charge the spin atomically; bail if they can't afford it.
-    const afterCost = await store.adjustChips(wallet, -SPIN_COST_CHIPS);
+    const afterCost = await store.adjustChips(wallet, -SPIN_COST_CHIPS, { type: "spin", actor: "player", note: "lucky spin cost" });
     if (afterCost === null) return sendJson(res, { error: "cant_afford" }, "402 Payment Required");
     // Roll on the server (the client can't influence the outcome).
     let prizeId = rollWheel(Math.random());
@@ -1288,13 +1331,13 @@ app.post("/wheel/spin", (res, req) => {
         spinStats.skins++;
       } else {
         // Already owns every skin → pay the fallback chips instead.
-        await store.adjustChips(wallet, SKIN_FALLBACK_CHIPS);
+        await store.adjustChips(wallet, SKIN_FALLBACK_CHIPS, { type: "spin", actor: "system", note: "lucky spin prize (skin fallback)" });
         spinStats.paid += SKIN_FALLBACK_CHIPS;
         prizeId = 5;
         prize = WHEEL_PRIZES[5];
       }
     } else {
-      await store.adjustChips(wallet, prize.amount);
+      await store.adjustChips(wallet, prize.amount, { type: "spin", actor: "system", note: "lucky spin prize" });
       spinStats.paid += prize.amount;
     }
     const prof = await store.getProfile(wallet);
@@ -1777,7 +1820,7 @@ app.get("/admin/grant-chips", (res, req) => {
   if (!wallet) return sendJson(res, { error: "no_wallet" }, "400 Bad Request");
   if (!Number.isFinite(amount) || amount === 0) return sendJson(res, { error: "bad_amount" }, "400 Bad Request");
   void store
-    .adjustChips(wallet, amount)
+    .adjustChips(wallet, amount, { type: "grant", actor: "admin", ref: shortWallet(wallet), note: "admin grant-chips" })
     .then((chips) => {
       if (chips === null) return sendJson(res, { ok: false, error: "would_overdraw" });
       logEvent("🛠", `${shortWallet(wallet)} ${amount > 0 ? "+" : ""}${amount} 🪙 (admin)`);

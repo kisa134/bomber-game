@@ -8,6 +8,8 @@ interface GlassCardProps {
   glowColor?: 'purple' | 'cyan' | 'pink' | 'green';
   className?: string;
   noPadding?: boolean;
+  /** Optional control rendered top-right of the header (e.g. an export button). */
+  action?: ReactNode;
 }
 
 const glowColorMap = {
@@ -24,6 +26,7 @@ const GlassCard: FC<GlassCardProps> = ({
   glowColor = 'purple',
   className = '',
   noPadding = false,
+  action,
 }) => {
   return (
     <motion.div
@@ -49,16 +52,19 @@ const GlassCard: FC<GlassCardProps> = ({
           background: 'radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%)',
         }}
       />
-      {(title || subtitle) && (
-        <div className="relative z-10 mb-4">
-          {title && (
-            <h3 className="text-white font-inter text-xl font-semibold tracking-tight">
-              {title}
-            </h3>
-          )}
-          {subtitle && (
-            <p className="text-text-muted text-[13px] mt-1">{subtitle as string}</p>
-          )}
+      {(title || subtitle || action) && (
+        <div className="relative z-10 mb-4 flex items-start justify-between gap-3">
+          <div>
+            {title && (
+              <h3 className="text-white font-inter text-xl font-semibold tracking-tight">
+                {title}
+              </h3>
+            )}
+            {subtitle && (
+              <p className="text-text-muted text-[13px] mt-1">{subtitle as string}</p>
+            )}
+          </div>
+          {action && <div className="shrink-0">{action}</div>}
         </div>
       )}
       <div className="relative z-10">{children}</div>

@@ -109,6 +109,39 @@ export function levelForXp(xp: number): number {
   return 1 + Math.floor(xp / 200);
 }
 
+/** Context attached to every balance change so the immutable audit ledger can
+ *  answer "who moved this money, why, and against what reference". All fields are
+ *  optional; sensible defaults are filled in by the store. */
+export interface LedgerCtx {
+  /** What kind of movement: deposit | withdraw | grant | settle | rake | referral
+   *  | skin | refund | adjust | … (free-form but use stable verbs). */
+  type?: string;
+  /** Who initiated it. */
+  actor?: "player" | "admin" | "system";
+  /** Admin wallet / signature / match id / tx — anything to trace the move back. */
+  ref?: string;
+  /** Human note for auditors. */
+  note?: string;
+}
+
+/** One immutable row of the financial audit ledger. Append-only — never updated
+ *  or deleted. `delta`/`balanceAfter` are in the currency's base units
+ *  (chips = whole chips, token = base units). */
+export interface LedgerRow {
+  id: number;
+  ts: string;
+  type: string;
+  wallet: string;
+  /** "chips" | "token". */
+  currency: string;
+  delta: number;
+  /** Balance after this move (null if unknown, e.g. best-effort backend). */
+  balanceAfter: number | null;
+  actor: string;
+  ref: string;
+  note: string;
+}
+
 export interface ProfileStore {
   readonly kind: string;
   ping(): Promise<boolean>;
@@ -128,11 +161,14 @@ export interface ProfileStore {
   /** Ensure a profile exists (granting starting chips), return it. */
   ensureProfile(wallet: string, name: string, skin: number): Promise<Profile>;
   /** Atomically add `delta` chips. Returns the new balance, or null if a
-   *  negative delta would overdraw (balance unchanged). */
-  adjustChips(wallet: string, delta: number): Promise<number | null>;
+   *  negative delta would overdraw (balance unchanged). `ctx` is written to the
+   *  immutable audit ledger in the SAME statement (every move is recorded). */
+  adjustChips(wallet: string, delta: number, ctx?: LedgerCtx): Promise<number | null>;
   /** Atomically add `delta` token base units. Returns the new balance, or null
-   *  if a negative delta would overdraw (balance unchanged). */
-  adjustToken(wallet: string, delta: number): Promise<number | null>;
+   *  if a negative delta would overdraw (balance unchanged). `ctx` → audit ledger. */
+  adjustToken(wallet: string, delta: number, ctx?: LedgerCtx): Promise<number | null>;
+  /** Immutable financial audit ledger — newest first (for /admin/ledger + CSV). */
+  recentLedger(limit: number): Promise<LedgerRow[]>;
   /** Admin override: set a wallet's rating outright. Returns the new value, or
    *  null if the profile doesn't exist. */
   setRating(wallet: string, rating: number): Promise<number | null>;
@@ -284,6 +320,30 @@ function applyResult(p: Profile, r: MatchResult): void {
 class InMemoryStore implements ProfileStore {
   readonly kind = "memory";
   private map = new Map<string, Profile>();
+  // Immutable in-memory audit ledger (newest pushed last). Bounded so a long-lived
+  // dev process can't grow unbounded; prod uses Postgres' durable table.
+  private ledger: LedgerRow[] = [];
+  private ledgerSeq = 0;
+
+  private logLedger(wallet: string, currency: string, delta: number, balanceAfter: number | null, ctx?: LedgerCtx) {
+    this.ledger.push({
+      id: ++this.ledgerSeq,
+      ts: new Date().toISOString(),
+      type: ctx?.type ?? "adjust",
+      wallet,
+      currency,
+      delta,
+      balanceAfter,
+      actor: ctx?.actor ?? "system",
+      ref: ctx?.ref ?? "",
+      note: ctx?.note ?? "",
+    });
+    if (this.ledger.length > 50_000) this.ledger.splice(0, this.ledger.length - 50_000);
+  }
+
+  async recentLedger(limit: number): Promise<LedgerRow[]> {
+    return this.ledger.slice(-Math.max(1, limit)).reverse();
+  }
 
   async ping(): Promise<boolean> {
     return true;
@@ -361,19 +421,21 @@ class InMemoryStore implements ProfileStore {
     return true;
   }
 
-  async adjustChips(wallet: string, delta: number): Promise<number | null> {
+  async adjustChips(wallet: string, delta: number, ctx?: LedgerCtx): Promise<number | null> {
     const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
     this.map.set(wallet, p);
     if (delta < 0 && p.chips + delta < 0) return null;
     p.chips += delta;
+    this.logLedger(wallet, "chips", delta, p.chips, ctx);
     return p.chips;
   }
 
-  async adjustToken(wallet: string, delta: number): Promise<number | null> {
+  async adjustToken(wallet: string, delta: number, ctx?: LedgerCtx): Promise<number | null> {
     const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
     this.map.set(wallet, p);
     if (delta < 0 && p.token_balance + delta < 0) return null;
     p.token_balance += delta;
+    this.logLedger(wallet, "token", delta, p.token_balance, ctx);
     return p.token_balance;
   }
 
@@ -406,6 +468,7 @@ class InMemoryStore implements ProfileStore {
     if (p.chips < price) return null; // can't afford
     p.chips -= price;
     p.skins |= bit;
+    this.logLedger(wallet, "chips", -price, p.chips, { type: "skin", actor: "player", note: `skin #${skin}` });
     return { chips: p.chips, skins: p.skins };
   }
 
@@ -421,6 +484,7 @@ class InMemoryStore implements ProfileStore {
     if (p.token_balance < amountBase) return null; // can't afford
     p.token_balance -= amountBase;
     p.skins |= bit;
+    this.logLedger(wallet, "token", -amountBase, p.token_balance, { type: "skin", actor: "player", note: `skin #${skin}` });
     return { token_balance: p.token_balance, skins: p.skins };
   }
 
@@ -445,7 +509,7 @@ class InMemoryStore implements ProfileStore {
   async creditDeposit(signature: string, wallet: string, amount: number): Promise<boolean> {
     if (this.deposits.has(signature)) return false;
     this.deposits.add(signature);
-    await this.adjustToken(wallet, amount);
+    await this.adjustToken(wallet, amount, { type: "deposit", actor: "player", ref: signature });
     return true;
   }
 
@@ -472,6 +536,11 @@ class InMemoryStore implements ProfileStore {
     this.map.set(wallet, p);
     p.token_balance += amount;
     p.referral_earned += amount;
+    this.logLedger(wallet, "token", amount, p.token_balance, {
+      type: "referral",
+      actor: "system",
+      note: "referral commission",
+    });
   }
 
   async addXp(wallet: string, amount: number): Promise<void> {
@@ -521,6 +590,7 @@ class InMemoryStore implements ProfileStore {
     p.chips += r.chips;
     p.xp += r.xp;
     p.level = 1 + Math.floor(p.xp / 200);
+    if (r.chips) this.logLedger(wallet, "chips", r.chips, p.chips, { type: "daily", actor: "system", note: `daily reward (streak ${streak})` });
     return { already: false, streak, chips: r.chips, xp: r.xp, bonus: r.bonus };
   }
 
@@ -772,7 +842,61 @@ class SupabaseStore implements ProfileStore {
     return p;
   }
 
-  async adjustChips(wallet: string, delta: number): Promise<number | null> {
+  /** Best-effort append to the immutable `ledger` table (never throws into a
+   *  money path). Postgres is the atomic audit source; this mirrors it. */
+  private async logLedger(
+    wallet: string,
+    currency: string,
+    delta: number,
+    balanceAfter: number | null,
+    ctx?: LedgerCtx,
+  ): Promise<void> {
+    try {
+      await fetch(`${this.url}/rest/v1/ledger`, {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({
+          wallet,
+          currency,
+          delta,
+          balance_after: balanceAfter,
+          type: ctx?.type ?? "adjust",
+          actor: ctx?.actor ?? "system",
+          ref: ctx?.ref ?? "",
+          note: ctx?.note ?? "",
+        }),
+      });
+    } catch (e) {
+      console.error("[store] ledger insert failed", e);
+    }
+  }
+
+  async recentLedger(limit: number): Promise<LedgerRow[]> {
+    try {
+      const res = await fetch(
+        `${this.url}/rest/v1/ledger?select=id,ts,type,wallet,currency,delta,balance_after,actor,ref,note&order=id.desc&limit=${Math.max(1, limit)}`,
+        { headers: this.headers() },
+      );
+      if (!res.ok) return [];
+      const rows = (await res.json()) as any[];
+      return rows.map((r) => ({
+        id: Number(r.id),
+        ts: r.ts,
+        type: r.type,
+        wallet: r.wallet,
+        currency: r.currency,
+        delta: Number(r.delta),
+        balanceAfter: r.balance_after == null ? null : Number(r.balance_after),
+        actor: r.actor,
+        ref: r.ref,
+        note: r.note,
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  async adjustChips(wallet: string, delta: number, ctx?: LedgerCtx): Promise<number | null> {
     // Best-effort read-modify-write (the Postgres path is the atomic one).
     const p = await this.getProfile(wallet);
     if (!p) return null;
@@ -788,10 +912,11 @@ class SupabaseStore implements ProfileStore {
       console.error("[store] adjustChips failed", e);
       return null;
     }
+    await this.logLedger(wallet, "chips", delta, next, ctx);
     return next;
   }
 
-  async adjustToken(wallet: string, delta: number): Promise<number | null> {
+  async adjustToken(wallet: string, delta: number, ctx?: LedgerCtx): Promise<number | null> {
     const p = await this.getProfile(wallet);
     if (!p) return null;
     const next = (p.token_balance ?? 0) + delta;
@@ -806,6 +931,7 @@ class SupabaseStore implements ProfileStore {
       console.error("[store] adjustToken failed", e);
       return null;
     }
+    await this.logLedger(wallet, "token", delta, next, ctx);
     return next;
   }
 
@@ -855,6 +981,7 @@ class SupabaseStore implements ProfileStore {
       console.error("[store] buySkin failed", e);
       return null;
     }
+    await this.logLedger(wallet, "chips", -price, chips, { type: "skin", actor: "player", note: `skin #${skin}` });
     return { chips, skins };
   }
 
@@ -881,6 +1008,7 @@ class SupabaseStore implements ProfileStore {
       console.error("[store] buySkinToken failed", e);
       return null;
     }
+    await this.logLedger(wallet, "token", -amountBase, token_balance, { type: "skin", actor: "player", note: `skin #${skin}` });
     return { token_balance, skins };
   }
 
@@ -930,7 +1058,7 @@ class SupabaseStore implements ProfileStore {
       });
       const rows = (await ins.json()) as unknown[];
       if (!Array.isArray(rows) || rows.length === 0) return false; // already processed
-      await this.adjustToken(wallet, amount);
+      await this.adjustToken(wallet, amount, { type: "deposit", actor: "player", ref: signature });
       return true;
     } catch (e) {
       console.error("[store] creditDeposit failed", e);
@@ -970,7 +1098,7 @@ class SupabaseStore implements ProfileStore {
 
   async creditReferral(wallet: string, amount: number): Promise<void> {
     if (amount <= 0) return;
-    await this.adjustToken(wallet, amount);
+    await this.adjustToken(wallet, amount, { type: "referral", actor: "system", note: "referral commission" });
     const p = await this.getProfile(wallet);
     const earned = (p?.referral_earned ?? 0) + amount;
     try {
@@ -1068,6 +1196,7 @@ class SupabaseStore implements ProfileStore {
     } catch {
       /* best-effort */
     }
+    if (r.chips) await this.logLedger(wallet, "chips", r.chips, (p?.chips ?? STARTING_CHIPS) + r.chips, { type: "daily", actor: "system", note: `daily reward (streak ${streak})` });
     return { already: false, streak, chips: r.chips, xp: r.xp, bonus: r.bonus };
   }
 
@@ -1276,6 +1405,35 @@ class PostgresStore implements ProfileStore {
         amount bigint not null,
         at timestamptz not null default now()
       )`);
+    // IMMUTABLE FINANCIAL AUDIT LEDGER. One append-only row per balance change
+    // (chips or token), written in the SAME statement as the balance update so a
+    // move can never happen without a matching ledger line. Nothing in the app
+    // ever UPDATEs or DELETEs from this table — it is the source of truth for
+    // "where did every unit of value come from / go to" during audits.
+    await this.pool.query(`
+      create table if not exists ledger (
+        id bigint generated by default as identity primary key,
+        ts timestamptz not null default now(),
+        type text not null default 'adjust',
+        wallet text not null,
+        currency text not null,
+        delta bigint not null,
+        balance_after bigint,
+        actor text not null default 'system',
+        ref text not null default '',
+        note text not null default ''
+      )`);
+    await this.pool.query(`create index if not exists ledger_wallet_id on ledger (wallet, id desc)`);
+    await this.pool.query(`create index if not exists ledger_ts on ledger (ts desc)`);
+    await this.pool.query(`create index if not exists ledger_type on ledger (type)`);
+    // Belt-and-braces: revoke UPDATE/DELETE so even a future bug (or a leaked
+    // app credential) cannot rewrite history. INSERT/SELECT only. Best-effort —
+    // some managed PGs run the app as the owner where this is a no-op.
+    await this.pool.query(
+      `do $$ begin
+         execute 'revoke update, delete on ledger from ' || quote_ident(current_user);
+       exception when others then null; end $$`,
+    );
     // In-flight escrow: stakes collected for a live match but not yet settled.
     // Refunded on boot if a hard crash left them behind (see takeOpenStakes).
     await this.pool.query(`
@@ -1516,19 +1674,28 @@ class PostgresStore implements ProfileStore {
     }
   }
 
-  async adjustChips(wallet: string, delta: number): Promise<number | null> {
+  async adjustChips(wallet: string, delta: number, ctx?: LedgerCtx): Promise<number | null> {
     try {
       await this.ready;
       // Ensure the row exists first (a credit/refund to a never-seen wallet must
-      // not silently no-op), then atomically move the balance (overdraw-safe).
+      // not silently no-op), then atomically move the balance (overdraw-safe) AND
+      // write the immutable audit row in the SAME statement: a single CTE means
+      // the ledger line and the balance change commit together or not at all —
+      // money can never move without leaving a trace.
       await this.pool.query(
         `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
         [wallet],
       );
       const res = await this.pool.query(
-        `update profiles set chips = chips + $2, updated_at=now()
-         where wallet=$1 and chips + $2 >= 0 returning chips`,
-        [wallet, delta],
+        `with upd as (
+           update profiles set chips = chips + $2, updated_at=now()
+           where wallet=$1 and chips + $2 >= 0 returning chips
+         ), led as (
+           insert into ledger (type, wallet, currency, delta, balance_after, actor, ref, note)
+           select $3, $1, 'chips', $2, upd.chips, $4, $5, $6 from upd
+         )
+         select chips from upd`,
+        [wallet, delta, ctx?.type ?? "adjust", ctx?.actor ?? "system", ctx?.ref ?? "", ctx?.note ?? ""],
       );
       return res.rows[0] ? (res.rows[0].chips as number) : null;
     } catch (e) {
@@ -1537,23 +1704,57 @@ class PostgresStore implements ProfileStore {
     }
   }
 
-  async adjustToken(wallet: string, delta: number): Promise<number | null> {
+  async adjustToken(wallet: string, delta: number, ctx?: LedgerCtx): Promise<number | null> {
     try {
       await this.ready;
-      // Ensure the row exists, then atomically move the balance (overdraw-safe).
+      // Ensure the row exists, then atomically move the balance (overdraw-safe)
+      // and append the audit row in the same CTE (see adjustChips). Token moves
+      // are real money — this is the line auditors will read.
       await this.pool.query(
         `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
         [wallet],
       );
       const res = await this.pool.query(
-        `update profiles set token_balance = token_balance + $2, updated_at=now()
-         where wallet=$1 and token_balance + $2 >= 0 returning token_balance`,
-        [wallet, delta],
+        `with upd as (
+           update profiles set token_balance = token_balance + $2, updated_at=now()
+           where wallet=$1 and token_balance + $2 >= 0 returning token_balance
+         ), led as (
+           insert into ledger (type, wallet, currency, delta, balance_after, actor, ref, note)
+           select $3, $1, 'token', $2, upd.token_balance, $4, $5, $6 from upd
+         )
+         select token_balance from upd`,
+        [wallet, delta, ctx?.type ?? "adjust", ctx?.actor ?? "system", ctx?.ref ?? "", ctx?.note ?? ""],
       );
       return res.rows[0] ? Number(res.rows[0].token_balance) : null;
     } catch (e) {
       console.error("[store] pg adjustToken failed", e);
       return null;
+    }
+  }
+
+  async recentLedger(limit: number): Promise<LedgerRow[]> {
+    try {
+      await this.ready;
+      const res = await this.pool.query(
+        `select id, ts, type, wallet, currency, delta, balance_after, actor, ref, note
+         from ledger order by id desc limit $1`,
+        [Math.max(1, limit)],
+      );
+      return res.rows.map((r) => ({
+        id: Number(r.id),
+        ts: r.ts instanceof Date ? r.ts.toISOString() : String(r.ts),
+        type: r.type,
+        wallet: r.wallet,
+        currency: r.currency,
+        delta: Number(r.delta),
+        balanceAfter: r.balance_after == null ? null : Number(r.balance_after),
+        actor: r.actor,
+        ref: r.ref,
+        note: r.note,
+      }));
+    } catch (e) {
+      console.error("[store] pg recentLedger failed", e);
+      return [];
     }
   }
 
@@ -1604,11 +1805,17 @@ class PostgresStore implements ProfileStore {
         `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
         [wallet],
       );
-      // Atomic: only buy if affordable and not already owned.
+      // Atomic: only buy if affordable and not already owned. Ledger row in the same CTE.
       const res = await this.pool.query(
-        `update profiles set chips = chips - $3, skins = skins | (1 << $2), updated_at=now()
-         where wallet=$1 and chips >= $3 and (skins & (1 << $2)) = 0
-         returning chips, skins`,
+        `with upd as (
+           update profiles set chips = chips - $3, skins = skins | (1 << $2), updated_at=now()
+           where wallet=$1 and chips >= $3 and (skins & (1 << $2)) = 0
+           returning chips, skins
+         ), led as (
+           insert into ledger (type, wallet, currency, delta, balance_after, actor, note)
+           select 'skin', $1, 'chips', -$3, upd.chips, 'player', 'skin #' || $2 from upd
+         )
+         select chips, skins from upd`,
         [wallet, skin, price],
       );
       return res.rows[0]
@@ -1632,10 +1839,17 @@ class PostgresStore implements ProfileStore {
         [wallet],
       );
       // Atomic: only buy if the token balance covers it and not already owned.
+      // Token spend → audit row in the same CTE (real money).
       const res = await this.pool.query(
-        `update profiles set token_balance = token_balance - $3, skins = skins | (1 << $2), updated_at=now()
-         where wallet=$1 and token_balance >= $3 and (skins & (1 << $2)) = 0
-         returning token_balance, skins`,
+        `with upd as (
+           update profiles set token_balance = token_balance - $3, skins = skins | (1 << $2), updated_at=now()
+           where wallet=$1 and token_balance >= $3 and (skins & (1 << $2)) = 0
+           returning token_balance, skins
+         ), led as (
+           insert into ledger (type, wallet, currency, delta, balance_after, actor, note)
+           select 'skin', $1, 'token', -$3, upd.token_balance, 'player', 'skin #' || $2 from upd
+         )
+         select token_balance, skins from upd`,
         [wallet, skin, amountBase],
       );
       return res.rows[0]
@@ -1701,9 +1915,15 @@ class PostgresStore implements ProfileStore {
         `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
         [wallet],
       );
-      await client.query(
-        `update profiles set token_balance = token_balance + $2, updated_at=now() where wallet=$1`,
+      const upd = await client.query(
+        `update profiles set token_balance = token_balance + $2, updated_at=now() where wallet=$1 returning token_balance`,
         [wallet, amount],
+      );
+      // Audit row in the SAME transaction as the deposit credit.
+      await client.query(
+        `insert into ledger (type, wallet, currency, delta, balance_after, actor, ref, note)
+         values ('deposit', $1, 'token', $2, $3, 'player', $4, 'on-chain deposit')`,
+        [wallet, amount, upd.rows[0] ? Number(upd.rows[0].token_balance) : null, signature],
       );
       await client.query("commit");
       return true;
@@ -1795,11 +2015,19 @@ class PostgresStore implements ProfileStore {
         `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
         [wallet],
       );
-      await this.pool.query(
-        `update profiles set token_balance = token_balance + $2,
-           referral_earned = referral_earned + $2, updated_at=now() where wallet=$1`,
+      const upd = await this.pool.query(
+        `with u as (
+           update profiles set token_balance = token_balance + $2,
+             referral_earned = referral_earned + $2, updated_at=now() where wallet=$1
+           returning token_balance
+         ), led as (
+           insert into ledger (type, wallet, currency, delta, balance_after, actor, note)
+           select 'referral', $1, 'token', $2, u.token_balance, 'system', 'referral commission' from u
+         )
+         select token_balance from u`,
         [wallet, amount],
       );
+      void upd;
     } catch (e) {
       console.error("[store] pg creditReferral failed", e);
     }
@@ -1892,11 +2120,18 @@ class PostgresStore implements ProfileStore {
       }
       const streak = nextDailyStreak(lastDay, today, prevStreak);
       const reward = dailyReward(streak, level);
-      await client.query(
+      const upd = await client.query(
         `update profiles set daily_day=$2, daily_streak=$3, chips=chips+$4,
-           xp=xp+$5, level=1+((xp+$5)/200), updated_at=now() where wallet=$1`,
+           xp=xp+$5, level=1+((xp+$5)/200), updated_at=now() where wallet=$1 returning chips`,
         [wallet, today, streak, reward.chips, reward.xp],
       );
+      if (reward.chips) {
+        await client.query(
+          `insert into ledger (type, wallet, currency, delta, balance_after, actor, note)
+           values ('daily', $1, 'chips', $2, $3, 'system', $4)`,
+          [wallet, reward.chips, upd.rows[0] ? Number(upd.rows[0].chips) : null, `daily reward (streak ${streak})`],
+        );
+      }
       await client.query("commit");
       return { already: false, streak, chips: reward.chips, xp: reward.xp, bonus: reward.bonus };
     } catch (e) {
