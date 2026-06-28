@@ -6,11 +6,10 @@ import type { ArenaTheme } from "../settings.js";
 
 // Arena block skins: each themed set maps the base hard/soft/floor sprite to a
 // themed material variant. "classic" is absent here (it uses the base sprites).
-// NOTE: void temporarily reuses floor_grate until a dedicated floor_void exists.
 const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft: string; floor: string }> = {
   vault: { hard: "hard_gold", soft: "soft_ammo", floor: "floor_grate" },
   cyber: { hard: "hard_stone", soft: "soft_tech", floor: "floor_neon" },
-  void: { hard: "hard_obsidian", soft: "soft_meme", floor: "floor_grate" },
+  void: { hard: "hard_obsidian", soft: "soft_meme", floor: "floor_void" },
 };
 
 // One unique colour per player slot — supports a full 8-player arena (1 human +

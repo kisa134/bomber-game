@@ -22,6 +22,7 @@ export const SPRITE_FILES: Record<string, string> = {
   soft_meme: "/sprites/soft_meme",
   floor_grate: "/sprites/floor_grate",
   floor_neon: "/sprites/floor_neon",
+  floor_void: "/sprites/floor_void",
   bomb: "/sprites/bomb",
   // Explosion animation frames (ignite -> expand -> peak -> collapse -> fade).
   // A single explosion is used as a fallback if frames are absent.
@@ -57,7 +58,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "33";
+export const ASSET_VER = "34";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.
