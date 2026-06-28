@@ -2541,12 +2541,8 @@ async function loadShopData(): Promise<void> {
       shop.chips = p.chips ?? 0;
       shop.tokens = p.gameTokens ?? 0;
       shopIsAdmin = isAdminWallet(w.address);
-      if (shopIsAdmin) {
-        shop.owned = 0x7fffffff;                       // legacy 0-30 bits; skinOwned() force-owns the rest
-        shop.chips = Math.max(shop.chips, 999_999_999); // effectively infinite chips
-        shop.tokens = Math.max(shop.tokens, 9_999_999);
-        shop.level = Math.max(shop.level, 99);
-      }
+      if (shopIsAdmin) shop.owned = 0x7fffffff; // legacy 0-30 bits; skinOwned() force-owns the rest.
+      // chips/tokens/level are now real + admin-editable via the 🛡 overlay (no forced max).
       localStorage.setItem("bp_skin", String(shop.equipped));
     } catch {
       /* keep last known */

@@ -46,6 +46,21 @@ export function initAdminMode(isAdmin: boolean, getSession: () => string): void 
       <span id="adm-dot" style="width:7px;height:7px;border-radius:50%;background:#34d399;box-shadow:0 0 6px #34d399"></span>
     </div>
     <div id="adm-rows" style="display:grid;grid-template-columns:1fr auto;gap:3px 10px"></div>
+    <div style="margin-top:10px;border-top:1px solid rgba(124,58,237,.25);padding-top:9px">
+      <div style="color:#8b97ad;font-weight:700;margin-bottom:6px">🧪 DEV · my profile</div>
+      <div style="display:flex;gap:6px;margin-bottom:6px">
+        <input id="adm-lvl" type="number" min="1" placeholder="level" inputmode="numeric"
+          style="flex:1;min-width:0;background:rgba(255,255,255,.06);border:1px solid rgba(124,58,237,.4);border-radius:7px;color:#e6eefc;padding:5px 8px;font:12px/1 'Space Mono',monospace" />
+        <button data-dev="setlvl" class="adm-devb">Set lvl</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">
+        <button data-dev="chips" class="adm-devb">+1M 🪙</button>
+        <button data-dev="tokens" class="adm-devb">+100k 💎</button>
+        <button data-dev="xp" class="adm-devb">+5 lvl</button>
+        <button data-dev="max" class="adm-devb">MAX</button>
+      </div>
+      <div id="adm-dev-st" style="color:#34d399;margin-top:6px;min-height:14px;font:11px/1.3 'Space Mono',monospace"></div>
+    </div>
     <a href="/admin/marketing/" target="_blank" rel="noopener" style="display:block;margin-top:9px;text-align:center;color:#22d3ee;text-decoration:none;font-weight:700;font-size:11px">Open full admin ↗</a>`;
 
   const rowsEl = panel.querySelector("#adm-rows") as HTMLElement;
@@ -85,6 +100,37 @@ export function initAdminMode(isAdmin: boolean, getSession: () => string): void 
     else if (timer) { clearInterval(timer); timer = null; }
   };
   btn.addEventListener("click", () => setOpen(panel.style.display === "none"));
+
+  // DEV controls — set level / add money on MY OWN admin profile (server-gated).
+  const style = document.createElement("style");
+  style.textContent =
+    "#admin-overlay .adm-devb{flex:1 1 auto;min-width:60px;background:rgba(124,58,237,.18);border:1px solid rgba(124,58,237,.5);border-radius:7px;color:#e6eefc;padding:6px 4px;font:700 11px/1 'Space Grotesk',system-ui,sans-serif;cursor:pointer}#admin-overlay .adm-devb:hover{background:rgba(124,58,237,.34)}";
+  document.head.appendChild(style);
+  const devSt = panel.querySelector("#adm-dev-st") as HTMLElement;
+  const lvlInput = panel.querySelector("#adm-lvl") as HTMLInputElement;
+  const devSet = async (payload: Record<string, number>): Promise<void> => {
+    const s = getSession();
+    if (!s) { devSt.textContent = "✖ connect a wallet first"; return; }
+    devSt.textContent = "…";
+    try {
+      const r = await (await fetch(`${SERVER_HTTP}/admin/dev-set`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ session: s, ...payload }),
+      })).json();
+      if (r.error) { devSt.textContent = "✖ " + r.error; return; }
+      devSt.textContent = `✓ LV ${r.level} · 🪙${fmtC(r.chips)} · 💎${fmtC(r.gameTokens)} — reopen shop`;
+    } catch { devSt.textContent = "✖ network"; }
+  };
+  panel.querySelectorAll<HTMLButtonElement>("[data-dev]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const k = b.dataset.dev;
+      if (k === "setlvl") { const lv = Math.max(1, Math.floor(Number(lvlInput.value) || 0)); if (lv >= 1) void devSet({ level: lv }); }
+      else if (k === "chips") void devSet({ addChips: 1_000_000 });
+      else if (k === "tokens") void devSet({ addTokens: 100_000 });
+      else if (k === "xp") void devSet({ addXp: 1000 }); // +5 levels (200xp each)
+      else if (k === "max") void devSet({ level: 99, addChips: 1_000_000_000, addTokens: 1_000_000 });
+    });
+  });
 
   document.body.appendChild(btn);
   document.body.appendChild(panel);

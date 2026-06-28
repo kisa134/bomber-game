@@ -169,6 +169,7 @@ export interface ProfileStore {
   /** Add XP (and recompute level) WITHOUT touching rating — used for the tiny
    *  Competitive Bots Match reward. 200 XP per level. */
   addXp(wallet: string, amount: number): Promise<void>;
+  setXp(wallet: string, xp: number): Promise<void>; // admin/dev: set xp directly (recomputes level)
   /** Add to lifetime time-in-match (seconds). Best-effort, never throws. */
   addPlaytime(wallet: string, seconds: number): Promise<void>;
   /** Claim today's daily login reward (idempotent per UTC day). Advances the
@@ -477,6 +478,13 @@ class InMemoryStore implements ProfileStore {
     const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
     this.map.set(wallet, p);
     p.xp += amount;
+    p.level = 1 + Math.floor(p.xp / 200);
+  }
+
+  async setXp(wallet: string, xp: number): Promise<void> {
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    p.xp = Math.max(0, Math.floor(xp));
     p.level = 1 + Math.floor(p.xp / 200);
   }
 
@@ -973,6 +981,19 @@ class SupabaseStore implements ProfileStore {
         method: "PATCH",
         headers: this.headers(),
         body: JSON.stringify({ xp, level: 1 + Math.floor(xp / 200) }),
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  async setXp(wallet: string, xp: number): Promise<void> {
+    const v = Math.max(0, Math.floor(xp));
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({ xp: v, level: 1 + Math.floor(v / 200) }),
       });
     } catch {
       /* best-effort */
@@ -1769,6 +1790,23 @@ class PostgresStore implements ProfileStore {
       );
     } catch (e) {
       console.error("[store] pg addXp failed", e);
+    }
+  }
+
+  async setXp(wallet: string, xp: number): Promise<void> {
+    const v = Math.max(0, Math.floor(xp));
+    try {
+      await this.ready;
+      await this.pool.query(
+        `insert into profiles (wallet) values ($1) on conflict (wallet) do nothing`,
+        [wallet],
+      );
+      await this.pool.query(
+        `update profiles set xp = $2, level = 1 + ($2 / 200), updated_at=now() where wallet=$1`,
+        [wallet, v],
+      );
+    } catch (e) {
+      console.error("[store] pg setXp failed", e);
     }
   }
 
