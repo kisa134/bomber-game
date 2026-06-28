@@ -11,8 +11,8 @@ const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft:
   cyber: { hard: "hard_stone", soft: "soft_cyberglass", floor: "floor_neon" }, // soft = flat glass (coherent dark-blue)
   void: { hard: "hard_obsidian", soft: "soft_void4", floor: "floor_void" }, // soft scattered from soft_void1-4
   desert: { hard: "hard_sand", soft: "soft_sand", floor: "floor_sand" },
-  industrial: { hard: "hard_industrial", soft: "soft_tech", floor: "floor_industrial" }, // yellow-black factory
-  chappie: { hard: "hard_chappie", soft: "soft_chappie", floor: "floor_chappie" }, // white-orange near-future
+  industrial: { hard: "hard_industrial", soft: "soft_industrial", floor: "floor_industrial" }, // yellow-black factory
+  chappie: { hard: "hard_chappie", soft: "soft_chappie2", floor: "floor_chappie" }, // white-orange near-future
   meme: { hard: "hard_meme", soft: "soft_meme", floor: "floor_meme" }, // crypto-meme broadcast studio
 };
 
@@ -443,7 +443,7 @@ export class Renderer {
     "soft", "soft_mobile", "bomb",
     // arena-theme block variants (prescaled so a theme switch is instant)
     "hard_gold", "hard_stone", "hard_obsidian", "hard_sand", "soft_ammo", "soft_tech", "soft_meme", "soft_sand",
-    "soft_cyberglass", "soft_void1", "soft_void2", "soft_void3", "soft_void4", "hard_industrial", "hard_chappie", "soft_chappie", "hard_meme",
+    "soft_cyberglass", "soft_void1", "soft_void2", "soft_void3", "soft_void4", "hard_industrial", "soft_industrial", "hard_chappie", "soft_chappie2", "hard_meme",
     "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
