@@ -686,6 +686,7 @@ function enterGame(): void {
     renderer.setGore(settings.gore);
     renderer.setArenaTheme(settings.arenaTheme);
     renderer.setAtmosphere(settings.ambientFx);
+    renderer.setGrassTexture(settings.grassTexture);
   }
   renderer.resize();
   renderer.remeasure(); // re-fit after the game screen has actually laid out
@@ -1505,6 +1506,7 @@ function applySettings(): void {
   renderer?.setGore(settings.gore);
   renderer?.setArenaTheme(settings.arenaTheme);
   renderer?.setAtmosphere(settings.ambientFx);
+  renderer?.setGrassTexture(settings.grassTexture);
   syncSettingsUI();
 }
 
@@ -1539,6 +1541,8 @@ function syncSettingsUI(): void {
   for (const t of ["classic", "vault", "cyber", "void", "desert"]) {
     document.getElementById("arena-" + t)?.classList.toggle("active", settings.arenaTheme === t);
   }
+  document.getElementById("floor-anim")?.classList.toggle("active", !settings.grassTexture);
+  document.getElementById("floor-tex")?.classList.toggle("active", settings.grassTexture);
 }
 
 function update<K extends keyof Settings>(key: K, value: Settings[K]): void {
@@ -1621,12 +1625,16 @@ function wireSettings(): void {
     showScreen("menu");
     music("lobby");
   });
+  const buildEl = document.getElementById("set-build");
+  if (buildEl) buildEl.textContent = `BomberMeme · build v${ASSET_VER}`; // freshness check (cache vs live)
   document.getElementById("set-music")!.addEventListener("click", () => update("music", !settings.music));
   document.getElementById("set-sfx")!.addEventListener("click", () => update("sfx", !settings.sfx));
   document.getElementById("vol-music")?.addEventListener("input", (e) => update("musicVolume", Number((e.target as HTMLInputElement).value) / 100));
   document.getElementById("vol-sfx")?.addEventListener("input", (e) => update("sfxVolume", Number((e.target as HTMLInputElement).value) / 100));
   document.getElementById("set-gore")?.addEventListener("click", () => update("gore", !settings.gore));
   document.getElementById("set-ambient")?.addEventListener("click", () => update("ambientFx", !settings.ambientFx));
+  document.getElementById("floor-anim")?.addEventListener("click", () => update("grassTexture", false));
+  document.getElementById("floor-tex")?.addEventListener("click", () => update("grassTexture", true));
   document.getElementById("set-lite")?.addEventListener("click", () => {
     update("liteGfx", !settings.liteGfx);
     if (settings.liteGfx) goLite();

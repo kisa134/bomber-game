@@ -161,6 +161,7 @@ export class Renderer {
   private arenaTheme: ArenaTheme = "classic"; // block/floor material set (Settings → Arena)
   private atmo: Array<{ x: number; y: number; vx: number; vy: number; s: number }> = []; // ambient motes
   private atmoOn = true; // Settings → Graphics: ambient atmosphere on/off
+  private grassTexture = false; // Classic floor: false = animated procedural grass, true = static texture
   private fxScale = 1; // particle-count multiplier (0.5 in lowFx)
   private maxParticles = MAX_PARTICLES;
   // The grass floor is static, so render it once into an offscreen canvas and
@@ -342,7 +343,15 @@ export class Renderer {
     // desktop keep the richer procedural grass. A non-classic arena theme forces
     // its themed floor sprite everywhere (so the theme reads on desktop too).
     const themed = this.arenaTheme !== "classic";
-    const floorImg = themed ? this.assets?.img(this.blockKey("floor")) : this.lowFx ? this.assets?.img("floor") : null;
+    // Classic floor: animated procedural grass (default) OR a static grass texture
+    // (Settings → Classic floor). Themed arenas always use their own floor sprite.
+    const floorImg = themed
+      ? this.assets?.img(this.blockKey("floor"))
+      : this.grassTexture
+        ? this.assets?.img("floor_grass")
+        : this.lowFx
+          ? this.assets?.img("floor")
+          : null;
     this.floorSpriteBaked = !!floorImg;
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
@@ -376,6 +385,13 @@ export class Renderer {
 
   /** Toggle ambient atmosphere (Settings → Graphics). */
   setAtmosphere(on: boolean): void { this.atmoOn = on; }
+
+  /** Classic floor style: false = animated procedural grass, true = static texture. */
+  setGrassTexture(on: boolean): void {
+    if (on === this.grassTexture) return;
+    this.grassTexture = on;
+    this.buildFloor();
+  }
 
   /** Draw + drift the ambient motes (cozy immersion). Wraps at the board edges. */
   private drawAtmosphere(W: number, H: number, now: number, dt: number): void {

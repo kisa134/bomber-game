@@ -5377,6 +5377,7 @@ button.big {
 .set-top .lobby-title { flex: 1 1 auto; text-align: left; font-size: clamp(1.3rem, 2.4vw, 1.9rem); } /* same standard as Profile/Leaderboard */
 /* settings/leaderboard scroll on the wrap itself — hide the scrollbar gutter so they
    stay the EXACT same width as shop/profile (no 16px narrowing). */
+.set-build { text-align: center; font-family: var(--font-mono); font-size: 0.62rem; color: rgba(255,255,255,0.28); padding: 6px 0 2px; }
 .set-wrap, .lb-wrap { scrollbar-width: none; }
 .set-wrap::-webkit-scrollbar, .lb-wrap::-webkit-scrollbar { width: 0; height: 0; }
 .set-body {
