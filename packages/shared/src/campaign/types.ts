@@ -87,3 +87,127 @@ export interface PlayerInput {
   isRunning: boolean;
   isDodging: boolean;
 }
+
+// ─── World Server Sync Types (Issue #6) ────────────────────────────────────
+
+/** A snapshot of an entity's state for delta sync. */
+export interface EntitySnapshot {
+  id: string;
+  type: string;
+  position: Vec2;
+  velocity: Vec2;
+  hp?: number;
+  maxHp?: number;
+  animation?: string;
+  frame?: number;
+  direction?: CampaignDirection;
+}
+
+/** Delta world state sent from server to clients each tick. */
+export interface WorldStateDelta {
+  tick: number;
+  updated: EntitySnapshot[];
+  removed: string[];
+  added: EntitySnapshot[];
+}
+
+/** Input state for the world server — client sends this every tick. */
+export interface WorldInputState {
+  tick: number;
+  moveX: number; // -1..1
+  moveY: number; // -1..1
+  attack: boolean;
+  useSkill: boolean;
+  interact: boolean;
+  dodge: boolean;
+  facing: CampaignDirection;
+}
+
+/** Client -> World Server message types. */
+export enum WorldClientMsg {
+  INPUT = 1,
+  PING = 2,
+  PARTY_CREATE = 10,
+  PARTY_JOIN = 11,
+  PARTY_LEAVE = 12,
+  PARTY_KICK = 13,
+  PARTY_TRANSFER = 14,
+  PARTY_SET_LOOT = 15,
+}
+
+/** World Server -> Client message types. */
+export enum WorldServerMsg {
+  DELTA_STATE = 1,
+  PONG = 2,
+  WELCOME = 3,
+  ENTITY_REMOVED = 4,
+  PARTY_UPDATE = 10,
+  PARTY_ERROR = 11,
+  CHAT_MSG = 20,
+}
+
+// ─── Party / Co-op Types (Issue #6) ────────────────────────────────────────
+
+export type LootMode = "free" | "round_robin" | "leader";
+
+export interface PartyMember {
+  characterId: string;
+  name: string;
+  level: number;
+  heroId: string;
+  online: boolean;
+}
+
+export interface SharedProgress {
+  zonesDiscovered: string[];
+  questsCompleted: string[];
+  bossesKilled: string[];
+  chestsOpened: string[];
+  totalKills: number;
+}
+
+export interface Party {
+  id: string;
+  code: string; // 6-digit
+  leaderId: string;
+  members: PartyMember[]; // max 4
+  worldId: string;
+  sharedProgress: SharedProgress;
+  lootMode: LootMode;
+  difficultyScale: number; // 1.0 base, scales with member count + levels
+}
+
+export interface PartyUpdateMsg {
+  type: WorldServerMsg.PARTY_UPDATE;
+  party: Party;
+}
+
+export interface PartyErrorMsg {
+  type: WorldServerMsg.PARTY_ERROR;
+  code: string;
+  message: string;
+}
+
+/** Reusable message interfaces for WebSocket. */
+export interface WorldWelcomeMsg {
+  type: WorldServerMsg.WELCOME;
+  playerId: string;
+  tick: number;
+  worldId: string;
+  spawnPos: Vec2;
+}
+
+export interface WorldPongMsg {
+  type: WorldServerMsg.PONG;
+  clientTimestamp: number;
+  serverTimestamp: number;
+}
+
+export type WorldServerMessage =
+  | { type: WorldServerMsg.DELTA_STATE; delta: WorldStateDelta }
+  | WorldPongMsg
+  | WorldWelcomeMsg
+  | { type: WorldServerMsg.ENTITY_REMOVED; ids: string[] }
+  | PartyUpdateMsg
+  | PartyErrorMsg
+  | { type: WorldServerMsg.CHAT_MSG; from: string; text: string };
