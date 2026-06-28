@@ -9,7 +9,7 @@ import {
   Users, Wallet, Trophy, Activity, Brain, Coins, Send, RefreshCw, Search, AlertTriangle,
 } from "lucide-react";
 import GlassCard from "@/components/GlassCard";
-import { useStats, useAdmin, adminGet, adminPost, fmt, fmtC, shortWallet } from "@/lib/adminApi";
+import { useStats, useAdmin, adminGet, adminPost, getToken, fmt, fmtC, shortWallet } from "@/lib/adminApi";
 
 const C = { purple: "#8B5CF6", cyan: "#06B6D4", green: "#10B981", amber: "#F59E0B", red: "#EF4444" };
 
@@ -165,10 +165,11 @@ export function Players() {
 export function Money() {
   const { data: d } = useStats(8000);
   const { data: tre } = useAdmin<any>("/admin/treasury", {}, []);
+  const { data: led } = useAdmin<any>("/admin/ledger", { limit: "200" }, []);
   const ec = d?.economy || {}, re = d?.rakeEngine || {}, sp = d?.spins || {};
   return (
     <div className="space-y-6">
-      <PageHead title="Money" sub="Economy, rake engine, treasury & ledgers (live)" />
+      <PageHead title="Money" sub="Economy, rake engine, treasury & immutable audit ledger (live)" />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Tile label="Chips circulating" value={fmtC(ec.chips)} accent={C.amber} />
         <Tile label="Tokens in play" value={fmtC(ec.tokens)} accent={C.green} />
@@ -198,6 +199,71 @@ export function Money() {
           <Tile label="Net" value={fmtC(sp.net)} accent={C.green} />
         </div>
       </GlassCard>
+      <GlassCard
+        title="Audit ledger"
+        subtitle="immutable — every chips/token movement (append-only)"
+        action={
+          <a
+            href={`/admin/ledger.csv?token=${encodeURIComponent(getToken() || "")}`}
+            className="rounded-lg border border-white/10 px-3 py-1.5 text-[12px] text-text-secondary hover:bg-white/5"
+          >
+            ⬇ CSV
+          </a>
+        }
+      >
+        <AuditLedger rows={led?.rows} />
+      </GlassCard>
+    </div>
+  );
+}
+
+// Color per ledger movement type (income green, outflow amber/red, neutral grey).
+const LEDGER_TONE: Record<string, string> = {
+  deposit: "text-accent-green",
+  payout: "text-accent-green",
+  referral: "text-accent-purple",
+  reward: "text-accent-green",
+  daily: "text-accent-green",
+  grant: "text-accent-cyan",
+  withdraw: "text-accent-amber",
+  withdraw_refund: "text-accent-cyan",
+  stake: "text-accent-amber",
+  stake_refund: "text-accent-cyan",
+  skin: "text-accent-amber",
+  spin: "text-accent-amber",
+};
+function AuditLedger({ rows }: { rows?: any[] }) {
+  if (!rows?.length) return <p className="text-text-muted text-sm">No movements recorded yet.</p>;
+  return (
+    <div className="max-h-[420px] overflow-y-auto">
+      <table className="w-full text-[12px]">
+        <thead className="sticky top-0 bg-[#0c0c18] text-left text-text-muted">
+          <tr>
+            <th className="py-1.5 pr-2 font-medium">Time</th>
+            <th className="py-1.5 pr-2 font-medium">Type</th>
+            <th className="py-1.5 pr-2 font-medium">Wallet</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Amount</th>
+            <th className="py-1.5 pr-2 text-right font-medium">Balance</th>
+            <th className="py-1.5 pr-2 font-medium">By</th>
+            <th className="py-1.5 font-medium">Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.id ?? i} className="border-b border-white/[0.04]">
+              <td className="py-1.5 pr-2 whitespace-nowrap text-text-muted">{new Date(r.ts).toLocaleString()}</td>
+              <td className="py-1.5 pr-2"><span className={LEDGER_TONE[r.type] || "text-text-secondary"}>{r.type}</span></td>
+              <td className="py-1.5 pr-2 font-mono text-text-secondary">{shortWallet(r.wallet)}</td>
+              <td className={`py-1.5 pr-2 text-right font-mono ${r.delta < 0 ? "text-accent-amber" : "text-accent-green"}`}>
+                {r.delta < 0 ? "−" : "+"}{fmtC(Math.abs(r.amount))} {r.currency === "token" ? "💎" : "🪙"}
+              </td>
+              <td className="py-1.5 pr-2 text-right font-mono text-text-muted">{r.balance == null ? "—" : fmtC(r.balance)}</td>
+              <td className="py-1.5 pr-2 text-text-muted">{r.actor}</td>
+              <td className="py-1.5 text-text-muted">{r.note || (r.ref ? <span className="font-mono">{r.ref}</span> : "")}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -231,7 +297,7 @@ export function Tournaments() {
   return (
     <div className="space-y-6">
       <PageHead title="Tournaments" sub="Create & run contests (real)" />
-      <GlassCard title="Create" glowColor="amber">
+      <GlassCard title="Create" glowColor="cyan">
         <div className="flex flex-wrap items-center gap-2">
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className="flex-1 min-w-[200px] rounded-lg border border-white/[0.08] bg-bg-surface px-3 py-2.5 text-[13px] text-white outline-none focus:border-accent-purple/40" />
           <label className="flex items-center gap-2 text-[13px] text-text-secondary"><input type="checkbox" checked={testBots} onChange={(e) => setTestBots(e.target.checked)} /> 🤖 test (fill with bots)</label>

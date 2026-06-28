@@ -394,7 +394,11 @@ export async function withdraw(wallet: string, amountBase: number): Promise<stri
   withdrawInFlight.add(wallet);
   try {
     const owner = new PublicKey(wallet); // throws on a malformed address
-    const after = await store.adjustToken(wallet, -amountBase); // atomic, overdraw-safe
+    const after = await store.adjustToken(wallet, -amountBase, {
+      type: "withdraw",
+      actor: "player",
+      note: `withdraw ${fromBaseUnits(amountBase)} to chain`,
+    }); // atomic, overdraw-safe
     if (after === null) throw new Error("insufficient_balance");
 
     let sig: string | undefined;
@@ -456,7 +460,11 @@ export async function withdraw(wallet: string, amountBase: number): Promise<stri
         }
       }
       // Definitively never sent / failed before broadcast → safe to refund.
-      await store.adjustToken(wallet, amountBase);
+      await store.adjustToken(wallet, amountBase, {
+        type: "withdraw_refund",
+        actor: "system",
+        note: `refund failed withdraw of ${fromBaseUnits(amountBase)}`,
+      });
       alert(`withdraw failed (refunded) ${fromBaseUnits(amountBase)} to ${shortWallet(wallet)}: ${(e as Error).message}`);
       throw new Error("withdraw_failed");
     }

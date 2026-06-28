@@ -1263,11 +1263,22 @@ export class Room {
       : this.stake;
   }
 
-  /** Move a wallet's balance in this room's currency. */
-  private adjustBalance(wallet: string, delta: number): Promise<number | null> {
+  /** Move a wallet's balance in this room's currency, recording the move in the
+   *  immutable audit ledger (every stake/payout/refund is traceable to a match). */
+  private adjustBalance(
+    wallet: string,
+    delta: number,
+    ledger?: { type: string; note?: string },
+  ): Promise<number | null> {
+    const ctx = {
+      type: ledger?.type ?? "settle",
+      actor: "system" as const,
+      ref: `match:${this.matchId || this.id}`,
+      note: ledger?.note ?? "",
+    };
     return this.currency === Currency.TOKEN
-      ? store.adjustToken(wallet, delta)
-      : store.adjustChips(wallet, delta);
+      ? store.adjustToken(wallet, delta, ctx)
+      : store.adjustChips(wallet, delta, ctx);
   }
 
   /** Host changes the table stake while in the lobby. Rejected unless every
@@ -1414,12 +1425,12 @@ export class Room {
     const wallets = [...this.players.values()].filter((p) => !p.isBot && p.wallet).map((p) => p.wallet as string);
     const paid: string[] = [];
     for (const wallet of wallets) {
-      const bal = await this.adjustBalance(wallet, -amount);
+      const bal = await this.adjustBalance(wallet, -amount, { type: "stake", note: "match buy-in" });
       if (bal !== null) paid.push(wallet);
       else break; // first failure aborts the whole collection
     }
     if (paid.length !== wallets.length) {
-      for (const wallet of paid) await this.adjustBalance(wallet, amount); // refund
+      for (const wallet of paid) await this.adjustBalance(wallet, amount, { type: "stake_refund", note: "stake collection aborted" }); // refund
       this.pot = 0;
       this.contributors = [];
       return false;
@@ -1445,7 +1456,7 @@ export class Room {
     const owed = this.contributors;
     this.contributors = [];
     this.pot = 0;
-    for (const wallet of owed) await this.adjustBalance(wallet, refund);
+    for (const wallet of owed) await this.adjustBalance(wallet, refund, { type: "stake_refund", note: "match aborted before settle" });
     if (this.matchId) {
       void store.clearOpenStakes(this.matchId);
       this.matchId = "";
@@ -1482,7 +1493,7 @@ export class Room {
         alert(`PAYOUT SANITY: non-positive payout (${payout}) in room ${this.id} — open-stakes kept for recovery`);
         return;
       }
-      const credited = await this.adjustBalance(w, payout);
+      const credited = await this.adjustBalance(w, payout, { type: "payout", note: "match win payout" });
       if (credited === null) {
         // Owed money — DON'T clear the safety net; a reboot will refund stakers.
         alert(`PAYOUT FAILED: ${payout} to ${shortWallet(w)} (room ${this.id}) — open-stakes kept for recovery`);
@@ -1512,7 +1523,7 @@ export class Room {
       const refund = this.stakeBase();
       let allRefunded = true;
       for (const wallet of contributors) {
-        const r = await this.adjustBalance(wallet, refund);
+        const r = await this.adjustBalance(wallet, refund, { type: "stake_refund", note: "draw — stake returned" });
         if (r === null) {
           allRefunded = false;
           alert(`REFUND FAILED: ${refund} to ${shortWallet(wallet)} (room ${this.id}) — settle manually`);
@@ -1598,7 +1609,7 @@ export class Room {
       for (const p of this.players.values()) {
         if (p.isBot || !p.wallet) continue;
         const won = p.id === this.winnerId;
-        void store.adjustChips(p.wallet, won ? BOT_WIN_CHIPS : BOT_PLAY_CHIPS);
+        void store.adjustChips(p.wallet, won ? BOT_WIN_CHIPS : BOT_PLAY_CHIPS, { type: "reward", actor: "system", note: "competitive bot match" });
         void store.addXp(p.wallet, won ? BOT_WIN_XP : BOT_PLAY_XP);
       }
       return;
@@ -1607,7 +1618,7 @@ export class Room {
     for (const p of this.players.values()) {
       if (p.isBot || !p.wallet) continue;
       const won = p.id === this.winnerId;
-      void store.adjustChips(p.wallet, won ? CHIPS_WIN_REWARD : CHIPS_PLAY_REWARD);
+      void store.adjustChips(p.wallet, won ? CHIPS_WIN_REWARD : CHIPS_PLAY_REWARD, { type: "reward", actor: "system", note: "free match reward" });
       if (won) void store.recordWinnings(p.wallet, Currency.CHIPS, CHIPS_WIN_REWARD);
       // PnL side-log (chips earned this free match) — best-effort, can't affect rewards.
       void store.recordPnl(p.wallet, Currency.CHIPS, won ? CHIPS_WIN_REWARD : CHIPS_PLAY_REWARD, 0).catch(() => {});
