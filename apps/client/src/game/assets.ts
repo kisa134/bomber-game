@@ -28,7 +28,11 @@ export const SPRITE_FILES: Record<string, string> = {
   floor_sand: "/sprites/floor_sand",
   floor_grass: "/sprites/floor_grass", // static grass texture (Classic floor alternative)
   soft_cyberglass: "/sprites/soft_cyberglass", // Cyber soft (translucent glass)
-  soft_obsidian: "/sprites/soft_obsidian", // Void soft (dark crystal crate)
+  soft_obsidian: "/sprites/soft_obsidian",
+  soft_void1: "/sprites/soft_void1",
+  soft_void2: "/sprites/soft_void2",
+  soft_void3: "/sprites/soft_void3",
+  soft_void4: "/sprites/soft_void4",
   hard_meme: "/sprites/hard_meme",
   floor_meme: "/sprites/floor_meme",
   hard_industrial: "/sprites/hard_industrial",
@@ -71,7 +75,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "50";
+export const ASSET_VER = "51";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.

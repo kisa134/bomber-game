@@ -9,7 +9,7 @@ import type { ArenaTheme } from "../settings.js";
 const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft: string; floor: string }> = {
   vault: { hard: "hard_gold", soft: "soft_ammo", floor: "floor_grate" },
   cyber: { hard: "hard_stone", soft: "soft_cyberglass", floor: "floor_neon" }, // soft = flat glass (coherent dark-blue)
-  void: { hard: "hard_obsidian", soft: "soft_obsidian", floor: "floor_void" },
+  void: { hard: "hard_obsidian", soft: "soft_void4", floor: "floor_void" }, // soft scattered from soft_void1-4
   desert: { hard: "hard_sand", soft: "soft_sand", floor: "floor_sand" },
   industrial: { hard: "hard_industrial", soft: "soft_tech", floor: "floor_industrial" }, // yellow-black factory
   chappie: { hard: "hard_chappie", soft: "soft_chappie", floor: "floor_chappie" }, // white-orange near-future
@@ -35,6 +35,12 @@ const ARENA_GLOW: Partial<Record<ArenaTheme, string>> = {
   chappie: "255,150,40",
   industrial: "255,140,30",
   meme: "120,230,255", // the LED broadcast screen breathes
+};
+
+// Themes whose SOFT block is scattered RANDOMLY from a set of variants (per block seed)
+// — e.g. Void's glowing crystals in different colours for a beautiful random field.
+const ARENA_SOFT_VARIANTS: Partial<Record<ArenaTheme, string[]>> = {
+  void: ["soft_void1", "soft_void2", "soft_void3", "soft_void4"],
 };
 
 // One unique colour per player slot — supports a full 8-player arena (1 human +
@@ -437,7 +443,7 @@ export class Renderer {
     "soft", "soft_mobile", "bomb",
     // arena-theme block variants (prescaled so a theme switch is instant)
     "hard_gold", "hard_stone", "hard_obsidian", "hard_sand", "soft_ammo", "soft_tech", "soft_meme", "soft_sand",
-    "soft_cyberglass", "soft_obsidian", "hard_industrial", "hard_chappie", "soft_chappie", "hard_meme",
+    "soft_cyberglass", "soft_void1", "soft_void2", "soft_void3", "soft_void4", "hard_industrial", "hard_chappie", "soft_chappie", "hard_meme",
     "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
@@ -2682,9 +2688,14 @@ export class Renderer {
         const sm = this.bloodBlocks.get(index);
         const sBloodDrawn = !!sm && !this.lowFx && this.drawTileSprite(`soft_blood${sm.n >= 2 ? 2 : 1}_v${svar}`, px, py);
         if (!sBloodDrawn) {
-          ((this.lowFx && this.drawTileSprite("soft_mobile", px, py)) ||
-            this.drawTileSprite("soft", px, py) ||
-            this.drawSoft(px, py));
+          const sv = ARENA_SOFT_VARIANTS[this.arenaTheme];
+          if (sv) {
+            this.drawTileSprite(sv[sseed % sv.length], px, py) || this.drawSoft(px, py); // random crystal
+          } else {
+            ((this.lowFx && this.drawTileSprite("soft_mobile", px, py)) ||
+              this.drawTileSprite("soft", px, py) ||
+              this.drawSoft(px, py));
+          }
         }
         if (sm) this.drawBlockBlood(px, py, index); // dynamic splatter + drips ON TOP of the block
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
