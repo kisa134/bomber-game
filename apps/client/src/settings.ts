@@ -20,6 +20,7 @@ export interface Settings {
   arenaTheme: ArenaTheme; // which block/floor material set the arena renders with
   musicVolume: number; // 0..1 music volume
   sfxVolume: number; // 0..1 sound-effects volume
+  ambientFx: boolean; // per-arena ambient atmosphere motes
 }
 
 const KEY = "bp_settings";
@@ -38,6 +39,7 @@ const DEFAULTS: Settings = {
   arenaTheme: "classic",
   musicVolume: 0.7,
   sfxVolume: 1,
+  ambientFx: true,
 };
 
 export function loadSettings(): Settings {

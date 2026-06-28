@@ -685,6 +685,7 @@ function enterGame(): void {
     renderer.colorOf = (id) => state.colorOf(id);
     renderer.setGore(settings.gore);
     renderer.setArenaTheme(settings.arenaTheme);
+    renderer.setAtmosphere(settings.ambientFx);
   }
   renderer.resize();
   renderer.remeasure(); // re-fit after the game screen has actually laid out
@@ -1503,6 +1504,7 @@ function applySettings(): void {
   input.setControlScheme(settings.controls);
   renderer?.setGore(settings.gore);
   renderer?.setArenaTheme(settings.arenaTheme);
+  renderer?.setAtmosphere(settings.ambientFx);
   syncSettingsUI();
 }
 
@@ -1521,6 +1523,8 @@ function syncSettingsUI(): void {
   if (gr) { gr.dataset.on = String(settings.gore); gr.textContent = settings.gore ? "On" : "Off"; }
   const lt = document.getElementById("set-lite") as HTMLButtonElement | null;
   if (lt) { lt.dataset.on = String(settings.liteGfx); lt.textContent = settings.liteGfx ? "On" : "Off"; }
+  const am = document.getElementById("set-ambient") as HTMLButtonElement | null;
+  if (am) { am.dataset.on = String(settings.ambientFx); am.textContent = settings.ambientFx ? "On" : "Off"; }
   if (settings.liteGfx) goLite(); // force the lighter render when the player opted in
   document.getElementById("ctl-joystick")!.classList.toggle("active", settings.controls === "joystick");
   document.getElementById("ctl-dpad")!.classList.toggle("active", settings.controls === "dpad");
@@ -1622,6 +1626,7 @@ function wireSettings(): void {
   document.getElementById("vol-music")?.addEventListener("input", (e) => update("musicVolume", Number((e.target as HTMLInputElement).value) / 100));
   document.getElementById("vol-sfx")?.addEventListener("input", (e) => update("sfxVolume", Number((e.target as HTMLInputElement).value) / 100));
   document.getElementById("set-gore")?.addEventListener("click", () => update("gore", !settings.gore));
+  document.getElementById("set-ambient")?.addEventListener("click", () => update("ambientFx", !settings.ambientFx));
   document.getElementById("set-lite")?.addEventListener("click", () => {
     update("liteGfx", !settings.liteGfx);
     if (settings.liteGfx) goLite();

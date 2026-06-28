@@ -13,6 +13,16 @@ const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft:
   desert: { hard: "hard_sand", soft: "soft_sand", floor: "floor_sand" },
 };
 
+// Light per-arena AMBIENT atmosphere — slow drifting motes for cozy immersion.
+// color = "r,g,b"; vx/vy = px/sec drift; sq = square (data-bit) vs soft dot; n = density.
+const ATMOSPHERE: Record<ArenaTheme, { color: string; vx: number; vy: number; n: number; sq: boolean; size: number }> = {
+  classic: { color: "255,236,140", vx: 6, vy: -10, n: 16, sq: false, size: 2.2 }, // warm pollen / fireflies
+  vault: { color: "255,210,90", vx: 4, vy: -8, n: 18, sq: false, size: 2.0 }, // floating gold dust
+  cyber: { color: "90,230,255", vx: 0, vy: -16, n: 22, sq: true, size: 2.0 }, // rising neon data-bits
+  void: { color: "176,124,255", vx: 3, vy: -9, n: 18, sq: false, size: 2.4 }, // purple embers
+  desert: { color: "228,198,138", vx: 26, vy: 3, n: 22, sq: false, size: 1.8 }, // sand drifting on the wind
+};
+
 // One unique colour per player slot — supports a full 8-player arena (1 human +
 // up to 7 bots) with no duplicates. Index is assigned in the lobby, independent
 // of the chosen skin. Ordered for max contrast between the first few entries.
@@ -149,6 +159,8 @@ export class Renderer {
   // thins out particles. Keeps the board smooth and the phone cool.
   private lowFx = false;
   private arenaTheme: ArenaTheme = "classic"; // block/floor material set (Settings → Arena)
+  private atmo: Array<{ x: number; y: number; vx: number; vy: number; s: number }> = []; // ambient motes
+  private atmoOn = true; // Settings → Graphics: ambient atmosphere on/off
   private fxScale = 1; // particle-count multiplier (0.5 in lowFx)
   private maxParticles = MAX_PARTICLES;
   // The grass floor is static, so render it once into an offscreen canvas and
@@ -342,6 +354,46 @@ export class Renderer {
       }
     }
     this.prescale();
+    this.buildAtmosphere(W, H);
+  }
+
+  /** Seed the per-arena ambient motes across the board (rebuilt on resize/theme). */
+  private buildAtmosphere(W: number, H: number): void {
+    this.atmo.length = 0;
+    if (W <= 0 || H <= 0) return;
+    const cfg = ATMOSPHERE[this.arenaTheme];
+    const n = Math.round(cfg.n * this.fxScale);
+    for (let i = 0; i < n; i++) {
+      this.atmo.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vx: cfg.vx * (0.6 + Math.random() * 0.8),
+        vy: cfg.vy * (0.6 + Math.random() * 0.8),
+        s: cfg.size * (0.7 + Math.random() * 0.8),
+      });
+    }
+  }
+
+  /** Toggle ambient atmosphere (Settings → Graphics). */
+  setAtmosphere(on: boolean): void { this.atmoOn = on; }
+
+  /** Draw + drift the ambient motes (cozy immersion). Wraps at the board edges. */
+  private drawAtmosphere(W: number, H: number, now: number, dt: number): void {
+    if (!this.atmoOn || !this.atmo.length) return;
+    const cfg = ATMOSPHERE[this.arenaTheme];
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const m of this.atmo) {
+      m.x += m.vx * dt; m.y += m.vy * dt;
+      if (m.x < -4) m.x = W + 4; else if (m.x > W + 4) m.x = -4;
+      if (m.y < -4) m.y = H + 4; else if (m.y > H + 4) m.y = -4;
+      const a = 0.18 + 0.12 * Math.sin(now / 600 + m.x + m.y); // gentle twinkle
+      ctx.fillStyle = `rgba(${cfg.color},${a})`;
+      if (cfg.sq) ctx.fillRect(m.x, m.y, m.s * 1.6, m.s * 1.6);
+      else { ctx.beginPath(); ctx.arc(m.x, m.y, m.s, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.restore();
   }
 
   // Per-tile sprites pre-scaled to the exact tile size ONCE (on resize), so the
@@ -1793,6 +1845,7 @@ export class Renderer {
     this.drawLights(now);
     this.emitSmolder(now); // smoldering skulls puff faint smoke
     this.updateParticles(dt);
+    if (!this.lowFx) this.drawAtmosphere(W, H, now, dt); // per-arena ambient motes (cozy immersion)
     this.drawFloaters(now); // upbeat reward/event popups (ease-out-back / elastic)
     ctx.restore();
 
