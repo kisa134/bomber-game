@@ -1,0 +1,555 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   BomberMeme World — Campaign Mode Styles
+   HUD · Onboarding · Hero Selection · Pause Menu · Minimap
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Campaign Container ──────────────────────────────────────────────────── */
+
+#campaign {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #0a0e17;
+}
+
+#campaign-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* ─── Campaign HUD ────────────────────────────────────────────────────────── */
+
+.campaign-hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.campaign-hud > * {
+  pointer-events: auto;
+}
+
+/* Top-left: HP + Mana bars */
+.camp-hud-tl {
+  position: absolute;
+  top: calc(var(--chrome-h, 0px) + 12px);
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.camp-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+}
+
+.camp-bar-label {
+  width: 20px;
+  text-align: center;
+}
+
+.camp-bar {
+  flex: 1;
+  height: 10px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.camp-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.2s ease;
+}
+
+.camp-fill.camp-hp {
+  background: linear-gradient(90deg, #e74c3c, #c0392b);
+}
+
+.camp-fill.camp-mana {
+  background: linear-gradient(90deg, #3498db, #2980b9);
+}
+
+.camp-bar-text {
+  width: 50px;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Top-right: Minimap + XP */
+.camp-hud-tr {
+  position: absolute;
+  top: calc(var(--chrome-h, 0px) + 12px);
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.camp-minimap-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.camp-minimap {
+  width: 120px;
+  height: 120px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.camp-zone {
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.camp-xp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.camp-xp-bar {
+  width: 80px;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.camp-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f1c40f, #f39c12);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Bottom: Skill bar */
+.camp-hud-bot {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.camp-skills {
+  display: flex;
+  gap: 8px;
+}
+
+.camp-skill {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+  user-select: none;
+}
+
+.camp-skill:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: scale(1.05);
+}
+
+.camp-skill:active {
+  transform: scale(0.95);
+}
+
+.camp-skill-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.camp-skill-key {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  font-family: "Space Mono", monospace;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.camp-skill-cd {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Space Mono", monospace;
+  font-size: 14px;
+  color: #fff;
+}
+
+.camp-currency {
+  font-family: "Space Mono", monospace;
+  font-size: 13px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  color: #f1c40f;
+}
+
+/* Bottom-right: Controls hint */
+.camp-hud-hint {
+  position: absolute;
+  bottom: 16px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: right;
+}
+
+/* ─── Loading Overlay ─────────────────────────────────────────────────────── */
+
+.campaign-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: #0a0e17;
+  z-index: 20;
+}
+
+.campaign-loading .spinner {
+  width: 48px;
+  height: 48px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #00d4ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.campaign-loading p {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ─── Onboarding ──────────────────────────────────────────────────────────── */
+
+.campaign-onboard {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 30;
+}
+
+.camp-onboard-card {
+  max-width: 440px;
+  width: 90%;
+  padding: 32px;
+  background: rgba(15, 20, 35, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  text-align: center;
+  animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.camp-onboard-card h2 {
+  font-family: "Cinzel", serif;
+  font-size: 22px;
+  margin-bottom: 16px;
+  color: #fff;
+}
+
+#camp-onboard-body {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.75);
+  margin-bottom: 20px;
+  min-height: 120px;
+}
+
+#camp-onboard-body p {
+  margin-bottom: 8px;
+}
+
+.camp-onboard-steps {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.camp-step-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transition: background 0.2s;
+}
+
+.camp-step-dot.active {
+  background: #00d4ff;
+}
+
+/* ─── Pause Menu ──────────────────────────────────────────────────────────── */
+
+.campaign-pause {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  z-index: 25;
+}
+
+.camp-pause-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 48px;
+  border-radius: 20px;
+  text-align: center;
+}
+
+.camp-pause-card h2 {
+  font-family: "Cinzel", serif;
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.camp-pause-card button {
+  min-width: 180px;
+}
+
+/* ─── Hero Selection Modal ────────────────────────────────────────────────── */
+
+.hero-select-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  z-index: 100;
+}
+
+.hero-select-card {
+  max-width: 720px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 28px;
+  background: rgba(15, 20, 35, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  text-align: center;
+}
+
+.hero-select-card h2 {
+  font-family: "Cinzel", serif;
+  font-size: 24px;
+  margin-bottom: 4px;
+}
+
+.hero-select-sub {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 20px;
+}
+
+.hero-select-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.hero-select-opt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 16px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hero-select-opt:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(0, 212, 255, 0.5);
+  transform: translateY(-4px);
+}
+
+.hero-select-img {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  border-radius: 8px;
+}
+
+.hero-select-name {
+  font-family: "Cinzel", serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.hero-select-title {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.hero-select-skill {
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  padding: 2px 8px;
+  background: rgba(0, 212, 255, 0.15);
+  border-radius: 4px;
+  color: #00d4ff;
+}
+
+.hero-select-faction {
+  font-family: "Space Mono", monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.hero-select-desc {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* ─── Game Mode Dropdown ──────────────────────────────────────────────────── */
+
+.gamemode-dropdown {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  background: rgba(15, 20, 35, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  min-width: 200px;
+  z-index: 50;
+}
+
+.gamemode-dropdown.hidden {
+  display: none;
+}
+
+.gm-opt {
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.gm-opt:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+/* ─── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .hero-select-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .camp-hud-tl {
+    min-width: 140px;
+  }
+
+  .camp-minimap {
+    width: 80px;
+    height: 80px;
+  }
+
+  .camp-skill {
+    width: 44px;
+    height: 44px;
+  }
+
+  .camp-hud-hint {
+    display: none;
+  }
+}
