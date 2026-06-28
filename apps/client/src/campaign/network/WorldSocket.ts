@@ -24,9 +24,9 @@ interface LocalEntityState {
 }
 
 export class WorldSocket {
-  private ws: WebSocket | null = null;
+  private _ws: WebSocket | null = null;
   private token: string = "";
-  private characterId: string = "";
+  private _characterId: string = "";
   private url: string = "";
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private inputTimer: ReturnType<typeof setInterval> | null = null;
@@ -57,6 +57,9 @@ export class WorldSocket {
   private pingMs = 0;
   private lastPingTs = 0;
 
+  /** Generic message listeners (for PartyClient etc). */
+  private msgListeners = new Set<(msg: WorldServerMessage) => void>();
+
   // ─── Callbacks ───────────────────────────────────────────────────────────
 
   private onStateDeltaCb: ((delta: WorldStateDelta) => void) | null = null;
@@ -68,25 +71,25 @@ export class WorldSocket {
 
   connect(token: string, characterId: string, host: string = window.location.hostname): void {
     this.token = token;
-    this.characterId = characterId;
+    this._characterId = characterId;
     this.url = `ws://${host}:9001/world?token=${encodeURIComponent(token)}&characterId=${encodeURIComponent(characterId)}`;
     this.doConnect();
   }
 
   private doConnect(): void {
-    if (this.ws) return;
+    if (this._ws) return;
 
     try {
-      this.ws = new WebSocket(this.url);
+      this._ws = new WebSocket(this.url);
     } catch (e) {
       console.error("[WorldSocket] failed to create WebSocket:", e);
       this.scheduleReconnect();
       return;
     }
 
-    this.ws.binaryType = "arraybuffer";
+    this._ws.binaryType = "arraybuffer";
 
-    this.ws.onopen = () => {
+    this._ws.onopen = () => {
       console.log("[WorldSocket] connected");
       this.connected = true;
       this.pendingInputs = [];
@@ -94,7 +97,7 @@ export class WorldSocket {
       this.onConnectCb?.();
     };
 
-    this.ws.onmessage = (ev) => {
+    this._ws.onmessage = (ev) => {
       try {
         const data = JSON.parse(typeof ev.data === "string" ? ev.data : new TextDecoder().decode(ev.data));
         this.handleServerMessage(data as WorldServerMessage);
@@ -103,16 +106,16 @@ export class WorldSocket {
       }
     };
 
-    this.ws.onclose = () => {
+    this._ws.onclose = () => {
       console.log("[WorldSocket] disconnected");
       this.cleanup();
       this.onDisconnectCb?.();
       this.scheduleReconnect();
     };
 
-    this.ws.onerror = (err) => {
+    this._ws.onerror = (err) => {
       console.error("[WorldSocket] error:", err);
-      this.ws?.close();
+      this._ws?.close();
     };
   }
 
@@ -134,9 +137,9 @@ export class WorldSocket {
 
   private cleanup(): void {
     this.connected = false;
-    if (this.ws) {
-      try { this.ws.close(); } catch { /* ignore */ }
-      this.ws = null;
+    if (this._ws) {
+      try { this._ws.close(); } catch { /* ignore */ }
+      this._ws = null;
     }
     if (this.inputTimer) { clearInterval(this.inputTimer); this.inputTimer = null; }
     if (this.pingTimer) { clearInterval(this.pingTimer); this.pingTimer = null; }
@@ -151,15 +154,15 @@ export class WorldSocket {
 
   /** Send input immediately (for discrete actions: attack, skill, interact). */
   sendAction(action: Pick<WorldInputState, "attack" | "useSkill" | "interact" | "dodge">): void {
-    if (!this.connected || !this.ws) return;
+    if (!this.connected || !this._ws) return;
     const input: WorldInputState = { ...this.currentInput, ...action, tick: this.clientTick };
-    this.ws.send(JSON.stringify({ type: WorldClientMsg.INPUT, payload: input }));
+    this._ws.send(JSON.stringify({ type: WorldClientMsg.INPUT, payload: input }));
   }
 
   private startLoops(): void {
     // Input loop: 20Hz
     this.inputTimer = setInterval(() => {
-      if (!this.connected || !this.ws) return;
+      if (!this.connected || !this._ws) return;
       this.clientTick++;
 
       // Client-side prediction: apply input locally
@@ -178,20 +181,25 @@ export class WorldSocket {
       this.pendingInputs.push({ tick: this.clientTick, input });
       if (this.pendingInputs.length > 60) this.pendingInputs.shift(); // cap buffer
 
-      this.ws.send(JSON.stringify({ type: WorldClientMsg.INPUT, payload: input }));
+      this._ws.send(JSON.stringify({ type: WorldClientMsg.INPUT, payload: input }));
     }, INPUT_SEND_INTERVAL);
 
     // Ping loop
     this.pingTimer = setInterval(() => {
-      if (!this.connected || !this.ws) return;
+      if (!this.connected || !this._ws) return;
       this.lastPingTs = Date.now();
-      this.ws.send(JSON.stringify({ type: WorldClientMsg.PING, timestamp: this.lastPingTs }));
+      this._ws.send(JSON.stringify({ type: WorldClientMsg.PING, timestamp: this.lastPingTs }));
     }, PING_INTERVAL);
   }
 
   // ─── Server message handling ─────────────────────────────────────────────
 
   private handleServerMessage(msg: WorldServerMessage): void {
+    // Notify generic listeners first (PartyClient etc)
+    for (const listener of this.msgListeners) {
+      try { listener(msg); } catch { /* ignore */ }
+    }
+
     switch (msg.type) {
       case WorldServerMsg.DELTA_STATE:
         this.applyDelta(msg.delta);
@@ -209,11 +217,6 @@ export class WorldSocket {
         break;
       case WorldServerMsg.ENTITY_REMOVED:
         for (const id of msg.ids) this.entities.delete(id);
-        break;
-      case WorldServerMsg.PARTY_UPDATE:
-      case WorldServerMsg.PARTY_ERROR:
-      case WorldServerMsg.CHAT_MSG:
-        // Handled by PartyClient / chat listeners
         break;
     }
   }
@@ -233,7 +236,7 @@ export class WorldSocket {
 
     // Update existing entities + reconcile local player
     for (const snap of delta.updated) {
-      if (snap.id === this.characterId) {
+      if (snap.id === this._characterId) {
         // Server reconciliation for local player
         this.reconcilePlayer(snap, delta.tick);
       } else {
@@ -271,7 +274,7 @@ export class WorldSocket {
     }
 
     // Update stored snapshot
-    const existing = this.entities.get(this.characterId);
+    const existing = this.entities.get(this._characterId);
     if (existing) {
       existing.snapshot = { ...serverSnap, position: { ...this.localPos }, velocity: { ...this.localVel } };
       existing.lastServerTick = serverTick;
@@ -309,6 +312,24 @@ export class WorldSocket {
     const map = new Map<string, EntitySnapshot>();
     for (const [k, v] of this.entities) map.set(k, v.snapshot);
     return map;
+  }
+
+  get characterId(): string {
+    return this._characterId;
+  }
+
+  // ─── Raw send (for PartyClient) ──────────────────────────────────────────
+
+  /** Send a raw JSON payload. Used by PartyClient for party messages. */
+  sendRaw(payload: object): void {
+    if (!this.connected || !this._ws) return;
+    this._ws.send(JSON.stringify(payload));
+  }
+
+  /** Subscribe to all server messages (for PartyClient). */
+  onMessage(listener: (msg: WorldServerMessage) => void): () => void {
+    this.msgListeners.add(listener);
+    return () => { this.msgListeners.delete(listener); };
   }
 
   // ─── Callback setters ────────────────────────────────────────────────────
