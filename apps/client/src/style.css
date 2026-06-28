@@ -5402,18 +5402,74 @@ button.big {
 }
 .set-group .set-row-wide { grid-column: 1 / -1; }
 .set-block .bug-form { display: flex; flex-direction: column; gap: 8px; }
+/* Lighter glass toggle — subtle by default, accent-TINTED glass when on (not a loud
+   gold fill, so a screen full of them doesn't shout). */
 .toggle {
-  width: 72px;
-  padding: 8px 0;
+  width: 66px;
+  padding: 7px 0;
+  font-size: 0.8rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--muted);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 .toggle[data-on="true"] {
-  background: linear-gradient(180deg, #ffd95a, var(--accent));
-  color: #1a1a1a;
-  border: none;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--accent);
 }
 .toggle[data-on="false"] {
-  background: var(--bg2);
+  background: rgba(255, 255, 255, 0.04);
   color: var(--muted);
+}
+/* Volume slider — flat glass track, accent thumb. */
+.slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1 1 auto;
+  min-width: 90px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.13);
+  outline: none;
+  cursor: pointer;
+}
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #16131c;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid #16131c;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.audio-row { align-items: center; gap: 12px; }
+.audio-row > span:first-child { flex: 0 0 auto; min-width: 120px; }
+.audio-row .toggle { flex: none; }
+/* Settings segmented controls → lighter glass (no loud full-gold pill). */
+.set-body .seg-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.set-body .seg-btn.active {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
+  color: var(--accent);
 }
 .seg {
   display: flex;
@@ -8579,6 +8635,7 @@ button.big {
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
+  padding-top: 16px; /* unified header offset across ALL pages (lobby/room were tighter) */
 }
 
 /* Modal titles → Cinzel gold like every other header */

@@ -18,6 +18,8 @@ export interface Settings {
   repeatOne: boolean; // BOMBERMEME FM: loop the current lobby track instead of shuffling on
   liteGfx: boolean; // force the lighter render (no blur/fireflies/dust) for weak devices
   arenaTheme: ArenaTheme; // which block/floor material set the arena renders with
+  musicVolume: number; // 0..1 music volume
+  sfxVolume: number; // 0..1 sound-effects volume
 }
 
 const KEY = "bp_settings";
@@ -34,6 +36,8 @@ const DEFAULTS: Settings = {
   repeatOne: false,
   liteGfx: false,
   arenaTheme: "classic",
+  musicVolume: 0.7,
+  sfxVolume: 1,
 };
 
 export function loadSettings(): Settings {

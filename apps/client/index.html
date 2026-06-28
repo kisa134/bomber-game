@@ -554,8 +554,16 @@
             <section class="set-block">
               <h3 class="set-section">🔊 Audio</h3>
               <div class="set-group">
-                <div class="setting-row"><span>Music</span><button id="set-music" class="toggle" data-on="true">On</button></div>
-                <div class="setting-row"><span>Sound effects</span><button id="set-sfx" class="toggle" data-on="true">On</button></div>
+                <div class="setting-row set-row-wide audio-row">
+                  <span>Music</span>
+                  <input id="vol-music" class="slider" type="range" min="0" max="100" step="1" aria-label="Music volume" />
+                  <button id="set-music" class="toggle" data-on="true">On</button>
+                </div>
+                <div class="setting-row set-row-wide audio-row">
+                  <span>Sound effects</span>
+                  <input id="vol-sfx" class="slider" type="range" min="0" max="100" step="1" aria-label="Sound effects volume" />
+                  <button id="set-sfx" class="toggle" data-on="true">On</button>
+                </div>
               </div>
             </section>
 

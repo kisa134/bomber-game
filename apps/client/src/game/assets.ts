@@ -61,7 +61,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "37";
+export const ASSET_VER = "38";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.
@@ -221,6 +221,8 @@ export class Assets {
 
   private sfxEnabled = true;
   private musicEnabled = true;
+  private sfxVolume = 1; // 0..1 master SFX multiplier (Settings slider)
+  private musicVolume = 1; // 0..1 master music multiplier (Settings slider)
   private desiredMusic: string | null = null;
   // Remembers which hub track was playing so returning from a match resumes that
   // same track (from its paused position) instead of jumping back to the first.
@@ -280,12 +282,16 @@ export class Assets {
     this.sfxEnabled = on;
   }
 
+  setSfxVolume(v: number): void {
+    this.sfxVolume = Math.max(0, Math.min(1, v));
+  }
+
   play(key: string, volume?: number, rate?: number): void {
     if (!this.sfxEnabled) return;
     const url = this.sounds.get(key);
     if (!url) return;
     const a = new Audio(url);
-    a.volume = volume ?? SFX_GAIN[key] ?? DEFAULT_SFX_GAIN;
+    a.volume = (volume ?? SFX_GAIN[key] ?? DEFAULT_SFX_GAIN) * this.sfxVolume;
     if (rate && rate > 0) {
       a.playbackRate = rate;
       // Browsers default to preservesPitch=true (time-stretch, pitch unchanged);
@@ -437,6 +443,12 @@ export class Assets {
     } else {
       for (const a of this.music.values()) a.pause();
     }
+  }
+
+  setMusicVolume(v: number): void {
+    this.musicVolume = Math.max(0, Math.min(1, v));
+    // live-apply to whatever's currently playing so the slider feels instant
+    for (const a of this.music.values()) if (!a.paused) a.volume = MUSIC_GAIN * this.musicVolume;
   }
 
   /** Tracks that actually loaded, in playlist order. */
@@ -937,6 +949,7 @@ export class Assets {
 
   private startDesired(volume = MUSIC_GAIN): void {
     if (!this.desiredMusic) return;
+    volume *= this.musicVolume; // master music volume (Settings slider)
     const a = this.music.get(this.desiredMusic);
     if (!a) return;
     // Hub tracks chain into each other (loop only if there's a single one);

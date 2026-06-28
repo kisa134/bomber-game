@@ -1498,6 +1498,8 @@ function frame(): void {
 function applySettings(): void {
   assets.setMusicEnabled(settings.music);
   assets.setSfxEnabled(settings.sfx);
+  assets.setMusicVolume(settings.musicVolume);
+  assets.setSfxVolume(settings.sfxVolume);
   input.setControlScheme(settings.controls);
   renderer?.setGore(settings.gore);
   renderer?.setArenaTheme(settings.arenaTheme);
@@ -1512,6 +1514,10 @@ function syncSettingsUI(): void {
   m.textContent = settings.music ? "On" : "Off";
   s.dataset.on = String(settings.sfx);
   s.textContent = settings.sfx ? "On" : "Off";
+  const vm = document.getElementById("vol-music") as HTMLInputElement | null;
+  const vs = document.getElementById("vol-sfx") as HTMLInputElement | null;
+  if (vm) vm.value = String(Math.round(settings.musicVolume * 100));
+  if (vs) vs.value = String(Math.round(settings.sfxVolume * 100));
   if (gr) { gr.dataset.on = String(settings.gore); gr.textContent = settings.gore ? "On" : "Off"; }
   const lt = document.getElementById("set-lite") as HTMLButtonElement | null;
   if (lt) { lt.dataset.on = String(settings.liteGfx); lt.textContent = settings.liteGfx ? "On" : "Off"; }
@@ -1613,6 +1619,8 @@ function wireSettings(): void {
   });
   document.getElementById("set-music")!.addEventListener("click", () => update("music", !settings.music));
   document.getElementById("set-sfx")!.addEventListener("click", () => update("sfx", !settings.sfx));
+  document.getElementById("vol-music")?.addEventListener("input", (e) => update("musicVolume", Number((e.target as HTMLInputElement).value) / 100));
+  document.getElementById("vol-sfx")?.addEventListener("input", (e) => update("sfxVolume", Number((e.target as HTMLInputElement).value) / 100));
   document.getElementById("set-gore")?.addEventListener("click", () => update("gore", !settings.gore));
   document.getElementById("set-lite")?.addEventListener("click", () => {
     update("liteGfx", !settings.liteGfx);
