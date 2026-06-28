@@ -4,12 +4,24 @@
 // admin can watch the project pulse while playing. Self-contained (inline
 // styles, builds its own DOM) — no other UI file is touched.
 import { SERVER_HTTP } from "../config.js";
+import { ASSET_VER } from "../game/assets.js";
 
 let inited = false;
 
 export function initAdminMode(isAdmin: boolean, getSession: () => string): void {
   if (!isAdmin || inited) return;
   inited = true;
+
+  // Always-on, unobtrusive build stamp in the corner (admin only) — instant "am I on
+  // the live build or a stale cache?" check without opening Settings.
+  const buildTag = document.createElement("div");
+  buildTag.textContent = `v${ASSET_VER}`;
+  Object.assign(buildTag.style, {
+    position: "fixed", right: "6px", bottom: "calc(4px + env(safe-area-inset-bottom,0px))",
+    zIndex: "9000", font: "10px/1 'Space Mono',monospace", color: "rgba(255,255,255,0.35)",
+    pointerEvents: "none", letterSpacing: "1px", textShadow: "0 1px 2px rgba(0,0,0,0.6)",
+  } as CSSStyleDeclaration);
+  document.body.appendChild(buildTag);
 
   const fmt = (n: number): string => (n == null ? "—" : Math.round(n).toLocaleString("en-US"));
   const fmtC = (n: number): string => {
