@@ -8685,6 +8685,9 @@ button.big {
   border-color: rgba(180, 120, 255, 0.4);
 }
 .rail-card.season .rc-title { color: #c9a6ff; }
+/* Like every other standard page: stretch to fill the screen height so the flex
+   parent (.screen) doesn't vertically-centre the header in the middle of the view. */
+.tour-wrap, .fr-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 12px; }
 .tour-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .tour-top .lobby-title { flex: 1 1 auto; text-align: left; font-size: clamp(1.3rem, 2.4vw, 1.9rem); } /* same standard as Profile/Settings */
 .tour-intro { margin: -2px 0 14px; max-width: 720px; }
