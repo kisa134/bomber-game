@@ -5,7 +5,7 @@
  * Issue #3: Character RPG System
  */
 
-import { Entity } from "../engine/ECS";
+import { Entity, Component } from "../engine/ECS";
 import {
   type Attributes,
   type AttributeKey,
@@ -25,19 +25,28 @@ import {
 } from "../rpg/Progression";
 import { type Inventory, createTalentMap, learnTalent } from "../rpg";
 
+// ─── Components (extend ECS Component base class) ───
+
 /** Sprite component — visual representation */
-export interface SpriteComponent {
-  readonly type: "sprite";
+export class SpriteComponent extends Component {
   skinId: number;
   spritePath: string;
   frameWidth: number;
   frameHeight: number;
   animFrame: number;
+
+  constructor(skinId: number) {
+    super("sprite");
+    this.skinId = skinId;
+    this.spritePath = `skin_${skinId}.webp`;
+    this.frameWidth = 32;
+    this.frameHeight = 32;
+    this.animFrame = 0;
+  }
 }
 
 /** Physics component — movement and collision */
-export interface PhysicsComponent {
-  readonly type: "physics";
+export class PhysicsComponent extends Component {
   x: number;
   y: number;
   vx: number;
@@ -46,11 +55,22 @@ export interface PhysicsComponent {
   width: number;
   height: number;
   solid: boolean;
+
+  constructor(x = 0, y = 0, speed = 200) {
+    super("physics");
+    this.x = x;
+    this.y = y;
+    this.vx = 0;
+    this.vy = 0;
+    this.speed = speed;
+    this.width = 24;
+    this.height = 24;
+    this.solid = true;
+  }
 }
 
 /** Combat component — HP, damage, status */
-export interface CombatComponent {
-  readonly type: "combat";
+export class CombatComponent extends Component {
   hp: number;
   maxHp: number;
   mana: number;
@@ -60,11 +80,23 @@ export interface CombatComponent {
   armor: number;
   isAlive: boolean;
   invulnTimer: number;
+
+  constructor(hp = 100, mana = 50) {
+    super("combat");
+    this.hp = hp;
+    this.maxHp = hp;
+    this.mana = mana;
+    this.maxMana = mana;
+    this.damage = 20;
+    this.critChance = 5;
+    this.armor = 0;
+    this.isAlive = true;
+    this.invulnTimer = 0;
+  }
 }
 
 /** RPG component — progression, attributes, talents */
-export interface RPGComponent {
-  readonly type: "rpg";
+export class RPGComponent extends Component {
   progression: ProgressionState;
   attributes: Attributes;
   attributePoints: number;
@@ -72,66 +104,30 @@ export interface RPGComponent {
   talents: Map<string, Talent>;
   learnedTalentIds: Set<string>;
   heroDef: HeroDefinition;
+
+  constructor(heroDef: HeroDefinition) {
+    super("rpg");
+    this.progression = createProgressionState();
+    this.attributes = { ...heroDef.baseAttributes };
+    this.attributePoints = 0;
+    this.talentPoints = 0;
+    this.talents = createTalentMap();
+    this.learnedTalentIds = new Set();
+    this.heroDef = heroDef;
+  }
 }
 
 /** Inventory component — items and bombs */
-export interface InventoryComponent {
-  readonly type: "inventory";
+export class InventoryComponent extends Component {
   inventory: Inventory;
+
+  constructor(inventory: Inventory) {
+    super("inventory");
+    this.inventory = inventory;
+  }
 }
 
-export function createSpriteComponent(skinId: number): SpriteComponent {
-  return {
-    type: "sprite",
-    skinId,
-    spritePath: `skin_${skinId}.webp`,
-    frameWidth: 32,
-    frameHeight: 32,
-    animFrame: 0,
-  };
-}
-
-export function createPhysicsComponent(x = 0, y = 0): PhysicsComponent {
-  return {
-    type: "physics",
-    x,
-    y,
-    vx: 0,
-    vy: 0,
-    speed: 200,
-    width: 24,
-    height: 24,
-    solid: true,
-  };
-}
-
-export function createCombatComponent(hp = 100, mana = 50): CombatComponent {
-  return {
-    type: "combat",
-    hp,
-    maxHp: hp,
-    mana,
-    maxMana: mana,
-    damage: 20,
-    critChance: 5,
-    armor: 0,
-    isAlive: true,
-    invulnTimer: 0,
-  };
-}
-
-export function createRPGComponent(heroDef: HeroDefinition): RPGComponent {
-  return {
-    type: "rpg",
-    progression: createProgressionState(),
-    attributes: { ...heroDef.baseAttributes },
-    attributePoints: 0,
-    talentPoints: 0,
-    talents: createTalentMap(),
-    learnedTalentIds: new Set(),
-    heroDef,
-  };
-}
+// ─── Hero Entity ───
 
 export class Hero extends Entity {
   public readonly heroId: string;
@@ -142,20 +138,17 @@ export class Hero extends Entity {
   private _physics: PhysicsComponent;
 
   constructor(heroId: string, skinId: number, heroDef: HeroDefinition) {
-    super(heroId);
+    super("hero", heroId);
     this.heroId = heroId;
     this.skinId = skinId;
 
-    this._rpg = createRPGComponent(heroDef);
-    this._combat = createCombatComponent(
-      computeEffectiveStats(heroDef.baseAttributes, 1).maxHp,
-      computeEffectiveStats(heroDef.baseAttributes, 1).maxMana,
-    );
-    this._physics = createPhysicsComponent(
-      computeEffectiveStats(heroDef.baseAttributes, 1).speed,
-    );
+    const stats = computeEffectiveStats(heroDef.baseAttributes, 1);
 
-    this.addComponent(createSpriteComponent(skinId));
+    this._rpg = new RPGComponent(heroDef);
+    this._combat = new CombatComponent(stats.maxHp, stats.maxMana);
+    this._physics = new PhysicsComponent(0, 0, stats.speed);
+
+    this.addComponent(new SpriteComponent(skinId));
     this.addComponent(this._physics);
     this.addComponent(this._combat);
     this.addComponent(this._rpg);
@@ -175,7 +168,7 @@ export class Hero extends Entity {
     return this._physics;
   }
 
-  get inventory(): InventoryComponent["inventory"] | undefined {
+  get inventory(): Inventory | undefined {
     const inv = this.getComponent<InventoryComponent>("inventory");
     return inv?.inventory;
   }
@@ -220,6 +213,7 @@ export class Hero extends Entity {
     };
   }
 
+  /** Force level-up check (useful after direct XP changes) */
   levelUp(): boolean {
     return this.gainXp(0).levelsGained > 0;
   }
@@ -281,9 +275,9 @@ export class Hero extends Entity {
 
   // ─── Inventory ───
 
-  /** Add inventory component (called after construction) */
+  /** Attach inventory component (call after construction) */
   attachInventory(inventory: Inventory): void {
-    this.addComponent({ type: "inventory", inventory });
+    this.addComponent(new InventoryComponent(inventory));
   }
 
   /** Add item to inventory */
