@@ -9,7 +9,7 @@ import type { ArenaTheme } from "../settings.js";
 const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft: string; floor: string }> = {
   vault: { hard: "hard_gold", soft: "soft_ammo", floor: "floor_grate" },
   cyber: { hard: "hard_stone", soft: "soft_cyberglass", floor: "floor_neon" }, // soft = flat glass (coherent dark-blue)
-  void: { hard: "hard_obsidian", soft: "soft_meme", floor: "floor_void" },
+  void: { hard: "hard_obsidian", soft: "soft_obsidian", floor: "floor_void" },
   desert: { hard: "hard_sand", soft: "soft_sand", floor: "floor_sand" },
   industrial: { hard: "hard_industrial", soft: "soft_tech", floor: "floor_industrial" }, // yellow-black factory
   chappie: { hard: "hard_chappie", soft: "soft_chappie", floor: "floor_chappie" }, // white-orange near-future
@@ -434,7 +434,7 @@ export class Renderer {
     "soft", "soft_mobile", "bomb",
     // arena-theme block variants (prescaled so a theme switch is instant)
     "hard_gold", "hard_stone", "hard_obsidian", "hard_sand", "soft_ammo", "soft_tech", "soft_meme", "soft_sand",
-    "soft_cyberglass", "hard_industrial", "hard_chappie", "soft_chappie",
+    "soft_cyberglass", "soft_obsidian", "hard_industrial", "hard_chappie", "soft_chappie",
     "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
