@@ -20,7 +20,7 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      registerType: "prompt", // show an in-app "update" banner instead of silent auto-reload
+      registerType: "autoUpdate", // new deploys take over + reload automatically (no stale cache)
       injectRegister: null, // we call registerSW() ourselves in main.ts
       manifest: {
         name: "Bombermeme",
