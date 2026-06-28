@@ -1538,7 +1538,7 @@ function syncSettingsUI(): void {
   document.getElementById("mode-token")?.classList.toggle("active", settings.valueMode === "token");
   document.getElementById("mode-fiat")?.classList.toggle("active", settings.valueMode === "fiat");
 
-  for (const t of ["classic", "vault", "cyber", "void", "desert"]) {
+  for (const t of ["classic", "vault", "cyber", "void", "desert", "industrial", "chappie"]) {
     document.getElementById("arena-" + t)?.classList.toggle("active", settings.arenaTheme === t);
   }
   document.getElementById("floor-anim")?.classList.toggle("active", !settings.grassTexture);
@@ -1662,7 +1662,7 @@ function wireSettings(): void {
   document.getElementById("unit-sol")?.addEventListener("click", () => { update("valueUnit", "sol"); applyValueUnit(); });
   document.getElementById("mode-token")?.addEventListener("click", () => { update("valueMode", "token"); applyValueUnit(); });
   document.getElementById("mode-fiat")?.addEventListener("click", () => { update("valueMode", "fiat"); applyValueUnit(); });
-  for (const t of ["classic", "vault", "cyber", "void", "desert"] as const) {
+  for (const t of ["classic", "vault", "cyber", "void", "desert", "industrial", "chappie"] as const) {
     document.getElementById("arena-" + t)?.addEventListener("click", () => update("arenaTheme", t));
   }
   // Day / night backdrop theme — a single emoji toggle (persisted)

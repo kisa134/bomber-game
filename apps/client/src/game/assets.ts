@@ -27,6 +27,12 @@ export const SPRITE_FILES: Record<string, string> = {
   floor_void: "/sprites/floor_void",
   floor_sand: "/sprites/floor_sand",
   floor_grass: "/sprites/floor_grass", // static grass texture (Classic floor alternative)
+  soft_cyberglass: "/sprites/soft_cyberglass", // Cyber soft (translucent glass)
+  hard_industrial: "/sprites/hard_industrial",
+  floor_industrial: "/sprites/floor_industrial",
+  hard_chappie: "/sprites/hard_chappie",
+  soft_chappie: "/sprites/soft_chappie",
+  floor_chappie: "/sprites/floor_chappie",
   bomb: "/sprites/bomb",
   // Explosion animation frames (ignite -> expand -> peak -> collapse -> fade).
   // A single explosion is used as a fallback if frames are absent.
@@ -62,7 +68,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "39";
+export const ASSET_VER = "40";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.

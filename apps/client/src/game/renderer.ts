@@ -8,9 +8,11 @@ import type { ArenaTheme } from "../settings.js";
 // themed material variant. "classic" is absent here (it uses the base sprites).
 const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft: string; floor: string }> = {
   vault: { hard: "hard_gold", soft: "soft_ammo", floor: "floor_grate" },
-  cyber: { hard: "hard_stone", soft: "soft_tech", floor: "floor_neon" },
+  cyber: { hard: "hard_stone", soft: "soft_cyberglass", floor: "floor_neon" }, // soft = flat glass (coherent dark-blue)
   void: { hard: "hard_obsidian", soft: "soft_meme", floor: "floor_void" },
   desert: { hard: "hard_sand", soft: "soft_sand", floor: "floor_sand" },
+  industrial: { hard: "hard_industrial", soft: "soft_tech", floor: "floor_industrial" }, // yellow-black factory
+  chappie: { hard: "hard_chappie", soft: "soft_chappie", floor: "floor_chappie" }, // white-orange near-future
 };
 
 // Light per-arena AMBIENT atmosphere — slow drifting motes for cozy immersion.
@@ -21,6 +23,15 @@ const ATMOSPHERE: Record<ArenaTheme, { color: string; vx: number; vy: number; n:
   cyber: { color: "90,230,255", vx: 0, vy: -16, n: 22, sq: true, size: 2.0 }, // rising neon data-bits
   void: { color: "176,124,255", vx: 3, vy: -9, n: 18, sq: false, size: 2.4 }, // purple embers
   desert: { color: "228,198,138", vx: 26, vy: 3, n: 22, sq: false, size: 1.8 }, // sand drifting on the wind
+  industrial: { color: "255,168,60", vx: 5, vy: -12, n: 16, sq: true, size: 1.8 }, // warm orange sparks
+  chappie: { color: "255,210,150", vx: 4, vy: -7, n: 14, sq: false, size: 2.0 }, // soft warm motes
+};
+
+// "Living" hard blocks — themes whose hard block has a glowing window that BREATHES
+// (a pulsing inner light rendered over the asset). theme -> "r,g,b".
+const ARENA_GLOW: Partial<Record<ArenaTheme, string>> = {
+  chappie: "255,150,40",
+  industrial: "255,140,30",
 };
 
 // One unique colour per player slot — supports a full 8-player arena (1 human +
@@ -423,6 +434,7 @@ export class Renderer {
     "soft", "soft_mobile", "bomb",
     // arena-theme block variants (prescaled so a theme switch is instant)
     "hard_gold", "hard_stone", "hard_obsidian", "hard_sand", "soft_ammo", "soft_tech", "soft_meme", "soft_sand",
+    "soft_cyberglass", "hard_industrial", "hard_chappie", "soft_chappie",
     "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
@@ -2639,6 +2651,21 @@ export class Renderer {
             this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
             if (dmg > 0) this.drawCracks(px, py, index);
           }
+        }
+        // Living inner-glow: a soft orange light breathes through the block's window
+        // (Chappie / Industrial). Per-block phase offset so they don't pulse in sync.
+        const glow = !this.lowFx && this.atmoOn ? ARENA_GLOW[this.arenaTheme] : undefined;
+        if (glow && !bloodDrawn && dmg === 0) {
+          const pulse = 0.5 + 0.5 * Math.sin(now / 700 + index * 0.7);
+          const cx = px + t / 2, cy = py + t * 0.56, r = t * 0.44;
+          const g2 = this.ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+          g2.addColorStop(0, `rgba(${glow},${0.10 + 0.22 * pulse})`);
+          g2.addColorStop(1, `rgba(${glow},0)`);
+          this.ctx.save();
+          this.ctx.globalCompositeOperation = "lighter";
+          this.ctx.fillStyle = g2;
+          this.ctx.beginPath(); this.ctx.arc(cx, cy, r, 0, Math.PI * 2); this.ctx.fill();
+          this.ctx.restore();
         }
         if (bm) this.drawBlockBlood(px, py, index); // dynamic splatter + drips ON TOP of the block
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
