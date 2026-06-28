@@ -75,7 +75,7 @@ import { GameState } from "./game/state.js";
 import { Renderer, PLAYER_COLORS, skinAvatar } from "./game/renderer.js";
 import { Input } from "./game/input.js";
 import { Assets, ASSET_VER } from "./game/assets.js";
-import { loadSettings, saveSettings, type Settings } from "./settings.js";
+import { loadSettings, saveSettings, type Settings, type ArenaTheme } from "./settings.js";
 import {
   listWallets,
   connectAndSignIn,
@@ -684,7 +684,7 @@ function enterGame(): void {
     renderer.skinOf = (id) => state.skinOf(id);
     renderer.colorOf = (id) => state.colorOf(id);
     renderer.setGore(settings.gore);
-    renderer.setArenaTheme(settings.arenaTheme);
+    renderer.setArenaTheme(effectiveTheme());
     renderer.setAtmosphere(settings.ambientFx);
     renderer.setGrassTexture(settings.grassTexture);
   }
@@ -1497,6 +1497,13 @@ function frame(): void {
 
 // --- settings -------------------------------------------------------------
 
+// Arena themes hidden from normal players (work-in-progress) — locked with a padlock
+// in settings; only admin wallets can pick them. A non-admin on a locked theme falls
+// back to Classic so they never get stuck on a hidden arena.
+const LOCKED_THEMES = new Set<ArenaTheme>(["meme", "chappie", "cyber", "desert"]);
+const themeLocked = (t: string): boolean => LOCKED_THEMES.has(t as ArenaTheme) && !shopIsAdmin;
+const effectiveTheme = (): ArenaTheme => (themeLocked(settings.arenaTheme) ? "classic" : settings.arenaTheme);
+
 function applySettings(): void {
   assets.setMusicEnabled(settings.music);
   assets.setSfxEnabled(settings.sfx);
@@ -1504,7 +1511,7 @@ function applySettings(): void {
   assets.setSfxVolume(settings.sfxVolume);
   input.setControlScheme(settings.controls);
   renderer?.setGore(settings.gore);
-  renderer?.setArenaTheme(settings.arenaTheme);
+  renderer?.setArenaTheme(effectiveTheme());
   renderer?.setAtmosphere(settings.ambientFx);
   renderer?.setGrassTexture(settings.grassTexture);
   syncSettingsUI();
@@ -1538,8 +1545,12 @@ function syncSettingsUI(): void {
   document.getElementById("mode-token")?.classList.toggle("active", settings.valueMode === "token");
   document.getElementById("mode-fiat")?.classList.toggle("active", settings.valueMode === "fiat");
 
+  const eff = effectiveTheme();
   for (const t of ["classic", "vault", "cyber", "void", "desert", "industrial", "chappie", "meme", "degen", "pepe"]) {
-    document.getElementById("arena-" + t)?.classList.toggle("active", settings.arenaTheme === t);
+    const btn = document.getElementById("arena-" + t);
+    if (!btn) continue;
+    btn.classList.toggle("locked", themeLocked(t));
+    btn.classList.toggle("active", t === eff);
   }
   document.getElementById("floor-anim")?.classList.toggle("active", !settings.grassTexture);
   document.getElementById("floor-tex")?.classList.toggle("active", settings.grassTexture);
@@ -1663,7 +1674,10 @@ function wireSettings(): void {
   document.getElementById("mode-token")?.addEventListener("click", () => { update("valueMode", "token"); applyValueUnit(); });
   document.getElementById("mode-fiat")?.addEventListener("click", () => { update("valueMode", "fiat"); applyValueUnit(); });
   for (const t of ["classic", "vault", "cyber", "void", "desert", "industrial", "chappie", "meme", "degen", "pepe"] as const) {
-    document.getElementById("arena-" + t)?.addEventListener("click", () => update("arenaTheme", t));
+    document.getElementById("arena-" + t)?.addEventListener("click", () => {
+      if (themeLocked(t)) return; // hidden theme — admins only
+      update("arenaTheme", t);
+    });
   }
   // Day / night backdrop theme — a single emoji toggle (persisted)
   const applyTheme = (theme: string): void => {
@@ -2579,6 +2593,9 @@ async function loadShopData(): Promise<void> {
     shop.chips = 0;
     shop.tokens = 0;
   }
+  // Admin status may have just changed — re-apply so locked themes unlock for admins
+  // (and a non-admin sitting on a now-locked theme falls back to Classic).
+  applySettings();
 }
 
 async function refreshSkinShop(): Promise<void> {

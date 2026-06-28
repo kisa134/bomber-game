@@ -9,7 +9,7 @@ import type { ArenaTheme } from "../settings.js";
 const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft: string; floor: string }> = {
   vault: { hard: "hard_gold", soft: "soft_ammo", floor: "floor_grate" },
   cyber: { hard: "hard_stone", soft: "soft_cyberglass", floor: "floor_neon" }, // soft = flat glass (coherent dark-blue)
-  void: { hard: "hard_obsidian", soft: "soft_void4", floor: "floor_void" }, // soft scattered from soft_void1-4
+  void: { hard: "hard_obsidian", soft: "soft_void2", floor: "floor_void" }, // pink crystal only (scatter disabled)
   desert: { hard: "hard_sand", soft: "soft_sand", floor: "floor_sand" },
   industrial: { hard: "hard_industrial", soft: "soft_industrial", floor: "floor_industrial" }, // yellow-black factory
   chappie: { hard: "hard_chappie", soft: "soft_chappie2", floor: "floor_chappie" }, // white-orange near-future
@@ -44,7 +44,8 @@ const ARENA_GLOW: Partial<Record<ArenaTheme, string>> = {
 // Themes whose SOFT block is scattered RANDOMLY from a set of variants (per block seed)
 // — e.g. Void's glowing crystals in different colours for a beautiful random field.
 const ARENA_SOFT_VARIANTS: Partial<Record<ArenaTheme, string[]>> = {
-  void: ["soft_void1", "soft_void2", "soft_void3", "soft_void4"],
+  // void scatter disabled for now — single pink crystal (soft_void2). Re-add the
+  // ["soft_void1".."soft_void4"] list here to restore the random combo field.
 };
 
 // One unique colour per player slot — supports a full 8-player arena (1 human +
