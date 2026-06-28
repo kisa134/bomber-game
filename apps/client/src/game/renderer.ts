@@ -14,6 +14,7 @@ const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft:
   industrial: { hard: "hard_industrial", soft: "soft_industrial", floor: "floor_industrial" }, // yellow-black factory
   chappie: { hard: "hard_chappie", soft: "soft_chappie2", floor: "floor_chappie" }, // white-orange near-future
   meme: { hard: "hard_meme", soft: "soft_meme2", floor: "floor_meme" }, // broadcast studio (crypto crate freed for a new theme)
+  degen: { hard: "hard_degen", soft: "soft_meme", floor: "floor_degen" }, // underground graffiti street (crypto-sticker crate)
 };
 
 // Light per-arena AMBIENT atmosphere — slow drifting motes for cozy immersion.
@@ -27,6 +28,7 @@ const ATMOSPHERE: Record<ArenaTheme, { color: string; vx: number; vy: number; n:
   industrial: { color: "255,168,60", vx: 5, vy: -12, n: 16, sq: true, size: 1.8 }, // warm orange sparks
   chappie: { color: "255,210,150", vx: 4, vy: -7, n: 14, sq: false, size: 2.0 }, // soft warm motes
   meme: { color: "100,255,150", vx: 0, vy: -13, n: 20, sq: true, size: 1.8 }, // green candle-ticks rising
+  degen: { color: "210,200,180", vx: 14, vy: -4, n: 14, sq: false, size: 1.8 }, // street dust drifting
 };
 
 // "Living" hard blocks — themes whose hard block has a glowing window that BREATHES
@@ -443,7 +445,7 @@ export class Renderer {
     "soft", "soft_mobile", "bomb",
     // arena-theme block variants (prescaled so a theme switch is instant)
     "hard_gold", "hard_stone", "hard_obsidian", "hard_sand", "soft_ammo", "soft_tech", "soft_meme", "soft_sand",
-    "soft_cyberglass", "soft_void1", "soft_void2", "soft_void3", "soft_void4", "hard_industrial", "soft_industrial", "hard_chappie", "soft_chappie2", "hard_meme", "soft_meme2",
+    "soft_cyberglass", "soft_void1", "soft_void2", "soft_void3", "soft_void4", "hard_industrial", "soft_industrial", "hard_chappie", "soft_chappie2", "hard_meme", "soft_meme2", "hard_degen",
     "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
