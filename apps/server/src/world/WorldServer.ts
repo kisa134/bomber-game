@@ -4,7 +4,7 @@
 
 import uWS from "uWebSockets.js";
 import pg from "pg";
-import { readFileSync }n from "node:fs";
+import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -410,7 +410,6 @@ export class WorldServer {
     if (!positions.length) return;
 
     try {
-      // Batch update positions
       const client = await this.pool.connect();
       try {
         await client.query("BEGIN");
