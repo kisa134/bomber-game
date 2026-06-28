@@ -17,16 +17,19 @@ export class PartyClient {
   private currentParty: Party | null = null;
   private onPartyUpdateCb: ((party: Party | null) => void) | null = null;
   private onPartyErrorCb: ((code: string, message: string) => void) | null = null;
+  private unsubMessage: (() => void) | null = null;
 
   constructor(worldSocket: WorldSocket) {
     this.ws = worldSocket;
-    // Listen to raw messages on the socket — but WorldSocket currently
-    // doesn't expose a generic message listener. We rely on the caller
-    // to wire party messages via handleServerMessage().
+    this.unsubMessage = worldSocket.onMessage((msg) => this.handleServerMessage(msg));
   }
 
-  /** Must be called when a WorldServerMessage arrives (PARTY_UPDATE / PARTY_ERROR). */
-  handleServerMessage(msg: WorldServerMessage): void {
+  destroy(): void {
+    this.unsubMessage?.();
+  }
+
+  /** Process WorldServer messages for party updates and errors. */
+  private handleServerMessage(msg: WorldServerMessage): void {
     switch (msg.type) {
       case WorldServerMsg.PARTY_UPDATE: {
         const update = msg as PartyUpdateMsg;
@@ -52,16 +55,19 @@ export class PartyClient {
         return;
       }
 
+      let resolved = false;
       const offUpdate = this.onPartyUpdateOnce((party) => {
-        offUpdate?.();
+        resolved = true;
         resolve(party.code);
       });
 
-      this.send({ type: WorldClientMsg.PARTY_CREATE });
+      this.ws.sendRaw({ type: WorldClientMsg.PARTY_CREATE });
 
-      // Timeout
       setTimeout(() => {
-        reject(new Error("party_create_timeout"));
+        if (!resolved) {
+          offUpdate();
+          reject(new Error("party_create_timeout"));
+        }
       }, 5000);
     });
   }
@@ -82,24 +88,22 @@ export class PartyClient {
 
       const offUpdate = this.onPartyUpdateOnce(() => {
         resolved = true;
-        offUpdate?.();
         resolve(true);
       });
 
       const offError = this.onPartyErrorOnce((errCode) => {
         if (errCode === "party_not_found" || errCode === "party_full" || errCode === "already_in_party") {
           resolved = true;
-          offError?.();
           resolve(false);
         }
       });
 
-      this.send({ type: WorldClientMsg.PARTY_JOIN, code: code.toUpperCase() });
+      this.ws.sendRaw({ type: WorldClientMsg.PARTY_JOIN, code: code.toUpperCase() });
 
       setTimeout(() => {
         if (!resolved) {
-          offUpdate?.();
-          offError?.();
+          offUpdate();
+          offError();
           resolve(false);
         }
       }, 5000);
@@ -109,7 +113,7 @@ export class PartyClient {
   /** Leave the current party. */
   leaveParty(): void {
     if (!this.ws?.isConnected()) return;
-    this.send({ type: WorldClientMsg.PARTY_LEAVE });
+    this.ws.sendRaw({ type: WorldClientMsg.PARTY_LEAVE });
     this.currentParty = null;
     this.onPartyUpdateCb?.(null);
   }
@@ -117,19 +121,19 @@ export class PartyClient {
   /** Kick a member (leader only). */
   kickMember(targetCharacterId: string): void {
     if (!this.ws?.isConnected()) return;
-    this.send({ type: WorldClientMsg.PARTY_KICK, targetId: targetCharacterId });
+    this.ws.sendRaw({ type: WorldClientMsg.PARTY_KICK, targetId: targetCharacterId });
   }
 
   /** Transfer leadership. */
   transferLeadership(newLeaderCharacterId: string): void {
     if (!this.ws?.isConnected()) return;
-    this.send({ type: WorldClientMsg.PARTY_TRANSFER, newLeaderId: newLeaderCharacterId });
+    this.ws.sendRaw({ type: WorldClientMsg.PARTY_TRANSFER, newLeaderId: newLeaderCharacterId });
   }
 
   /** Set loot mode (leader only). */
   setLootMode(mode: LootMode): void {
     if (!this.ws?.isConnected()) return;
-    this.send({ type: WorldClientMsg.PARTY_SET_LOOT, mode });
+    this.ws.sendRaw({ type: WorldClientMsg.PARTY_SET_LOOT, mode });
   }
 
   // ─── Queries ─────────────────────────────────────────────────────────────
@@ -139,9 +143,8 @@ export class PartyClient {
   }
 
   isLeader(): boolean {
-    if (!this.currentParty) return false;
-    // characterId is resolved from the socket's auth
-    return this.currentParty.leaderId === this.getLocalCharacterId();
+    if (!this.currentParty || !this.ws) return false;
+    return this.currentParty.leaderId === this.ws.characterId;
   }
 
   getMemberCount(): number {
@@ -178,34 +181,21 @@ export class PartyClient {
 
   // ─── Private helpers ─────────────────────────────────────────────────────
 
-  private send(payload: object): void {
-    // Access the raw WebSocket via a private field or a send method
-    // Since WorldSocket doesn't expose raw send, we need to extend it
-    // For now we use a workaround: cast and access internal ws
-    const socketAny = this.ws as unknown as { ws: WebSocket | null };
-    if (socketAny.ws && socketAny.ws.readyState === WebSocket.OPEN) {
-      socketAny.ws.send(JSON.stringify(payload));
-    }
-  }
-
-  private getLocalCharacterId(): string {
-    // Access characterId from WorldSocket
-    const socketAny = this.ws as unknown as { characterId: string };
-    return socketAny.characterId ?? "";
-  }
-
-  private onPartyUpdateOnce(callback: (party: Party) => void): (() => void) | null {
+  private onPartyUpdateOnce(callback: (party: Party) => void): () => void {
     const prev = this.onPartyUpdateCb;
     this.onPartyUpdateCb = (party) => {
+      this.onPartyUpdateCb = prev;
       if (party) callback(party);
     };
-    // Return cleanup
     return () => { this.onPartyUpdateCb = prev; };
   }
 
-  private onPartyErrorOnce(callback: (code: string) => void): (() => void) | null {
+  private onPartyErrorOnce(callback: (code: string) => void): () => void {
     const prev = this.onPartyErrorCb;
-    this.onPartyErrorCb = (code) => callback(code);
+    this.onPartyErrorCb = (code) => {
+      this.onPartyErrorCb = prev;
+      callback(code);
+    };
     return () => { this.onPartyErrorCb = prev; };
   }
 }
