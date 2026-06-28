@@ -8,6 +8,7 @@ import {
   Trophy,
   Activity,
   Brain,
+  Plug,
   Video,
   BarChart3,
   CalendarDays,
@@ -23,19 +24,20 @@ interface SidebarProps {
 }
 
 const navItems = [
-  // Real operations (live project data)
-  { path: '/', label: 'Mission Control', icon: LayoutDashboard, group: 'ops' },
-  { path: '/players', label: 'Players', icon: Users, group: 'ops' },
-  { path: '/money', label: 'Money', icon: Coins, group: 'ops' },
-  { path: '/tournaments', label: 'Tournaments', icon: Trophy, group: 'ops' },
-  { path: '/system', label: 'System', icon: Activity, group: 'ops' },
-  { path: '/ai', label: 'AI Director', icon: Brain, group: 'ops' },
-  // Marketing / content hub
-  { path: '/market-intel', label: 'Market Intel', icon: Globe, group: 'mkt' },
-  { path: '/content', label: 'Content Hub', icon: Video, group: 'mkt' },
-  { path: '/calendar', label: 'Calendar', icon: CalendarDays, group: 'mkt' },
-  { path: '/analytics', label: 'Analytics', icon: BarChart3, group: 'mkt' },
-  { path: '/video-hub', label: 'Video Hub', icon: Video, group: 'mkt' },
+  // Реальные операции (живые данные проекта)
+  { path: '/', label: 'Пульт', icon: LayoutDashboard, group: 'ops' },
+  { path: '/players', label: 'Игроки', icon: Users, group: 'ops' },
+  { path: '/money', label: 'Деньги', icon: Coins, group: 'ops' },
+  { path: '/tournaments', label: 'Турниры', icon: Trophy, group: 'ops' },
+  { path: '/system', label: 'Система', icon: Activity, group: 'ops' },
+  { path: '/connections', label: 'Подключения', icon: Plug, group: 'ops' },
+  { path: '/ai', label: 'ИИ-директор', icon: Brain, group: 'ops' },
+  // Маркетинг / контент (demo-данные до подключения соц-API)
+  { path: '/market-intel', label: 'Аналитика рынка', icon: Globe, group: 'mkt' },
+  { path: '/content', label: 'Контент-хаб', icon: Video, group: 'mkt' },
+  { path: '/calendar', label: 'Календарь', icon: CalendarDays, group: 'mkt' },
+  { path: '/analytics', label: 'Аналитика соц', icon: BarChart3, group: 'mkt' },
+  { path: '/video-hub', label: 'Видео', icon: Video, group: 'mkt' },
 ];
 
 const Sidebar: FC<SidebarProps> = ({ collapsed, onToggle }) => {

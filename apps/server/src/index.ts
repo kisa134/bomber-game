@@ -608,6 +608,35 @@ app.get("/admin/live", (res, req) => {
   }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 
+// Connections / data-gateway health for the admin "Подключения" page. Reports
+// whether each integration is configured + (where cheap) live. Token-gated.
+app.get("/admin/connections", (res, req) => {
+  res.onAborted(() => { (res as ResWithAbort).aborted = true; });
+  if (!adminAuthed(req)) return sendJson(res, { error: "unauthorized" }, "401 Unauthorized");
+  const env = process.env;
+  const has = (...keys: string[]): boolean => keys.some((k) => !!(env[k] && String(env[k]).trim()));
+  void tokenPriceUsd().then((price) => {
+    const items = [
+      { key: "postgres", label: "Postgres (БД)", ok: store.kind === "postgres", detail: store.kind === "postgres" ? "подключена" : "in-memory (данные не переживут рестарт)" },
+      { key: "solana", label: "Solana RPC", ok: has("SOLANA_RPC"), detail: has("SOLANA_RPC") ? "настроен" : "SOLANA_RPC не задан" },
+      { key: "treasury", label: "Казна (Treasury)", ok: has("TREASURY_SECRET", "WALLET_TREASURY"), detail: has("TREASURY_ADDRESS") ? "адрес задан" : "ключи не заданы" },
+      { key: "price", label: "Цена токена (DexScreener)", ok: (price || 0) > 0, detail: price ? `$${price.toPrecision(2)}` : "нет live-цены (фолбэк)" },
+      { key: "rake", label: "Rake-движок", ok: (Number(env.HOUSE_RAKE_BP) || 0) > 0, detail: (Number(env.HOUSE_RAKE_BP) || 0) > 0 ? `${(Number(env.HOUSE_RAKE_BP) || 0) / 100}%` : "HOUSE_RAKE_BP=0" },
+      { key: "referral", label: "Реферальный корень", ok: has("REFERRAL_ROOT"), detail: has("REFERRAL_ROOT") ? "задан" : "REFERRAL_ROOT не задан" },
+      { key: "telegram", label: "Telegram-бот", ok: has("TG_BOT_TOKEN"), detail: has("TG_BOT_TOKEN") ? "включён" : "TG_BOT_TOKEN не задан" },
+      { key: "google", label: "Google OAuth", ok: has("GOOGLE_CLIENT_ID") && has("GOOGLE_CLIENT_SECRET"), detail: has("GOOGLE_CLIENT_ID") ? "настроен" : "не настроен" },
+      { key: "twitter", label: "Twitter/X OAuth", ok: has("TWITTER_CLIENT_ID") && has("TWITTER_CLIENT_SECRET"), detail: has("TWITTER_CLIENT_ID") ? "настроен" : "скрыт до доступа X" },
+      { key: "ai", label: "ИИ-директор", ok: has("BOMBER_ADMIN", "AI_API_KEY"), detail: has("BOMBER_ADMIN", "AI_API_KEY") ? "ключ задан" : "ключ ИИ не задан" },
+      { key: "posthog", label: "PostHog", ok: has("POSTHOG_KEY"), detail: has("POSTHOG_KEY") ? "включён" : "ключ не задан" },
+      { key: "ga", label: "Google Analytics", ok: has("GA_ID"), detail: has("GA_ID") ? "включён" : "не задан" },
+      { key: "clarity", label: "Microsoft Clarity", ok: has("CLARITY_ID"), detail: has("CLARITY_ID") ? "включён" : "не задан" },
+      // Social data sources — not yet integrated; marketing pages are demo until then.
+      { key: "social", label: "Соц-API (X/TikTok/IG/YT)", ok: false, detail: "не подключены — маркетинг-цифры пока demo" },
+    ];
+    sendJson(res, { items, now: Date.now() });
+  }).catch(() => sendJson(res, { items: [], error: "server_error" }, "500 Internal Server Error"));
+});
+
 // Public landing stats — safe aggregate numbers for the marketing site (no PII).
 // Cached ~10s so the landing can poll cheaply. Everything here is REAL; numbers
 // the backend doesn't track yet are simply omitted (the landing shows "Soon").

@@ -318,6 +318,38 @@ export function AIChat() {
   );
 }
 
+// ─── Connections (Подключения) ───────────────────────────────────────────────
+export function Connections() {
+  const { data, error, loading, reload } = useAdmin<any>("/admin/connections", {}, []);
+  const items = data?.items || [];
+  const okN = items.filter((i: any) => i.ok).length;
+  return (
+    <div className="space-y-6">
+      <PageHead title="Подключения" sub="Статус всех шлюзов данных и интеграций — что реально подключено" />
+      <div className="flex items-center gap-3">
+        <Tile label="Подключено" value={loading ? "…" : `${okN}/${items.length}`} accent={C.green} />
+        <button onClick={reload} className="rounded-lg border border-white/[0.08] bg-bg-surface px-4 py-2.5 text-[13px] font-medium text-white hover:bg-bg-surface-hover">↻ Обновить</button>
+      </div>
+      {error && <ErrBox error={error} />}
+      <GlassCard>
+        <div className="space-y-1">
+          {items.map((i: any) => (
+            <div key={i.key} className="flex items-center justify-between border-b border-white/[0.04] py-2.5">
+              <div className="flex items-center gap-3">
+                <span className="text-lg">{i.ok ? "🟢" : "🔴"}</span>
+                <span className="text-[14px] text-white">{i.label}</span>
+              </div>
+              <span className={`font-mono text-[12px] ${i.ok ? "text-accent-green" : "text-text-muted"}`}>{i.detail}</span>
+            </div>
+          ))}
+          {!items.length && !loading && <p className="text-text-muted text-sm">Нет данных.</p>}
+        </div>
+      </GlassCard>
+      <p className="text-[12px] text-text-muted">🔴 = не подключено/не настроено. Соц-API (X/TikTok/IG/YT) подключаются отдельно — до этого маркетинг-страницы помечены «DEMO».</p>
+    </div>
+  );
+}
+
 // ─── shared bits ────────────────────────────────────────────────────────────
 function Flag({ ok, label }: { ok: boolean; label: string }) {
   return <span className={`rounded-full px-3 py-1 text-[12px] font-semibold ${ok ? "bg-accent-green/15 text-accent-green" : "bg-accent-red/15 text-accent-red"}`}>{ok ? "✓" : "⚠"} {label}</span>;
