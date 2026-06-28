@@ -1205,7 +1205,7 @@ app.post("/shop/select-skin", (res, req) => {
     const { wallet, skin } = parseSkinReq(body);
     if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
     if (skin < 0 || skin >= SKIN_COUNT) return sendJson(res, { error: "bad_skin" }, "400 Bad Request");
-    const sel = await store.selectSkin(wallet, skin);
+    const sel = await store.selectSkin(wallet, skin, isAdminWallet(wallet)); // admins equip any skin
     if (sel === null) return sendJson(res, { error: "not_owned" }, "403 Forbidden");
     sendJson(res, { skin: sel });
   }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));

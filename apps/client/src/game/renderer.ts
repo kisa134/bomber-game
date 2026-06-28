@@ -335,7 +335,10 @@ export class Renderer {
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
         if (floorImg) g.drawImage(floorImg, x * t, y * t, t, t);
-        else this.drawBaseGround(g, x * t, y * t, x, y); // desktop: blades drawn live
+        // Grass is CLASSIC-only. On a theme whose floor sprite failed to load, fall
+        // back to a flat dark tile (never grass) so the theme never leaks blades.
+        else if (themed) { g.fillStyle = "#14121a"; g.fillRect(x * t, y * t, t, t); }
+        else this.drawBaseGround(g, x * t, y * t, x, y); // classic desktop: blades drawn live
       }
     }
     this.prescale();

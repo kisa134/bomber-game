@@ -153,7 +153,7 @@ export interface ProfileStore {
   grantSkin(wallet: string, skin: number): Promise<{ skins: number } | null>;
   /** Select an owned skin as the active one. Returns the new skin, or null if
    *  the wallet doesn't own it. */
-  selectSkin(wallet: string, skin: number): Promise<number | null>;
+  selectSkin(wallet: string, skin: number, force?: boolean): Promise<number | null>;
   /** Claim a globally-unique nickname (case-insensitive). Returns true if it was
    *  set, false if another wallet already uses it. */
   setName(wallet: string, name: string): Promise<boolean>;
@@ -431,10 +431,10 @@ class InMemoryStore implements ProfileStore {
     return { skins: p.skins };
   }
 
-  async selectSkin(wallet: string, skin: number): Promise<number | null> {
+  async selectSkin(wallet: string, skin: number, force = false): Promise<number | null> {
     const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
     this.map.set(wallet, p);
-    if (!(p.skins & (1 << skin))) return null; // not owned
+    if (!force && !(p.skins & (1 << skin))) return null; // not owned (admins bypass)
     p.skin = skin;
     return p.skin;
   }
@@ -883,10 +883,10 @@ class SupabaseStore implements ProfileStore {
     return { skins };
   }
 
-  async selectSkin(wallet: string, skin: number): Promise<number | null> {
+  async selectSkin(wallet: string, skin: number, force = false): Promise<number | null> {
     const p = await this.getProfile(wallet);
     if (!p) return null;
-    if (!((p.skins ?? DEFAULT_SKINS) & (1 << skin))) return null;
+    if (!force && !((p.skins ?? DEFAULT_SKINS) & (1 << skin))) return null; // admins bypass
     try {
       await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
         method: "PATCH",
@@ -1617,12 +1617,13 @@ class PostgresStore implements ProfileStore {
     }
   }
 
-  async selectSkin(wallet: string, skin: number): Promise<number | null> {
+  async selectSkin(wallet: string, skin: number, force = false): Promise<number | null> {
     try {
       await this.ready;
+      // admins (force) bypass the ownership guard so they can equip any skin
+      const where = force ? `where wallet=$1` : `where wallet=$1 and (skins & (1 << $2)) <> 0`;
       const res = await this.pool.query(
-        `update profiles set skin = $2, updated_at=now()
-         where wallet=$1 and (skins & (1 << $2)) <> 0 returning skin`,
+        `update profiles set skin = $2, updated_at=now() ${where} returning skin`,
         [wallet, skin],
       );
       return res.rows[0] ? (res.rows[0].skin as number) : null;

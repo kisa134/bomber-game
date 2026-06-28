@@ -2523,7 +2523,8 @@ const shop = { owned: DEFAULT_SKINS, equipped: 0, level: 1, chips: 0, tokens: 0,
 const ADMIN_WALLETS = new Set(["2R2bPfdExGKXmmKA4gKhtfn2SQzM5kZo1y7sgv74HUrS"]);
 const isAdminWallet = (addr?: string): boolean => !!addr && ADMIN_WALLETS.has(addr);
 
-const skinOwned = (i: number): boolean => (shop.owned & (1 << i)) !== 0;
+let shopIsAdmin = false; // admin wallet: owns + can equip every skin (bypasses the 32-bit mask)
+const skinOwned = (i: number): boolean => shopIsAdmin || (shop.owned & (1 << i)) !== 0;
 const skinBuyableChips = (i: number): boolean =>
   !skinOwned(i) && shop.level >= (SKIN_UNLOCK_LEVEL[i] ?? 0) && shop.chips >= SKIN_PRICES[i];
 
@@ -2539,8 +2540,9 @@ async function loadShopData(): Promise<void> {
       shop.level = p.level ?? 1;
       shop.chips = p.chips ?? 0;
       shop.tokens = p.gameTokens ?? 0;
-      if (isAdminWallet(w.address)) {
-        shop.owned = 0x7fffffff;                       // every skin unlocked
+      shopIsAdmin = isAdminWallet(w.address);
+      if (shopIsAdmin) {
+        shop.owned = 0x7fffffff;                       // legacy 0-30 bits; skinOwned() force-owns the rest
         shop.chips = Math.max(shop.chips, 999_999_999); // effectively infinite chips
         shop.tokens = Math.max(shop.tokens, 9_999_999);
         shop.level = Math.max(shop.level, 99);
@@ -2550,6 +2552,7 @@ async function loadShopData(): Promise<void> {
       /* keep last known */
     }
   } else {
+    shopIsAdmin = false;
     shop.owned = DEFAULT_SKINS;
     shop.equipped = Number(localStorage.getItem("bp_skin")) || 0;
     shop.level = 1;
@@ -2594,7 +2597,8 @@ function makeShopCard(i: number): HTMLElement {
     (locked ? " locked" : "");
   card.style.setProperty("--rarity", r.color);
   card.appendChild(skinAvatar(i, PLAYER_COLORS[i % PLAYER_COLORS.length]));
-  card.appendChild(el("div", "shop-card-name", SKIN_NAMES[i] ?? `Skin ${i}`));
+  // Unowned = full intrigue: black silhouette (CSS) + hidden name. Reveal on unlock.
+  card.appendChild(el("div", "shop-card-name", owns ? (SKIN_NAMES[i] ?? `Skin ${i}`) : "???"));
   let tag: HTMLElement;
   if (i === shop.equipped) tag = el("div", "shop-card-tag equipped", "✔ Equipped");
   else if (owns) tag = el("div", "shop-card-tag owned", "Owned");
@@ -2671,6 +2675,8 @@ function renderShopDetail(): void {
   const tokPrice = SKIN_TOKEN_PRICES[i];
   panel.innerHTML = "";
   panel.style.setProperty("--rarity", r.color);
+  // Unowned = full intrigue: the spinning preview is a black silhouette + name hidden.
+  panel.classList.toggle("unowned", !owns);
 
   const stage = el("div", "shop-stage", "");
   const img = document.createElement("img");
@@ -2680,7 +2686,7 @@ function renderShopDetail(): void {
   panel.appendChild(stage);
 
   panel.appendChild(el("div", "shop-rarity-badge", r.name));
-  panel.appendChild(el("div", "shop-detail-name", SKIN_NAMES[i] ?? `Skin ${i}`));
+  panel.appendChild(el("div", "shop-detail-name", owns ? (SKIN_NAMES[i] ?? `Skin ${i}`) : "???"));
 
   const statusText =
     i === shop.equipped ? "✔ Equipped" : owns ? "Owned" : needLevel && shop.level < needLevel ? `🔒 Unlocks at level ${needLevel}` : "Not owned";
