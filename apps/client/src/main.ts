@@ -3732,6 +3732,16 @@ function setProgress(level: number, xp: number): void {
 let lastFriends: FriendsData = { friends: [], incoming: [], outgoing: [] };
 const friendsModal = () => document.getElementById("friends-modal");
 const friendsModalOpen = (): boolean => !friendsModal()?.classList.contains("hidden");
+// The friends body (#friends-body) is shared between the full PAGE and the popup —
+// we relocate the single DOM node into whichever host is being opened, so the IDs
+// and wiring stay unique. Page = opened from the hub; popup = lobby-seat invites.
+const mountFriendsTo = (hostId: string): void => {
+  const host = document.getElementById(hostId);
+  const body = document.getElementById("friends-body");
+  if (host && body && body.parentElement !== host) host.appendChild(body);
+};
+const friendsPageOpen = (): boolean => !document.getElementById("friends")?.classList.contains("hidden");
+const friendsVisible = (): boolean => friendsModalOpen() || friendsPageOpen();
 // When inviting from a lobby seat, the friends modal shows "Invite" actions that
 // ping the friend to join THIS room.
 let inviteRoomCode = ""; // "" = normal friends view; non-empty = invite mode
@@ -3747,6 +3757,7 @@ function openFriendsForInvite(): void {
   }
   inviteRoomCode = state.roomCode;
   document.getElementById("friends-status")!.textContent = "Pick a friend to invite to your room";
+  mountFriendsTo("friends-host-modal");
   friendsModal()!.classList.remove("hidden");
   friendsBeat();
 }
@@ -3776,7 +3787,7 @@ function friendsBeat(): void {
     }
     lastFriends = d;
     renderFriendsModule();
-    if (friendsModalOpen()) renderFriendsModal();
+    if (friendsVisible()) renderFriendsModal();
   });
 }
 
@@ -4388,12 +4399,17 @@ function wireMenuLinks(): void {
     }
     inviteRoomCode = ""; // normal friends view (not invite mode)
     document.getElementById("friends-status")!.textContent = "";
-    friendsModal()!.classList.remove("hidden");
+    mountFriendsTo("friends-host-page");
+    showScreen("friends");
     friendsBeat();
   });
   document.getElementById("friends-close")?.addEventListener("click", () => {
     inviteRoomCode = "";
     friendsModal()!.classList.add("hidden");
+  });
+  document.getElementById("friends-page-back")?.addEventListener("click", () => {
+    inviteRoomCode = "";
+    showScreen("menu");
   });
   const doAddFriend = (): void => {
     const inp = document.getElementById("friend-add-name") as HTMLInputElement;

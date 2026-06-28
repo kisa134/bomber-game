@@ -6421,6 +6421,14 @@ button.big {
   flex: 1 1 auto;
   text-align: left;
 }
+/* On the full PAGE, keep the friends list at a comfortable reading width (the popup
+   constrains it via .friends-card; the page wrap is 1200 so cap the body here). */
+#friends-host-page > #friends-body {
+  max-width: 680px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 /* Friends — big page-style glass panel (still an overlay so it can pop over a room for
    seat invites). */
 #friends-modal .friends-card {
@@ -8643,6 +8651,8 @@ button.big {
 .train-wrap,
 .prof-wrap,
 .lb-wrap,
+.tour-wrap,
+.fr-wrap,
 .set-wrap {
   width: min(1200px, 100%);
   background: none;
@@ -8675,8 +8685,9 @@ button.big {
   border-color: rgba(180, 120, 255, 0.4);
 }
 .rail-card.season .rc-title { color: #c9a6ff; }
-.tour-panel { width: min(560px, 100%); }
-.tour-intro { margin: -4px 0 10px; }
+.tour-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.tour-top .lobby-title { flex: 1 1 auto; text-align: left; font-size: clamp(1.3rem, 2.4vw, 1.9rem); } /* same standard as Profile/Settings */
+.tour-intro { margin: -2px 0 14px; max-width: 720px; }
 .tour-section-h {
   font-family: var(--font-mono);
   font-size: 0.66rem;

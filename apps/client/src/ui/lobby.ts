@@ -164,7 +164,8 @@ export type ScreenName =
   | "room"
   | "game"
   | "result"
-  | "tournaments";
+  | "tournaments"
+  | "friends";
 const SCREENS: ScreenName[] = [
   "splash",
   "loading",
@@ -180,6 +181,7 @@ const SCREENS: ScreenName[] = [
   "game",
   "result",
   "tournaments",
+  "friends",
 ];
 
 // ── "You're still in a room" affordance ─────────────────────────────────────

@@ -251,7 +251,32 @@
         </div>
       </section>
 
-      <!-- Friends: add by nickname, accept requests, see who's online -->
+      <!-- Friends — full PAGE. The shared body (#friends-body) lives here by default
+           and is relocated into the popup below when inviting from a lobby seat. -->
+      <section id="friends" class="screen hidden">
+        <div class="fr-wrap">
+          <div class="fr-top">
+            <button id="friends-page-back" class="ghost lobby-icon">←</button>
+            <h2 class="lobby-title">Friends</h2>
+            <span class="lobby-icon" style="visibility:hidden">.</span>
+          </div>
+          <div id="friends-host-page">
+            <div id="friends-body">
+              <div class="friends-add">
+                <input id="friend-add-name" maxlength="16" placeholder="Add by nickname" autocomplete="off" />
+                <button id="friend-add-btn" class="primary glass-btn">Add</button>
+              </div>
+              <p id="friends-status" class="status"></p>
+              <div id="friends-requests" class="friends-section"></div>
+              <div id="friends-list" class="friends-section"></div>
+              <p id="friends-empty" class="status fair hidden">No friends yet — add someone by their nickname.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Friends popup — used when inviting from a lobby seat. #friends-body is
+           moved into #friends-host-modal on open and back to the page on close. -->
       <div id="friends-modal" class="modal hidden">
         <div class="modal-card friends-card">
           <div class="fr-top">
@@ -259,14 +284,7 @@
             <h2 class="lobby-title">Friends</h2>
             <span class="lobby-icon" style="visibility:hidden">.</span>
           </div>
-          <div class="friends-add">
-            <input id="friend-add-name" maxlength="16" placeholder="Add by nickname" autocomplete="off" />
-            <button id="friend-add-btn" class="primary glass-btn">Add</button>
-          </div>
-          <p id="friends-status" class="status"></p>
-          <div id="friends-requests" class="friends-section"></div>
-          <div id="friends-list" class="friends-section"></div>
-          <p id="friends-empty" class="status fair hidden">No friends yet — add someone by their nickname.</p>
+          <div id="friends-host-modal"></div>
         </div>
       </div>
 
@@ -534,12 +552,15 @@
 
       <!-- Season / Tournaments -->
       <section id="tournaments" class="screen hidden">
-        <div class="panel tour-panel">
-          <h2>🏆 Season &amp; Tournaments</h2>
+        <div class="tour-wrap">
+          <div class="tour-top">
+            <button id="tournaments-back" class="ghost lobby-icon">←</button>
+            <h2 class="lobby-title">Season &amp; Tournaments</h2>
+            <span class="lobby-icon" style="visibility:hidden">.</span>
+          </div>
           <p class="tour-intro status">Compete in scheduled tournaments for real prizes. Connect your wallet, register, and you'll be notified when your match starts.</p>
           <div id="tour-screen-list"></div>
           <div id="tour-detail" class="hidden"></div>
-          <button id="tournaments-back" class="primary">Back</button>
         </div>
       </section>
 
