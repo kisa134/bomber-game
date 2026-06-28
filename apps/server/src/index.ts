@@ -1198,19 +1198,24 @@ app.post("/shop/buy-skin-token", (res, req) => {
   }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));
 });
 
-// Admin/dev: set this admin's own level, add xp/chips/tokens (for testing different
-// states). Session-gated to admin wallets only. Returns the updated snapshot.
+// Admin/dev: set this admin's own level, add xp/CHIPS (game currency), or reset the
+// profile to a new-player state. NOTE: real TOKENS are deliberately NOT touchable here
+// — they're real-money custodial balances and must never be mutated by a dev button.
+// Session-gated to admin wallets only. Returns the updated snapshot.
 app.post("/admin/dev-set", (res, req) => {
   if (!guard(res, req)) return;
   void readBody(res).then(async (body) => {
-    let j: { session?: string; level?: number; addXp?: number; addChips?: number; addTokens?: number } = {};
+    let j: { session?: string; level?: number; addXp?: number; addChips?: number; reset?: boolean } = {};
     try { j = JSON.parse(body || "{}"); } catch { /* bad json */ }
     const wallet = verifySession(j.session ?? "") ?? "";
     if (!wallet || !isAdminWallet(wallet)) return sendJson(res, { error: "forbidden" }, "403 Forbidden");
-    if (typeof j.level === "number" && j.level >= 1) await store.setXp(wallet, Math.floor((j.level - 1) * 200));
-    if (typeof j.addXp === "number" && j.addXp > 0) await store.addXp(wallet, Math.floor(j.addXp));
-    if (typeof j.addChips === "number" && j.addChips !== 0) await store.adjustChips(wallet, Math.floor(j.addChips));
-    if (typeof j.addTokens === "number" && j.addTokens !== 0) await store.adjustToken(wallet, toBaseUnits(j.addTokens));
+    if (j.reset === true) {
+      await store.resetProfile(wallet); // new-player state; preserves real token balance
+    } else {
+      if (typeof j.level === "number" && j.level >= 1) await store.setXp(wallet, Math.floor((j.level - 1) * 200));
+      if (typeof j.addXp === "number" && j.addXp > 0) await store.addXp(wallet, Math.floor(j.addXp));
+      if (typeof j.addChips === "number" && j.addChips !== 0) await store.adjustChips(wallet, Math.floor(j.addChips));
+    }
     const p = await store.getProfile(wallet);
     sendJson(res, { ok: true, level: p?.level ?? 1, xp: p?.xp ?? 0, chips: p?.chips ?? 0, gameTokens: fromBaseUnits(p?.token_balance ?? 0) });
   }).catch(() => sendJson(res, { error: "server_error" }, "500 Internal Server Error"));

@@ -2524,7 +2524,10 @@ const ADMIN_WALLETS = new Set(["2R2bPfdExGKXmmKA4gKhtfn2SQzM5kZo1y7sgv74HUrS"]);
 const isAdminWallet = (addr?: string): boolean => !!addr && ADMIN_WALLETS.has(addr);
 
 let shopIsAdmin = false; // admin wallet: owns + can equip every skin (bypasses the 32-bit mask)
-const skinOwned = (i: number): boolean => shopIsAdmin || (shop.owned & (1 << i)) !== 0;
+// Admins force-own all skins by default, but can toggle it OFF (🛡 overlay) to test the
+// real new-player locked/silhouette experience. localStorage "0" = off.
+const adminOwnsAll = (): boolean => shopIsAdmin && localStorage.getItem("bp_admin_ownall") !== "0";
+const skinOwned = (i: number): boolean => adminOwnsAll() || (shop.owned & (1 << i)) !== 0;
 const skinBuyableChips = (i: number): boolean =>
   !skinOwned(i) && shop.level >= (SKIN_UNLOCK_LEVEL[i] ?? 0) && shop.chips >= SKIN_PRICES[i];
 

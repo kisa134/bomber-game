@@ -170,6 +170,7 @@ export interface ProfileStore {
    *  Competitive Bots Match reward. 200 XP per level. */
   addXp(wallet: string, amount: number): Promise<void>;
   setXp(wallet: string, xp: number): Promise<void>; // admin/dev: set xp directly (recomputes level)
+  resetProfile(wallet: string): Promise<void>; // admin/dev: new-player state, PRESERVES token_balance
   /** Add to lifetime time-in-match (seconds). Best-effort, never throws. */
   addPlaytime(wallet: string, seconds: number): Promise<void>;
   /** Claim today's daily login reward (idempotent per UTC day). Advances the
@@ -486,6 +487,17 @@ class InMemoryStore implements ProfileStore {
     this.map.set(wallet, p);
     p.xp = Math.max(0, Math.floor(xp));
     p.level = 1 + Math.floor(p.xp / 200);
+  }
+
+  async resetProfile(wallet: string): Promise<void> {
+    const p = this.map.get(wallet) ?? blankProfile(wallet, "", 0);
+    this.map.set(wallet, p);
+    Object.assign(p, {
+      level: 1, xp: 0, chips: STARTING_CHIPS, skins: DEFAULT_SKINS, skin: 0,
+      matches: 0, wins: 0, frags: 0, deaths: 0, current_streak: 0, best_streak: 0,
+      rating: STARTING_RATING, week_points: 0, week_key: "", chips_won: 0,
+      daily_day: 0, daily_streak: 0,
+    }); // token_balance / tokens_won / name / referral fields preserved
   }
 
   async addPlaytime(wallet: string, seconds: number): Promise<void> {
@@ -994,6 +1006,23 @@ class SupabaseStore implements ProfileStore {
         method: "PATCH",
         headers: this.headers(),
         body: JSON.stringify({ xp: v, level: 1 + Math.floor(v / 200) }),
+      });
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  async resetProfile(wallet: string): Promise<void> {
+    try {
+      await fetch(`${this.url}/rest/v1/profiles?wallet=eq.${encodeURIComponent(wallet)}`, {
+        method: "PATCH",
+        headers: this.headers(),
+        body: JSON.stringify({
+          level: 1, xp: 0, chips: STARTING_CHIPS, skins: DEFAULT_SKINS, skin: 0,
+          matches: 0, wins: 0, frags: 0, deaths: 0, current_streak: 0, best_streak: 0,
+          rating: STARTING_RATING, week_points: 0, week_key: "", chips_won: 0,
+          daily_day: 0, daily_streak: 0,
+        }), // token_balance / tokens_won / name preserved
       });
     } catch {
       /* best-effort */
@@ -1807,6 +1836,22 @@ class PostgresStore implements ProfileStore {
       );
     } catch (e) {
       console.error("[store] pg setXp failed", e);
+    }
+  }
+
+  async resetProfile(wallet: string): Promise<void> {
+    try {
+      await this.ready;
+      // new-player state; token_balance / tokens_won / name / referral fields untouched
+      await this.pool.query(
+        `update profiles set level=1, xp=0, chips=$2, skins=$3, skin=0, matches=0, wins=0,
+           frags=0, deaths=0, current_streak=0, best_streak=0, rating=$4, week_points=0,
+           week_key='', chips_won=0, daily_day=0, daily_streak=0, updated_at=now()
+         where wallet=$1`,
+        [wallet, STARTING_CHIPS, DEFAULT_SKINS, STARTING_RATING],
+      );
+    } catch (e) {
+      console.error("[store] pg resetProfile failed", e);
     }
   }
 

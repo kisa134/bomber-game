@@ -55,10 +55,12 @@ export function initAdminMode(isAdmin: boolean, getSession: () => string): void 
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:5px">
         <button data-dev="chips" class="adm-devb">+1M 🪙</button>
-        <button data-dev="tokens" class="adm-devb">+100k 💎</button>
         <button data-dev="xp" class="adm-devb">+5 lvl</button>
-        <button data-dev="max" class="adm-devb">MAX</button>
+        <button data-dev="max" class="adm-devb">MAX 🪙</button>
+        <button data-dev="ownall" id="adm-ownall" class="adm-devb">Own all: ON</button>
+        <button data-dev="reset" class="adm-devb" style="border-color:rgba(255,90,77,.55)">Reset profile</button>
       </div>
+      <div style="color:#6b7689;font-size:9px;margin-top:4px">💎 tokens = real money — never editable here</div>
       <div id="adm-dev-st" style="color:#34d399;margin-top:6px;min-height:14px;font:11px/1.3 'Space Mono',monospace"></div>
     </div>
     <a href="/admin/marketing/" target="_blank" rel="noopener" style="display:block;margin-top:9px;text-align:center;color:#22d3ee;text-decoration:none;font-weight:700;font-size:11px">Open full admin ↗</a>`;
@@ -108,7 +110,7 @@ export function initAdminMode(isAdmin: boolean, getSession: () => string): void 
   document.head.appendChild(style);
   const devSt = panel.querySelector("#adm-dev-st") as HTMLElement;
   const lvlInput = panel.querySelector("#adm-lvl") as HTMLInputElement;
-  const devSet = async (payload: Record<string, number>): Promise<void> => {
+  const devSet = async (payload: Record<string, number | boolean>): Promise<void> => {
     const s = getSession();
     if (!s) { devSt.textContent = "✖ connect a wallet first"; return; }
     devSt.textContent = "…";
@@ -121,14 +123,26 @@ export function initAdminMode(isAdmin: boolean, getSession: () => string): void 
       devSt.textContent = `✓ LV ${r.level} · 🪙${fmtC(r.chips)} · 💎${fmtC(r.gameTokens)} — reopen shop`;
     } catch { devSt.textContent = "✖ network"; }
   };
+  const ownAllBtn = panel.querySelector("#adm-ownall") as HTMLButtonElement;
+  const syncOwnAll = (): void => { ownAllBtn.textContent = `Own all: ${localStorage.getItem("bp_admin_ownall") === "0" ? "OFF" : "ON"}`; };
+  syncOwnAll();
   panel.querySelectorAll<HTMLButtonElement>("[data-dev]").forEach((b) => {
     b.addEventListener("click", () => {
       const k = b.dataset.dev;
       if (k === "setlvl") { const lv = Math.max(1, Math.floor(Number(lvlInput.value) || 0)); if (lv >= 1) void devSet({ level: lv }); }
       else if (k === "chips") void devSet({ addChips: 1_000_000 });
-      else if (k === "tokens") void devSet({ addTokens: 100_000 });
       else if (k === "xp") void devSet({ addXp: 1000 }); // +5 levels (200xp each)
-      else if (k === "max") void devSet({ level: 99, addChips: 1_000_000_000, addTokens: 1_000_000 });
+      else if (k === "max") void devSet({ level: 99, addChips: 1_000_000_000 }); // chips only — never tokens
+      else if (k === "ownall") {
+        const off = localStorage.getItem("bp_admin_ownall") === "0";
+        localStorage.setItem("bp_admin_ownall", off ? "1" : "0"); // toggle
+        syncOwnAll();
+        devSt.textContent = "✓ reload to apply…";
+        setTimeout(() => location.reload(), 500);
+      } else if (k === "reset") {
+        if (!confirm("Reset YOUR profile to a new player? (level/chips/skins/stats wiped — real 💎 tokens are kept)")) return;
+        void devSet({ reset: true }).then(() => { devSt.textContent = "✓ reset — reloading…"; setTimeout(() => location.reload(), 700); });
+      }
     });
   });
 
