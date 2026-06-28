@@ -20,7 +20,12 @@ export default defineConfig({
   },
   plugins: [
     VitePWA({
-      registerType: "autoUpdate", // new deploys take over + reload automatically (no stale cache)
+      // "prompt" — we register the SW ourselves in main.ts and apply updates
+      // SILENTLY on a safe screen (never mid-match) via maybeApplySWUpdate().
+      // NOTE: do NOT switch this to "autoUpdate" — that bypasses our update
+      // machinery and triggers aggressive skipWaiting+clientsClaim auto-reloads
+      // that broke loading on mobile / PWA / Telegram webview (reload churn).
+      registerType: "prompt",
       injectRegister: null, // we call registerSW() ourselves in main.ts
       manifest: {
         name: "Bombermeme",
