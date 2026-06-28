@@ -164,7 +164,8 @@ export type ScreenName =
   | "room"
   | "game"
   | "result"
-  | "tournaments";
+  | "tournaments"
+  | "campaign";
 const SCREENS: ScreenName[] = [
   "splash",
   "loading",
@@ -180,6 +181,7 @@ const SCREENS: ScreenName[] = [
   "game",
   "result",
   "tournaments",
+  "campaign",
 ];
 
 // ── "You're still in a room" affordance ─────────────────────────────────────
@@ -216,7 +218,7 @@ export function showScreen(name: ScreenName): void {
   refreshReturnRoom();
   // Sync the top-nav highlight to the screen: HOME on the hub, ARENA in the
   // lobby/room (room search + waiting room), SHOP in the shop.
-  const navFor: Partial<Record<ScreenName, string>> = { menu: "nav-home", lobby: "nav-arena", room: "nav-arena", shop: "nav-shop" };
+  const navFor: Partial<Record<ScreenName, string>> = { menu: "nav-home", lobby: "nav-arena", room: "nav-arena", shop: "nav-shop", campaign: "nav-home" };
   const navId = navFor[name];
   document.querySelectorAll(".hub-nav-link").forEach((a) => a.classList.toggle("active", a.id === navId));
   // Persistent top chrome (alpha notice + global status bar + XP): shown on every
@@ -854,7 +856,7 @@ export function renderRoom(state: GameState): void {
   //     arrows; owned = selected, locked = dimmed + 🔒 with Unlock in SHOP. ----
   const me0 = state.roomPlayers.find((p) => p.id === state.myId);
   if (me0) {
-    if (browseSkin < 0) browseSkin = me0.skin; // start on your current character
+    if (browseSkin < 0) browseSkin = me0.skin; // start on your current
     renderCharacter();
   }
 
