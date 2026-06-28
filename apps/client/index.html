@@ -238,6 +238,11 @@
             <div class="hb-side hb-mode">
               <div class="hb-label">GAME MODE</div>
               <button id="hub-gamemode" class="hb-mode-btn">🌐 Ranked Arena <span class="hb-caret">▾</span></button>
+              <div id="gamemode-dropdown" class="gamemode-dropdown hidden">
+                <button class="gm-opt" data-mode="arena">🌐 Ranked Arena</button>
+                <button class="gm-opt" data-mode="sandbox">🧪 Sandbox</button>
+                <button class="gm-opt" data-mode="world">🌍 World (Campaign)</button>
+              </div>
             </div>
             <button id="open-play" class="primary hub-play glass-btn">
               <span class="hp-title">PLAY ONLINE</span>
@@ -520,7 +525,7 @@
         <div class="lb-wrap">
           <div class="lb-top">
             <button id="leaderboard-back" class="ghost lobby-icon">←</button>
-            <h2 class="lobby-title">Leaderboard</h2>
+            < <h2 class="lobby-title">Leaderboard</h2>
             <span class="lobby-icon" style="visibility:hidden">.</span>
           </div>
           <div class="seg lb-period">
@@ -709,6 +714,112 @@
               <button id="propose-stake" class="ghost">Raise stake</button>
               <button id="ready-btn" class="primary glass-btn">Ready up</button>
               <button id="start-now" class="primary glass-btn hidden">Start now</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== CAMPAIGN / WORLD MODE ===== -->
+      <section id="campaign" class="screen hidden">
+        <div id="campaign-wrap" class="campaign-wrap">
+          <!-- Campaign canvas (separate from arena canvas) -->
+          <canvas id="campaign-canvas" class="campaign-canvas"></canvas>
+
+          <!-- Campaign HUD -->
+          <div id="campaign-hud" class="campaign-hud hidden">
+            <!-- Top-left: HP + Mana bars -->
+            <div class="camp-hud-tl">
+              <div class="camp-bar-row">
+                <span class="camp-bar-label">❤️</span>
+                <div class="camp-bar"><div id="camp-hp-fill" class="camp-fill camp-hp" style="width:100%"></div></div>
+                <span id="camp-hp-text" class="camp-bar-text">100/100</span>
+              </div>
+              <div class="camp-bar-row">
+                <span class="camp-bar-label">🔮</span>
+                <div class="camp-bar"><div id="camp-mana-fill" class="camp-fill camp-mana" style="width:100%"></div></div>
+                <span id="camp-mana-text" class="camp-bar-text">100/100</span>
+              </div>
+            </div>
+            <!-- Top-right: minimap + XP -->
+            <div class="camp-hud-tr">
+              <div class="camp-minimap-wrap">
+                <canvas id="camp-minimap" class="camp-minimap" width="120" height="120"></canvas>
+                <span id="camp-zone" class="camp-zone">🟢 Safe Zone</span>
+              </div>
+              <div class="camp-xp-row">
+                <span>LV <span id="camp-level">1</span></span>
+                <div class="camp-xp-bar"><div id="camp-xp-fill" class="camp-xp-fill" style="width:0%"></div></div>
+              </div>
+            </div>
+            <!-- Bottom: skill bar -->
+            <div class="camp-hud-bot">
+              <div id="camp-skills" class="camp-skills">
+                <div class="camp-skill" data-slot="1">
+                  <div class="camp-skill-icon">💣</div>
+                  <div class="camp-skill-key">1</div>
+                  <div class="camp-skill-cd hidden"></div>
+                </div>
+                <div class="camp-skill" data-slot="2">
+                  <div class="camp-skill-icon">⚡</div>
+                  <div class="camp-skill-key">2</div>
+                  <div class="camp-skill-cd hidden"></div>
+                </div>
+                <div class="camp-skill" data-slot="3">
+                  <div class="camp-skill-icon">🛡️</div>
+                  <div class="camp-skill-key">Q</div>
+                  <div class="camp-skill-cd hidden"></div>
+                </div>
+                <div class="camp-skill" data-slot="4">
+                  <div class="camp-skill-icon">👟</div>
+                  <div class="camp-skill-key">Space</div>
+                  <div class="camp-skill-cd hidden"></div>
+                </div>
+              </div>
+              <div class="camp-currency">🪙 <span id="camp-gold">0</span></div>
+            </div>
+            <!-- Bottom-right: controls hint -->
+            <div class="camp-hud-hint">
+              <span>WASD · Move</span>
+              <span>LMB · Throw bomb</span>
+              <span>RMB · Skill</span>
+              <span>I · Inventory</span>
+              <span>M · Map</span>
+            </div>
+          </div>
+
+          <!-- Campaign loading overlay -->
+          <div id="campaign-loading" class="campaign-loading">
+            <div class="spinner"></div>
+            <p id="campaign-loading-text">Loading world…</p>
+          </div>
+
+          <!-- Campaign onboarding overlay (first time only) -->
+          <div id="campaign-onboard" class="campaign-onboard hidden">
+            <div class="camp-onboard-card">
+              <h2 id="camp-onboard-title">Welcome to BomberMeme World</h2>
+              <div id="camp-onboard-body">
+                <p>WASD to move freely through the world. No grid — go anywhere!</p>
+                <p>LMB to throw bombs toward your cursor. Hold to charge for distance.</p>
+                <p>RMB to use your character's unique skill.</p>
+                <p>Explore, fight, level up — and uncover the secrets of the Seven Factions.</p>
+              </div>
+              <div class="camp-onboard-steps">
+                <span class="camp-step-dot active"></span>
+                <span class="camp-step-dot"></span>
+                <span class="camp-step-dot"></span>
+                <span class="camp-step-dot"></span>
+              </div>
+              <button id="camp-onboard-next" class="primary big">Next →</button>
+            </div>
+          </div>
+
+          <!-- Pause menu -->
+          <div id="campaign-pause" class="campaign-pause hidden">
+            <div class="camp-pause-card glass">
+              <h2>Paused</h2>
+              <button id="camp-resume" class="primary big">Resume</button>
+              <button id="camp-settings" class="glass-btn">Settings</button>
+              <button id="camp-quit" class="ghost">Quit to Hub</button>
             </div>
           </div>
         </div>
