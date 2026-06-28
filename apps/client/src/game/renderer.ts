@@ -13,6 +13,7 @@ const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft:
   desert: { hard: "hard_sand", soft: "soft_sand", floor: "floor_sand" },
   industrial: { hard: "hard_industrial", soft: "soft_tech", floor: "floor_industrial" }, // yellow-black factory
   chappie: { hard: "hard_chappie", soft: "soft_chappie", floor: "floor_chappie" }, // white-orange near-future
+  meme: { hard: "hard_meme", soft: "soft_meme", floor: "floor_meme" }, // crypto-meme broadcast studio
 };
 
 // Light per-arena AMBIENT atmosphere — slow drifting motes for cozy immersion.
@@ -25,6 +26,7 @@ const ATMOSPHERE: Record<ArenaTheme, { color: string; vx: number; vy: number; n:
   desert: { color: "228,198,138", vx: 26, vy: 3, n: 22, sq: false, size: 1.8 }, // sand drifting on the wind
   industrial: { color: "255,168,60", vx: 5, vy: -12, n: 16, sq: true, size: 1.8 }, // warm orange sparks
   chappie: { color: "255,210,150", vx: 4, vy: -7, n: 14, sq: false, size: 2.0 }, // soft warm motes
+  meme: { color: "100,255,150", vx: 0, vy: -13, n: 20, sq: true, size: 1.8 }, // green candle-ticks rising
 };
 
 // "Living" hard blocks — themes whose hard block has a glowing window that BREATHES
@@ -32,6 +34,7 @@ const ATMOSPHERE: Record<ArenaTheme, { color: string; vx: number; vy: number; n:
 const ARENA_GLOW: Partial<Record<ArenaTheme, string>> = {
   chappie: "255,150,40",
   industrial: "255,140,30",
+  meme: "120,230,255", // the LED broadcast screen breathes
 };
 
 // One unique colour per player slot — supports a full 8-player arena (1 human +
@@ -434,7 +437,7 @@ export class Renderer {
     "soft", "soft_mobile", "bomb",
     // arena-theme block variants (prescaled so a theme switch is instant)
     "hard_gold", "hard_stone", "hard_obsidian", "hard_sand", "soft_ammo", "soft_tech", "soft_meme", "soft_sand",
-    "soft_cyberglass", "soft_obsidian", "hard_industrial", "hard_chappie", "soft_chappie",
+    "soft_cyberglass", "soft_obsidian", "hard_industrial", "hard_chappie", "soft_chappie", "hard_meme",
     "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
