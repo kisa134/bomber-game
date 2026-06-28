@@ -6,7 +6,7 @@ export type ValueUnit = "usd" | "sol";
 /** How balances read: token amount with an ≈ conversion, or purely the money value. */
 export type ValueMode = "token" | "fiat";
 /** Arena block skin: the classic grass/blocks, or a themed material set. */
-export type ArenaTheme = "classic" | "vault" | "cyber" | "void";
+export type ArenaTheme = "classic" | "vault" | "cyber" | "void" | "desert";
 
 export interface Settings {
   music: boolean;

@@ -10,6 +10,7 @@ const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft:
   vault: { hard: "hard_gold", soft: "soft_ammo", floor: "floor_grate" },
   cyber: { hard: "hard_stone", soft: "soft_tech", floor: "floor_neon" },
   void: { hard: "hard_obsidian", soft: "soft_meme", floor: "floor_void" },
+  desert: { hard: "hard_sand", soft: "soft_sand", floor: "floor_sand" },
 };
 
 // One unique colour per player slot — supports a full 8-player arena (1 human +
@@ -353,7 +354,7 @@ export class Renderer {
     "hard_dmg4_v1", "hard_dmg4_v2", "hard_dmg5_v1", "hard_dmg5_v2", "hard_dmg6_v1", "hard_dmg6_v2",
     "soft", "soft_mobile", "bomb",
     // arena-theme block variants (prescaled so a theme switch is instant)
-    "hard_gold", "hard_stone", "hard_obsidian", "soft_ammo", "soft_tech", "soft_meme",
+    "hard_gold", "hard_stone", "hard_obsidian", "hard_sand", "soft_ammo", "soft_tech", "soft_meme", "soft_sand",
     "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
