@@ -1815,9 +1815,10 @@ export class Renderer {
       }
     }
 
-    // Desktop: live swaying grass over the open ground, after blocks so the
-    // front tips overlap them for a layered 3D look. (Phones use the flat sprite.)
-    if (!this.lowFx) this.drawGrassOverlay(view, now);
+    // Desktop: live swaying grass over the open ground, after blocks so the front
+    // tips overlap them for a layered 3D look. CLASSIC-ONLY (and only the animated
+    // floor mode) — themed arenas + the static grass texture must NOT grow blades.
+    if (!this.lowFx && this.arenaTheme === "classic" && !this.grassTexture) this.drawGrassOverlay(view, now);
 
     this.drawShatters(now); // crate pieces flying apart from just-broken soft blocks
     this.drawDecals(now);
