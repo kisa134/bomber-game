@@ -22,7 +22,10 @@ export interface Settings {
   sfxVolume: number; // 0..1 sound-effects volume
   ambientFx: boolean; // per-arena ambient atmosphere motes
   grassTexture: boolean; // Classic floor: false = animated grass, true = static texture
+  gfxPreset: GfxPreset; // graphics quality preset; "custom" once any graphics toggle is changed by hand
 }
+
+export type GfxPreset = "low" | "medium" | "high" | "custom";
 
 const KEY = "bp_settings";
 
@@ -42,6 +45,7 @@ const DEFAULTS: Settings = {
   sfxVolume: 1,
   ambientFx: true,
   grassTexture: false,
+  gfxPreset: "high",
 };
 
 export function loadSettings(): Settings {

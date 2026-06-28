@@ -75,7 +75,7 @@ import { GameState } from "./game/state.js";
 import { Renderer, PLAYER_COLORS, skinAvatar } from "./game/renderer.js";
 import { Input } from "./game/input.js";
 import { Assets, ASSET_VER } from "./game/assets.js";
-import { loadSettings, saveSettings, type Settings, type ArenaTheme } from "./settings.js";
+import { loadSettings, saveSettings, type Settings, type ArenaTheme, type GfxPreset } from "./settings.js";
 import {
   listWallets,
   connectAndSignIn,
@@ -1504,6 +1504,22 @@ const LOCKED_THEMES = new Set<ArenaTheme>(["meme", "chappie", "cyber", "desert"]
 const themeLocked = (t: string): boolean => LOCKED_THEMES.has(t as ArenaTheme) && !shopIsAdmin;
 const effectiveTheme = (): ArenaTheme => (themeLocked(settings.arenaTheme) ? "classic" : settings.arenaTheme);
 
+// Graphics quality presets map to the underlying granular flags. Hand-tweaking any
+// graphics toggle flips the preset to "custom" (handled at the toggle handlers).
+function applyGfxPreset(p: Exclude<GfxPreset, "custom">): void {
+  const map = {
+    low: { liteGfx: true, ambientFx: false },
+    medium: { liteGfx: false, ambientFx: false },
+    high: { liteGfx: false, ambientFx: true },
+  }[p];
+  settings.liteGfx = map.liteGfx;
+  settings.ambientFx = map.ambientFx;
+  settings.gfxPreset = p;
+  saveSettings(settings);
+  applySettings();
+  if (p === "low") goLite();
+}
+
 function applySettings(): void {
   assets.setMusicEnabled(settings.music);
   assets.setSfxEnabled(settings.sfx);
@@ -1534,6 +1550,9 @@ function syncSettingsUI(): void {
   if (lt) { lt.dataset.on = String(settings.liteGfx); lt.textContent = settings.liteGfx ? "On" : "Off"; }
   const am = document.getElementById("set-ambient") as HTMLButtonElement | null;
   if (am) { am.dataset.on = String(settings.ambientFx); am.textContent = settings.ambientFx ? "On" : "Off"; }
+  for (const p of ["low", "medium", "high"]) {
+    document.getElementById("gfx-" + p)?.classList.toggle("active", settings.gfxPreset === p);
+  }
   if (settings.liteGfx) goLite(); // force the lighter render when the player opted in
   document.getElementById("ctl-joystick")!.classList.toggle("active", settings.controls === "joystick");
   document.getElementById("ctl-dpad")!.classList.toggle("active", settings.controls === "dpad");
@@ -1643,10 +1662,14 @@ function wireSettings(): void {
   document.getElementById("vol-music")?.addEventListener("input", (e) => update("musicVolume", Number((e.target as HTMLInputElement).value) / 100));
   document.getElementById("vol-sfx")?.addEventListener("input", (e) => update("sfxVolume", Number((e.target as HTMLInputElement).value) / 100));
   document.getElementById("set-gore")?.addEventListener("click", () => update("gore", !settings.gore));
-  document.getElementById("set-ambient")?.addEventListener("click", () => update("ambientFx", !settings.ambientFx));
+  document.getElementById("gfx-low")?.addEventListener("click", () => applyGfxPreset("low"));
+  document.getElementById("gfx-medium")?.addEventListener("click", () => applyGfxPreset("medium"));
+  document.getElementById("gfx-high")?.addEventListener("click", () => applyGfxPreset("high"));
+  document.getElementById("set-ambient")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("ambientFx", !settings.ambientFx); });
   document.getElementById("floor-anim")?.addEventListener("click", () => update("grassTexture", false));
   document.getElementById("floor-tex")?.addEventListener("click", () => update("grassTexture", true));
   document.getElementById("set-lite")?.addEventListener("click", () => {
+    settings.gfxPreset = "custom";
     update("liteGfx", !settings.liteGfx);
     if (settings.liteGfx) goLite();
     else setMenuStatus("Reload to restore full effects");
