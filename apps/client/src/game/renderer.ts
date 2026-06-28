@@ -15,6 +15,7 @@ const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft:
   chappie: { hard: "hard_chappie", soft: "soft_chappie2", floor: "floor_chappie" }, // white-orange near-future
   meme: { hard: "hard_meme", soft: "soft_meme2", floor: "floor_meme" }, // broadcast studio (crypto crate freed for a new theme)
   degen: { hard: "hard_degen", soft: "soft_degen", floor: "floor_degen" }, // graffiti street (crypto crate freed for a new theme)
+  pepe: { hard: "hard_pepe", soft: "soft_pepe", floor: "floor_pepe" }, // cosy swamp Pepe world
 };
 
 // Light per-arena AMBIENT atmosphere — slow drifting motes for cozy immersion.
@@ -29,6 +30,7 @@ const ATMOSPHERE: Record<ArenaTheme, { color: string; vx: number; vy: number; n:
   chappie: { color: "255,210,150", vx: 4, vy: -7, n: 14, sq: false, size: 2.0 }, // soft warm motes
   meme: { color: "100,255,150", vx: 0, vy: -13, n: 20, sq: true, size: 1.8 }, // green candle-ticks rising
   degen: { color: "210,200,180", vx: 14, vy: -4, n: 14, sq: false, size: 1.8 }, // street dust drifting
+  pepe: { color: "150,235,120", vx: 7, vy: -6, n: 16, sq: false, size: 2.0 }, // drifting swamp spores
 };
 
 // "Living" hard blocks — themes whose hard block has a glowing window that BREATHES
