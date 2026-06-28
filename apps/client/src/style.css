@@ -1243,13 +1243,13 @@ body.unit-sol .calc-usd {
 /* Open full-width shell — no outer card (the wide-screen rule strips any
    bg/border); glass stays on the bento cards + room rows only. */
 .lobby-wrap {
-  width: min(1320px, 100%);
+  width: min(1200px, 100%); /* match the unified page width (shop/settings/leaderboard) */
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding: 4px 6px;
+  padding: 4px 16px; /* 16px sides like the other pages so arena isn't wider; top set by unified rule */
 }
 .lobby-top {
   display: flex;
