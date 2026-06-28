@@ -34,6 +34,7 @@ export const SPRITE_FILES: Record<string, string> = {
   soft_void3: "/sprites/soft_void3",
   soft_void4: "/sprites/soft_void4",
   hard_meme: "/sprites/hard_meme",
+  soft_meme2: "/sprites/soft_meme2",
   floor_meme: "/sprites/floor_meme",
   hard_industrial: "/sprites/hard_industrial",
   floor_industrial: "/sprites/floor_industrial",
@@ -77,7 +78,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "54";
+export const ASSET_VER = "55";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.

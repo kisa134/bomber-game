@@ -13,7 +13,7 @@ const ARENA_THEMES: Record<Exclude<ArenaTheme, "classic">, { hard: string; soft:
   desert: { hard: "hard_sand", soft: "soft_sand", floor: "floor_sand" },
   industrial: { hard: "hard_industrial", soft: "soft_industrial", floor: "floor_industrial" }, // yellow-black factory
   chappie: { hard: "hard_chappie", soft: "soft_chappie2", floor: "floor_chappie" }, // white-orange near-future
-  meme: { hard: "hard_meme", soft: "soft_meme", floor: "floor_meme" }, // crypto-meme broadcast studio
+  meme: { hard: "hard_meme", soft: "soft_meme2", floor: "floor_meme" }, // broadcast studio (crypto crate freed for a new theme)
 };
 
 // Light per-arena AMBIENT atmosphere — slow drifting motes for cozy immersion.
@@ -443,7 +443,7 @@ export class Renderer {
     "soft", "soft_mobile", "bomb",
     // arena-theme block variants (prescaled so a theme switch is instant)
     "hard_gold", "hard_stone", "hard_obsidian", "hard_sand", "soft_ammo", "soft_tech", "soft_meme", "soft_sand",
-    "soft_cyberglass", "soft_void1", "soft_void2", "soft_void3", "soft_void4", "hard_industrial", "soft_industrial", "hard_chappie", "soft_chappie2", "hard_meme",
+    "soft_cyberglass", "soft_void1", "soft_void2", "soft_void3", "soft_void4", "hard_industrial", "soft_industrial", "hard_chappie", "soft_chappie2", "hard_meme", "soft_meme2",
     "explosion0", "explosion1", "explosion2", "explosion3", "explosion4", "explosion",
     "pu_bomb", "pu_fire", "pu_speed", "pu_kick", "pu_wall", "pu_health",
   ];
