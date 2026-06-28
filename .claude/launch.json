@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "design-mockup",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "serve", "design", "-l", "5599", "--no-clipboard"],
+      "port": 5599
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "bombermeme-landing", "dev"],
+      "port": 3005
+    }
+  ]
+}
