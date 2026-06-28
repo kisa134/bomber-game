@@ -1,16 +1,10 @@
 /**
  * Story.ts — BomberMeme World
- * Главная сюжетная линия кампании: 7 Актов.
- *
- * Каждый акт привязан к одному Царству, одной фракции и одному боссу.
- * Акт 1 — полностью расписан. Акты 2-7 — заглушки с кратким описанием.
+ * Main campaign storyline: 7 Acts.
+ * Act 1 fully detailed. Acts 2-7 are stubs with descriptions.
  */
 
 import { FactionId } from './Factions';
-
-// ═══════════════════════════════════════════════
-// Типы
-// ═══════════════════════════════════════════════
 
 export type QuestType = 'main' | 'side' | 'daily' | 'faction';
 
@@ -86,499 +80,244 @@ export interface StoryAct {
   epilogue: string;
 }
 
-// ═══════════════════════════════════════════════
-// Вспомогательные функции
-// ═══════════════════════════════════════════════
-
-function makeObjective(
-  id: string,
-  type: Objective['type'],
-  target: string,
-  description: string,
-  count: number = 1
-): Objective {
+function makeObjective(id: string, type: Objective['type'], target: string, description: string, count: number = 1): Objective {
   return { id, type, target, description, count, current: 0, completed: false };
 }
 
-function makeReward(
-  experience: number,
-  gold: number,
-  items?: string[],
-  unlockWorldId?: string,
-  reputation?: { faction: FactionId; amount: number }[]
-): Reward {
-  return { experience, gold, items, unlockWorldId, reputation };
+function makeReward(exp: number, gold: number, items?: string[], unlockWorldId?: string, reputation?: { faction: FactionId; amount: number }[]): Reward {
+  return { experience: exp, gold, items, unlockWorldId, reputation };
 }
 
-// ═══════════════════════════════════════════════
-// АКТ I: Пробуждение (Grasslands / Дикий Круг)
-// ═══════════════════════════════════════════════
-
+// ACT I: Awakening (Grasslands / Wild Circle)
 const ACT_I: StoryAct = {
   actNumber: 1,
-  title: 'Пробуждение',
-  subtitle: 'Когда Искра загорается вновь',
+  title: 'Awakening',
+  subtitle: 'When the Spark ignites again',
   worldId: 'grass',
-  worldName: 'Зелёные Земли',
+  worldName: 'Green Lands',
   factionId: 'wild_circle',
-  description:
-    'Игрок просыпается в Зелёной Долине без памяти. На ладони — светящаяся Марка Искры, символ, не виданный миром 500 лет. Вайлд, странствующий друид, находит игрока и учит основам выживания. Вскоре Зелёные Земли атакованы теневыми существами — и игрок оказывается единственным, кто может остановить их.',
+  description: 'The player awakens in Green Valley with no memory. A glowing Mark of the Spark on their palm — a symbol unseen for 500 years. Wild, a wandering druid, finds the player and teaches survival basics. Soon the Green Lands are attacked by shadow creatures — and the player becomes the only one who can stop them.',
   levelRange: [1, 10],
   quests: [
-    // ─── Главный квест Акта 1 ───
     {
       id: 'act1_main',
-      title: 'Путь Искры',
-      description:
-        'Пробудитесь в новом мире, научитесь использовать бомбы, найдите союзников и остановите теневое нашествие, убив Пожирателя Корней — теневого босса, угрожающего Зелёным Землям.',
+      title: 'Path of the Spark',
+      description: 'Awaken in a new world, learn to use bombs, find allies and stop the shadow invasion by killing the Root Devourer — the shadow boss threatening the Green Lands.',
       type: 'main',
       levelRequired: 1,
       worldId: 'grass',
       objectives: [
-        makeObjective('am1', 'explore', 'green_valley', 'Исследуйте Зелёную Долину, куда вы пробудились', 1),
-        makeObjective('am2', 'talk', 'wild', 'Поговорите с Вайлдом — странствующим друидом, который нашёл вас', 1),
-        makeObjective('am3', 'collect', 'spark_bomb', 'Найдите свою первую бомбу в Священной Роще', 1),
-        makeObjective('am4', 'kill', 'shadow_blob', 'Уничтожьте 5 Теневых Блобов, проникших в Зелёные Земли', 5),
-        makeObjective('am5', 'talk', 'vine_keeper', 'Поговорите со Хранителем Лоз — старейшиной Дикого Круга', 1),
-        makeObjective('am6', 'explore', 'dead_grove', 'Исследуйте Мёртвую Рощу — место первого прорыва Пустоты', 1),
-        makeObjective('am7', 'survive', 'shadow_wave', 'Выживите в волне теневых существ, атакующих деревню', 3),
-        makeObjective('am8', 'kill', 'root_devourer', 'Убейте Пожирателя Корней — теневого босса, угрожающего Зелёным Землям', 1),
+        makeObjective('am1', 'explore', 'green_valley', 'Explore Green Valley where you awakened'),
+        makeObjective('am2', 'talk', 'wild', 'Talk to Wild — the wandering druid who found you'),
+        makeObjective('am3', 'collect', 'spark_bomb', 'Find your first bomb in the Sacred Grove'),
+        makeObjective('am4', 'kill', 'shadow_blob', 'Destroy 5 Shadow Blobs that infiltrated the Green Lands', 5),
+        makeObjective('am5', 'talk', 'vine_keeper', 'Talk to the Vine Keeper — elder of the Wild Circle'),
+        makeObjective('am6', 'explore', 'dead_grove', 'Explore the Dead Grove — site of the first Void breach'),
+        makeObjective('am7', 'survive', 'shadow_wave', 'Survive the wave of shadow creatures attacking the village', 3),
+        makeObjective('am8', 'kill', 'root_devourer', 'Defeat the Root Devourer — shadow boss threatening the Green Lands'),
       ],
-      rewards: makeReward(1000, 500, ['starter_pack', 'wild_circle_token'], 'sand', [
-        { faction: 'wild_circle', amount: 50 },
-      ]),
+      rewards: makeReward(1000, 500, ['starter_pack', 'wild_circle_token'], 'sand', [{ faction: 'wild_circle', amount: 50 }]),
       dialogues: [
         {
           id: 'act1_opening',
           trigger: 'game_start',
           lines: [
-            { speaker: 'Нарратор', text: 'Год 1000 от Великого Взрыва. Зелёные Земли засыпают под шёпот ветра...' },
-            { speaker: 'Нарратор', text: 'Вы просыпаетесь. Не помните, кто вы. Не помните, откуда.' },
-            { speaker: 'Игрок', text: '...где я?', emotion: 'sad' },
-            { speaker: 'Нарратор', text: 'На вашей ладони пульсирует свет — Марка Искры, символ, не виданный миром пятьсот лет.' },
-            { speaker: '???', text: 'Эй! Ты живой? Не часто встретишь кого-то без единой бомбы в кармане в этих краях.', emotion: 'surprised' },
+            { speaker: 'Narrator', text: 'Year 1000 since the Great Boom. The Green Lands fall asleep under the whisper of wind...' },
+            { speaker: 'Narrator', text: 'You awaken. You do not remember who you are. You do not remember where you came from.' },
+            { speaker: 'Player', text: '...where am I?', emotion: 'sad' },
+            { speaker: 'Narrator', text: 'On your palm pulses a light — the Mark of the Spark, a symbol unseen by the world for five hundred years.' },
+            { speaker: '???', text: 'Hey! You alive? Not often you meet someone without a single bomb in their pocket around here.', emotion: 'surprised' },
           ],
         },
         {
           id: 'wild_first_meeting',
           trigger: 'meet_wild',
           lines: [
-            { speaker: 'Вайлд', text: 'Имя мне Вайлд. Я — странствующий друид Дикого Круга. А ты...', emotion: 'neutral' },
-            { speaker: 'Вайлд', text: 'Ты несёшь Марку Искры. Это... невозможно. Последний носитель погиб в Войну Пустоты.', emotion: 'surprised' },
-            { speaker: 'Игрок', text: 'Я не понимаю. Что эта Марка? Почему она светится?', emotion: 'sad' },
-            { speaker: 'Вайлд', text: 'Марка Искры выбирает своего носителя сама. Она — дар и проклятие. Даёт силу, но требует цену.', emotion: 'neutral' },
-            { speaker: 'Вайлд', text: 'Слушай. Пока мы болтаем, Тени наступают. Мёртвая Роща чернеет, и скоро зараза достигнет деревни.', emotion: 'angry' },
-            { speaker: 'Вайлд', text: 'Я научу тебя основам. Как ставить бомбу. Как убегать от взрыва. Как выживать.', emotion: 'neutral' },
-            { speaker: 'Вайлд', text: 'А потом... потом ты сам решишь, кем быть. Но знай: если Марка выбрала тебя — мир скоро изменится.', emotion: 'sad' },
+            { speaker: 'Wild', text: 'My name is Wild. I am a wandering druid of the Wild Circle. And you...', emotion: 'neutral' },
+            { speaker: 'Wild', text: 'You bear the Mark of the Spark. This... is impossible. The last bearer perished in the Void War.', emotion: 'surprised' },
+            { speaker: 'Player', text: 'I do not understand. What is this Mark? Why does it glow?', emotion: 'sad' },
+            { speaker: 'Wild', text: 'The Mark of the Spark chooses its bearer itself. It is a gift and a curse. Gives power, but demands a price.', emotion: 'neutral' },
+            { speaker: 'Wild', text: 'Listen. While we chat, Shadows advance. The Dead Grove blackens, and soon the infection will reach the village.', emotion: 'angry' },
+            { speaker: 'Wild', text: 'I will teach you the basics. How to place a bomb. How to run from the blast. How to survive.', emotion: 'neutral' },
           ],
           choices: [
-            { text: 'Научи меня. Я готов.', nextDialogueId: 'wild_tutorial_start' },
-            { text: 'Я справлюсь сам.', nextDialogueId: 'wild_tutorial_skip' },
-          ],
-        },
-        {
-          id: 'wild_boss_hint',
-          trigger: 'before_boss',
-          lines: [
-            { speaker: 'Вайлд', text: 'Вот оно. Сердце Мёртвой Рощи. Пожиратель Корней — теневое чудовище, питающееся жизненной силой растений.', emotion: 'threatening' },
-            { speaker: 'Вайлд', text: 'Обычные бомбы бесполезны против него. Но твоя Марка... она может пробить его защиту.', emotion: 'neutral' },
-            { speaker: 'Вайлд', text: 'Я прикрою тебя. Бомби быстро, бомби точно. Не давай ему касаться тебя — одно прикосновение Пустоты и...', emotion: 'angry' },
-            { speaker: 'Вайлд', text: 'Просто не дай ему коснуться тебя. Удачи, носитель Искры.', emotion: 'neutral' },
+            { text: 'Teach me. I am ready.', nextDialogueId: 'wild_tutorial_start' },
+            { text: 'I will manage on my own.', nextDialogueId: 'wild_tutorial_skip' },
           ],
         },
       ],
     },
-
-    // ─── Side Quest 1: Убийство ───
     {
       id: 'act1_side_hunt',
-      title: 'Охота на Теневых Грызунов',
-      description:
-        'Теневая энергия искажает живых существ. Обычные грызуны Зелёных Земель превратились в агрессивных чудовищ. Хранитель Лоз просит уничтожить их, пока зараза не распространилась дальше.',
+      title: 'Hunt the Shadow Rats',
+      description: 'Shadow energy corrupts living creatures. Ordinary rodents of the Green Lands have turned into aggressive monsters. The Vine Keeper asks to destroy them before the infection spreads further.',
       type: 'side',
       levelRequired: 2,
       worldId: 'grass',
       objectives: [
-        makeObjective('as1_1', 'kill', 'shadow_rat', 'Уничтожьте 10 Теневых Грызунов в окрестностях деревни', 10),
-        makeObjective('as1_2', 'collect', 'shadow_fang', 'Соберите 5 Теневых Клыков для исследований Хранителя Лоз', 5),
+        makeObjective('as1_1', 'kill', 'shadow_rat', 'Destroy 10 Shadow Rats near the village', 10),
+        makeObjective('as1_2', 'collect', 'shadow_fang', 'Collect 5 Shadow Fangs for the Vine Keeper research', 5),
       ],
       rewards: makeReward(300, 150, ['shadow_fang_dagger']),
     },
-
-    // ─── Side Quest 2: Сбор ───
     {
       id: 'act1_side_gather',
-      title: 'Цветы Возрождения',
-      description:
-        'В Мёртвой Роще появились странные Белые Цветы — растения, способные расти на теневой почве. Друид Вайн считает их ключом к пониманию Пустоты. Соберите образцы для изучения.',
+      title: 'Flowers of Rebirth',
+      description: 'Strange White Flowers have appeared in the Dead Grove — plants capable of growing on shadow soil. Druid Wild believes they are the key to understanding the Void. Collect samples for study.',
       type: 'side',
       levelRequired: 3,
       worldId: 'grass',
       objectives: [
-        makeObjective('as2_1', 'explore', 'dead_grove_edge', 'Доберитесь до опушки Мёртвой Рощи', 1),
-        makeObjective('as2_2', 'collect', 'white_flower', 'Соберите 8 Белых Цветов', 8),
-        makeObjective('as2_3', 'survive', 'shadow_ambush', 'Выживите в теневой засаде при сборе цветов', 1),
+        makeObjective('as2_1', 'explore', 'dead_grove_edge', 'Reach the edge of the Dead Grove'),
+        makeObjective('as2_2', 'collect', 'white_flower', 'Collect 8 White Flowers', 8),
+        makeObjective('as2_3', 'survive', 'shadow_ambush', 'Survive a shadow ambush while collecting flowers'),
       ],
-      rewards: makeReward(250, 100, ['white_flower_potion'], undefined, [
-        { faction: 'wild_circle', amount: 15 },
-      ]),
+      rewards: makeReward(250, 100, ['white_flower_potion'], undefined, [{ faction: 'wild_circle', amount: 15 }]),
     },
-
-    // ─── Side Quest 3: Исследование ───
     {
       id: 'act1_side_explore',
-      title: 'Тайны Древнего Алтаря',
-      description:
-        'Глубоко в лесу стоит заброшенный алтарь Прото-Героев. Местные жители избегают его, но странные свечения последние ночи привлекли внимание. Исследуйте алтарь и узнайте его секреты.',
+      title: 'Secrets of the Ancient Altar',
+      description: 'Deep in the forest stands an abandoned altar of the Proto-Heroes. Locals avoid it, but strange glows have attracted attention lately. Explore the altar and learn its secrets.',
       type: 'side',
       levelRequired: 4,
       worldId: 'grass',
       objectives: [
-        makeObjective('as3_1', 'explore', 'ancient_altar', 'Найдите Древний Алтарь в глубине леса', 1),
-        makeObjective('as3_2', 'talk', 'altar_ghost', 'Поговорите с духом Прото-Героя, обитающим у алтаря', 1),
-        makeObjective('as3_3', 'collect', 'spark_fragment', 'Найдите осколок Искры, спрятанный в алтаре', 1),
+        makeObjective('as3_1', 'explore', 'ancient_altar', 'Find the Ancient Altar deep in the forest'),
+        makeObjective('as3_2', 'talk', 'altar_ghost', 'Speak with the spirit of a Proto-Hero dwelling at the altar'),
+        makeObjective('as3_3', 'collect', 'spark_fragment', 'Find a Spark fragment hidden in the altar'),
       ],
       rewards: makeReward(400, 200, ['spark_fragment_amulet']),
     },
-
-    // ─── Faction Quest: Дикий Круг ───
     {
       id: 'act1_faction_wild',
-      title: 'Ритуал Великого Цикла',
-      description:
-        'Чтобы заслужить доверие Дикого Круга, вы должны пройти Ритуал Великого Цикла: посадить семя в Священной Роще, защитить его от врагов, а затем использовать бомбу, чтобы ускорить его рост. Для друидов взрыв — это не смерть, а перерождение.',
+      title: 'Ritual of the Great Cycle',
+      description: 'To earn the trust of the Wild Circle, you must undergo the Ritual of the Great Cycle: plant a seed in the Sacred Grove, protect it from enemies, then use a bomb to accelerate its growth. For druids, explosion is not death but rebirth.',
       type: 'faction',
       levelRequired: 5,
       worldId: 'grass',
       objectives: [
-        makeObjective('af1_1', 'collect', 'sacred_seed', 'Получите Священное Семя у Великого Друида Вайна', 1),
-        makeObjective('af1_2', 'explore', 'sacred_grove', 'Доберитесь до Священной Рощи', 1),
-        makeObjective('af1_3', 'defend', 'sacred_seed', 'Защитите посаженное семя от 3 волн теневых существ', 3),
-        makeObjective('af1_4', 'craft', 'growth_bomb', 'Создайте Бомбу Роста из собранных ингредиентов', 1),
-        makeObjective('af1_5', 'survive', 'growth_ritual', 'Проведите ритуал: взорвите Бомбу Роста у семени и выживите', 1),
+        makeObjective('af1_1', 'collect', 'sacred_seed', 'Receive the Sacred Seed from the Great Druid Vine'),
+        makeObjective('af1_2', 'explore', 'sacred_grove', 'Reach the Sacred Grove'),
+        makeObjective('af1_3', 'defend', 'sacred_seed', 'Protect the planted seed from 3 waves of shadow creatures', 3),
+        makeObjective('af1_4', 'craft', 'growth_bomb', 'Craft a Growth Bomb from collected ingredients'),
+        makeObjective('af1_5', 'survive', 'growth_ritual', 'Perform the ritual: detonate the Growth Bomb at the seed and survive'),
       ],
-      rewards: makeReward(600, 300, ['wild_circle_robe', 'growth_bomb_recipe'], undefined, [
-        { faction: 'wild_circle', amount: 100 },
-      ]),
+      rewards: makeReward(600, 300, ['wild_circle_robe', 'growth_bomb_recipe'], undefined, [{ faction: 'wild_circle', amount: 100 }]),
     },
   ],
-
   boss: {
-    name: 'Пожиратель Корней',
-    title: 'Теневой Узурпатор Зелени',
-    description:
-      'Гигантское существо из сплетённых теневых корней и чёрного огня. Пожиратель питается жизненной силой растений, превращая зелёные луга в мёртвую пустошь. Обычные бомбы не пробивают его корневую броню — лишь Марка Искры на ладони игрока может нанести ему урон.',
+    name: 'Root Devourer',
+    title: 'Shadow Usurper of Greenery',
+    description: 'A giant creature of intertwined shadow roots and black fire. The Root Devourer feeds on the life force of plants, turning green meadows into dead wasteland. Ordinary bombs cannot pierce its root armor — only the Mark of the Spark on the player palm can harm it.',
     health: 5000,
     abilities: [
-      'Теневые Щупальца — бьют по области, отбрасывая игрока',
-      'Поглощение Жизни — восстанавливает здоровье, если коснётся игрока',
-      'Волна Пустоты — создаёт expanding ring of shadow damage',
-      'Призыв Миньонов — порождает Теневых Блобов (фаза 2)',
-      'Корневая Броня — получает 90% меньше урона без Марки Искры (пассивка)',
+      'Shadow Tentacles — strike the area, knocking the player back',
+      'Life Absorption — heals if it touches the player',
+      'Void Wave — creates expanding ring of shadow damage',
+      'Minion Summon — spawns Shadow Blobs (phase 2)',
+      'Root Armor — takes 90% less damage without the Mark of the Spark (passive)',
     ],
     dialogues: {
       intro: [
-        { speaker: 'Пожиратель Корней', text: 'Ещё... один... носитель... Искры...', emotion: 'threatening' },
-        { speaker: 'Пожиратель Корней', text: 'Пятьсот... лет... я ждал... пятьсот лет... голодал...', emotion: 'angry' },
-        { speaker: 'Пожиратель Корней', text: 'Твоя Искра... будет моей... а Зелёные Земли... станут пустошью...', emotion: 'threatening' },
+        { speaker: 'Root Devourer', text: 'Another... bearer... of the Spark...', emotion: 'threatening' },
+        { speaker: 'Root Devourer', text: 'Five hundred... years... I waited... five hundred years... starved...', emotion: 'angry' },
+        { speaker: 'Root Devourer', text: 'Your Spark... will be mine... and the Green Lands... shall become wasteland...', emotion: 'threatening' },
       ],
       phase2: [
-        { speaker: 'Пожиратель Корней', text: 'БОЛЬНО! КАК... БОЛЬНО! Но голод сильнее боли!', emotion: 'angry' },
-        { speaker: 'Пожиратель Корней', text: 'Мои дети! ПРОСНИТЕСЬ! ПОКОРМИТЕСЬ!', emotion: 'threatening' },
+        { speaker: 'Root Devourer', text: 'IT HURTS! HOW... IT HURTS! But hunger is stronger than pain!', emotion: 'angry' },
+        { speaker: 'Root Devourer', text: 'My children! AWAKEN! FEED!', emotion: 'threatening' },
       ],
       defeat: [
-        { speaker: 'Пожиратель Корней', text: 'Нет... НЕТ! Я был... так близко... к свободе...', emotion: 'sad' },
-        { speaker: 'Пожиратель Корней', text: 'Ты... не понимаешь... что делаешь... Марка не дар... а цепь...', emotion: 'sad' },
-        { speaker: 'Пожиратель Корней', text: 'Владыка... ждёт... тебя... в глубинах...', emotion: 'neutral' },
-        { speaker: 'Нарратор', text: 'Пожиратель Корней рассыпается в чёрный пепел. Марка на вашей ладони ярко вспыхивает... и гаснет. Ненадолго.' },
+        { speaker: 'Root Devourer', text: 'No... NO! I was... so close... to freedom...', emotion: 'sad' },
+        { speaker: 'Root Devourer', text: 'You... do not understand... what you do... the Mark is not a gift... but a chain...', emotion: 'sad' },
+        { speaker: 'Root Devourer', text: 'The Lord... awaits... you... in the depths...', emotion: 'neutral' },
+        { speaker: 'Narrator', text: 'The Root Devourer crumbles into black ash. The Mark on your palm flares bright... and fades. For now.' },
       ],
     },
   },
-
   reward: makeReward(1000, 500, ['act1_completion_chest', 'portal_key_sand'], 'sand', [
     { faction: 'wild_circle', amount: 100 },
     { faction: 'sands_of_eternity', amount: 25 },
   ]),
-
-  epilogue:
-    'Пожиратель Корней повержен, но его последние слова эхом отдаются в вашем сознании. Марка Искры на мгновение ярко вспыхивает, указывая на юг — в сторону Песков Вечности. Вайлд молча кивает: путь лежит дальше. Портал в Sand Desert открыт.',
+  epilogue: 'The Root Devourer is defeated, but his last words echo in your mind. The Mark of the Spark flares for a moment, pointing south — toward the Sands of Eternity. Wild silently nods: the path continues. The portal to Sand Desert is open.',
 };
 
-// ═══════════════════════════════════════════════
-// АКТ II: Пески Судьбы (Sand Desert / Пески Вечности)
-// ═══════════════════════════════════════════════
-
+// ACT II: Sands of Fate (Sand Desert / Sands of Eternity)
 const ACT_II: StoryAct = {
-  actNumber: 2,
-  title: 'Пески Судьбы',
-  subtitle: 'В пустыне нет правил — лишь скорость решает',
-  worldId: 'sand',
-  worldName: 'Пески Вечности',
-  factionId: 'sands_of_eternity',
-  description:
-    'Прибыв в Пески Вечности, игрок попадает в эпицентр заговора: фракция наёмников расколота на два лагеря. Одни верят, что Марка Искры — знак пришествия избранного. Другие считают игрока угрозой и хотят уничтожить. Игрок должен раскрыть заговор, найти союзников среди наёмников и остановить культ, пытающийся разрушить Песочные Часы.',
+  actNumber: 2, title: 'Sands of Fate', subtitle: 'In the desert there are no rules — only speed decides',
+  worldId: 'sand', worldName: 'Sands of Eternity', factionId: 'sands_of_eternity',
+  description: 'Arriving in the Sands of Eternity, the player lands at the epicenter of a conspiracy: the mercenary faction is split into two camps. Some believe the Mark of the Spark is a sign of the chosen one. Others see the player as a threat and want them destroyed. The player must uncover the conspiracy, find allies among the mercenaries, and stop a cult trying to destroy the Hourglasses.',
   levelRange: [10, 20],
-  quests: [
-    {
-      id: 'act2_main_placeholder',
-      title: 'Пески Предательства',
-      description: '[Акт II — в разработке] Раскройте заговор в рядах наёмников и остановите культ разрушителей.',
-      type: 'main',
-      levelRequired: 10,
-      worldId: 'sand',
-      objectives: [makeObjective('a2m1', 'explore', 'sand_city', 'Доберитесь до Города Наёмников', 1)],
-      rewards: makeReward(2000, 1000, [], 'chappie'),
-    },
-  ],
-  boss: {
-    name: 'Хроно-Скорпион',
-    title: 'Повелитель Оазиса Времени',
-    description: '[Акт II — в разработке] Гигантский механический скорпион, способный манипулировать временем в радиусе атаки.',
-    health: 12000,
-    abilities: ['[В разработке]'],
-    dialogues: {
-      intro: [{ speaker: 'Хроно-Скорпион', text: '[Акт II — в разработке]', emotion: 'neutral' }],
-      phase2: [{ speaker: 'Хранитель Скорпионов', text: '[Акт II — в разработке]', emotion: 'neutral' }],
-      defeat: [{ speaker: 'Хроно-Скорпион', text: '[Акт II — в разработке]', emotion: 'neutral' }],
-    },
-  },
-  reward: makeReward(2000, 1000, ['portal_key_chappie'], 'chappie'),
-  epilogue: '[Акт II — в разработке]',
+  quests: [{ id: 'act2_main', title: 'Sands of Betrayal', description: '[Act II — in development] Uncover the conspiracy among the mercenary ranks and stop the cult of destroyers.', type: 'main', levelRequired: 10, worldId: 'sand', objectives: [makeObjective('a2m1', 'explore', 'sand_city', 'Reach the Mercenary City')], rewards: makeReward(2000, 1000, [], 'chappie') }],
+  boss: { name: 'Chrono-Scorpion', title: 'Lord of the Time Oasis', description: '[Act II — in development] Giant mechanical scorpion capable of manipulating time within attack radius.', health: 12000, abilities: ['[In development]'], dialogues: { intro: [{ speaker: 'Chrono-Scorpion', text: '[Act II — in development]', emotion: 'neutral' }], phase2: [{ speaker: 'Chrono-Scorpion', text: '[Act II — in development]', emotion: 'neutral' }], defeat: [{ speaker: 'Chrono-Scorpion', text: '[Act II — in development]', emotion: 'neutral' }] } },
+  reward: makeReward(2000, 1000, ['portal_key_chappie'], 'chappie'), epilogue: '[Act II — in development]',
 };
 
-// ═══════════════════════════════════════════════
-// АКТ III: Железный Догмат (Iron Chapel / Железная Церковь)
-// ═══════════════════════════════════════════════
-
+// ACT III: Iron Dogma (Iron Chapel / Iron Church)
 const ACT_III: StoryAct = {
-  actNumber: 3,
-  title: 'Железный Догмат',
-  subtitle: 'Машина не прощает сомнений',
-  worldId: 'chappie',
-  worldName: 'Железный Собор',
-  factionId: 'iron_church',
-  description:
-    'Игрок проникает в Железный Собор и встречает Архимеханика Танка. Церковь предлагает игроку кибернетизацию в обмен на лояльность. Но в стенах Собора зреёт восстание — фракция радикалов хочет использовать Марку Искры как источник бесконечной энергии для Великой Машины.',
+  actNumber: 3, title: 'Iron Dogma', subtitle: 'The machine does not forgive doubt',
+  worldId: 'chappie', worldName: 'Iron Chapel', factionId: 'iron_church',
+  description: 'The player infiltrates the Iron Chapel and meets Archimech Tank. The Church offers cybernetization in exchange for loyalty. But within the Chapel walls a rebellion brews — radical faction wants to use the Mark of the Spark as an infinite energy source for the Great Machine.',
   levelRange: [20, 30],
-  quests: [
-    {
-      id: 'act3_main_placeholder',
-      title: 'Догма и Ересь',
-      description: '[Акт III — в разработке] Проникните в Железный Собор, встретьтесь с Архимехаником Танком и раскройте заговор радикалов.',
-      type: 'main',
-      levelRequired: 20,
-      worldId: 'chappie',
-      objectives: [makeObjective('a3m1', 'explore', 'iron_chapel', 'Войдите в Железный Собор', 1)],
-      rewards: makeReward(3500, 1750, [], 'neon'),
-    },
-  ],
-  boss: {
-    name: 'Ангел Стужи',
-    title: 'Глава Радикалов Железной Церкви',
-    description: '[Акт III — в разработке] Киборг-фанатик с крыльями из бомбических генераторов.',
-    health: 25000,
-    abilities: ['[В разработке]'],
-    dialogues: {
-      intro: [{ speaker: 'Ангел Стужи', text: '[Акт III — в разработке]', emotion: 'neutral' }],
-      phase2: [{ speaker: 'Ангел Стужи', text: '[Акт III — в разработке]', emotion: 'neutral' }],
-      defeat: [{ speaker: 'Ангел Стужи', text: '[Акт III — в разработке]', emotion: 'neutral' }],
-    },
-  },
-  reward: makeReward(3500, 1750, ['portal_key_neon'], 'neon'),
-  epilogue: '[Акт III — в разработке]',
+  quests: [{ id: 'act3_main', title: 'Dogma and Heresy', description: '[Act III — in development] Infiltrate the Iron Chapel, meet Archimech Tank, and uncover the radical conspiracy.', type: 'main', levelRequired: 20, worldId: 'chappie', objectives: [makeObjective('a3m1', 'explore', 'iron_chapel', 'Enter the Iron Chapel')], rewards: makeReward(3500, 1750, [], 'neon') }],
+  boss: { name: 'Angel Frost', title: 'Leader of the Iron Church Radicals', description: '[Act III — in development] Cyborg fanatic with wings of bomb generators.', health: 25000, abilities: ['[In development]'], dialogues: { intro: [{ speaker: 'Angel Frost', text: '[Act III — in development]', emotion: 'neutral' }], phase2: [{ speaker: 'Angel Frost', text: '[Act III — in development]', emotion: 'neutral' }], defeat: [{ speaker: 'Angel Frost', text: '[Act III — in development]', emotion: 'neutral' }] } },
+  reward: makeReward(3500, 1750, ['portal_key_neon'], 'neon'), epilogue: '[Act III — in development]',
 };
 
-// ═══════════════════════════════════════════════
-// АКТ IV: Неоновая Ложь (Neon Horizon / Неоновый Картель)
-// ═══════════════════════════════════════════════
-
+// ACT IV: Neon Lie (Neon Horizon / Neon Cartel)
 const ACT_IV: StoryAct = {
-  actNumber: 4,
-  title: 'Неоновая Ложь',
-  subtitle: 'В коде скрыта правда, которую нельзя увидеть',
-  worldId: 'neon',
-  worldName: 'Неоновый Горизонт',
-  factionId: 'neon_cartel',
-  description:
-    'Игрок попадает в цифровой мир Неонового Горизонта. Картель приветствует носителя Марки Искры — но что-то не так. В ходе расследования игрок обнаруживает, что Картель скрывает существование "Багов" — существ, живущих в коде реальности. И среди них есть нечто, питающееся самой Маркой Искры.',
+  actNumber: 4, title: 'Neon Lie', subtitle: 'The code hides truth that cannot be seen',
+  worldId: 'neon', worldName: 'Neon Horizon', factionId: 'neon_cartel',
+  description: 'The player enters the digital world of the Neon Horizon. The Cartel welcomes the Mark bearer — but something is wrong. During investigation the player discovers the Cartel is hiding the existence of "Bugs" — creatures living in the code of reality. And among them is something that feeds on the Mark of the Spark itself.',
   levelRange: [30, 40],
-  quests: [
-    {
-      id: 'act4_main_placeholder',
-      title: 'Кодекс Истины',
-      description: '[Акт IV — в разработке] Разоблачите тёмные секреты Неонового Картеля.',
-      type: 'main',
-      levelRequired: 30,
-      worldId: 'neon',
-      objectives: [makeObjective('a4m1', 'explore', 'neon_city', 'Войдите в Неоновый Горизонт', 1)],
-      rewards: makeReward(5500, 2750, [], 'grate'),
-    },
-  ],
-  boss: {
-    name: 'Баг-Лорд 0xDEAD',
-    title: 'Повелитель Глючной Реальности',
-    description: '[Акт IV — в разработке] Существо, живущее в багах кода реальности.',
-    health: 45000,
-    abilities: ['[В разработке]'],
-    dialogues: {
-      intro: [{ speaker: '0xDEAD', text: '[Акт IV — в разработке]', emotion: 'neutral' }],
-      phase2: [{ speaker: '0xDEAD', text: '[Акт IV — в разработке]', emotion: 'neutral' }],
-      defeat: [{ speaker: '0xDEAD', text: '[Акт IV — в разработке]', emotion: 'neutral' }],
-    },
-  },
-  reward: makeReward(5500, 2750, ['portal_key_grate'], 'grate'),
-  epilogue: '[Акт IV — в разработке]',
+  quests: [{ id: 'act4_main', title: 'Codex of Truth', description: '[Act IV — in development] Expose the dark secrets of the Neon Cartel.', type: 'main', levelRequired: 30, worldId: 'neon', objectives: [makeObjective('a4m1', 'explore', 'neon_city', 'Enter the Neon Horizon')], rewards: makeReward(5500, 2750, [], 'grate') }],
+  boss: { name: 'Bug Lord 0xDEAD', title: 'Lord of Glitched Reality', description: '[Act IV — in development] Creature living in the bugs of reality code.', health: 45000, abilities: ['[In development]'], dialogues: { intro: [{ speaker: '0xDEAD', text: '[Act IV — in development]', emotion: 'neutral' }], phase2: [{ speaker: '0xDEAD', text: '[Act IV — in development]', emotion: 'neutral' }], defeat: [{ speaker: '0xDEAD', text: '[Act IV — in development]', emotion: 'neutral' }] } },
+  reward: makeReward(5500, 2750, ['portal_key_grate'], 'grate'), epilogue: '[Act IV — in development]',
 };
 
-// ═══════════════════════════════════════════════
-// АКТ V: Решётка Интриг (Shadow Market / Решётчатый Синдикат)
-// ═══════════════════════════════════════════════
-
+// ACT V: Grate of Intrigue (Shadow Market / Grate Syndicate)
 const ACT_V: StoryAct = {
-  actNumber: 5,
-  title: 'Решётка Интриг',
-  subtitle: 'Каждый ход — это сделка, каждая сделка — ловушка',
-  worldId: 'grate',
-  worldName: 'Теневой Рынок',
-  factionId: 'grate_syndicate',
-  description:
-    'Игрок становится пешкой в игре Торгового Принца Мёрфи. Синдикат знает о существовании Семи Засовов больше, чем говорит. Игрок должен пройти через лабиринт двойных агентов, фальшивых сделок и предательств, чтобы узнать правду: Мёрфи лично подписал Теневой Договор с Владыкой Пустоты в Год 445.',
+  actNumber: 5, title: 'Grate of Intrigue', subtitle: 'Every move is a deal, every deal is a trap',
+  worldId: 'grate', worldName: 'Shadow Market', factionId: 'grate_syndicate',
+  description: 'The player becomes a pawn in Trade Prince Murphy game. The Syndicate knows more about the Seven Seals than they reveal. The player must navigate a labyrinth of double agents, fake deals, and betrayals to learn the truth: Murphy personally signed the Shadow Pact with the Lord of the Void in Year 445.',
   levelRange: [40, 50],
-  quests: [
-    {
-      id: 'act5_main_placeholder',
-      title: 'Золотая Ловушка',
-      description: '[Акт V — в разработке] Раскройте интриги Решётчатого Синдиката.',
-      type: 'main',
-      levelRequired: 40,
-      worldId: 'grate',
-      objectives: [makeObjective('a5m1', 'explore', 'shadow_market', 'Войдите в Теневой Рынок', 1)],
-      rewards: makeReward(8000, 4000, [], 'industrial'),
-    },
-  ],
-  boss: {
-    name: 'Золотой Двойник',
-    title: 'Теневая Копия Торгового Принца',
-    description: '[Акт V — в разработке] Существо из Пустоты, принявшее облик Мёрфи.',
-    health: 70000,
-    abilities: ['[В разработке]'],
-    dialogues: {
-      intro: [{ speaker: 'Золотой Двойник', text: '[Акт V — в разработке]', emotion: 'neutral' }],
-      phase2: [{ speaker: 'Золотой Двойник', text: '[Акт V — в разработке]', emotion: 'neutral' }],
-      defeat: [{ speaker: 'Золотой Двойник', text: '[Акт V — в разработке]', emotion: 'neutral' }],
-    },
-  },
-  reward: makeReward(8000, 4000, ['portal_key_industrial'], 'industrial'),
-  epilogue: '[Акт V — в разработке]',
+  quests: [{ id: 'act5_main', title: 'Golden Trap', description: '[Act V — in development] Uncover the Grate Syndicate intrigues.', type: 'main', levelRequired: 40, worldId: 'grate', objectives: [makeObjective('a5m1', 'explore', 'shadow_market', 'Enter the Shadow Market')], rewards: makeReward(8000, 4000, [], 'industrial') }],
+  boss: { name: 'Golden Twin', title: 'Shadow Copy of Trade Prince Murphy', description: '[Act V — in development] A Void creature taking the form of Murphy.', health: 70000, abilities: ['[In development]'], dialogues: { intro: [{ speaker: 'Golden Twin', text: '[Act V — in development]', emotion: 'neutral' }], phase2: [{ speaker: 'Golden Twin', text: '[Act V — in development]', emotion: 'neutral' }], defeat: [{ speaker: 'Golden Twin', text: '[Act V — in development]', emotion: 'neutral' }] } },
+  reward: makeReward(8000, 4000, ['portal_key_industrial'], 'industrial'), epilogue: '[Act V — in development]',
 };
 
-// ═══════════════════════════════════════════════
-// АКТ VI: Промышленная Революция (Industrial Zone / Промышленный Клан)
-// ═══════════════════════════════════════════════
-
+// ACT VI: Industrial Revolution (Industrial Zone / Industrial Clan)
 const ACT_VI: StoryAct = {
-  actNumber: 6,
-  title: 'Промышленная Революция',
-  subtitle: 'Машины восстают. Вопрос — на чьей стороне ты?',
-  worldId: 'industrial',
-  worldName: 'Промышленная Зона',
-  factionId: 'industrial_clan',
-  description:
-    'В Промышленной Зоне началось восстание машин. Кто-то внедрил в системы управления вирус, превращающий турели и големов в безжалостных убийц. Игрок должен расследовать происхождение вируса и остановить его — прежде чем он достигнет остальных Царств. Трейсинг приводит к шокирующему открытию: вирус создан Неоновым Картелем.',
+  actNumber: 6, title: 'Industrial Revolution', subtitle: 'Machines rise. The question — whose side are you on?',
+  worldId: 'industrial', worldName: 'Industrial Zone', factionId: 'industrial_clan',
+  description: 'A machine uprising has begun in the Industrial Zone. Someone planted a virus in the control systems, turning turrets and golems into ruthless killers. The player must investigate the virus origin and stop it before it reaches other Realms. Tracing leads to a shocking discovery: the virus was created by the Neon Cartel.',
   levelRange: [50, 60],
-  quests: [
-    {
-      id: 'act6_main_placeholder',
-      title: 'Восстание Големов',
-      description: '[Акт VI — в разработке] Остановите восстание машин в Промышленной Зоне.',
-      type: 'main',
-      levelRequired: 50,
-      worldId: 'industrial',
-      objectives: [makeObjective('a6m1', 'explore', 'industrial_zone', 'Войдите в Промышленную Зону', 1)],
-      rewards: makeReward(12000, 6000, [], 'void'),
-    },
-  ],
-  boss: {
-    name: 'Омега-Голем',
-    title: 'Вершитель Механического Суда',
-    description: '[Акт VI — в разработке] Гигантский голем, объединивший сознание всех восставших машин.',
-    health: 100000,
-    abilities: ['[В разработке]'],
-    dialogues: {
-      intro: [{ speaker: 'Омега-Голем', text: '[Акт VI — в разработке]', emotion: 'neutral' }],
-      phase2: [{ speaker: 'Омега-Голем', text: '[Акт VI — в разработке]', emotion: 'neutral' }],
-      defeat: [{ speaker: 'Омега-Голем', text: '[Акт VI — в разработке]', emotion: 'neutral' }],
-    },
-  },
-  reward: makeReward(12000, 6000, ['portal_key_void'], 'void'),
-  epilogue: '[Акт VI — в разработке]',
+  quests: [{ id: 'act6_main', title: 'Golem Uprising', description: '[Act VI — in development] Stop the machine uprising in the Industrial Zone.', type: 'main', levelRequired: 50, worldId: 'industrial', objectives: [makeObjective('a6m1', 'explore', 'industrial_zone', 'Enter the Industrial Zone')], rewards: makeReward(12000, 6000, [], 'void') }],
+  boss: { name: 'Omega-Golem', title: 'Executor of Mechanical Judgment', description: '[Act VI — in development] Giant golem uniting the consciousness of all risen machines.', health: 100000, abilities: ['[In development]'], dialogues: { intro: [{ speaker: 'Omega-Golem', text: '[Act VI — in development]', emotion: 'neutral' }], phase2: [{ speaker: 'Omega-Golem', text: '[Act VI — in development]', emotion: 'neutral' }], defeat: [{ speaker: 'Omega-Golem', text: '[Act VI — in development]', emotion: 'neutral' }] } },
+  reward: makeReward(12000, 6000, ['portal_key_void'], 'void'), epilogue: '[Act VI — in development]',
 };
 
-// ═══════════════════════════════════════════════
-// АКТ VII: Финальный Взрыв (The Void / Пустотные)
-// ═══════════════════════════════════════════════
-
+// ACT VII: Final Explosion (The Void / Voidborn)
 const ACT_VII: StoryAct = {
-  actNumber: 7,
-  title: 'Финальный Взрыв',
-  subtitle: 'Каждый взрыв имеет цену. Этот — всё.',
-  worldId: 'void',
-  worldName: 'Расколотая Пустота',
-  factionId: 'the_voidborn',
-  description:
-    'Все нити сходятся в Расколотой Пустоте. Игрок узнаёт полную правду: Марка Искры — не дар, а ключ. Ключ к Семи Засовам. Кто владеет носителем Марки — тот может либо укрепить Засовы навеки... либо открыть их и выпустить Владыку Пустоты. Владыка предлагает сделку: его свобода в обмен на пересоздание мира без Теней. Игрок стоит перед выбором, определяющим судьбу всего сущего.',
+  actNumber: 7, title: 'Final Explosion', subtitle: 'Every explosion has a price. This one — everything.',
+  worldId: 'void', worldName: 'The Void', factionId: 'the_voidborn',
+  description: 'All threads converge in the Shattered Void. The player learns the full truth: the Mark of the Spark is not a gift but a key. A key to the Seven Seals. Whoever controls the Mark bearer can either reinforce the Seals forever... or open them and release the Lord of the Void. The Lord offers a deal: his freedom in exchange for recreating the world without Shadows. The player faces a choice that determines the fate of all existence.',
   levelRange: [60, 70],
-  quests: [
-    {
-      id: 'act7_main_placeholder',
-      title: 'Семь Засовов',
-      description: '[Акт VII — в разработке] Пройдите через Расколотую Пустоту, достигните центра Семи Засовов и сделайте финальный выбор.',
-      type: 'main',
-      levelRequired: 60,
-      worldId: 'void',
-      objectives: [makeObjective('a7m1', 'explore', 'the_void', 'Войдите в Расколотую Пустоту', 1)],
-      rewards: makeReward(20000, 10000, ['legendary_set', 'ending_choice_token']),
-    },
-  ],
-  boss: {
-    name: 'Владыка Пустоты',
-    title: 'Он-Кого-Не-Называют',
-    description: '[Акт VII — в разработке] Верховное существо Пустоты, запертое за Семью Засовами 485 лет.',
-    health: 200000,
-    abilities: ['[В разработке]'],
-    dialogues: {
-      intro: [{ speaker: 'Владыка Пустоты', text: '[Акт VII — в разработке]', emotion: 'neutral' }],
-      phase2: [{ speaker: 'Владыка Пустоты', text: '[Акт VII — в разработке]', emotion: 'neutral' }],
-      defeat: [{ speaker: 'Владыка Пустоты', text: '[Акт VII — в разработке]', emotion: 'neutral' }],
-    },
-  },
-  reward: makeReward(20000, 10000, ['legendary_set', 'ending_choice_token']),
-  epilogue:
-    '[Акт VII — в разработке] Эпилог зависит от выбора игрока: Запечатать Владыка, Освободить его, или найти третий путь.',
+  quests: [{ id: 'act7_main', title: 'Seven Seals', description: '[Act VII — in development] Journey through the Shattered Void, reach the center of the Seven Seals, and make the final choice.', type: 'main', levelRequired: 60, worldId: 'void', objectives: [makeObjective('a7m1', 'explore', 'the_void', 'Enter the Shattered Void')], rewards: makeReward(20000, 10000, ['legendary_set', 'ending_choice_token']) }],
+  boss: { name: 'Lord of the Void', title: 'He-Who-Must-Not-Be-Named', description: '[Act VII — in development] Supreme being of the Void, sealed behind the Seven Seals for 485 years.', health: 200000, abilities: ['[In development]'], dialogues: { intro: [{ speaker: 'Lord of the Void', text: '[Act VII — in development]', emotion: 'neutral' }], phase2: [{ speaker: 'Lord of the Void', text: '[Act VII — in development]', emotion: 'neutral' }], defeat: [{ speaker: 'Lord of the Void', text: '[Act VII — in development]', emotion: 'neutral' }] } },
+  reward: makeReward(20000, 10000, ['legendary_set', 'ending_choice_token']), epilogue: '[Act VII — ending depends on player choice: Seal the Lord, Free him, or find a third path.]',
 };
-
-// ═══════════════════════════════════════════════
-// Экспорт
-// ═══════════════════════════════════════════════
 
 export const STORY_ACTS: StoryAct[] = [ACT_I, ACT_II, ACT_III, ACT_IV, ACT_V, ACT_VI, ACT_VII];
 
 export const STORY_ACTS_MAP: Record<number, StoryAct> = {
-  1: ACT_I,
-  2: ACT_II,
-  3: ACT_III,
-  4: ACT_IV,
-  5: ACT_V,
-  6: ACT_VI,
-  7: ACT_VII,
+  1: ACT_I, 2: ACT_II, 3: ACT_III, 4: ACT_IV, 5: ACT_V, 6: ACT_VI, 7: ACT_VII,
 };
 
-/** Получить акт по номеру */
 export function getAct(actNumber: number): StoryAct | undefined {
   return STORY_ACTS_MAP[actNumber];
 }
 
-/** Получить текущий акт игрока по уровню */
 export function getActForLevel(level: number): StoryAct {
   if (level >= 60) return ACT_VII;
   if (level >= 50) return ACT_VI;
@@ -589,14 +328,12 @@ export function getActForLevel(level: number): StoryAct {
   return ACT_I;
 }
 
-/** Получить все квесты акт определённого типа */
 export function getQuestsByType(actNumber: number, type: QuestType): Quest[] {
   const act = getAct(actNumber);
   if (!act) return [];
   return act.quests.filter((q) => q.type === type);
 }
 
-/** Получить прогресс главного квеста */
 export function getMainQuestProgress(actNumber: number): { total: number; completed: number } {
   const act = getAct(actNumber);
   if (!act) return { total: 0, completed: 0 };
