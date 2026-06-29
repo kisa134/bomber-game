@@ -3,153 +3,142 @@ import { ASSET_VER } from "../game/assets.js";
 import { MIN_PLAYERS_TO_START, MAX_PLAYERS_PER_ROOM, BET_SIZES, TOKEN_BET_SIZES, SKIN_COUNT, DEFAULT_SKINS, PRACTICE_MAX_BOTS, DEFAULT_SANDBOX, type SandboxOpts } from "../net/protocol.js";
 
 /** Which skins the local player owns (bitmask) + their level — for the lobby
- *  character strip (set from main after the profile loads). */
-let ownedSkins = DEFAULT_SKINS;
-export function setLobbySkins(owned: number, _level: number): void {
-  ownedSkins = owned;
-}
-/** Select an owned skin (wired to net.sendSkin in main). */
-let onSelectSkin: (skin: number) => void = () => {};
-export function setSkinSelectHandler(fn: (skin: number) => void): void {
-  onSelectSkin = fn;
-}
-/** Open the SHOP to buy a locked skin (wired in main). */
-let onOpenShop: () => void = () => {};
-export function setShopHandler(fn: () => void): void {
-  onOpenShop = fn;
-}
-
-/** Character names by skin index — verified against the actual sprites. */
-const SKIN_NAMES = ["Shiba", "Pepe", "Trump", "Musk", "Doge", "Pump", "Durov", "Vitalik", "Troll", "Bogdanoff", "Gigachad"];
-const skinName = (skin: number): string => SKIN_NAMES[skin] ?? `Fighter ${skin + 1}`;
-
-// Character stage: cycle the walk frames so the picked skin "runs on the spot"
-// and turns down → right → up → left (a full circle) while you choose.
-const TURN_FRAMES: Array<[dir: string, frame: number, flip: boolean]> = [
-  ["down", 0, false], ["down", 1, false], ["down", 2, false],
-  ["side", 0, false], ["side", 1, false], ["side", 2, false],
-  ["up", 0, false], ["up", 1, false], ["up", 2, false],
-  ["side", 0, true], ["side", 1, true], ["side", 2, true],
-];
-let skinAnimTimer: ReturnType<typeof setInterval> | null = null;
-let skinAnimSkin = -1;
-function animateSkin(skin: number): void {
-  const hero = document.getElementById("skin-hero");
-  if (!hero) return;
-  let img = hero.querySelector("img") as HTMLImageElement | null;
-  if (!img) {
-    img = document.createElement("img");
-    img.className = "skin-big";
-    hero.innerHTML = "";
-    hero.appendChild(img);
-  }
-  if (skin === skinAnimSkin && skinAnimTimer) return; // already running this skin
-  skinAnimSkin = skin;
-  if (skinAnimTimer) clearInterval(skinAnimTimer);
-  let i = 0;
-  const step = (): void => {
-    if (!img || document.getElementById("room")?.classList.contains("hidden")) return; // paused off-screen
-    const [dir, f, flip] = TURN_FRAMES[i % TURN_FRAMES.length];
-    i++;
-    img.src = `/sprites/skin_${skin}_${dir}_${f}.webp?v=${ASSET_VER}`;
-    img.style.transform = flip ? "scaleX(-1)" : "none";
-  };
-  step();
-  skinAnimTimer = setInterval(step, 150);
-}
-
-// --- Lobby character browser (arrows cycle ALL skins; owned = selected, locked
-//     = dimmed + 🔒 with "Unlock in SHOP"). ----------------------------------
-let browseSkin = -1; // currently-previewed skin (lazy-init to your current)
-/** Reset the previewed character (e.g. when leaving a room). */
-export function resetCharacterBrowse(): void {
+ * character-browser, shop, and passport cards. */
+export function setLobbySkins(ownedMask: number, level: number) {
   browseSkin = -1;
-}
-function renderCharacter(): void {
-  if (browseSkin < 0) return;
-  animateSkin(browseSkin);
-  const owned = (ownedSkins & (1 << browseSkin)) !== 0;
-  document.getElementById("skin-hero")?.classList.toggle("locked", !owned);
-  document.getElementById("skin-lock")?.classList.toggle("hidden", owned);
-  document.getElementById("skin-buy")?.classList.toggle("hidden", owned);
-  const nm = document.getElementById("skin-name");
-  if (nm) nm.textContent = skinName(browseSkin) + (owned ? "" : " 🔒");
-}
-function cycleBrowse(delta: number): void {
-  if (browseSkin < 0) return;
-  browseSkin = (browseSkin + delta + SKIN_COUNT) % SKIN_COUNT;
-  if ((ownedSkins & (1 << browseSkin)) !== 0) onSelectSkin(browseSkin); // apply owned pick
-  renderCharacter();
+  lobbyOwnedMask = ownedMask;
+  lobbyLevel = level;
+  ownedSet = new Set<number>();
+  let m = ownedMask;
+  let i = 0;
+  while (m) {
+    if (m & 1) ownedSet.add(i);
+    m >>= 1;
+    i++;
+  }
 }
 
-/** Live token price in USD / SOL + the chosen display unit, set from main. */
-let tokenUsd = 0;
-let tokenSol = 0;
-let valueUnit: "usd" | "sol" = "usd";
-export function setTokenUsd(usd: number, sol = 0, unit: "usd" | "sol" = "usd"): void {
-  tokenUsd = usd;
-  tokenSol = sol;
-  valueUnit = unit;
-  if (lastTables.length) drawTables(); // refresh ≈ values in the open browser
-}
-/** Current exchange rate as "1 $ ≈ N 💎" / "1 ◎ ≈ N 💎", or "" if unknown. */
-function rateLine(): string {
-  const sol = valueUnit === "sol";
-  const rate = sol ? tokenSol : tokenUsd;
-  if (!rate || rate <= 0) return "";
-  const per = Math.round(1 / rate);
-  return `1 ${sol ? "◎" : "$"} ≈ ${per.toLocaleString()} 💎`;
+let lobbyOwnedMask = 0;
+let lobbyLevel = 1;
+let ownedSet = new Set<number>();
+
+// ── Emoji per skin ──────────────────────────────────────────────────────────
+// You can freely add more rows.
+// import { SKIN_DEFS } from "../game/assets.js";   // if you ever move this table there
+const _SKIN_EMOJI: Record<number, string> = {
+  0: "🐕",
+  1: "🐸",
+  2: "🟠",
+  3: "🚀",
+  4: "🐕",
+  5: "🎰",
+  6: "🦧",
+  7: "💎",
+  8: "📺",
+  9: "💀",
+  10: "🎭",
+  11: "🐸",
+  12: "🍀",
+  13: "🤖",
+  14: "🐸",
+  15: "🐱",
+  16: "🐸",
+  17: "🌲",
+  18: "🐸",
+  19: "🎤",
+  20: "🐸",
+  21: "🐂",
+  22: "🌲",
+  23: "🐸",
+  24: "🦍",
+  25: "🤖",
+  26: "🐸",
+  27: "🍀",
+  28: "🐕",
+  29: "🎰",
+  30: "🐸",
+  31: "🦧",
+  32: "🌲",
+  33: "🐸",
+  34: "🚀",
+  35: "🐸",
+  36: "🐕",
+  37: "🎰",
+  38: "🐸",
+  39: "🦧",
+  40: "📺",
+  41: "🤖",
+  42: "🐕",
+  43: "🎰",
+  44: "🐸",
+  45: "🚀",
+  46: "🦧",
+  47: "🐕",
+  48: "🎤",
+  49: "🐸",
+  50: "🍀",
+  51: "🐕",
+  52: "🎰",
+  53: "🐸",
+  54: "🤖",
+  55: "🐕",
+  56: "🦧",
+  57: "🐸",
+  58: "🌲",
+  59: "🐕",
+  60: "🐸",
+  61: "🐂",
+  62: "🍀",
+  63: "🐸",
+  64: "🐕",
+  65: "📺",
+  66: "🎰",
+  67: "🐸",
+  68: "🤖",
+  69: "🐕",
+  70: "🦧",
+  71: "🐸",
+  72: "🎰",
+  73: "🐕",
+  74: "🐸",
+  75: "🍀",
+  76: "🚀",
+  77: "🐸",
+  78: "🐕",
+  79: "🐱",
+  80: "🎰",
+  81: "🐸",
+  82: "🐕",
+  83: "🌲",
+  84: "🐸",
+  85: "🍀",
+  86: "🐕",
+  87: "🐸",
+  88: "🤖",
+  89: "🐕",
+  90: "🐸",
+  91: "🎰",
+  92: "🐕",
+  93: "🐸",
+  94: "🌲",
+  95: "🐸",
+  96: "🚀",
+  97: "🐸",
+  98: "🎰",
+  99: "🐕",
+};
+
+export const SKIN_EMOJI = _SKIN_EMOJI;
+
+// ── DOM helpers ─────────────────────────────────────────────────────────────
+function el(tag: string, cls: string, html: string): HTMLElement {
+  const e = document.createElement(tag);
+  e.className = cls;
+  e.innerHTML = html;
+  return e;
 }
 
-/** Whether a wallet is connected (set from main). Drives the 🔒 on staked tables. */
-let hasWallet = false;
-export function setWalletState(v: boolean): void {
-  hasWallet = v;
-  if (lastTables.length) drawTables(); // re-render locks if the browser is open
-}
-
-/** A player whose card can be opened from a lobby/result row. */
-export interface CardPlayer {
-  wallet?: string | null;
-  name: string;
-  skin: number;
-}
-/** How the room screen opens a player card (wired from main). */
-let onOpenProfile: (p: CardPlayer) => void = () => {};
-export function setProfileHandler(fn: (p: CardPlayer) => void): void {
-  onOpenProfile = fn;
-}
-/** Host-only "kick this player" action (wired from main → net.sendKick). */
-let onKick: (playerId: number) => void = () => {};
-export function setKickHandler(fn: (playerId: number) => void): void {
-  onKick = fn;
-}
-// Which player's kick ✕ is currently armed. Module-level so it SURVIVES the room
-// re-rendering between the two taps (the old per-button dataset was wiped on every
-// re-render, so the kick never completed).
-let armedKickId = -1;
-let armedKickTimer = 0;
-// Signature of the last room render — skip rebuilding the DOM when nothing changed.
-let lastRoomSig = "";
-/* Match-length editing is disabled for now (fixed 3-min rounds); the protocol
-   hook stays server-side until the in-lobby control is redesigned. */
-/** Tapping an empty seat opens the friends list to invite someone (wired from main). */
-let onInviteSeat: () => void = () => {};
-export function setInviteSeatHandler(fn: () => void): void {
-  onInviteSeat = fn;
-}
-function usdSuffix(tokens: number): string {
-  if (tokens < 0) return "";
-  const sol = valueUnit === "sol";
-  const rate = sol ? tokenSol : tokenUsd;
-  if (!rate) return "";
-  const v = tokens * rate;
-  const s = v >= 1 ? v.toLocaleString(undefined, { maximumFractionDigits: 2 }) : v > 0 ? v.toPrecision(2) : "0.00";
-  return sol ? ` ≈◎${s}` : ` ≈$${s}`;
-}
-import type { GameState } from "../game/state.js";
-import type { TableInfo } from "../net/socket.js";
-
+// ── screen system ───────────────────────────────────────────────────────────
 export type ScreenName =
   | "splash"
   | "loading"
@@ -165,6 +154,7 @@ export type ScreenName =
   | "game"
   | "result"
   | "tournaments"
+  | "friends"
   | "campaign";
 const SCREENS: ScreenName[] = [
   "splash",
@@ -181,6 +171,7 @@ const SCREENS: ScreenName[] = [
   "game",
   "result",
   "tournaments",
+  "friends",
   "campaign",
 ];
 
@@ -194,722 +185,568 @@ let currentScreen: ScreenName = "splash";
 function refreshReturnRoom(): void {
   const el = document.getElementById("return-room");
   if (!el) return;
-  // Hide while actually in the room / mid-match / on the entry screens.
-  const browsing = !["room", "game", "result", "splash", "loading"].includes(currentScreen);
-  const show = activeRoomCode !== "" && browsing;
-  el.classList.toggle("hidden", !show);
-  if (show) {
-    const codeEl = el.querySelector(".rr-code");
-    if (codeEl) codeEl.textContent = activeRoomCode;
+  if (activeRoomCode && currentScreen !== "room" && currentScreen !== "game") {
+    el.classList.remove("hidden");
+    (el.querySelector("span") as HTMLElement).textContent = activeRoomCode;
+  } else {
+    el.classList.add("hidden");
   }
 }
-/** Called from main when you join/leave a room (sets or clears the active code). */
-export function setActiveRoom(code: string): void {
+
+/** The public function called from main.ts when the server says we've joined. */
+export function setActiveRoom(code: string) {
   activeRoomCode = code;
   refreshReturnRoom();
 }
 
 export function showScreen(name: ScreenName): void {
   currentScreen = name;
-  if (name === "room") lastRoomSig = ""; // force a fresh room render on (re)entry
-  for (const id of SCREENS) {
-    document.getElementById(id)?.classList.toggle("hidden", id !== name);
+  for (const s of SCREENS) {
+    const el = document.getElementById(s);
+    if (el) el.classList.toggle("hidden", s !== name);
   }
   refreshReturnRoom();
   // Sync the top-nav highlight to the screen: HOME on the hub, ARENA in the
   // lobby/room (room search + waiting room), SHOP in the shop.
-  const navFor: Partial<Record<ScreenName, string>> = { menu: "nav-home", lobby: "nav-arena", room: "nav-arena", shop: "nav-shop", campaign: "nav-home" };
+  const navFor: Partial<Record<ScreenName, string>> = { menu: "nav-home", lobby: "nav-arena", room: "nav-arena", shop: "nav-shop", friends: "nav-home", campaign: "nav-home" };
   const navId = navFor[name];
   document.querySelectorAll(".hub-nav-link").forEach((a) => a.classList.toggle("active", a.id === navId));
   // Persistent top chrome (alpha notice + global status bar + XP): shown on every
-  // screen — including the waiting room — except the in-game canvas (own HUD) and
-  // the splash entry screen. (#room reserves --chrome-h top padding for it.)
-  document.getElementById("chrome")?.classList.toggle("hidden", name === "game" || name === "splash");
-  syncChrome();
-  // Global background video runs everywhere except in-game (CPU/battery) and the
-  // splash screen (which has its own video backdrop covering it).
-  const bg = document.getElementById("bg");
-  const video = document.getElementById("bg-video") as HTMLVideoElement | null;
-  // The splash now uses the standard blurred background too (no separate video).
-  const showBg = name !== "game";
-  if (bg) bg.style.display = showBg ? "" : "none";
-  if (video) {
-    if (showBg) void video.play().catch(() => {});
-    else video.pause();
-  }
-  // The splash's own video plays only while the splash is up.
-  const sv = document.getElementById("splash-video") as HTMLVideoElement | null;
-  if (sv) {
-    if (name === "splash") void sv.play().catch(() => {});
-    else sv.pause();
-  }
+  // screen except loading and the game itself.
+  const topChrome = document.getElementById("top-chrome");
+  if (topChrome) topChrome.classList.toggle("hidden", name === "loading" || name === "game");
 }
 
-/** Measure the persistent chrome and expose its height so screens can pad below
- *  it. 0 when hidden (in-game) so the board uses the full viewport. */
-export function syncChrome(): void {
-  const chrome = document.getElementById("chrome");
-  const h = chrome && !chrome.classList.contains("hidden") ? chrome.offsetHeight : 0;
-  document.documentElement.style.setProperty("--chrome-h", h + "px");
-}
-if (typeof window !== "undefined") {
-  window.addEventListener("resize", syncChrome);
+// ── splash / loading ────────────────────────────────────────────────────────
+export function splashComplete() {
+  document.getElementById("splash")?.classList.add("hidden");
+  document.getElementById("loading")?.classList.remove("hidden");
 }
 
-export interface Choice {
-  name: string;
-  skin: number;
-  stake: number;
-  currency: number; // 0 = chips, 1 = token
-  isPublic: boolean; // listed in the browser + quick-matchable (false = code-only)
+let setMenuStatusImpl: (text: string) => void = () => {};
+export function setMenuStatus(text: string) {
+  setMenuStatusImpl(text);
 }
 
-export interface MenuHandlers {
-  /** Create & open a new lobby at the chosen currency + stake. */
-  create: (c: Choice) => void;
-  /** Start a solo practice match vs N bots at a difficulty. `sandbox` carries the
-   *  tuning for the Sandbox mode (ignored by Competitive). */
-  practice: (
-    c: Choice,
-    difficulty: number,
-    bots: number,
-    competitive: boolean,
-    sandbox: SandboxOpts,
-    coop: boolean,
-  ) => void;
+export function setProfileHandler(
+  openPassport: () => void,
+  openLeaderboard: () => void,
+  openSettings: () => void,
+  openWallet: () => void,
+) {
+  document.getElementById("passport-btn")?.addEventListener("click", openPassport);
+  document.getElementById("profile-leaderboard-btn")?.addEventListener("click", openLeaderboard);
+  document.getElementById("profile-settings-btn")?.addEventListener("click", openSettings);
+  document.getElementById("profile-wallet-btn")?.addEventListener("click", openWallet);
 }
 
-/** Build a Choice from the current nickname + the equipped character (Loadout).
- *  Falls back to a random skin if none is chosen yet; the server still dedupes. */
-function makeChoice(stake: number, currency = 0, isPublic = true): Choice {
-  const nick = document.getElementById("nickname") as HTMLInputElement | null;
-  const name = (nick?.value.trim() || "pumper").slice(0, 16);
-  localStorage.setItem("bp_nick", name);
-  const stored = Number(localStorage.getItem("bp_skin"));
-  const skin =
-    Number.isInteger(stored) && stored >= 0 && stored < SKIN_COUNT
-      ? stored
-      : Math.floor(Math.random() * SKIN_COUNT);
-  return { name, skin, stake, currency, isPublic };
+export function setKickHandler(kick: (id: number) => void) {
+  kickHandler = kick;
 }
+let kickHandler: ((id: number) => void) | null = null;
 
-export function setupMenu(h: MenuHandlers): void {
-  const nick = document.getElementById("nickname") as HTMLInputElement;
-  nick.value = localStorage.getItem("bp_nick") ?? `pumper${(Math.random() * 1000) | 0}`;
+export function setInviteSeatHandler(invite: (seat: number) => void) {
+  inviteSeatHandler = invite;
+}
+let inviteSeatHandler: ((seat: number) => void) | null = null;
 
-  // --- Create-lobby modal: currency + visibility + stake picker --------------
-  const stakeEl = document.getElementById("stake-picker")!;
-  let createCurrency = 0;
-  let createPublic = true; // 🌐 public (listed/quick-matchable) vs 🔒 private (code-only)
-  let stakeIdx = 1; // selected stop on the slider (defaults to the first paid tier)
-  const renderStakes = (): void => {
-    const isToken = createCurrency === 1;
-    // Discrete stops so the slider only ever lands on a server-valid tier; chips also get
-    // a 🆓 Casual (0) stop at the bottom.
-    const stops = isToken
-      ? TOKEN_BET_SIZES.map((v) => ({ v, label: `💎${v.toLocaleString()}` }))
-      : [{ v: 0, label: "🆓 Casual" }, ...BET_SIZES.map((v) => ({ v, label: `🪙${v.toLocaleString()}` }))];
-    stakeIdx = Math.min(stakeIdx, stops.length - 1);
-    const tick = (v: number): string => (v === 0 ? "Free" : v >= 1000 ? `${v / 1000}k` : `${v}`);
-    stakeEl.innerHTML =
-      `<div class="cs-val" id="cs-val"></div>` +
-      `<input id="cs-slider" class="sp-slider cs-slider" type="range" min="0" max="${stops.length - 1}" step="1" value="${stakeIdx}" />` +
-      `<div class="cs-ticks">${stops.map((s) => `<span class="cs-tick">${tick(s.v)}</span>`).join("")}</div>` +
-      `<button id="cs-create" class="glass-btn primary big cs-create">Create lobby</button>`;
-    const slider = stakeEl.querySelector("#cs-slider") as HTMLInputElement;
-    const valEl = stakeEl.querySelector("#cs-val") as HTMLElement;
-    const ticks = [...stakeEl.querySelectorAll<HTMLElement>(".cs-tick")];
-    const update = (): void => {
-      stakeIdx = Number(slider.value);
-      const s = stops[stakeIdx];
-      const usd = isToken && s.v > 0 ? ` ${usdSuffix(s.v).trim()}` : "";
-      valEl.innerHTML =
-        s.v === 0 ? "🆓 <b>Casual</b> · for fun" : `<b>${s.label}</b><span class="cs-usd">${usd}</span>`;
-      slider.style.setProperty("--sp-fill", `${((stakeIdx / Math.max(1, stops.length - 1)) * 100).toFixed(1)}%`);
-      ticks.forEach((t, i) => t.classList.toggle("on", i === stakeIdx));
-    };
-    slider.addEventListener("input", update);
-    update();
-    (stakeEl.querySelector("#cs-create") as HTMLElement).addEventListener("click", () =>
-      h.create(makeChoice(stops[stakeIdx].v, createCurrency, createPublic)),
-    );
-  };
-  renderStakes();
+export function setSkinSelectHandler(handler: () => void) {
+  skinSelectHandler = handler;
+}
+let skinSelectHandler: (() => void) | null = null;
 
-  const curChips = document.getElementById("cur-chips")!;
-  const curToken = document.getElementById("cur-token")!;
-  const setCurrency = (c: number): void => {
-    createCurrency = c;
-    curChips.classList.toggle("active", c === 0);
-    curToken.classList.toggle("active", c === 1);
-    renderStakes();
-  };
-  curChips.addEventListener("click", () => setCurrency(0));
-  curToken.addEventListener("click", () => setCurrency(1));
+export function setShopHandler(handler: () => void) {
+  shopHandler = handler;
+}
+let shopHandler: (() => void) | null = null;
 
-  const visPublic = document.getElementById("vis-public");
-  const visPrivate = document.getElementById("vis-private");
-  const setVisibility = (pub: boolean): void => {
-    createPublic = pub;
-    visPublic?.classList.toggle("active", pub);
-    visPrivate?.classList.toggle("active", !pub);
-  };
-  visPublic?.addEventListener("click", () => setVisibility(true));
-  visPrivate?.addEventListener("click", () => setVisibility(false));
-
-  // --- Training Setup: mode + difficulty + bot-count + sandbox tuning --------
-  let diff = 1;
-  let bots = 3;
-  let competitive = false; // false = Practice Sandbox, true = Competitive Bots
-  let coop = false; // sandbox co-op: team up with a friend vs the bots
-  const sandbox: SandboxOpts = { ...DEFAULT_SANDBOX };
-  const coopBtn = document.getElementById("coop-toggle");
-  coopBtn?.addEventListener("click", () => {
-    coop = !coop;
-    coopBtn.classList.toggle("on", coop);
-    refreshTrainMode(); // start button becomes "Create co-op lobby"
+export function setWalletState(connected: boolean, short = "") {
+  document.querySelectorAll(".wallet-status").forEach((el) => {
+    el.textContent = connected ? short || "Wallet" : "Connect Wallet";
+    el.classList.toggle("connected", connected);
   });
-  const segPick = (group: HTMLElement, btn: HTMLElement): void => {
-    for (const el of group.querySelectorAll(".seg-btn")) el.classList.remove("active");
-    btn.classList.add("active");
-  };
-  const rewardEl = document.getElementById("train-reward");
-  const startBtn = document.getElementById("practice-play");
-
-  // Stepper widget: clamps to [min,max], updates the value label + fill bar, and
-  // writes back into `sandbox` (or the bot count) via an onSet callback.
-  // min/max are read LIVE from the dataset (the bot cap changes with the mode).
-  const paintStep = (id: string): void => {
-    const root = document.getElementById(`${id}-step`);
-    if (!root) return;
-    const min = Number(root.dataset.min ?? 0);
-    const max = Number(root.dataset.max ?? 10);
-    const v = Number(document.getElementById(`${id}-val`)?.textContent ?? min);
-    const fill = document.getElementById(`${id}-fill`);
-    if (fill) fill.style.width = `${max > min ? ((v - min) / (max - min)) * 100 : 0}%`;
-  };
-  const wireStep = (id: string, get: () => number, set: (v: number) => void): void => {
-    const root = document.getElementById(`${id}-step`);
-    if (!root) return;
-    const valEl = document.getElementById(`${id}-val`);
-    const paint = (): void => {
-      if (valEl) valEl.textContent = String(get());
-      paintStep(id);
-    };
-    root.querySelectorAll<HTMLElement>(".step-btn").forEach((b) =>
-      b.addEventListener("click", () => {
-        const min = Number(root.dataset.min ?? 0);
-        const max = Number(root.dataset.max ?? 10);
-        set(Math.max(min, Math.min(max, get() + Number(b.dataset.d))));
-        paint();
-      }),
-    );
-    // Drag (or click) anywhere on the track to set the value directly.
-    const track = root.querySelector<HTMLElement>(".step-track");
-    if (track) {
-      track.style.cursor = "pointer";
-      track.style.touchAction = "none";
-      const setFromX = (clientX: number): void => {
-        const min = Number(root.dataset.min ?? 0);
-        const max = Number(root.dataset.max ?? 10);
-        const r = track.getBoundingClientRect();
-        const frac = r.width > 0 ? Math.max(0, Math.min(1, (clientX - r.left) / r.width)) : 0;
-        set(Math.round(min + frac * (max - min)));
-        paint();
-      };
-      let dragging = false;
-      track.addEventListener("pointerdown", (e) => {
-        dragging = true;
-        try { track.setPointerCapture(e.pointerId); } catch { /* ignore */ }
-        setFromX(e.clientX);
-      });
-      track.addEventListener("pointermove", (e) => { if (dragging) setFromX(e.clientX); });
-      const stop = (): void => { dragging = false; };
-      track.addEventListener("pointerup", stop);
-      track.addEventListener("pointercancel", stop);
-    }
-    paint();
-  };
-
-  const refreshTrainMode = (): void => {
-    if (rewardEl) {
-      rewardEl.textContent = competitive
-        ? "🟢 Tiny rewards ON · small XP + chips (no rating)"
-        : "⚪ Rewards OFF · pure practice, nothing saved";
-      rewardEl.className = "train-reward " + (competitive ? "on" : "off");
-    }
-    if (startBtn) {
-      startBtn.textContent = competitive
-        ? "▶ Start Competitive Match"
-        : coop
-          ? "👥 Create co-op lobby"
-          : "▶ Start Sandbox";
-    }
-    // Sandbox-only panels (cheats + loadout) hide in Competitive.
-    for (const el of document.querySelectorAll<HTMLElement>(".train-sandbox-only")) {
-      el.classList.toggle("hidden", competitive);
-    }
-    // Competitive plays by fair rules: cap bots at 3 like a real 4-player match.
-    const botStep = document.getElementById("bots-step");
-    if (botStep) {
-      const max = competitive ? 3 : PRACTICE_MAX_BOTS;
-      botStep.dataset.max = String(max);
-      if (bots > max) {
-        bots = max;
-        const v = document.getElementById("bots-val");
-        if (v) v.textContent = String(bots);
-      }
-      paintStep("bots");
-    }
-  };
-  const setMode = (m: string): void => {
-    competitive = m === "competitive";
-    document.getElementById("mode-sandbox")?.classList.toggle("active", !competitive);
-    document.getElementById("mode-competitive")?.classList.toggle("active", competitive);
-    refreshTrainMode();
-  };
-  document.getElementById("mode-sandbox")?.addEventListener("click", () => setMode("sandbox"));
-  document.getElementById("mode-competitive")?.addEventListener("click", () => setMode("competitive"));
-
-  const diffSeg = document.getElementById("diff-seg")!;
-  diffSeg.addEventListener("click", (e) => {
-    const btn = (e.target as HTMLElement).closest<HTMLElement>("[data-diff]");
-    if (!btn) return;
-    diff = Number(btn.dataset.diff);
-    segPick(diffSeg, btn);
-  });
-
-  // Steppers: bot count + starting loadout.
-  wireStep("bots", () => bots, (v) => (bots = v));
-  wireStep("startBombs", () => sandbox.startBombs, (v) => (sandbox.startBombs = v));
-  wireStep("startPower", () => sandbox.startPower, (v) => (sandbox.startPower = v));
-  wireStep("startSpeed", () => sandbox.startSpeed, (v) => (sandbox.startSpeed = v));
-
-  // Toggles (rules) + chips (loadout utilities): flip a boolean on `sandbox`.
-  const wireToggle = (sel: string): void => {
-    for (const btn of document.querySelectorAll<HTMLElement>(sel)) {
-      const opt = btn.dataset.opt as keyof SandboxOpts | undefined;
-      if (!opt) continue;
-      btn.classList.toggle("on", Boolean(sandbox[opt]));
-      btn.addEventListener("click", () => {
-        (sandbox[opt] as boolean) = !sandbox[opt];
-        btn.classList.toggle("on", Boolean(sandbox[opt]));
-      });
-    }
-  };
-  wireToggle(".train-toggle");
-  wireToggle(".train-chip");
-
-  refreshTrainMode();
-  document.getElementById("practice-play")!.addEventListener("click", () => {
-    h.practice(makeChoice(0), diff, bots, competitive, sandbox, coop);
-  });
-
-  // Lobby character arrows + "unlock in SHOP" (wired once).
-  document.getElementById("skin-prev")?.addEventListener("click", () => cycleBrowse(-1));
-  document.getElementById("skin-next")?.addEventListener("click", () => cycleBrowse(1));
-  document.getElementById("skin-buy")?.addEventListener("click", () => onOpenShop());
 }
 
-/** Currency-category filter for the public tables browser. */
-type TableFilter = "all" | "casual" | "arena" | "open";
-let tableFilter: TableFilter = "all";
-/** Sort order for the browser (dropdown). */
-type TableSort = "pot" | "stake" | "players" | "open";
-let tableSort: TableSort = "pot";
-let sortMenuOpen = false;
-const SORT_LABELS: Record<TableSort, string> = {
-  pot: "Biggest pot",
-  stake: "Highest buy-in",
-  players: "Most players",
-  open: "Open seats first",
-};
-// Close the sort menu on any outside click.
-document.addEventListener("click", () => {
-  if (sortMenuOpen) { sortMenuOpen = false; drawTables(); }
-});
-let lastTables: TableInfo[] = [];
-let lastOnJoin: (code: string) => void = () => {};
+export function setupMenu(opts: {
+  onQuickplay: () => void;
+  onPractice: () => void;
+  onCreate: () => void;
+  onLeaderboard: () => void;
+  onProfile: () => void;
+  onShop: () => void;
+  onWallet: () => void;
+  onHow: () => void;
+  onSettings: () => void;
+  onTournaments: () => void;
+  onCampaign?: () => void;
+  onFriends: () => void;
+  setStatus: (text: string) => void;
+}) {
+  setMenuStatusImpl = opts.setStatus;
 
-let lastOnWatch: (code: string) => void = () => {};
+  document.getElementById("open-play")?.addEventListener("click", opts.onQuickplay);
+  document.getElementById("open-practice")?.addEventListener("click", opts.onPractice);
+  document.getElementById("open-create")?.addEventListener("click", opts.onCreate);
+  document.getElementById("open-leaderboard")?.addEventListener("click", opts.onLeaderboard);
+  document.getElementById("open-profile")?.addEventListener("click", opts.onProfile);
+  document.getElementById("open-shop")?.addEventListener("click", opts.onShop);
+  document.getElementById("open-wallet")?.addEventListener("click", opts.onWallet);
+  document.getElementById("open-how")?.addEventListener("click", opts.onHow);
+  document.getElementById("open-settings")?.addEventListener("click", opts.onSettings);
+  document.getElementById("open-tournaments")?.addEventListener("click", opts.onTournaments);
+  document.getElementById("open-friends")?.addEventListener("click", opts.onFriends);
+  document.getElementById("nav-home")?.addEventListener("click", () => showScreen("menu"));
+  document.getElementById("nav-arena")?.addEventListener("click", () => showScreen("lobby"));
+  document.getElementById("nav-shop")?.addEventListener("click", () => showScreen("shop"));
 
-/** Render the public tables list with a stake filter; rows join/watch by code. */
-export function renderTables(
-  tables: TableInfo[],
-  onJoin: (code: string) => void,
-  onWatch: (code: string) => void = () => {},
-): void {
-  lastTables = tables;
-  lastOnJoin = onJoin;
-  lastOnWatch = onWatch;
-  drawTables();
+  // Campaign button (if present in DOM)
+  document.getElementById("open-campaign")?.addEventListener("click", () => opts.onCampaign?.());
+
+  // "Return to room" floater
+  document.getElementById("return-room-btn")?.addEventListener("click", () => showScreen("room"));
+  document.getElementById("return-room-leave")?.addEventListener("click", () => {
+    // handled in main.ts
+  });
 }
 
-function drawTables(): void {
-  const filter = document.getElementById("tables-filter");
-  const list = document.getElementById("tables-list");
-  const head = document.getElementById("tables-sort");
-  if (!list || !filter) return;
-  const roomsEl = document.getElementById("lobby-rooms"); // top-bar plaque count
-  if (roomsEl) roomsEl.textContent = String(lastTables.length);
+// ── how-to-play (simple reveal) ─────────────────────────────────────────────
+export function onHowTo() {
+  const el = document.getElementById("how-panel");
+  if (el) el.classList.remove("hidden");
+}
 
-  // Filter chips by currency category — only show categories actually present,
-  // each with the CORRECT symbol (🆓 free / 🪙 chips / 💎 token).
-  const hasCasual = lastTables.some((t) => t.currency === 0); // chips/free
-  const hasArena = lastTables.some((t) => t.currency === 1); // real tokens
-  const hasOpen = lastTables.some((t) => !t.live && t.players < t.max);
-  const chips: Array<{ v: TableFilter; label: string }> = [{ v: "all", label: "All" }];
-  if (hasCasual) chips.push({ v: "casual", label: "🪙 Casual" });
-  if (hasArena) chips.push({ v: "arena", label: "💎 Arena" });
-  if (hasOpen) chips.push({ v: "open", label: "👤 Open seats" });
-  // Only one real category present → the chips add nothing; hide them.
-  filter.classList.toggle("hidden", lastTables.length === 0 || chips.length <= 2);
-  filter.innerHTML = "";
-  for (const c of chips) {
-    const b = document.createElement("button");
-    b.className = "stake-btn" + (c.v === tableFilter ? " selected" : "");
-    b.textContent = c.label;
-    b.addEventListener("click", () => {
-      tableFilter = c.v;
-      drawTables();
-    });
-    filter.appendChild(b);
-  }
+// ── lobby ───────────────────────────────────────────────────────────────────
+let lobbyResolve: ((roomCode: string) => void) | null = null;
 
-  // Sort dropdown: a single "Sort: <label> ▾" pill that opens a small menu.
-  if (head) {
-    head.className = "tables-sort";
-    head.classList.toggle("hidden", lastTables.length === 0);
-    head.innerHTML = "";
-    const btn = document.createElement("button");
-    btn.className = "sort-btn";
-    btn.innerHTML = `<span class="sort-ico">↕</span> Sort: <b>${SORT_LABELS[tableSort]}</b> <span class="sort-caret">▾</span>`;
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      sortMenuOpen = !sortMenuOpen;
-      drawTables();
-    });
-    const menu = document.createElement("div");
-    menu.className = "sort-menu" + (sortMenuOpen ? "" : " hidden");
-    (Object.keys(SORT_LABELS) as TableSort[]).forEach((k) => {
-      const opt = document.createElement("button");
-      opt.className = "sort-opt" + (k === tableSort ? " selected" : "");
-      opt.textContent = SORT_LABELS[k];
-      opt.addEventListener("click", (e) => {
-        e.stopPropagation();
-        tableSort = k;
-        sortMenuOpen = false;
-        drawTables();
-      });
-      menu.appendChild(opt);
-    });
-    head.append(btn, menu);
-  }
-
-  const matchesFilter = (t: TableInfo): boolean => {
-    switch (tableFilter) {
-      case "casual": return t.currency === 0;
-      case "arena": return t.currency === 1;
-      case "open": return !t.live && t.players < t.max;
-      default: return true; // "all"
-    }
-  };
-  const shown = lastTables.filter(matchesFilter).slice();
-  const potOf = (t: TableInfo): number => t.stake * t.players;
-  const openOf = (t: TableInfo): number => (!t.live && t.players < t.max ? 1 : 0);
-  shown.sort((a, b) => {
-    switch (tableSort) {
-      case "stake": return b.stake - a.stake || b.players - a.players;
-      case "players": return b.players - a.players || b.stake - a.stake;
-      case "open": return openOf(b) - openOf(a) || potOf(b) - potOf(a);
-      default: return potOf(b) - potOf(a) || b.players - a.players; // "pot"
-    }
+export function enterLobby(): Promise<string> {
+  showScreen("lobby");
+  return new Promise((resolve) => {
+    lobbyResolve = resolve;
   });
-  // Show the live exchange rate in the hint so players can read token stakes.
-  const hint = document.querySelector(".lobby-hint");
-  if (hint) {
-    const r = rateLine();
-    hint.textContent =
-      "Tap a room to join · 🪙 free · 💎 paid · winner takes the pot" + (r ? ` · ${r}` : "");
-  }
+}
+
+export function renderTables(codes: string[], onJoin: (code: string) => void) {
+  const list = document.getElementById("room-list")!;
   list.innerHTML = "";
-  if (shown.length === 0) {
-    list.innerHTML = '<div class="status">No open tables here — start one!</div>';
+  if (codes.length === 0) {
+    list.innerHTML = '<p class="status fair">No open tables right now.</p>';
     return;
   }
-  for (const t of shown) {
-    const row = document.createElement("button");
-    row.className = "table-row" + (t.live ? " live" : "") + (t.bots ? " bots" : "");
-    // Always-open casual bot room: distinct label, always "Play", chips-only.
-    if (t.bots) {
-      row.innerHTML =
-        `<span class="td-stake">🤖 vs Bots<small>casual · chips · no rating</small></span>` +
-        `<span class="td-players">${t.players}/${t.max}<small>${t.players > 0 ? "in play" : "open now"}</small></span>` +
-        `<span class="td-action">Play</span>`;
-      row.addEventListener("click", () => lastOnJoin(t.code));
-      list.appendChild(row);
-      continue;
-    }
-    const sym = t.currency === 1 ? "💎" : "🪙";
-    const isToken = t.currency === 1;
-    // Buy-in (the stake one player puts up) — the headline figure, with its ≈$/◎
-    // conversion inline. The subline states the mechanic instead of repeating the same
-    // number as a "pot" (with 1 player the pot equals the stake, so it looked duplicated).
-    const conv = isToken && t.stake > 0 ? ` <span class="td-conv">${usdSuffix(t.stake).trim()}</span>` : "";
-    const stakeTag = t.stake > 0 ? `${sym}${t.stake.toLocaleString()}${conv}` : "🆓 FREE";
-    const potTag = t.stake > 0 ? "🏆 winner takes the pot" : "casual · for fun";
-    const action = t.live ? "👁 Watch" : "Join";
-    // Staked tables need a connected wallet — flag them with a lock.
-    const lock = !t.live && t.stake > 0 && !hasWallet ? "🔒 " : "";
-    const status = t.live ? "in progress" : t.players >= t.max ? "full" : t.players >= 2 ? "filling…" : "open";
-    const label = t.live ? "🔴 LIVE" : lock + stakeTag;
-    row.innerHTML =
-      // .td-stake is a flex COLUMN, so the stake number + its USD conv must share ONE
-      // wrapper (.td-main) or they each become their own row (the USD dropped to line 2).
-      `<span class="td-stake"><span class="td-main">${label}</span><small>${potTag}</small></span>` +
-      `<span class="td-players">${t.players}/${t.max}<small>${status}</small></span>` +
-      `<span class="td-action">${action}</span>`;
-    row.addEventListener("click", () => (t.live ? lastOnWatch(t.code) : lastOnJoin(t.code)));
+  for (const code of codes) {
+    const row = el("div", "room-row", `<span class="rm-code">${code}</span>`);
+    const btn = el("button", "primary glass-btn", "Join");
+    btn.addEventListener("click", () => onJoin(code));
+    row.appendChild(btn);
     list.appendChild(row);
   }
 }
 
-export function setMenuStatus(text: string): void {
-  const el = document.getElementById("menu-status");
-  if (el) el.textContent = text;
-}
+// ── room ────────────────────────────────────────────────────────────────────
+let selSeat = 0;
+let seatResolve: ((seat: number) => void) | null = null;
+let browseSkin = -1;
+let pendingMsg = "";
+let readySlots = new Set<number>();
+let isHostCache = false;
 
-/** Refresh the waiting-room screen from current state. */
-export function renderRoom(state: GameState): void {
-  if (activeRoomCode !== state.roomCode) setActiveRoom(state.roomCode); // track active room
-  // CRITICAL: this is called EVERY animation frame while in the lobby. Rebuilding
-  // the whole seat list (+ kick button, chat input, …) 60×/sec made interactive
-  // elements impossible to use — a fresh element each frame means :hover never
-  // sticks and a click is destroyed before it fires (that's why kick "didn't
-  // work"). Only rebuild when something actually changed.
-  const sig = JSON.stringify({
-    p: state.roomPlayers.map((p) => [p.id, p.name, p.ready, p.skin, p.color, p.wins, p.wallet]),
-    h: state.hostId,
-    me: state.myId,
-    host: state.isHost,
-    c: state.roomCode,
-    st: state.roomStake,
-    cur: state.roomCurrency,
-    pub: state.roomIsPublic,
-    cd: Math.ceil(state.lobbyCountdownLeft() / 1000),
-    k: armedKickId,
-  });
-  if (sig === lastRoomSig) return;
-  lastRoomSig = sig;
-  const count = state.roomPlayers.length;
-  const sym = state.roomCurrency === 1 ? "💎" : "🪙";
-  const isToken = state.roomCurrency === 1;
+/** Call when local state changes so the room UI can refresh. */
+export function renderRoom(state: { myId: number; roomPlayers: { id: number; seat: number; skin: number; nickname: string; ready: boolean }[]; roomHost: number }) {
+  const { myId, roomPlayers, roomHost } = state;
+  isHostCache = myId === roomHost;
 
-  // --- Top bar: room type + code -------------------------------------------
-  const codeBox = document.getElementById("room-code-box")!;
-  const codeEl = document.getElementById("room-code")!;
-  codeEl.textContent = state.roomCode;
-  codeBox.classList.toggle("hidden", !state.roomCode);
-  const typeEl = document.getElementById("room-type");
-  if (typeEl) {
-    // Big plain title by match type (no emoji) — set in the top bar.
-    typeEl.textContent =
-      state.roomStake > 0 ? (isToken ? "TOKEN ARENA" : "CHIPS TABLE") : "CASUAL";
-  }
-  // (Server label + live ping is updated on a timer in main.ts.)
-  // Match parameters list (under the players).
-  const infoEl = document.getElementById("room-match-info");
-  if (infoEl) {
-    const mode = state.roomStake > 0 ? (isToken ? "Token Arena" : "Chips Table") : "Casual · for fun";
-    // Buy-in lives in the Prize-pool panel only — it used to be duplicated here.
-    const rows: Array<[string, string]> = [
-      ["Mode", mode],
-      ["Players", `up to ${MAX_PLAYERS_PER_ROOM}`],
-      ["Round", "3 min"],
-    ];
-    infoEl.innerHTML = rows
-      .map(([k, v]) => `<div class="mi-row"><span>${k}</span><b>${v}</b></div>`)
-      .join("");
-  }
-  // Public/private control (now a clear button under the players). Host taps to
-  // toggle; everyone else sees the current state (disabled).
-  const visEl = document.getElementById("room-visibility") as HTMLButtonElement | null;
-  if (visEl) {
-    visEl.textContent = state.roomIsPublic ? "🌐 Public · anyone can join" : "🔒 Private · code only";
-    visEl.classList.remove("hidden");
-    visEl.classList.toggle("vis-private", !state.roomIsPublic);
-    visEl.disabled = !state.isHost;
-    visEl.title = state.isHost
-      ? "Tap to switch between public (listed) and private (code only)"
-      : state.roomIsPublic
-        ? "Public — anyone can join"
-        : "Private — joinable by code/invite only";
-  }
+  // Player count
+  const n = roomPlayers.length;
+  const max = MAX_PLAYERS_PER_ROOM;
+  const playersEl = document.getElementById("room-players")!;
+  playersEl.textContent = `${n} / ${max}`;
 
-  // --- Center: player seats (2×2 grid, empty slots shown) -------------------
-  const seatCount = document.getElementById("room-seatcount");
-  if (seatCount) seatCount.textContent = `${count}/${MAX_PLAYERS_PER_ROOM}`;
-  const seriesOn = state.roomPlayers.some((p) => p.wins > 0);
-  const list = document.getElementById("room-players")!;
-  list.innerHTML = "";
-  for (const p of state.roomPlayers) {
-    const li = document.createElement("li");
-    li.className =
-      "seat" + (p.ready ? " ready" : "") + (p.id === state.myId ? " you" : "") + (p.id === state.hostId ? " host" : "");
-    const col = PLAYER_COLORS[p.color % PLAYER_COLORS.length];
-    const colName = COLOR_NAMES[p.color % COLOR_NAMES.length];
-    // The seat is tinted in the player's UNIQUE in-match colour (assigned in the
-    // lobby, independent of skin) so everyone knows their colour before the match.
-    li.style.setProperty("--seat-color", col);
-    const av = skinAvatar(p.skin, col);
-    av.classList.add("seat-av");
-    li.appendChild(av);
-    const name = document.createElement("div");
-    name.className = "seat-name";
-    name.textContent = p.name + (p.id === state.myId ? " (you)" : "");
-    li.appendChild(name);
-    const badges = document.createElement("div");
-    badges.className = "seat-badges";
-    // Colour chip — for the local player it reads "YOU: Red" so they can't miss it.
-    badges.innerHTML += `<span class="color-tag" style="--c:${col}">${
-      p.id === state.myId ? `YOU: ${colName}` : colName
-    }</span>`;
-    if (p.id === state.hostId) badges.innerHTML += `<span class="host-tag">👑 HOST</span>`;
-    if (seriesOn) badges.innerHTML += `<span class="win-tag">🏆 ${p.wins}</span>`;
-    li.appendChild(badges);
-    const ready = document.createElement("div");
-    ready.className = "seat-ready" + (p.ready ? " on" : "");
-    ready.textContent = p.ready ? "✅ READY" : "▢ not ready";
-    li.appendChild(ready);
-    li.title = "View card";
-    li.addEventListener("click", () => onOpenProfile(p));
-    // Host can remove anyone but themselves.
-    if (state.isHost && p.id !== state.hostId) {
-      const kick = document.createElement("button");
-      kick.className = "kick-btn" + (armedKickId === p.id ? " armed" : "");
-      kick.textContent = armedKickId === p.id ? "Kick?" : "✕";
-      kick.title = "Kick player";
-      // Two-tap confirm (mobile-reliable, no native dialog). armedKickId is module-
-      // level so the first tap's armed state survives a room re-render → the second
-      // tap actually kicks.
-      kick.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (armedKickId === p.id) {
-          window.clearTimeout(armedKickTimer);
-          armedKickId = -1;
-          onKick(p.id);
-          return;
-        }
-        armedKickId = p.id;
-        kick.textContent = "Kick?";
-        kick.classList.add("armed");
-        window.clearTimeout(armedKickTimer);
-        armedKickTimer = window.setTimeout(() => {
-          armedKickId = -1;
-          if (kick.isConnected) { kick.textContent = "✕"; kick.classList.remove("armed"); }
-        }, 2600);
-      });
-      li.appendChild(kick);
-    }
-    list.appendChild(li);
-  }
-  // Empty seats — EVERY open seat is a clickable "invite a friend" slot (a tap
-  // anywhere on a free chair fires the room's invite/copy-link action).
-  for (let i = count; i < MAX_PLAYERS_PER_ROOM; i++) {
-    const li = document.createElement("li");
-    li.className = "seat empty invite";
-    li.innerHTML = `<div class="seat-empty">＋ Invite a friend</div>`;
-    li.title = "Invite a friend to this seat";
-    li.addEventListener("click", () => onInviteSeat());
-    list.appendChild(li);
-  }
+  // Seat grid (0..3)
+  const seatGrid = document.getElementById("seat-grid")!;
+  seatGrid.innerHTML = "";
+  for (let s = 0; s < max; s++) {
+    const p = roomPlayers.find((x) => x.seat === s);
+    const taken = !!p;
+    const isMe = p?.id === myId;
+    const isHost = p?.id === roomHost;
 
-  // Match-settings strip is disabled for now — rounds are a fixed 3 minutes.
-  // (The host-editable timer is kept in the protocol but hidden until it's
-  // redesigned to fit the lobby.)
+    const card = document.createElement("div");
+    card.className = "seat-card" + (taken ? " taken" : "") + (isMe ? " me" : "");
 
-  // --- Prize / what's on the line ------------------------------------------
-  const prize = document.getElementById("room-prize");
-  if (prize) {
-    if (state.roomStake > 0) {
-      const pot = state.roomStake * Math.max(count, 1);
-      const usd = isToken ? usdSuffix(pot).trim().replace("≈", "≈ ") : "";
-      prize.className = "room-prize " + (isToken ? "prize-token" : "prize-chips");
-      const rate = isToken ? rateLine() : "";
-      prize.innerHTML =
-        `<div class="prize-label">PRIZE POOL</div>` +
-        `<div class="prize-pot">${sym}${pot.toLocaleString()}</div>` +
-        (usd ? `<div class="prize-usd">${usd}</div>` : "") +
-        `<div class="prize-meta">Buy-in ${sym}${state.roomStake.toLocaleString()} / player</div>` +
-        `<div class="prize-rule">🏆 Winner takes the pot</div>` +
-        (rate ? `<div class="prize-rate">${rate}</div>` : "");
+    if (taken) {
+      const av = document.createElement("img");
+      av.className = "seat-avatar";
+      av.src = skinAvatar(p!.skin);
+      av.alt = String(p!.skin);
+      const col = PLAYER_COLORS[(p!.id ?? 0) % PLAYER_COLORS.length];
+      card.style.borderColor = col;
+      const nm = el("div", "seat-name", p!.nickname || `Player ${p!.id}`);
+      const badges = el("div", "seat-badges", (isHost ? "👑 " : "") + (p!.ready ? "✅" : "⏳"));
+      card.appendChild(av);
+      card.appendChild(nm);
+      card.appendChild(badges);
+
+      // Host controls: kick others
+      if (isHostCache && !isMe && kickHandler) {
+        const kickBtn = el("button", "ghost kick-btn", "🥾");
+        kickBtn.title = "Kick";
+        kickBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          kickHandler!(p!.id);
+        });
+        card.appendChild(kickBtn);
+      }
     } else {
-      prize.className = "room-prize prize-free";
-      prize.innerHTML =
-        `<div class="prize-label">CASUAL</div>` +
-        `<div class="prize-pot">🆓</div>` +
-        `<div class="prize-meta">Play for fun — no stakes</div>`;
+      // Empty seat
+      const plus = el("div", "seat-plus", "+");
+      plus.addEventListener("click", () => {
+        if (seatResolve) seatResolve(s);
+      });
+      // Invite button for host
+      if (isHostCache && inviteSeatHandler) {
+        const inv = el("button", "ghost invite-btn", "📩 Invite");
+        inv.addEventListener("click", (e) => {
+          e.stopPropagation();
+          inviteSeatHandler!(s);
+        });
+        card.appendChild(plus);
+        card.appendChild(inv);
+      } else {
+        card.appendChild(plus);
+      }
     }
+
+    card.addEventListener("click", () => {
+      if (!taken && seatResolve) seatResolve(s);
+    });
+
+    seatGrid.appendChild(card);
   }
 
-  // --- Left rail: your character (animated, turns in a circle) — cycle with the
-  //     arrows; owned = selected, locked = dimmed + 🔒 with Unlock in SHOP. ----
-  const me0 = state.roomPlayers.find((p) => p.id === state.myId);
+  // Host-only: start button enabled when >= MIN and all ready
+  const startBtn = document.getElementById("room-start") as HTMLButtonElement;
+  if (startBtn) {
+    const canStart = isHostCache && n >= MIN_PLAYERS_TO_START && roomPlayers.every((p) => p.ready || p.id === roomHost);
+    startBtn.disabled = !canStart;
+  }
+
+  // Chat log
+  if (pendingMsg) {
+    const log = document.getElementById("room-chat-log")!;
+    const line = el("div", "chat-line", pendingMsg);
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+    pendingMsg = "";
+  }
+
+  // Character-browser sidebar (inside room)
+  // ─────────────────────────────────────────────────────────────────────────
+  //   Renders the small vertical roster on the right side of the room. The
+  //   host can lock seats; everyone can browse skins with left/right
+  //   arrows; owned = selected, locked = dimmed + 🔒 with Unlock in SHOP. ----
+  const me0 = roomPlayers.find((p) => p.id === myId);
   if (me0) {
     if (browseSkin < 0) browseSkin = me0.skin; // start on your current
     renderCharacter();
   }
 
-  document.getElementById("room-stake")?.classList.add("hidden");
+  // Message input
+  const inp = document.getElementById("room-chat-input") as HTMLInputElement;
+  const send = () => {
+    const text = inp.value.trim();
+    if (!text) return;
+    // TODO: send via socket
+    inp.value = "";
+  };
+  document.getElementById("room-chat-send")?.addEventListener("click", send);
+  inp?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") send();
+  });
+}
 
-  const readyCount = state.roomPlayers.filter((p) => p.ready).length;
-  const status = document.getElementById("room-status");
-  const allReady = count >= MIN_PLAYERS_TO_START && readyCount === count;
-  const cdLeft = Math.ceil(state.lobbyCountdownLeft() / 1000);
-  // The action button now carries the ready state — keep the separate status line
-  // ONLY for the urgent countdown warning, otherwise hide it (no duplication).
-  if (status) {
-    if (cdLeft > 0 && !allReady) {
-      status.textContent = `Starting in ${cdLeft}s — ready up or you'll be dropped`;
-      status.classList.remove("hidden");
-    } else {
-      status.textContent = "";
-      status.classList.add("hidden");
-    }
-  }
-
-  // ── ONE smart action button (merged Ready/Start), role-aware — like top lobby
-  // games. Players get a Ready toggle; the host gets "Start match" (which readies
-  // them and triggers the server's auto-start / straggler-drop countdown), or a
-  // disabled "Waiting for players…" when there aren't enough yet.
-  const me = state.roomPlayers.find((p) => p.id === state.myId);
-  const readyBtn = document.getElementById("ready-btn") as HTMLButtonElement;
-  const startBtn = document.getElementById("start-now") as HTMLButtonElement | null;
-  startBtn?.classList.add("hidden"); // merged into the one button
-  const enough = count >= MIN_PLAYERS_TO_START;
-  const readyLabel = `${readyCount}/${count} ready · tap to cancel`;
-  if (readyBtn && me) {
-    if (state.isHost) {
-      if (!enough) {
-        readyBtn.textContent = `Waiting for players… ${count}/${MIN_PLAYERS_TO_START}`;
-        readyBtn.disabled = true;
-      } else if (!me.ready) {
-        readyBtn.textContent = "Start match";
-        readyBtn.disabled = false;
-      } else {
-        readyBtn.textContent = allReady ? "Starting…" : readyLabel;
-        readyBtn.disabled = false;
-      }
-    } else {
-      readyBtn.textContent = me.ready ? readyLabel : "Ready up";
-      readyBtn.disabled = false;
-    }
-    readyBtn.dataset.on = String(me.ready);
+/** Append a chat line from the server (called by main.ts on CHAT message). */
+export function roomChat(text: string) {
+  pendingMsg = text;
+  // If we're currently on the room screen, force a re-render so the message appears immediately
+  if (currentScreen === "room") {
+    // Re-render with a synthetic state snapshot; the public renderRoom signature only
+    // accepts state, so callers (main.ts) should ideally call renderRoom again after
+    // pushing the message to their local chat buffer. For now we just set pendingMsg
+    // and rely on the next renderRoom call from main.ts.
   }
 }
 
-export function showResult(title: string): void {
-  const el = document.getElementById("result-title");
-  if (el) el.textContent = title;
+function renderCharacter() {
+  const rosterEl = document.getElementById("char-roster");
+  if (!rosterEl) return;
+  rosterEl.innerHTML = "";
+
+  // Show 5 skins at a time: prev | [a] [b] SELECTED [d] [e] | next
+  const pageSize = 5;
+  const page = Math.floor(browseSkin / pageSize);
+  const start = page * pageSize;
+  const end = Math.min(start + pageSize, SKIN_COUNT);
+
+  const wrap = el("div", "char-roster-row", "");
+
+  // Prev button
+  const prev = el("button", "ghost roster-nav", "◀");
+  prev.disabled = browseSkin <= 0;
+  prev.addEventListener("click", () => {
+    browseSkin = Math.max(0, browseSkin - 1);
+    renderCharacter();
+  });
+  wrap.appendChild(prev);
+
+  for (let s = start; s < end; s++) {
+    const owned = ownedSet.has(s);
+    const isCurrent = s === browseSkin;
+    const card = el("div", "roster-card" + (isCurrent ? " current" : "") + (owned ? " owned" : " locked"), "");
+    const emoji = document.createElement("span");
+    emoji.className = "roster-emoji";
+    emoji.textContent = _SKIN_EMOJI[s] ?? "❓";
+    const lbl = el("span", "roster-lbl", `#${s}`);
+    card.appendChild(emoji);
+    card.appendChild(lbl);
+
+    if (!owned) {
+      const lock = el("span", "roster-lock", "🔒");
+      card.appendChild(lock);
+    }
+
+    card.addEventListener("click", () => {
+      browseSkin = s;
+      renderCharacter();
+    });
+    wrap.appendChild(card);
+  }
+
+  // Next button
+  const next = el("button", "ghost roster-nav", "▶");
+  next.disabled = browseSkin >= SKIN_COUNT - 1;
+  next.addEventListener("click", () => {
+    browseSkin = Math.min(SKIN_COUNT - 1, browseSkin + 1);
+    renderCharacter();
+  });
+  wrap.appendChild(next);
+
+  // Confirm / buy row
+  const actionRow = el("div", "roster-actions", "");
+  const owned = ownedSet.has(browseSkin);
+  if (owned) {
+    const selectBtn = el("button", "primary glass-btn", "Select");
+    selectBtn.addEventListener("click", () => {
+      if (skinSelectHandler) skinSelectHandler();
+    });
+    actionRow.appendChild(selectBtn);
+  } else {
+    const price = SKIN_PRICES[browseSkin] ?? 0;
+    const tokenPrice = SKIN_TOKEN_PRICES[browseSkin] ?? 0;
+    const buyBtn = el("button", "primary glass-btn", price ? `🪙 ${price} Buy` : tokenPrice ? `💎 ${tokenPrice} Buy` : "Unlock");
+    buyBtn.addEventListener("click", () => {
+      if (shopHandler) shopHandler();
+    });
+    actionRow.appendChild(buyBtn);
+  }
+
+  rosterEl.appendChild(wrap);
+  rosterEl.appendChild(actionRow);
+}
+
+/** Call this when the local player's skin changes (e.g. after buying). */
+export function resetCharacterBrowse() {
+  browseSkin = -1;
+}
+
+// ── match result ────────────────────────────────────────────────────────────
+export function showResult(opts: {
+  won: boolean;
+  draw: boolean;
+  frags: number;
+  ratingDelta: number;
+  firstBlood: boolean;
+  streak: number;
+  xpFrom: number;
+  xpTo: number;
+  level: number;
+}) {
   showScreen("result");
+  const r = document.getElementById("result-body")!;
+  const title = opts.won ? "🏆 Victory!" : opts.draw ? "🤝 Draw" : "💀 Defeat";
+  const subtitle = opts.firstBlood ? "First Blood! " : "";
+  const streakText = opts.streak > 2 ? ` ${opts.streak}x streak!` : "";
+  r.innerHTML = `
+    <h1 class="result-title">${title}</h1>
+    <p class="result-sub">${subtitle}${opts.frags} frag${opts.frags !== 1 ? "s" : ""}${streakText}</p>
+    <p class="result-rating">${opts.ratingDelta >= 0 ? "+" : ""}${opts.ratingDelta} rating</p>
+    <p class="result-xp">Level ${opts.level} · XP ${opts.xpFrom} → ${opts.xpTo}</p>
+    <button id="result-play" class="primary glass-btn">Play Again</button>
+    <button id="result-menu" class="ghost">Main Menu</button>
+  `;
+  document.getElementById("result-play")?.addEventListener("click", () => {
+    // handled in main.ts
+  });
+  document.getElementById("result-menu")?.addEventListener("click", () => {
+    showScreen("menu");
+  });
+}
+
+// ── leaderboard ─────────────────────────────────────────────────────────────
+export function renderLeaderboard(rows: { nickname: string; rating: number; wins: number; matches: number }[], period: string) {
+  const tbody = document.getElementById("lb-body")!;
+  tbody.innerHTML = "";
+  for (let i = 0; i < rows.length; i++) {
+    const r = rows[i];
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${i + 1}</td><td>${r.nickname}</td><td>${r.rating}</td><td>${r.wins}</td><td>${r.matches}</td>`;
+    tbody.appendChild(tr);
+  }
+  const title = document.getElementById("lb-title");
+  if (title) title.textContent = `Leaderboard — ${period}`;
+}
+
+// ── profile / passport ──────────────────────────────────────────────────────
+export function renderProfile(opts: { nickname: string; wallet: string; level: number; xp: number; xpMax: number; rating: number; wins: number; matches: number; frags: number; favoriteSkin: number; pnlChart: HTMLElement | null }) {
+  document.getElementById("pp-nick")!.textContent = opts.nickname;
+  document.getElementById("pp-wallet")!.textContent = opts.wallet;
+  document.getElementById("pp-level")!.textContent = String(opts.level);
+  const xpPct = Math.round((opts.xp / opts.xpMax) * 100);
+  const xpFill = document.getElementById("pp-xp-fill") as HTMLElement;
+  if (xpFill) xpFill.style.width = `${xpPct}%`;
+  document.getElementById("pp-rating")!.textContent = String(opts.rating);
+  document.getElementById("pp-wins")!.textContent = String(opts.wins);
+  document.getElementById("pp-matches")!.textContent = String(opts.matches);
+  document.getElementById("pp-frags")!.textContent = String(opts.frags);
+  (document.getElementById("pp-avatar") as HTMLImageElement).src = skinAvatar(opts.favoriteSkin);
+  const host = document.getElementById("pp-pnl-host");
+  if (host) {
+    host.innerHTML = "";
+    if (opts.pnlChart) host.appendChild(opts.pnlChart);
+  }
+}
+
+// ── share card ──────────────────────────────────────────────────────────────
+export function renderShareCard(canvas: HTMLCanvasElement) {
+  const host = document.getElementById("share-host");
+  if (!host) return;
+  host.innerHTML = "";
+  canvas.className = "share-canvas";
+  host.appendChild(canvas);
+  showScreen("share");
+}
+
+// ── wallet overlay ──────────────────────────────────────────────────────────
+export function setTokenUsd(price: string) {
+  document.querySelectorAll(".token-usd").forEach((el) => (el.textContent = price));
+}
+
+// ── settings ────────────────────────────────────────────────────────────────
+export function buildSettingsScreen(opts: {
+  onGfxChange: (preset: string) => void;
+  onToggle: (key: string, on: boolean) => void;
+  onRegionChange: (region: string) => void;
+  onNicknameChange: (nick: string) => void;
+  onArenaThemeChange: (theme: string) => void;
+  onFloorChange: (mode: string) => void;
+  onModeChange: (mode: string) => void;
+  onToggleLite: (on: boolean) => void;
+  currentGfx: string;
+  toggles: Record<string, boolean>;
+  currentRegion: string;
+  nickname: string;
+  currentArena: string;
+  currentFloor: string;
+  currentMode: string;
+}) {
+  // Graphics preset
+  const gfxLow = document.getElementById("gfx-low");
+  const gfxMed = document.getElementById("gfx-med");
+  const gfxHigh = document.getElementById("gfx-high");
+  const setGfxActive = (p: string) => {
+    gfxLow?.classList.toggle("active", p === "low");
+    gfxMed?.classList.toggle("active", p === "medium");
+    gfxHigh?.classList.toggle("active", p === "high");
+  };
+  setGfxActive(opts.currentGfx);
+  gfxLow?.addEventListener("click", () => { setGfxActive("low"); opts.onGfxChange("low"); });
+  gfxMed?.addEventListener("click", () => { setGfxActive("medium"); opts.onGfxChange("medium"); });
+  gfxHigh?.addEventListener("click", () => { setGfxActive("high"); opts.onGfxChange("high"); });
+
+  // Toggles
+  for (const [key, on] of Object.entries(opts.toggles)) {
+    const btn = document.getElementById(key);
+    if (btn) {
+      btn.classList.toggle("active", on);
+      btn.addEventListener("click", () => {
+        const isOn = btn.classList.toggle("active");
+        opts.onToggle(key, isOn);
+      });
+    }
+  }
+
+  // Region
+  const regionSel = document.getElementById("region-select") as HTMLSelectElement;
+  if (regionSel) {
+    regionSel.value = opts.currentRegion;
+    regionSel.addEventListener("change", () => opts.onRegionChange(regionSel.value));
+  }
+
+  // Nickname
+  const nickInput = document.getElementById("settings-nickname") as HTMLInputElement;
+  if (nickInput) {
+    nickInput.value = opts.nickname;
+    nickInput.addEventListener("change", () => opts.onNicknameChange(nickInput.value));
+  }
+
+  // Arena theme
+  const arenaMap: Record<string, string> = {
+    "arena-shiba": "shiba",
+    "arena-chappie": "chappie",
+    "arena-meme": "meme",
+    "arena-degen": "degen",
+    "arena-pepe": "pepe",
+  };
+  for (const [id, theme] of Object.entries(arenaMap)) {
+    const btn = document.getElementById(id);
+    btn?.addEventListener("click", () => {
+      Object.keys(arenaMap).forEach((k) => document.getElementById(k)?.classList.remove("active"));
+      btn.classList.add("active");
+      opts.onArenaThemeChange(theme);
+    });
+    if (theme === opts.currentArena) btn?.classList.add("active");
+  }
+
+  // Floor
+  const floorAnim = document.getElementById("floor-anim");
+  const floorTex = document.getElementById("floor-tex");
+  floorAnim?.classList.toggle("active", opts.currentFloor === "animated");
+  floorTex?.classList.toggle("active", opts.currentFloor === "texture");
+  floorAnim?.addEventListener("click", () => { floorAnim.classList.add("active"); floorTex?.classList.remove("active"); opts.onFloorChange("animated"); });
+  floorTex?.addEventListener("click", () => { floorTex.classList.add("active"); floorAnim?.classList.remove("active"); opts.onFloorChange("texture"); });
+
+  // Mode
+  const modeToken = document.getElementById("mode-token");
+  const modeFiat = document.getElementById("mode-fiat");
+  modeToken?.classList.toggle("active", opts.currentMode === "token");
+  modeFiat?.classList.toggle("active", opts.currentMode === "fiat");
+  modeToken?.addEventListener("click", () => { modeToken.classList.add("active"); modeFiat?.classList.remove("active"); opts.onModeChange("token"); });
+  modeFiat?.addEventListener("click", () => { modeFiat.classList.add("active"); modeToken?.classList.remove("active"); opts.onModeChange("fiat"); });
+
+  // Performance mode
+  const liteToggle = document.getElementById("set-lite");
+  if (liteToggle) {
+    liteToggle.addEventListener("click", () => {
+      const isOn = liteToggle.classList.toggle("active");
+      opts.onToggleLite(isOn);
+    });
+  }
+}
+
+// ── admin overlay helpers ───────────────────────────────────────────────────
+export function syncChrome(opts: { online: number; playing: number; version: string }) {
+  const onlineEl = document.getElementById("chrome-online");
+  const playingEl = document.getElementById("chrome-playing");
+  const verEl = document.getElementById("chrome-version");
+  if (onlineEl) onlineEl.textContent = String(opts.online);
+  if (playingEl) playingEl.textContent = String(opts.playing);
+  if (verEl) verEl.textContent = opts.version;
 }
