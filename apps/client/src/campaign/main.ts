@@ -449,12 +449,15 @@ function updateLoadingText(text: string): void {
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
-/** Запуск Campaign Mode (вызывается из main.ts). */
-export async function startCampaign(): Promise<void> {
+/** Запуск Campaign Mode.
+ *  @param container — DOM-элемент, в который рендерится campaign.
+ *                     Вызывающий код (main.ts) управляет видимостью
+ *                     контейнера (через lobby showScreen или напрямую).
+ */
+export async function startCampaign(container: HTMLElement): Promise<void> {
   if (state.running) return;
 
-  const { showScreen } = await import("../ui/lobby.js");
-  showScreen("campaign");
+  container.classList.remove("hidden");
 
   show(LOADING_ID);
   hide(HUD_ID);
@@ -502,6 +505,9 @@ export function stopCampaign(): void {
   state.input = null;
   state.player = null;
   document.body.style.cursor = "default";
+  // Hide the campaign container so the caller's screen system takes over.
+  const canvas = $(CANVAS_ID);
+  if (canvas) canvas.classList.add("hidden");
 }
 
 /** Проверяет, запущен ли campaign. */
