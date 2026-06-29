@@ -165,7 +165,8 @@ export type ScreenName =
   | "game"
   | "result"
   | "tournaments"
-  | "friends";
+  | "friends"
+  | "campaign";
 const SCREENS: ScreenName[] = [
   "splash",
   "loading",
@@ -182,6 +183,7 @@ const SCREENS: ScreenName[] = [
   "result",
   "tournaments",
   "friends",
+  "campaign",
 ];
 
 // ── "You're still in a room" affordance ─────────────────────────────────────
@@ -195,7 +197,7 @@ function refreshReturnRoom(): void {
   const el = document.getElementById("return-room");
   if (!el) return;
   // Hide while actually in the room / mid-match / on the entry screens.
-  const browsing = !["room", "game", "result", "splash", "loading"].includes(currentScreen);
+  const browsing = !["room", "game", "result", "splash", "loading", "campaign"].includes(currentScreen);
   const show = activeRoomCode !== "" && browsing;
   el.classList.toggle("hidden", !show);
   if (show) {
@@ -224,14 +226,14 @@ export function showScreen(name: ScreenName): void {
   // Persistent top chrome (alpha notice + global status bar + XP): shown on every
   // screen — including the waiting room — except the in-game canvas (own HUD) and
   // the splash entry screen. (#room reserves --chrome-h top padding for it.)
-  document.getElementById("chrome")?.classList.toggle("hidden", name === "game" || name === "splash");
+  document.getElementById("chrome")?.classList.toggle("hidden", name === "game" || name === "splash" || name === "campaign");
   syncChrome();
   // Global background video runs everywhere except in-game (CPU/battery) and the
   // splash screen (which has its own video backdrop covering it).
   const bg = document.getElementById("bg");
   const video = document.getElementById("bg-video") as HTMLVideoElement | null;
   // The splash now uses the standard blurred background too (no separate video).
-  const showBg = name !== "game";
+  const showBg = name !== "game" && name !== "campaign";
   if (bg) bg.style.display = showBg ? "" : "none";
   if (video) {
     if (showBg) void video.play().catch(() => {});
