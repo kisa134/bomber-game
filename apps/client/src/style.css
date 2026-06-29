@@ -1261,17 +1261,18 @@ body.unit-sol .calc-usd {
   font-family: var(--font-disp);
   font-weight: 800;
   letter-spacing: 0.04em;
+  /* Unified page-title style across EVERY page (arena/shop/settings/profile/
+     leaderboard/tournaments/friends): same size + ALL CAPS for a consistent,
+     premium look. Per-page overrides were removed so titles never jump. */
+  font-size: clamp(1.3rem, 2.4vw, 1.9rem);
+  text-transform: uppercase;
+  line-height: 1.1;
   background: linear-gradient(180deg, #ffe9a8, var(--accent));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-/* Title sits LEFT next to the back arrow, big — no emoji, our display font. */
-.lobby-top .lobby-title {
-  text-transform: uppercase;
-  font-size: clamp(1.5rem, 3vw, 2.1rem);
-  line-height: 1;
-}
+.lobby-top .lobby-title { line-height: 1; }
 /* Right cluster: online·rooms plaque + refresh + bright gold Create. */
 .lobby-top-right {
   margin-left: auto;
