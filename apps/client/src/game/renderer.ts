@@ -2836,14 +2836,14 @@ export class Renderer {
     return true;
   }
 
-  /** Draw a block sprite using the current arena theme's variant (key_<theme>) when
-   *  it exists, else the base sprite. Classic (and any theme without themed damage/
-   *  blood art) falls back to the base classic sprites. */
+  /** Draw a theme-specific damaged/bloodied block sprite (key_<theme>). Classic uses
+   *  the base classic sprites (our reference standard). For any OTHER theme we draw
+   *  its own art ONLY — if it doesn't exist yet we return false so the caller falls
+   *  through to the pristine themed block (+ neutral procedural cracks/blood), rather
+   *  than slapping the classic sci-fi sprite onto a different-material block. */
   private drawThemedTile(key: string, px: number, py: number, flip = false): boolean {
-    return (
-      (this.arenaTheme !== "classic" && this.drawTileSprite(`${key}_${this.arenaTheme}`, px, py, flip)) ||
-      this.drawTileSprite(key, px, py, flip)
-    );
+    if (this.arenaTheme === "classic") return this.drawTileSprite(key, px, py, flip);
+    return this.drawTileSprite(`${key}_${this.arenaTheme}`, px, py, flip);
   }
 
   /** Baked base ground (two-tone checker) — static, blitted from the floor cache.
