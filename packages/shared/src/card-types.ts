@@ -62,13 +62,34 @@ export interface CardInstance {
   instanceId: string;
   wallet: string;
   cardTemplateId: number;
-  template: CardTemplate;
   isFoil: boolean;
   isGoldFrame: boolean;
   matchCount: number;
   generatedAt: string;
   source: string;
   serialNumber?: string;
+}
+
+/** Server-enriched card instance with joined template data. Used in inventory. */
+export interface CardInstanceFull extends CardInstance {
+  characterId: string;
+  characterName: string;
+  momentId: string;
+  momentName: string;
+  tier: CardTier;
+  setId: CardSetId;
+  setName: string;
+  setNumber: number;
+  lore: string;
+  nickname?: string;
+}
+
+/** Mutable per-card metadata (nickname, serial number, custom notes). */
+export interface CardMetadata {
+  instanceId: string;
+  nickname?: string;
+  serialNumber?: string;
+  notes?: Record<string, unknown>;
 }
 
 /** Card as shown in the collection grid — includes ownership status. */
@@ -205,12 +226,38 @@ export interface MarketSale {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Pack / Fusion Audit Records (server → client history)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Record of a pack opening event. */
+export interface PackOpenRecord {
+  openId: string;
+  wallet: string;
+  packType: PackType;
+  costCurrency: CurrencyType;
+  costAmount: number;
+  cardsReceived: RevealedCard[];
+  openedAt: string;
+}
+
+/** Record of a card fusion event. */
+export interface FusionRecord {
+  fusionId: string;
+  wallet: string;
+  inputInstanceIds: string[];
+  outputInstanceId: string;
+  recipeUsed: FusionRecipe;
+  feePaid: number;
+  fusedAt: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // API Request / Response Types — Client-Server Contract
 // ─────────────────────────────────────────────────────────────────────────────
 
 // --- Inventory ---
 export interface GetInventoryRequest  { session: string; }
-export interface GetInventoryResponse { cards: CardInstance[]; progress: SetProgress[]; totalCards: number; }
+export interface GetInventoryResponse { cards: CardInstanceFull[]; progress: SetProgress[]; totalCards: number; }
 
 // --- Pack Open ---
 export interface OpenPackRequest  { session: string; packType: PackType; }
@@ -218,7 +265,7 @@ export interface OpenPackResponse { success: boolean; revealed: RevealedCard[]; 
 
 // --- Fusion ---
 export interface FuseCardsRequest  { session: string; instanceIds: [string, string, string]; }
-export interface FuseCardsResponse { success: boolean; result?: CardInstance; consumed: string[]; fee: number; error?: string; }
+export interface FuseCardsResponse { success: boolean; result?: CardInstanceFull; consumed: string[]; fee: number; error?: string; }
 
 // --- Market: Browse ---
 export interface GetListingsRequest  { tier?: CardTier; setId?: CardSetId; sortBy?: "price_asc" | "price_desc" | "recent"; }
