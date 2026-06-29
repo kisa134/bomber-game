@@ -1275,10 +1275,12 @@ body.unit-sol .calc-usd {
 }
 .lobby-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* pin the back arrow + title to the TOP so the tall "+ Create"
+                              button on the right doesn't push the arrow down (match Shop). */
   gap: 14px;
   flex-wrap: wrap;
 }
+.lobby-top > .lobby-top-right { margin-left: auto; }
 .lobby-title {
   font-family: var(--font-disp);
   font-weight: 800;

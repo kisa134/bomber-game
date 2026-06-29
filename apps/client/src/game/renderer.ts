@@ -2299,6 +2299,18 @@ export class Renderer {
       }
     }
     g.globalAlpha = 1;
+    // #1 Smooth the tone: a light blur so the per-cell burn stages melt into one
+    // continuous gradient instead of stepped blocks. Done once on rebuild (cached).
+    const tmp = document.createElement("canvas");
+    tmp.width = W; tmp.height = H;
+    const tg = tmp.getContext("2d");
+    if (tg) {
+      tg.drawImage(cv, 0, 0);
+      g.clearRect(0, 0, W, H);
+      g.filter = `blur(${Math.max(1, Math.round(t / 18))}px)`;
+      g.drawImage(tmp, 0, 0);
+      g.filter = "none";
+    }
     this.scorch = cv;
   }
 
