@@ -120,7 +120,7 @@ export class InspectView {
     }, 280);
   }
 
-  get open(): boolean {
+  get isOpened(): boolean {
     return this.isOpen;
   }
 

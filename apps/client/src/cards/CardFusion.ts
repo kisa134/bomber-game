@@ -155,8 +155,8 @@ export class CardFusion {
       `<div class="fusion-preview-result" style="--result-tier:${outColor}">` +
       `<div class="fusion-preview-img" style="background:${this.tierGradient(recipe.output.tier)}"></div>` +
       `<div class="fusion-preview-tier" style="color:${outColor}">${recipe.output.tier.toUpperCase()}</div>` +
-      ${recipe.output.isFoil ? `<div class="fusion-preview-badge">FOIL</div>` : ""} +
-      ${recipe.output.isGoldFrame ? `<div class="fusion-preview-badge gold">GOLD FRAME</div>` : ""} +
+      (recipe.output.isFoil ? `<div class="fusion-preview-badge">FOIL</div>` : "") +
+      (recipe.output.isGoldFrame ? `<div class="fusion-preview-badge gold">GOLD FRAME</div>` : "") +
       `</div>` +
       `<div class="fusion-preview-fee">${recipe.fee.toLocaleString()} BM</div>` +
       `<button class="fusion-confirm-btn" ${this.isFusing ? "disabled" : ""}>` +
@@ -367,8 +367,8 @@ export class CardFusion {
         `<div class="fusion-result-card" style="--result-color:${outColor}">` +
         `<div class="fusion-result-glow"></div>` +
         `<div class="fusion-result-tier" style="color:${outColor}">${this.recipe!.output.tier.toUpperCase()}</div>` +
-        ${this.recipe!.output.isFoil ? `<div class="fusion-result-badge">FOIL</div>` : ""} +
-        ${this.recipe!.output.isGoldFrame ? `<div class="fusion-result-badge gold">GOLD FRAME</div>` : ""} +
+        (this.recipe!.output.isFoil ? `<div class="fusion-result-badge">FOIL</div>` : "") +
+        (this.recipe!.output.isGoldFrame ? `<div class="fusion-result-badge gold">GOLD FRAME</div>` : "") +
         `</div>` +
         `<div class="fusion-result-title">Fusion Complete!</div>` +
         `<button class="fusion-result-close">Awesome</button>`

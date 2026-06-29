@@ -404,7 +404,7 @@ export class CollectionView {
         if (id) this.emit("cardClick", id);
       });
       card.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" || e.key === " ") {
+        if ((e as KeyboardEvent).key === "Enter" || (e as KeyboardEvent).key === " ") {
           e.preventDefault();
           const id = (card as HTMLElement).dataset.id;
           if (id) this.emit("cardClick", id);

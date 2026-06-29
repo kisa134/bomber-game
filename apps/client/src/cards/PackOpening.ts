@@ -515,7 +515,7 @@ export class PackOpening {
       ).join(" \u00b7 ")}</div>` +
       `<div class="pack-summary-actions">` +
       `<button class="pack-collect-btn">Collect All</button>` +
-      ${TIER_ORDER[bestTier.tier] >= 2 ? `<button class="pack-share-btn">\u2197 Share Pull</button>` : ""} +
+      (TIER_ORDER[bestTier.tier] >= 2 ? `<button class="pack-share-btn">\u2197 Share Pull</button>` : "") +
       `</div>`
     );
 

@@ -103,8 +103,8 @@ const GENESIS_CARDS: CardInSet[] = [
   { characterId: "hero_trump", characterName: "Trump", tier: "rare", moments: [MOMENTS.classic, MOMENTS.politic, MOMENTS.victory_lap, MOMENTS.debate] },
   { characterId: "hero_elon", characterName: "Elon", tier: "rare", moments: [MOMENTS.classic, MOMENTS.pump, MOMENTS.dev, MOMENTS.tothemoon] },
   { characterId: "hero_biden", characterName: "Biden", tier: "common", moments: [MOMENTS.classic, MOMENTS.boomer, MOMENTS.politic] },
-  { characterId: "hero_cheems", characterName: "Cheems", tier: "common", moments: [MOMENTS.classic, MOMENTS.defeated, MOMENTS.bonk] },
-  { characterId: "hero_bonk", characterName: "Bonk", tier: "common", moments: [MOMENTS.classic, MOMENTS.bonk, MOMENTS.rage] },
+  { characterId: "hero_cheems", characterName: "Cheems", tier: "common", moments: [MOMENTS.classic, MOMENTS.defeated, MOMENTS.pump] },
+  { characterId: "hero_bonk", characterName: "Bonk", tier: "common", moments: [MOMENTS.classic, MOMENTS.pump, MOMENTS.rage] },
   { characterId: "hero_nyan", characterName: "Nyan Cat", tier: "epic", moments: [MOMENTS.classic, MOMENTS.tothemoon, MOMENTS.euphoria, MOMENTS.golden] },
   { characterId: "hero_trollface", characterName: "Trollface", tier: "rare", moments: [MOMENTS.classic, MOMENTS.smug, MOMENTS.meme_lord, MOMENTS.victory_lap] },
   { characterId: "hero_shiba", characterName: "Shiba Inu", tier: "common", moments: [MOMENTS.classic, MOMENTS.pump, MOMENTS.hodl] },
@@ -140,12 +140,12 @@ const FROG_DYNASTY_CARDS: CardInSet[] = [
 
 const MEME_PANTHEON_CARDS: CardInSet[] = [
   { characterId: "mp_doge_god", characterName: "Doge God", tier: "mythic", moments: [MOMENTS.classic, MOMENTS.golden, MOMENTS.tothemoon, MOMENTS.euphoria, MOMENTS.gigachad] },
-  { characterId: "mp_cheems_bonk", characterName: "Cheems Bonker", tier: "rare", moments: [MOMENTS.classic, MOMENTS.rage, MOMENTS.victory, MOMENTS.bonk] },
+  { characterId: "mp_cheems_bonk", characterName: "Cheems Bonker", tier: "rare", moments: [MOMENTS.classic, MOMENTS.rage, MOMENTS.victory, MOMENTS.pump] },
   { characterId: "mp_walter", characterName: "Walter", tier: "common", moments: [MOMENTS.classic, MOMENTS.smug, MOMENTS.boomer] },
   { characterId: "mp_swole_doge", characterName: "Swole Doge", tier: "epic", moments: [MOMENTS.classic, MOMENTS.gigachad, MOMENTS.victory, MOMENTS.hodl] },
   { characterId: "mp_virgin_vs_chad", characterName: "Virgin vs Chad", tier: "rare", moments: [MOMENTS.classic, MOMENTS.victory, MOMENTS.doomer, MOMENTS.gigachad] },
   { characterId: "mp_distracted", characterName: "Distracted Boyfriend", tier: "common", moments: [MOMENTS.classic, MOMENTS.pump, MOMENTS.dump] },
-  { characterId: "mp_drake", characterName: "Drake Format", tier: "common", moments: [MOMENTS.classic, MOMENTS.smug, MOMENTS.no] },
+  { characterId: "mp_drake", characterName: "Drake Format", tier: "common", moments: [MOMENTS.classic, MOMENTS.smug, MOMENTS.copium] },
   { characterId: "mp_change_my_mind", characterName: "Change My Mind", tier: "rare", moments: [MOMENTS.classic, MOMENTS.politic, MOMENTS.debate, MOMENTS.boomer] },
 ];
 
@@ -155,7 +155,7 @@ MEME_PANTHEON_CARDS[6]!.moments = [MOMENTS.classic, MOMENTS.smug, MOMENTS.defeat
 
 const ELECTION_CHAOS_CARDS: CardInSet[] = [
   { characterId: "ec_trump_mugshot", characterName: "Trump Mugshot", tier: "legendary", moments: [MOMENTS.classic, MOMENTS.mugshot, MOMENTS.victory_lap, MOMENTS.politic, MOMENTS.golden] },
-  { characterId: "ec_dark_brandon", characterName: "Dark Brandon", tier: "epic", moments: [MOMENTS.classic, MOMENTS.rage, MOMENTS.victory, MOMENTS.laser_eyes] },
+  { characterId: "ec_dark_brandon", characterName: "Dark Brandon", tier: "epic", moments: [MOMENTS.classic, MOMENTS.rage, MOMENTS.victory, MOMENTS.gigachad] },
   { characterId: "ec_election_night", characterName: "Election Night", tier: "rare", moments: [MOMENTS.classic, MOMENTS.debate, MOMENTS.euphoria, MOMENTS.copium] },
   { characterId: "ec_ballot_box", characterName: "Ballot Box", tier: "common", moments: [MOMENTS.classic, MOMENTS.politic, MOMENTS.boomer] },
   { characterId: "ec_coffee_cup", characterName: "Coffee Cup", tier: "common", moments: [MOMENTS.classic, MOMENTS.zoomer, MOMENTS.smug] },
@@ -180,13 +180,13 @@ const PUMP_CIRCUIT_CARDS: CardInSet[] = [
 ];
 
 const ANIMAL_KINGDOM_CARDS: CardInSet[] = [
-  { characterId: "ak_grumpy_cat", characterName: "Grumpy Cat", tier: "legendary", moments: [MOMENTS.classic, MOMENTS.rage, MOMENTS.no, MOMENTS.boomer, MOMENTS.golden] },
+  { characterId: "ak_grumpy_cat", characterName: "Grumpy Cat", tier: "legendary", moments: [MOMENTS.classic, MOMENTS.rage, MOMENTS.copium, MOMENTS.boomer, MOMENTS.golden] },
   { characterId: "ak_keyboard_cat", characterName: "Keyboard Cat", tier: "rare", moments: [MOMENTS.classic, MOMENTS.dev, MOMENTS.meme_lord, MOMENTS.veteran] },
   { characterId: "ak_owl", characterName: "Owl", tier: "common", moments: [MOMENTS.classic, MOMENTS.boomer, MOMENTS.smug] },
-  { characterId: "ak_hamster", characterName: "Dramatic Hamster", tier: "common", moments: [MOMENTS.classic, MOMENTS.zoomer, MOMENTS.shocked] },
+  { characterId: "ak_hamster", characterName: "Dramatic Hamster", tier: "common", moments: [MOMENTS.classic, MOMENTS.zoomer, MOMENTS.euphoria] },
   { characterId: "ak_seal", characterName: "Seal", tier: "rare", moments: [MOMENTS.classic, MOMENTS.noot, MOMENTS.victory] },
   { characterId: "ak_pigeon", characterName: "Pigeon", tier: "common", moments: [MOMENTS.classic, MOMENTS.zoomer, MOMENTS.boomer] },
-  { characterId: "ak_crab", characterName: "Crab", tier: "epic", moments: [MOMENTS.classic, MOMENTS.crab_market, MOMENTS.hodl, MOMENTS.dev] },
+  { characterId: "ak_crab", characterName: "Crab", tier: "epic", moments: [MOMENTS.classic, MOMENTS.pump, MOMENTS.hodl, MOMENTS.dev] },
   { characterId: "ak_bee", characterName: "Bee", tier: "common", moments: [MOMENTS.classic, MOMENTS.dev, MOMENTS.politic] },
   { characterId: "ak_possum", characterName: "Possum", tier: "rare", moments: [MOMENTS.classic, MOMENTS.doomer, MOMENTS.copium, MOMENTS.veteran] },
   { characterId: "ak_penguin", characterName: "Penguin", tier: "common", moments: [MOMENTS.classic, MOMENTS.noot, MOMENTS.chibi] },
@@ -199,7 +199,7 @@ ANIMAL_KINGDOM_CARDS[6]!.moments = [MOMENTS.classic, MOMENTS.hodl, MOMENTS.dev, 
 
 const CRYPTO_TWITTER_CARDS: CardInSet[] = [
   { characterId: "ct_threadoor", characterName: "Threadoor", tier: "rare", moments: [MOMENTS.classic, MOMENTS.dev, MOMENTS.meme_lord, MOMENTS.politic] },
-  { characterId: "ct_reply_guy", characterName: "Reply Guy", tier: "common", moments: [MOMENTS.classic, MOMENTS.zoomer, MOMENTS.smug, MOMENTS.no] },
+  { characterId: "ct_reply_guy", characterName: "Reply Guy", tier: "common", moments: [MOMENTS.classic, MOMENTS.zoomer, MOMENTS.smug, MOMENTS.copium] },
   { characterId: "ct_alpha_caller", characterName: "Alpha Caller", tier: "rare", moments: [MOMENTS.classic, MOMENTS.pump, MOMENTS.fud, MOMENTS.whale] },
   { characterId: "ct_spaces_host", characterName: "Spaces Host", tier: "common", moments: [MOMENTS.classic, MOMENTS.boomer, MOMENTS.debate] },
   { characterId: "ct_copy_trader", characterName: "Copy Trader", tier: "common", moments: [MOMENTS.classic, MOMENTS.pump, MOMENTS.dump, MOMENTS.copium] },
