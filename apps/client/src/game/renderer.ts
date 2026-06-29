@@ -2315,20 +2315,9 @@ export class Renderer {
   /** Pixelated blob shadow — a blocky ellipse made of squares on a pixel grid,
    *  gently swaying/breathing over time. */
   private drawShadow(cx: number, cy: number, rx: number, ry: number, alpha: number): void {
-    if (this.lowFx) return; // phones: no shadows at all (max speed)
+    if (this.lowFx || !this.shadowsOn) return; // phones / Shadows toggle off: no shadows
     const ctx = this.ctx;
     const t = this.tile;
-    // Directional cast: push the contact shadow AWAY from the key light and stretch it
-    // a touch, so shadows point opposite the sun and sweep as the dynamic light moves.
-    if (this.shadowsOn) {
-      let dx = cx - this.lx, dy = cy - this.ly;
-      const dm = Math.hypot(dx, dy) || 1;
-      const len = t * 0.3;
-      cx += (dx / dm) * len;
-      cy += (dy / dm) * len;
-      rx *= 1.16;
-      ry *= 1.16;
-    }
     const pu = Math.max(2, Math.round(t / 12));
     const sw = Math.sin(this.lastTime / 900 + cx * 0.05 + cy * 0.03);
     const ox = cx + sw * pu * 0.7; // drift sideways a touch
