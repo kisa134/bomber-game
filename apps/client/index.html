@@ -241,6 +241,24 @@
             <div class="hb-side hb-mode">
               <div class="hb-label">GAME MODE</div>
               <button id="hub-gamemode" class="hb-mode-btn">🌐 Ranked Arena <span class="hb-caret">▾</span></button>
+              <!-- Game mode dropdown -->
+              <div id="gamemode-dropdown" class="gamemode-dropdown hidden">
+                <button class="gm-item" data-mode="arena">
+                  <span class="gm-icon">🌐</span>
+                  <span class="gm-label">Ranked Arena</span>
+                  <span class="gm-badge">ACTIVE</span>
+                </button>
+                <button class="gm-item" data-mode="sandbox">
+                  <span class="gm-icon">🧪</span>
+                  <span class="gm-label">Sandbox</span>
+                  <span class="gm-badge soon">SOON</span>
+                </button>
+                <button class="gm-item" data-mode="world">
+                  <span class="gm-icon">🌍</span>
+                  <span class="gm-label">World (Campaign)</span>
+                  <span class="gm-badge new">NEW</span>
+                </button>
+              </div>
             </div>
             <button id="open-play" class="primary hub-play glass-btn">
               <span class="hp-title">PLAY ONLINE</span>
@@ -852,6 +870,82 @@
           </div>
         </div>
       </section>
+
+      <!-- ═══ CAMPAIGN / WORLD MODE ═══════════════════════════════════════════ -->
+      <section id="campaign" class="screen hidden">
+        <!-- Game canvas -->
+        <canvas id="campaign-canvas" class="hidden"></canvas>
+
+        <!-- Loading screen -->
+        <div id="campaign-loading">
+          <div class="spinner"></div>
+          <p id="campaign-loading-text">Loading world…</p>
+        </div>
+
+        <!-- Onboarding -->
+        <div id="campaign-onboard" class="hidden">
+          <div class="camp-onboard-card">
+            <h3 id="camp-onboard-title">Welcome to BomberMeme World</h3>
+            <div id="camp-onboard-body"></div>
+            <div class="camp-step-dots">
+              <span class="camp-step-dot active"></span>
+              <span class="camp-step-dot"></span>
+              <span class="camp-step-dot"></span>
+              <span class="camp-step-dot"></span>
+            </div>
+            <button id="camp-onboard-next">Next →</button>
+          </div>
+        </div>
+
+        <!-- HUD -->
+        <div id="campaign-hud" class="hidden">
+          <div class="camp-hud-top">
+            <div class="camp-bars">
+              <div class="camp-bar">
+                <span class="camp-bar-label">HP</span>
+                <div class="camp-bar-track"><div id="camp-hp-fill" class="camp-bar-fill"></div></div>
+                <span id="camp-hp-text"></span>
+              </div>
+              <div class="camp-bar">
+                <span class="camp-bar-label">MP</span>
+                <div class="camp-bar-track"><div id="camp-mana-fill" class="camp-bar-fill"></div></div>
+                <span id="camp-mana-text"></span>
+              </div>
+              <div class="camp-bar">
+                <span class="camp-bar-label">XP</span>
+                <div class="camp-bar-track"><div id="camp-xp-fill" class="camp-bar-fill"></div></div>
+              </div>
+            </div>
+            <div class="camp-hud-right">
+              <span>Lv <span id="camp-level">1</span></span>
+              <span>🪙 <span id="camp-gold">0</span></span>
+            </div>
+          </div>
+
+          <!-- Minimap -->
+          <canvas id="camp-minimap"></canvas>
+
+          <!-- Skill bar -->
+          <div class="camp-skillbar">
+            <div class="camp-skill-slot active" title="Bomb (LMB)">💣</div>
+            <div class="camp-skill-slot" title="Skill (RMB)">⚡</div>
+            <div class="camp-skill-slot" title="Inventory (I)">🎒</div>
+            <div class="camp-skill-slot" title="Map (M)">🗺️</div>
+          </div>
+        </div>
+
+        <!-- Pause menu -->
+        <div id="campaign-pause" class="hidden">
+          <div class="camp-pause-card">
+            <h2>Paused</h2>
+            <button id="camp-resume">▶ Resume</button>
+            <button id="camp-settings">⚙ Settings</button>
+            <button id="camp-quit">✕ Quit to Menu</button>
+          </div>
+        </div>
+      </section>
+      <!-- End CAMPAIGN ═══════════════════════════════════════════════════════ -->
+
       <!-- Public player profile (opened from the leaderboard, scoreboard, …) -->
       <div id="pubprofile-modal" class="modal hidden">
         <div class="modal-card">

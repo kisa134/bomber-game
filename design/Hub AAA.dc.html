@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;}
+body{margin:0;}
+img{display:block;}
+@keyframes drift{0%{transform:translateX(-3%)}100%{transform:translateX(3%)}}
+@keyframes bokeh{0%,100%{transform:translateY(0)}50%{transform:translateY(-24px)}}
+@keyframes rayPulse{0%,100%{opacity:.5}50%{opacity:.9}}
+@keyframes sheen{0%{transform:translateX(-130%) skewX(-18deg)}55%,100%{transform:translateX(320%) skewX(-18deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes ember{0%{transform:translateY(0);opacity:0}12%{opacity:.9}100%{transform:translateY(-260px);opacity:0}}
+@keyframes auraB{0%,100%{opacity:.6;transform:translate(-50%,-50%) scale(1)}50%{opacity:.95;transform:translate(-50%,-50%) scale(1.05)}}
+@keyframes cardIdle{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+</style>
+</helmet>
+
+<div style="min-width:100%;min-height:100vh;width:max-content;box-sizing:border-box;padding:48px;background:#e7e5df;font-family:'Space Grotesk',system-ui,sans-serif;">
+
+  <div style="margin-bottom:34px;max-width:880px;">
+    <div style="font:700 13px/1 'Space Mono',monospace;letter-spacing:.18em;text-transform:uppercase;color:#1a1a1a;">BomberMeme.fun · Хаб — AAA + голо-карусель персонажей</div>
+    <div style="margin-top:7px;font:400 13px/1.5 'Space Grotesk';color:#6b6b66;">Шумные экраны убраны. В центре — голографические карточки бойцов: монохром с переливом в светлых местах, шум-текстура, спекуляр-блик и наклон по курсору. Карточки летают по кругу — стрелками выбираешь персонажа. <b>Наведи курсор на центральную карту.</b> Эффект настраивается через Tweaks.</div>
+  </div>
+
+  <div style="display:flex;gap:48px;align-items:flex-start;">
+
+    <!-- ============================ DESKTOP ============================ -->
+    <div style="flex:none;">
+      <div style="font:600 13px/1 'Space Grotesk';color:#3a3a3a;margin-bottom:14px;">🖥 Desktop · web</div>
+
+      <div data-screen-label="Hub AAA — Desktop" style="position:relative;width:1280px;height:800px;border-radius:16px;overflow:hidden;background:#12101a;box-shadow:0 40px 100px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.05);font-family:'Space Grotesk';">
+
+        <!-- bg -->
+        <div style="position:absolute;inset:-20px;z-index:0;">
+          <img src="assets/menu-poster.webp" alt="" style="width:100%;height:100%;object-fit:cover;filter:blur(15px) brightness(.5) saturate(1.2);transform:scale(1.12);">
+          <div style="position:absolute;inset:0;background:radial-gradient(95% 75% at 50% 42%,transparent 40%,rgba(12,10,20,.72) 100%);"></div>
+        </div>
+        <!-- atmosphere -->
+        <div style="position:absolute;inset:0;z-index:1;">
+          <div style="position:absolute;left:50%;top:60px;transform:translateX(-50%);width:560px;height:580px;background:radial-gradient(ellipse,rgba(255,160,60,.14),transparent 66%);animation:auraB 5s ease-in-out infinite;"></div>
+          <div style="position:absolute;left:50%;top:-70px;transform:translateX(-50%);width:560px;height:640px;background:radial-gradient(ellipse 50% 60% at 50% 0%,rgba(255,225,160,.20),transparent 68%);clip-path:polygon(34% 0,66% 0,90% 100%,10% 100%);animation:rayPulse 5s ease-in-out infinite;"></div>
+          <div style="position:absolute;left:250px;top:320px;width:50px;height:50px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe88a,#f5a623);filter:blur(7px);opacity:.4;animation:bokeh 7s ease-in-out infinite;"></div>
+          <div style="position:absolute;right:330px;top:460px;width:64px;height:64px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe88a,#f5a623);filter:blur(9px);opacity:.32;animation:bokeh 9s ease-in-out infinite .5s;"></div>
+        </div>
+        <!-- floor glow -->
+        <div style="position:absolute;left:50%;bottom:150px;transform:translateX(-50%);width:520px;height:90px;background:radial-gradient(ellipse,rgba(255,204,51,.16),transparent 70%);z-index:2;"></div>
+        <!-- foreground embers + vignette -->
+        <div style="position:absolute;inset:0;z-index:6;pointer-events:none;">
+          <div style="position:absolute;left:-5%;right:-5%;bottom:0;height:190px;background:linear-gradient(180deg,transparent,rgba(14,12,22,.8));"></div>
+          <div style="position:absolute;left:36%;bottom:170px;width:4px;height:4px;border-radius:50%;background:rgba(255,210,120,.95);box-shadow:0 0 7px rgba(255,210,120,.9);animation:ember 6.5s linear infinite;"></div>
+          <div style="position:absolute;left:60%;bottom:200px;width:3px;height:3px;border-radius:50%;background:rgba(255,160,80,.95);box-shadow:0 0 7px rgba(255,160,80,.9);animation:ember 8s linear infinite 1.4s;"></div>
+          <div style="position:absolute;left:48%;bottom:150px;width:5px;height:5px;border-radius:50%;background:rgba(255,210,120,.95);box-shadow:0 0 8px rgba(255,210,120,.9);animation:ember 7.2s linear infinite .7s;"></div>
+        </div>
+        <div style="position:absolute;inset:0;z-index:7;pointer-events:none;box-shadow:inset 0 0 130px rgba(0,0,0,.55);"></div>
+
+        <!-- ===== CAROUSEL ===== -->
+        <div id="carousel-d" style="position:absolute;left:270px;right:300px;top:150px;bottom:150px;z-index:5;perspective:1300px;">
+          <sc-for list="{{ cardsD }}" as="card">
+            <button onClick="{{ card.onSelect }}" style="position:absolute;left:50%;top:50%;width:250px;height:352px;border:none;background:none;padding:0;cursor:pointer;transform:{{ card.transform }};z-index:{{ card.z }};opacity:{{ card.opacity }};pointer-events:{{ card.pe }};transition:transform .55s cubic-bezier(.2,.7,.2,1),opacity .55s;transform-style:preserve-3d;">
+              <div data-tilt data-active="{{ card.activeFlag }}" style="position:relative;width:100%;height:100%;border-radius:18px;overflow:hidden;background:linear-gradient(160deg,#1b1922,#0c0b10);border:1px solid {{ card.accentBorder }};box-shadow:{{ card.accentShadow }};transform-style:preserve-3d;transition:transform .15s ease-out;">
+                <div style="position:absolute;left:10%;right:10%;top:30px;bottom:58px;background-image:{{ card.bg }};background-size:contain;background-repeat:no-repeat;background-position:center;image-rendering:pixelated;filter:grayscale(1) contrast(1.06) brightness(1.08);"></div>
+                <div data-holo style="position:absolute;inset:0;background:conic-gradient(from 0deg,#ff5a4d,#ffd84d,#c4ff3d,#35e3ff,#7a5cff,#ff3ea5,#ff5a4d);background-size:220% 220%;background-position:50% 50%;mix-blend-mode:color-dodge;opacity:{{ card.iridOpacity }};pointer-events:none;"></div>
+                <div style="position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.06) 0 9px,transparent 9px 18px);mix-blend-mode:overlay;pointer-events:none;"></div>
+                <div data-spec style="position:absolute;inset:0;background:radial-gradient(circle at 50% 28%,rgba(255,255,255,.35),transparent 45%);mix-blend-mode:screen;opacity:{{ card.glowOpacity }};pointer-events:none;"></div>
+                <div style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2780%27 height=%2780%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.85%27 numOctaves=%272%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E');opacity:{{ card.noiseOpacity }};mix-blend-mode:overlay;pointer-events:none;"></div>
+                <div style="position:absolute;inset:7px;border:1px solid rgba(255,255,255,.1);border-radius:13px;pointer-events:none;"></div>
+                <div style="position:absolute;top:12px;left:13px;right:13px;display:flex;align-items:center;justify-content:space-between;"><span style="font:700 9px 'Space Mono';letter-spacing:.12em;color:{{ card.accent }};">{{ card.rarity }}</span><span style="font:700 9px 'Space Mono';color:#8b8696;">◆ BMF</span></div>
+                <div style="position:absolute;left:12px;right:12px;bottom:14px;text-align:center;"><div style="font:800 20px 'Cinzel';letter-spacing:.04em;color:#fbf7ec;text-shadow:0 2px 8px rgba(0,0,0,.6);">{{ card.name }}</div><div style="height:2px;width:50px;margin:6px auto 0;background:linear-gradient(90deg,transparent,{{ card.accent }},transparent);"></div></div>
+              </div>
+            </button>
+          </sc-for>
+        </div>
+        <!-- carousel nav -->
+        <button onClick="{{ prevD }}" style="position:absolute;left:296px;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(20,18,26,.7);color:#e7e9ee;font-size:18px;cursor:pointer;z-index:9;backdrop-filter:blur(6px);" style-hover="border-color:rgba(255,204,51,.6)">◀</button>
+        <button onClick="{{ nextD }}" style="position:absolute;right:326px;top:50%;transform:translateY(-50%);width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(20,18,26,.7);color:#e7e9ee;font-size:18px;cursor:pointer;z-index:9;backdrop-filter:blur(6px);" style-hover="border-color:rgba(255,204,51,.6)">▶</button>
+
+        <!-- chrome -->
+        <div style="position:absolute;top:0;left:0;right:0;height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 26px;z-index:12;background:linear-gradient(180deg,rgba(12,10,20,.9),transparent);">
+          <div style="display:flex;align-items:center;gap:28px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <span style="width:32px;height:32px;border-radius:8px;background:radial-gradient(circle at 40% 30%,#ffe27a,#c97e12);display:flex;align-items:center;justify-content:center;font-size:16px;border:1px solid #8a5a10;">💣</span>
+              <span style="font:800 19px 'Cinzel';letter-spacing:.06em;background:linear-gradient(180deg,#ffe9a8,#e0a52a);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">BOMBERMEME</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:2px;">
+              <button style="position:relative;background:none;border:none;cursor:pointer;font:700 13px 'Space Grotesk';letter-spacing:.08em;color:#ffd84d;padding:20px 16px;">PLAY<span style="position:absolute;left:16px;right:16px;bottom:14px;height:2px;background:linear-gradient(90deg,transparent,#ffd84d,transparent);"></span></button>
+              <button style="background:none;border:none;cursor:pointer;font:700 13px 'Space Grotesk';letter-spacing:.08em;color:#a7a2b2;padding:20px 16px;" style-hover="color:#fff">ARENA</button>
+              <button style="background:none;border:none;cursor:pointer;font:700 13px 'Space Grotesk';letter-spacing:.08em;color:#a7a2b2;padding:20px 16px;" style-hover="color:#fff">SHOP</button>
+              <button style="background:none;border:none;cursor:pointer;font:700 13px 'Space Grotesk';letter-spacing:.08em;color:#a7a2b2;padding:20px 16px;" style-hover="color:#fff">RANKS</button>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:14px;">
+            <div style="display:flex;align-items:center;gap:6px;font:700 13px 'Space Mono';color:#ffd84d;"><span style="font-size:13px;">🪙</span>12,400<span style="color:#6a6676;margin-left:4px;cursor:pointer;">＋</span></div>
+            <div style="width:1px;height:18px;background:rgba(255,255,255,.14);"></div>
+            <div style="display:flex;align-items:center;gap:6px;font:700 13px 'Space Mono';color:#7fd8ff;"><span style="font-size:13px;">💎</span>8.2K<span style="color:#6a6676;margin-left:4px;cursor:pointer;">＋</span></div>
+            <button style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.06);border:1px solid rgba(255,204,51,.3);border-radius:10px;padding:6px 8px 6px 6px;cursor:pointer;" style-hover="border-color:rgba(255,204,51,.6)"><span style="width:26px;height:26px;border-radius:7px;background:#1a1620;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;"><img src="assets/char_elon.webp" style="width:23px;image-rendering:pixelated;" alt=""></span><span style="font:700 12px 'Space Grotesk';color:#e7e9ee;">degen_mike</span></button>
+            <button style="width:34px;height:34px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#c7cbd6;border-radius:9px;cursor:pointer;font-size:14px;" style-hover="border-color:rgba(255,255,255,.35)">⚙</button>
+          </div>
+        </div>
+
+        <!-- featured (bound to active card) -->
+        <div style="position:absolute;top:84px;left:0;right:0;text-align:center;z-index:10;pointer-events:none;">
+          <div style="display:inline-flex;align-items:center;gap:9px;font:700 11px 'Space Mono';letter-spacing:.28em;color:#d9bd6a;"><span style="width:34px;height:1px;background:linear-gradient(90deg,transparent,#d9bd6a);"></span>CHOOSE YOUR FIGHTER<span style="width:34px;height:1px;background:linear-gradient(90deg,#d9bd6a,transparent);"></span></div>
+          <div style="margin-top:7px;font:800 36px 'Cinzel';letter-spacing:.05em;color:#fbf7ec;text-shadow:0 2px 18px rgba(0,0,0,.7),0 0 26px rgba(255,221,150,.35);">{{ activeName }}</div>
+          <div style="margin-top:2px;font:700 11px 'Space Mono';letter-spacing:.22em;color:#d9bd6a;">{{ activeRarity }} · THE DEGEN BOMBER</div>
+        </div>
+
+        <!-- LEFT panel -->
+        <div style="position:absolute;left:26px;top:150px;width:226px;display:flex;flex-direction:column;gap:11px;z-index:11;">
+          <div style="font:700 10px 'Space Mono';letter-spacing:.2em;color:#8b8696;">HEADLINES</div>
+          <div style="background:linear-gradient(180deg,rgba(34,30,40,.88),rgba(20,17,26,.88));border:1px solid rgba(255,255,255,.1);border-left:2px solid #ff5a4d;border-radius:10px;padding:11px 13px;backdrop-filter:blur(7px);cursor:pointer;" style-hover="border-left-color:#ff8a80"><div style="font:700 8px 'Space Mono';color:#ff5a4d;letter-spacing:.12em;">SEASON 1</div><div style="font:700 13px 'Space Grotesk';color:#eef0f5;margin-top:3px;">Degen Pass is live</div></div>
+          <div style="background:linear-gradient(180deg,rgba(34,30,40,.88),rgba(20,17,26,.88));border:1px solid rgba(255,255,255,.1);border-left:2px solid #ffd84d;border-radius:10px;padding:11px 13px;backdrop-filter:blur(7px);cursor:pointer;" style-hover="border-left-color:#ffe9a8"><div style="font:700 8px 'Space Mono';color:#ffd84d;letter-spacing:.12em;">PATCH 0.9</div><div style="font:700 13px 'Space Grotesk';color:#eef0f5;margin-top:3px;">Sudden-death spiral</div></div>
+          <div style="background:linear-gradient(180deg,rgba(34,30,40,.88),rgba(20,17,26,.88));border:1px solid rgba(255,255,255,.1);border-left:2px solid #7fd8ff;border-radius:10px;padding:11px 13px;backdrop-filter:blur(7px);cursor:pointer;" style-hover="border-left-color:#aae6ff"><div style="font:700 8px 'Space Mono';color:#7fd8ff;letter-spacing:.12em;">DROP</div><div style="font:700 13px 'Space Grotesk';color:#eef0f5;margin-top:3px;">14 new skins in Shop</div></div>
+        </div>
+
+        <!-- RIGHT panel -->
+        <div style="position:absolute;right:26px;top:150px;width:262px;display:flex;flex-direction:column;gap:11px;z-index:11;">
+          <div style="background:linear-gradient(180deg,rgba(38,30,20,.92),rgba(20,15,11,.92));border:1px solid rgba(255,204,51,.3);border-radius:14px;padding:15px;backdrop-filter:blur(8px);box-shadow:0 18px 44px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06);">
+            <div style="display:flex;align-items:center;justify-content:space-between;"><span style="font:800 13px 'Cinzel';letter-spacing:.04em;color:#ffd84d;">DEGEN PASS</span><span style="font:700 9px 'Space Mono';color:#d9bd6a;border:1px solid rgba(217,189,106,.4);border-radius:5px;padding:2px 6px;">S1</span></div>
+            <div style="display:flex;align-items:center;gap:10px;margin-top:13px;">
+              <div style="width:54px;height:54px;border-radius:11px;background:radial-gradient(circle at 50% 35%,#2a2230,#15101c);border:1px solid rgba(255,204,51,.3);display:flex;align-items:flex-end;justify-content:center;overflow:hidden;flex:none;position:relative;"><img src="assets/char_wojak.webp" style="width:46px;image-rendering:pixelated;" alt=""><span style="position:absolute;top:4px;right:4px;font-size:11px;">🔒</span></div>
+              <div style="flex:1;"><div style="font:700 9px 'Space Mono';color:#8b8696;">NEXT REWARD · TIER 24</div><div style="font:700 14px 'Space Grotesk';color:#eef0f5;margin-top:2px;">Wojak Legendary</div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font:700 9px 'Space Mono';color:#8b8696;margin:12px 0 6px;"><span style="color:#ffd84d;">TIER 23</span><span>4,120 / 5,000</span></div>
+            <div style="height:7px;border-radius:5px;background:#0b0a0e;overflow:hidden;"><div style="height:100%;width:82%;background:linear-gradient(90deg,#f0a92a,#ffe27a);"></div></div>
+          </div>
+          <div style="display:flex;gap:11px;">
+            <div style="flex:1;background:linear-gradient(180deg,rgba(34,30,40,.88),rgba(20,17,26,.88));border:1px solid rgba(255,90,77,.3);border-radius:13px;padding:12px 13px;backdrop-filter:blur(8px);"><div style="display:flex;align-items:center;gap:5px;font:700 9px 'Space Mono';color:#8b8696;"><span style="width:7px;height:7px;border-radius:50%;background:#ff5a4d;animation:blink 1.4s infinite;"></span>ARENA POT</div><div style="font:800 21px 'Space Grotesk';color:#ff8a80;margin-top:4px;">2.1M</div><div style="font:700 9px 'Space Mono';color:#8b8696;">💎 today</div></div>
+            <div style="flex:1;background:linear-gradient(180deg,rgba(34,30,40,.88),rgba(20,17,26,.88));border:1px solid rgba(127,216,255,.3);border-radius:13px;padding:12px 13px;backdrop-filter:blur(8px);"><div style="font:700 9px 'Space Mono';color:#8b8696;">ONLINE</div><div style="font:800 21px 'Space Grotesk';color:#7fd8ff;margin-top:4px;">318</div><div style="font:700 9px 'Space Mono';color:#8b8696;">42 rooms</div></div>
+          </div>
+          <div style="background:linear-gradient(180deg,rgba(34,30,40,.88),rgba(20,17,26,.88));border:1px solid rgba(255,255,255,.1);border-radius:13px;padding:13px;backdrop-filter:blur(8px);">
+            <div style="font:700 10px 'Space Mono';letter-spacing:.14em;color:#8b8696;margin-bottom:8px;">SELECTED LOADOUT</div>
+            <div style="display:flex;gap:8px;">
+              <div style="flex:1;text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:8px 0;"><div style="font-size:15px;">💣</div><div style="font:700 9px 'Space Mono';color:#8b8696;margin-top:2px;">BOMB ×1</div></div>
+              <div style="flex:1;text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:8px 0;"><div style="font-size:15px;">🔥</div><div style="font:700 9px 'Space Mono';color:#8b8696;margin-top:2px;">FIRE ×1</div></div>
+              <div style="flex:1;text-align:center;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:8px 0;"><div style="font-size:15px;">👟</div><div style="font:700 9px 'Space Mono';color:#8b8696;margin-top:2px;">SPEED ×0</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOTTOM play -->
+        <div style="position:absolute;left:0;right:0;bottom:0;height:140px;z-index:12;display:flex;align-items:center;justify-content:center;">
+          <div style="display:flex;align-items:flex-end;gap:16px;">
+            <div style="text-align:right;padding-bottom:8px;">
+              <div style="font:700 10px 'Space Mono';letter-spacing:.16em;color:#8b8696;">GAME MODE</div>
+              <button style="margin-top:5px;display:flex;align-items:center;gap:8px;background:rgba(20,18,26,.82);border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:9px 13px;cursor:pointer;font:700 13px 'Space Grotesk';color:#eef0f5;" style-hover="border-color:rgba(255,204,51,.5)">🌐 Ranked Arena <span style="color:#8b8696;">▾</span></button>
+            </div>
+            <button style="position:relative;overflow:hidden;cursor:pointer;border:1px solid #8a5a10;border-radius:14px;padding:20px 72px;background:linear-gradient(180deg,#ffe27a,#f0a92a 55%,#c97e12);box-shadow:0 14px 34px rgba(240,160,30,.5),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -2px 5px rgba(120,70,10,.5);" style-hover="filter:brightness(1.05)">
+              <div style="font:900 26px 'Cinzel';letter-spacing:.08em;color:#3a2406;text-shadow:0 1px 0 rgba(255,255,255,.35);">PLAY</div>
+              <div style="font:700 10px 'Space Mono';letter-spacing:.1em;color:#6a4a10;margin-top:2px;">WINNER TAKES THE POT · 2–4</div>
+              <span style="position:absolute;top:0;bottom:0;left:0;width:70px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:sheen 3.6s ease-in-out infinite;"></span>
+            </button>
+            <div style="padding-bottom:8px;">
+              <div style="font:700 10px 'Space Mono';letter-spacing:.16em;color:#8b8696;">QUICK</div>
+              <div style="margin-top:5px;display:flex;gap:8px;">
+                <button style="width:42px;height:42px;border:1px solid rgba(255,255,255,.16);background:rgba(20,18,26,.82);border-radius:10px;cursor:pointer;font-size:17px;" style-hover="border-color:rgba(255,204,51,.5)" title="Practice">🤖</button>
+                <button style="width:42px;height:42px;border:1px solid rgba(255,255,255,.16);background:rgba(20,18,26,.82);border-radius:10px;cursor:pointer;font-size:17px;" style-hover="border-color:rgba(255,204,51,.5)" title="Spin">🎰</button>
+                <button style="width:42px;height:42px;border:1px solid rgba(255,255,255,.16);background:rgba(20,18,26,.82);border-radius:10px;cursor:pointer;font-size:17px;" style-hover="border-color:rgba(255,204,51,.5)" title="Invite">🎁</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:30px;display:flex;align-items:center;justify-content:space-between;padding:0 22px;z-index:13;font:700 10px 'Space Mono';color:#6a6676;">
+          <span style="display:flex;align-items:center;gap:6px;"><span style="width:7px;height:7px;border-radius:50%;background:#5ad27a;"></span>CONNECTED · EU-WEST · 24 ms</span>
+          <span>BomberMeme.fun · v0.9.2 alpha</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================ MOBILE ============================ -->
+    <div style="flex:none;">
+      <div style="font:600 13px/1 'Space Grotesk';color:#3a3a3a;margin-bottom:14px;">📱 Mobile · Telegram</div>
+
+      <div data-screen-label="Hub AAA — Mobile" style="position:relative;width:390px;height:844px;border-radius:40px;overflow:hidden;background:#12101a;box-shadow:0 36px 90px rgba(0,0,0,.5),inset 0 0 0 1px rgba(255,255,255,.05);font-family:'Space Grotesk';">
+        <div style="position:absolute;inset:-20px;z-index:0;"><img src="assets/menu-poster.webp" alt="" style="width:100%;height:100%;object-fit:cover;filter:blur(14px) brightness(.5) saturate(1.2);transform:scale(1.16);"><div style="position:absolute;inset:0;background:radial-gradient(95% 70% at 50% 44%,transparent 40%,rgba(12,10,20,.74) 100%);"></div></div>
+        <div style="position:absolute;inset:0;z-index:1;">
+          <div style="position:absolute;left:50%;top:200px;transform:translateX(-50%);width:340px;height:380px;background:radial-gradient(ellipse,rgba(255,160,60,.14),transparent 64%);animation:auraB 5s ease-in-out infinite;"></div>
+          <div style="position:absolute;left:80px;top:330px;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe88a,#f5a623);filter:blur(7px);opacity:.4;animation:bokeh 7s ease-in-out infinite;"></div>
+          <div style="position:absolute;right:80px;top:400px;width:48px;height:48px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe88a,#f5a623);filter:blur(9px);opacity:.32;animation:bokeh 8.5s ease-in-out infinite 1s;"></div>
+        </div>
+        <div style="position:absolute;inset:0;z-index:7;pointer-events:none;box-shadow:inset 0 0 90px rgba(0,0,0,.5);"></div>
+
+        <!-- top -->
+        <div style="position:absolute;top:0;left:0;right:0;padding:14px 14px 0;z-index:12;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;"><span style="width:30px;height:30px;border-radius:8px;background:radial-gradient(circle at 40% 30%,#ffe27a,#c97e12);display:flex;align-items:center;justify-content:center;font-size:15px;border:1px solid #8a5a10;">💣</span><span style="font:800 15px 'Cinzel';letter-spacing:.04em;background:linear-gradient(180deg,#ffe9a8,#e0a52a);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">BOMBERMEME</span></div>
+            <div style="display:flex;align-items:center;gap:6px;"><span style="font:700 11px 'Space Mono';color:#ffd84d;background:rgba(0,0,0,.4);border:1px solid rgba(255,216,77,.4);border-radius:9px;padding:5px 7px;">🪙 12.4K</span><span style="font:700 11px 'Space Mono';color:#7fd8ff;background:rgba(0,0,0,.4);border:1px solid rgba(127,216,255,.4);border-radius:9px;padding:5px 7px;">💎 8.2K</span></div>
+          </div>
+          <div style="text-align:center;margin-top:14px;">
+            <div style="display:inline-flex;align-items:center;gap:8px;font:700 9px 'Space Mono';letter-spacing:.24em;color:#d9bd6a;"><span style="width:22px;height:1px;background:linear-gradient(90deg,transparent,#d9bd6a);"></span>CHOOSE YOUR FIGHTER<span style="width:22px;height:1px;background:linear-gradient(90deg,#d9bd6a,transparent);"></span></div>
+            <div style="margin-top:5px;font:800 27px 'Cinzel';letter-spacing:.05em;color:#fbf7ec;text-shadow:0 2px 14px rgba(0,0,0,.7),0 0 20px rgba(255,221,150,.35);">{{ mName }}</div>
+            <div style="margin-top:1px;font:700 9px 'Space Mono';letter-spacing:.2em;color:#d9bd6a;">{{ mRarity }} · THE DEGEN BOMBER</div>
+          </div>
+        </div>
+
+        <!-- mobile card -->
+        <div id="carousel-m" style="position:absolute;left:0;right:0;top:172px;height:400px;z-index:5;perspective:1100px;display:flex;align-items:center;justify-content:center;">
+          <button onClick="{{ prevM }}" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(20,18,26,.7);color:#e7e9ee;font-size:16px;cursor:pointer;z-index:9;">◀</button>
+          <button onClick="{{ nextM }}" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(20,18,26,.7);color:#e7e9ee;font-size:16px;cursor:pointer;z-index:9;">▶</button>
+          <div style="width:244px;height:344px;animation:cardIdle 4s ease-in-out infinite;">
+            <div data-tilt data-active="1" style="position:relative;width:100%;height:100%;border-radius:18px;overflow:hidden;background:linear-gradient(160deg,#1b1922,#0c0b10);border:1px solid {{ mBorder }};box-shadow:{{ mShadow }};transform-style:preserve-3d;transition:transform .15s ease-out;">
+              <div style="position:absolute;left:10%;right:10%;top:30px;bottom:58px;background-image:{{ mBg }};background-size:contain;background-repeat:no-repeat;background-position:center;image-rendering:pixelated;filter:grayscale(1) contrast(1.06) brightness(1.08);"></div>
+              <div data-holo style="position:absolute;inset:0;background:conic-gradient(from 0deg,#ff5a4d,#ffd84d,#c4ff3d,#35e3ff,#7a5cff,#ff3ea5,#ff5a4d);background-size:220% 220%;background-position:50% 50%;mix-blend-mode:color-dodge;opacity:{{ mIrid }};pointer-events:none;"></div>
+              <div style="position:absolute;inset:0;background:repeating-linear-gradient(115deg,rgba(255,255,255,.06) 0 9px,transparent 9px 18px);mix-blend-mode:overlay;pointer-events:none;"></div>
+              <div data-spec style="position:absolute;inset:0;background:radial-gradient(circle at 50% 28%,rgba(255,255,255,.35),transparent 45%);mix-blend-mode:screen;opacity:{{ mGlow }};pointer-events:none;"></div>
+              <div style="position:absolute;inset:0;background-image:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2780%27 height=%2780%27%3E%3Cfilter id=%27n2%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%270.85%27 numOctaves=%272%27 stitchTiles=%27stitch%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n2)%27/%3E%3C/svg%3E');opacity:{{ mNoise }};mix-blend-mode:overlay;pointer-events:none;"></div>
+              <div style="position:absolute;inset:7px;border:1px solid rgba(255,255,255,.1);border-radius:13px;pointer-events:none;"></div>
+              <div style="position:absolute;top:12px;left:13px;right:13px;display:flex;align-items:center;justify-content:space-between;"><span style="font:700 9px 'Space Mono';letter-spacing:.12em;color:{{ mAccent }};">{{ mRarity }}</span><span style="font:700 9px 'Space Mono';color:#8b8696;">◆ BMF</span></div>
+              <div style="position:absolute;left:12px;right:12px;bottom:14px;text-align:center;"><div style="font:800 20px 'Cinzel';letter-spacing:.04em;color:#fbf7ec;text-shadow:0 2px 8px rgba(0,0,0,.6);">{{ mName }}</div><div style="height:2px;width:50px;margin:6px auto 0;background:linear-gradient(90deg,transparent,{{ mAccent }},transparent);"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- dots -->
+        <div style="position:absolute;left:0;right:0;top:584px;display:flex;justify-content:center;gap:6px;z-index:9;">
+          <sc-for list="{{ dots }}" as="dot" hint-placeholder-count="8">
+            <div onClick="{{ dot.onSel }}" style="height:7px;border-radius:4px;width:{{ dot.w }};background:{{ dot.bg }};cursor:pointer;transition:all .3s;"></div>
+          </sc-for>
+        </div>
+
+        <!-- bottom -->
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:0 14px 14px;z-index:12;">
+          <div style="display:flex;gap:8px;justify-content:center;margin-bottom:11px;">
+            <span style="display:flex;align-items:center;gap:5px;font:700 10px 'Space Mono';color:#ff8a80;background:rgba(0,0,0,.42);border:1px solid rgba(255,90,77,.35);border-radius:9px;padding:6px 9px;"><span style="width:6px;height:6px;border-radius:50%;background:#ff5a4d;animation:blink 1.4s infinite;"></span>POT 2.1M 💎</span>
+            <span style="display:flex;align-items:center;gap:5px;font:700 10px 'Space Mono';color:#7fd8ff;background:rgba(0,0,0,.42);border:1px solid rgba(127,216,255,.35);border-radius:9px;padding:6px 9px;">🟢 318 ONLINE</span>
+            <span style="display:flex;align-items:center;gap:5px;font:700 10px 'Space Mono';color:#ffd84d;background:rgba(0,0,0,.42);border:1px solid rgba(255,216,77,.35);border-radius:9px;padding:6px 9px;">🏆 PASS T23</span>
+          </div>
+          <button style="position:relative;overflow:hidden;width:100%;cursor:pointer;border:1px solid #8a5a10;border-radius:16px;padding:16px;background:linear-gradient(180deg,#ffe27a,#f0a92a 55%,#c97e12);box-shadow:0 12px 30px rgba(240,160,30,.5),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -2px 5px rgba(120,70,10,.5);" style-hover="filter:brightness(1.05)">
+            <div style="font:900 22px 'Cinzel';letter-spacing:.08em;color:#3a2406;text-shadow:0 1px 0 rgba(255,255,255,.35);">PLAY</div>
+            <div style="font:700 9px 'Space Mono';letter-spacing:.1em;color:#6a4a10;margin-top:1px;">WINNER TAKES THE POT · 2–4</div>
+            <span style="position:absolute;top:0;bottom:0;left:0;width:60px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.6),transparent);animation:sheen 3.6s ease-in-out infinite;"></span>
+          </button>
+          <button style="width:100%;background:rgba(20,18,26,.7);border:1px solid rgba(255,255,255,.14);border-radius:11px;padding:9px;margin-top:8px;cursor:pointer;font:700 12px 'Space Grotesk';color:#cfcbd8;" style-hover="border-color:rgba(255,204,51,.4)">🤖 practice vs bots</button>
+          <div style="display:flex;margin-top:10px;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.1);border-radius:14px;overflow:hidden;">
+            <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;border-right:1px solid rgba(255,255,255,.08);cursor:pointer;padding:9px 0;"><span style="font-size:16px;">👤</span><span style="font:800 8px 'Space Mono';color:#cfcbd8;">PROFILE</span></button>
+            <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;border-right:1px solid rgba(255,255,255,.08);cursor:pointer;padding:9px 0;"><span style="font-size:16px;">🛒</span><span style="font:800 8px 'Space Mono';color:#cfcbd8;">SHOP</span></button>
+            <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;border-right:1px solid rgba(255,255,255,.08);cursor:pointer;padding:9px 0;"><span style="font-size:16px;">🎰</span><span style="font:800 8px 'Space Mono';color:#ffd84d;">SPIN</span></button>
+            <button style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;cursor:pointer;padding:9px 0;"><span style="font-size:16px;">🎁</span><span style="font:800 8px 'Space Mono';color:#cfcbd8;">INVITE</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tiltMax&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:14,&quot;min&quot;:0,&quot;max&quot;:28,&quot;tsType&quot;:&quot;number&quot;},&quot;glow&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:1,&quot;min&quot;:0,&quot;max&quot;:2,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;},&quot;iridescence&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:1,&quot;min&quot;:0,&quot;max&quot;:2,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;},&quot;noise&quot;:{&quot;editor&quot;:&quot;float&quot;,&quot;default&quot;:0.08,&quot;min&quot;:0,&quot;max&quot;:0.4,&quot;step&quot;:0.02,&quot;tsType&quot;:&quot;number&quot;},&quot;autoSpin&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { activeD: 0, activeM: 0 };
+  chars = [
+    { name: 'PEPE', img: 'assets/char_pepe.webp', rarity: 'LEGENDARY', accent: '#35e3ff' },
+    { name: 'DOGE', img: 'assets/char_doge.webp', rarity: 'EPIC', accent: '#ffd84d' },
+    { name: 'TRUMP', img: 'assets/char_trump.webp', rarity: 'EPIC', accent: '#ff5a4d' },
+    { name: 'ELON', img: 'assets/char_elon.webp', rarity: 'RARE', accent: '#7fd8ff' },
+    { name: 'COOL DOGE', img: 'assets/char_cooldoge.webp', rarity: 'EPIC', accent: '#ffb347' },
+    { name: 'WOJAK', img: 'assets/char_wojak.webp', rarity: 'RARE', accent: '#c4ff3d' },
+    { name: 'TATE', img: 'assets/char_tate.webp', rarity: 'RARE', accent: '#ff3ea5' },
+    { name: 'PEPE KID', img: 'assets/char_kid.webp', rarity: 'COMMON', accent: '#9aa0ff' },
+  ];
+  get tiltMax() { return this.props.tiltMax ?? 14; }
+  get glow() { return this.props.glow ?? 1; }
+  get irid() { return this.props.iridescence ?? 1; }
+  get noiseAmt() { return this.props.noise ?? 0.08; }
+  get autoSpin() { return this.props.autoSpin ?? true; }
+
+  ringCards(active) {
+    const n = this.chars.length;
+    return this.chars.map((c, i) => {
+      let off = i - active;
+      if (off > n / 2) off -= n;
+      if (off < -n / 2) off += n;
+      const a = Math.abs(off);
+      let x = 0, ry = 0, z = 0, s = 1, op = 1, zi = 100, interactive = false;
+      if (off === 0) { x = 0; ry = 0; z = 0; s = 1.06; op = 1; zi = 100; interactive = true; }
+      else if (a === 1) { x = off * 244; ry = -off * 40; z = -150; s = 0.8; op = 0.92; zi = 80; }
+      else { x = off * 360; ry = -off * 48; z = -360; s = 0.6; op = 0; zi = 10; }
+      return {
+        name: c.name, img: c.img, rarity: c.rarity, accent: c.accent,
+        bg: "url('" + c.img + "')",
+        accentBorder: c.accent + '66',
+        transform: 'translate(-50%,-50%) translateX(' + x + 'px) translateZ(' + z + 'px) rotateY(' + ry + 'deg) scale(' + s + ')',
+        opacity: op, z: zi, pe: op > 0 ? 'auto' : 'none', activeFlag: interactive ? '1' : '0',
+        glowOpacity: (interactive ? 0.5 : 0.18) * this.glow,
+        iridOpacity: (interactive ? 0.5 : 0.28) * this.irid,
+        noiseOpacity: this.noiseAmt,
+        accentShadow: interactive ? ('0 0 44px ' + c.accent + '55, 0 30px 60px rgba(0,0,0,.6)') : '0 16px 40px rgba(0,0,0,.5)',
+        onSelect: () => this.setState({ activeD: i }),
+      };
+    });
+  }
+
+  renderVals() {
+    const cardsD = this.ringCards(this.state.activeD);
+    const ac = this.chars[this.state.activeD];
+    const mc = this.chars[this.state.activeM];
+    return {
+      cardsD,
+      activeName: ac.name,
+      activeRarity: ac.rarity,
+      prevD: () => this.setState((s) => ({ activeD: (s.activeD + this.chars.length - 1) % this.chars.length })),
+      nextD: () => this.setState((s) => ({ activeD: (s.activeD + 1) % this.chars.length })),
+      mImg: mc.img, mName: mc.name, mRarity: mc.rarity, mAccent: mc.accent,
+      mBg: "url('" + mc.img + "')",
+      mBorder: mc.accent + '66',
+      mShadow: '0 0 44px ' + mc.accent + '55, 0 24px 50px rgba(0,0,0,.6)',
+      mGlow: 0.5 * this.glow, mIrid: 0.5 * this.irid, mNoise: this.noiseAmt,
+      prevM: () => this.setState((s) => ({ activeM: (s.activeM + this.chars.length - 1) % this.chars.length })),
+      nextM: () => this.setState((s) => ({ activeM: (s.activeM + 1) % this.chars.length })),
+      dots: this.chars.map((c, i) => ({
+        onSel: () => this.setState({ activeM: i }),
+        bg: i === this.state.activeM ? c.accent : 'rgba(255,255,255,.25)',
+        w: i === this.state.activeM ? '20px' : '7px',
+      })),
+    };
+  }
+
+  componentDidMount() {
+    this._wireTilt('carousel-d');
+    this._wireTilt('carousel-m');
+    if (this.autoSpin) {
+      this._timer = setInterval(() => {
+        if (this._hover) return;
+        this.setState((s) => ({ activeD: (s.activeD + 1) % this.chars.length }));
+      }, 4000);
+    }
+  }
+  componentDidUpdate() {
+    const st = document.getElementById('carousel-d');
+    if (!st) return;
+    st.querySelectorAll('[data-tilt]').forEach((el) => {
+      if (el.getAttribute('data-active') !== '1') { el.style.transform = ''; }
+    });
+  }
+  _wireTilt(id) {
+    const st = document.getElementById(id);
+    if (!st) return;
+    const move = (e) => {
+      this._hover = true;
+      const el = st.querySelector('[data-tilt][data-active="1"]');
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      let px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+      px = Math.max(0, Math.min(1, px)); py = Math.max(0, Math.min(1, py));
+      const t = this.tiltMax;
+      el.style.transform = 'rotateX(' + (-(py - 0.5) * 2 * t) + 'deg) rotateY(' + ((px - 0.5) * 2 * t) + 'deg)';
+      const sp = el.querySelector('[data-spec]');
+      if (sp) sp.style.background = 'radial-gradient(circle at ' + (px * 100) + '% ' + (py * 100) + '%, rgba(255,255,255,.62), transparent 42%)';
+      const ho = el.querySelector('[data-holo]');
+      if (ho) ho.style.backgroundPosition = (px * 100) + '% ' + (py * 100) + '%';
+    };
+    const leave = () => {
+      this._hover = false;
+      const el = st.querySelector('[data-tilt][data-active="1"]');
+      if (el) {
+        el.style.transform = '';
+        const sp = el.querySelector('[data-spec]');
+        if (sp) sp.style.background = 'radial-gradient(circle at 50% 28%, rgba(255,255,255,.35), transparent 45%)';
+      }
+    };
+    st.addEventListener('mousemove', move);
+    st.addEventListener('mouseleave', leave);
+    this._cl = this._cl || [];
+    this._cl.push(() => { st.removeEventListener('mousemove', move); st.removeEventListener('mouseleave', leave); });
+  }
+  componentWillUnmount() {
+    if (this._timer) clearInterval(this._timer);
+    (this._cl || []).forEach((f) => f());
+  }
+}
+</script>
+</body>
+</html>

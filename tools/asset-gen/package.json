@@ -1,0 +1,19 @@
+{
+  "name": "asset-gen",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MemeArena landing key-art / asset generator via WaveSpeed AI (text-to-image + background remover).",
+  "scripts": {
+    "gen": "tsx gen.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "@types/node": "^22.9.0"
+  }
+}
