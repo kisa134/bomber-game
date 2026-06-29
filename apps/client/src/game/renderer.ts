@@ -1709,6 +1709,23 @@ export class Renderer {
       }
     }
     ctx.globalAlpha = 1;
+    // #2 WET SHEEN: fresh blood is glossy — a faint specular highlight offset TOWARD
+    // the key light, fading as the blood dries (~12s). Makes wet blood catch the sun
+    // and shift as the dynamic light moves.
+    const fresh = Math.max(0, 1 - (now - m.born) / 12000);
+    if (fresh > 0.02) {
+      const cy0 = py + t * 0.32;
+      let ux = this.lx - cxp, uy = this.ly - cy0;
+      const mm = Math.hypot(ux, uy) || 1; ux /= mm; uy /= mm;
+      const hx = cxp + ux * t * 0.13, hy = cy0 + uy * t * 0.13;
+      ctx.globalCompositeOperation = "lighter";
+      const sheen = ctx.createRadialGradient(hx, hy, 0, hx, hy, t * 0.24);
+      sheen.addColorStop(0, `rgba(255,140,140,${0.18 * fresh})`);
+      sheen.addColorStop(1, "rgba(255,80,80,0)");
+      ctx.fillStyle = sheen;
+      ctx.fillRect(px, py, t, t);
+      ctx.globalCompositeOperation = "source-over";
+    }
   }
 
   /** FIRST BLOOD announcement (first kill of the match). Builds the chunky pixel
