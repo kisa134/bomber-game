@@ -2883,8 +2883,10 @@ export class Renderer {
     ctx.fillRect(px, py, t, Math.max(1, t * 0.045));
   }
 
-  /** Soft bloom: copy the frame, blur it, and add it back over itself so bright
-   *  areas glow and bleed. Off by default (perf). (Settings → Graphics → Bloom.) */
+  /** THRESHOLD bloom: isolate only the brightest pixels (explosions, glints, glowing
+   *  blocks), blur those, and add them back — so highlights bleed but the scene,
+   *  blocks and the hero stay sharp and aren't washed out. Off by default (perf).
+   *  (Settings → Graphics → Bloom.) */
   private drawBloom(W: number, H: number): void {
     const ctx = this.ctx;
     const src = ctx.canvas;
@@ -2893,12 +2895,20 @@ export class Renderer {
     if (bc.width !== W || bc.height !== H) { bc.width = W; bc.height = H; }
     const bctx = bc.getContext("2d");
     if (!bctx) return;
+    // Threshold: bc = src^3. Multiplying the frame by itself crushes dark + mid
+    // tones (0.5³≈0.13) while highlights (≈1) survive — only truly bright areas remain.
+    bctx.globalCompositeOperation = "source-over";
     bctx.clearRect(0, 0, W, H);
     bctx.drawImage(src, 0, 0, W, H);
+    bctx.globalCompositeOperation = "multiply";
+    bctx.drawImage(src, 0, 0, W, H);
+    bctx.drawImage(src, 0, 0, W, H);
+    bctx.globalCompositeOperation = "source-over";
+    // Add the blurred highlights back over the scene.
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    ctx.globalAlpha = 0.38;
-    ctx.filter = "blur(6px)";
+    ctx.globalAlpha = 0.6;
+    ctx.filter = "blur(7px)";
     ctx.drawImage(bc, 0, 0, W, H);
     ctx.restore();
     ctx.filter = "none";
