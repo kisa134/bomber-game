@@ -309,7 +309,7 @@ export function getAgingCSS(): string {
       from 270deg at 0%   100%, rgba(212,175,55,0.80) 0deg 90deg,  transparent 90deg
     );
   background-size: 50% 50%;
-    background-position: top left, top right, bottom right, bottom left;
+  background-position: top left, top right, bottom right, bottom left;
   background-repeat: no-repeat;
   mix-blend-mode: screen;
   opacity: 0.9;
@@ -377,7 +377,7 @@ export function getAgingCSS(): string {
 export function formatAgeStatus(matchCount: number): string {
   const stage = getAgingStage(matchCount);
   const formatted = matchCount.toLocaleString();
-  return `${stage.name} \u00b7 ${formatted} match${matchCount === 1 ? "" : "es"}`;
+  return `${stage.name} · ${formatted} match${matchCount === 1 ? "" : "es"}`;
 }
 
 /** Return the progress percentage toward the NEXT aging stage.

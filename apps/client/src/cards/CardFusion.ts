@@ -1,16 +1,19 @@
 /**
- * CardFusion.ts — BomberMeme CCG v2
+ * CardFusion.ts — Duplicate card fusion system for BomberMeme CCG v2.
  *
- * Duplicate fusion system: merge 3 identical cards into 1 upgraded version.
+ * Mechanics:
+ *   3 Common (same character + moment) -> 1 Foil Common
+ *   3 Foil Common (same character)     -> 1 Rare Gold-Framed
+ *   3 Rare (same character + moment)   -> 1 Epic Gold-Framed
+ *   3 Epic (same character + moment)   -> 1 Legendary Gold-Framed
  *
- * Recipes:
- *   3x Common (same character, same moment) → 1x Foil Common
- *   3x Foil Common (same character)         → 1x Rare Gold-Framed
- *   3x Rare (same character, same moment)   → 1x Epic Gold-Framed
- *   3x Epic (same character, same moment)   → 1x Legendary Gold-Framed
+ * Flow: select 3 cards -> preview result -> confirm -> swirl animation ->
+ *       merge + result appear.
  *
- * Animation flow: select → preview → swirl → converge → merge → result pop
+ * Technical: ESM, strict TypeScript, CSS animations + Canvas 2D only.
  */
+
+import { ASSET_VER } from "../game/assets.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,7 +25,6 @@ export interface FusionRecipe {
     count: number;
     sameCharacter: boolean;
     sameMoment: boolean;
-    requireFoil?: boolean;
   };
   output: {
     tier: string;
@@ -43,9 +45,32 @@ export interface FusionCard {
   thumbnailHTML: string;
 }
 
-const TIER_ORDER: Record<string, number> = {
-  common: 0, rare: 1, epic: 2, legendary: 3, mythic: 4,
-};
+// ---------------------------------------------------------------------------
+// Fusion rules
+// ---------------------------------------------------------------------------
+
+const RECIPES: FusionRecipe[] = [
+  {
+    inputs: { tier: "common", count: 3, sameCharacter: true, sameMoment: true },
+    output: { tier: "common", isFoil: true, isGoldFrame: false },
+    fee: 50,
+  },
+  {
+    inputs: { tier: "foil_common", count: 3, sameCharacter: true, sameMoment: false },
+    output: { tier: "rare", isFoil: false, isGoldFrame: true },
+    fee: 150,
+  },
+  {
+    inputs: { tier: "rare", count: 3, sameCharacter: true, sameMoment: true },
+    output: { tier: "epic", isFoil: false, isGoldFrame: true },
+    fee: 500,
+  },
+  {
+    inputs: { tier: "epic", count: 3, sameCharacter: true, sameMoment: true },
+    output: { tier: "legendary", isFoil: false, isGoldFrame: true },
+    fee: 2000,
+  },
+];
 
 const TIER_COLORS: Record<string, string> = {
   common: "#9aa3b2",
@@ -53,19 +78,155 @@ const TIER_COLORS: Record<string, string> = {
   epic: "#c879ff",
   legendary: "#ffcc33",
   mythic: "#ff5a5a",
+  foil_common: "#b8e0ff",
+};
+
+const TIER_RANK: Record<string, number> = {
+  common: 0, foil_common: 1, rare: 2, epic: 3, legendary: 4, mythic: 5,
 };
 
 // ---------------------------------------------------------------------------
-// Default recipes
+// CSS injection
 // ---------------------------------------------------------------------------
 
-function getRecipes(): FusionRecipe[] {
-  return [
-    { inputs: { tier: "common", count: 3, sameCharacter: true, sameMoment: true }, output: { tier: "common", isFoil: true, isGoldFrame: false }, fee: 100 },
-    { inputs: { tier: "common", count: 3, sameCharacter: true, sameMoment: true, requireFoil: true }, output: { tier: "rare", isFoil: false, isGoldFrame: true }, fee: 500 },
-    { inputs: { tier: "rare", count: 3, sameCharacter: true, sameMoment: true }, output: { tier: "epic", isFoil: false, isGoldFrame: true }, fee: 2000 },
-    { inputs: { tier: "epic", count: 3, sameCharacter: true, sameMoment: true }, output: { tier: "legendary", isFoil: false, isGoldFrame: true }, fee: 10000 },
-  ];
+const STYLE_ID = "card-fusion-styles";
+
+function injectStyles(): void {
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement("style");
+  style.id = STYLE_ID;
+  style.textContent = `
+    .cf-panel{background:rgba(13,16,26,.75);border:1px solid rgba(255,255,255,.08);border-radius:20px;backdrop-filter:blur(24px) saturate(1.3);box-shadow:0 24px 60px rgba(0,0,0,.5);padding:24px;max-width:960px;width:92vw;max-height:88vh;overflow-y:auto;color:#e0e4ec;font-family:var(--font-ui,system-ui,-apple-system,sans-serif)}
+    .cf-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+    .cf-title{font-size:20px;font-weight:800;color:#fff;letter-spacing:.3px}
+    .cf-subtitle{font-size:13px;color:#7a8398;margin-top:4px}
+    .cf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px;margin-bottom:20px}
+    .cf-card{position:relative;background:linear-gradient(145deg,#1a1f2e,#131824);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px;cursor:pointer;transition:transform .18s,border-color .2s,box-shadow .2s;display:flex;flex-direction:column;align-items:center;gap:8px}
+    .cf-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,.18);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+    .cf-card.selected{border-color:var(--tier-c,#ffd84d);box-shadow:0 0 0 2px var(--tier-c,#ffd84d)33,0 8px 24px rgba(0,0,0,.3)}
+    .cf-card.unavailable{opacity:.4;cursor:not-allowed;filter:grayscale(.6)}
+    .cf-card-thumb{width:100%;aspect-ratio:236/332;background:linear-gradient(145deg,#242a3a,#181d2a);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:40px;overflow:hidden;position:relative}
+    .cf-card-tier{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;padding:3px 10px;border-radius:20px;background:rgba(0,0,0,.35);color:var(--tier-c,#9aa3b2)}
+    .cf-card-name{font-size:12px;font-weight:700;color:#e0e4ec;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+    .cf-card-meta{font-size:10px;color:#5a6078;text-align:center}
+    .cf-card-count{position:absolute;top:8px;right:8px;background:rgba(255,200,50,.85);color:#1a1205;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px}
+    .cf-preview-area{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;margin-bottom:20px;padding:20px;background:rgba(0,0,0,.2);border-radius:16px;border:1px solid rgba(255,255,255,.06)}
+    .cf-preview-inputs{display:flex;gap:12px;flex:1;min-width:200px;justify-content:center}
+    .cf-preview-arrow{display:flex;align-items:center;justify-content:center;font-size:32px;color:#5a6078;padding:0 12px}
+    .cf-preview-result{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:160px}
+    .cf-result-card{width:140px;height:196px;background:linear-gradient(145deg,#2a2040,#1a1530);border:2px solid rgba(255,200,50,.4);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;position:relative;overflow:hidden}
+    .cf-result-card::before{content:"";position:absolute;inset:0;background:linear-gradient(135deg,transparent 40%,rgba(255,255,255,.06) 50%,transparent 60%);animation:cf-sheen 3s infinite}
+    @keyframes cf-sheen{0%,100%{transform:translateX(-100%)}50%{transform:translateX(100%)}}
+    .cf-result-tier{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--tier-c,#ffd84d);text-shadow:0 0 8px var(--tier-c,#ffd84d)55}
+    .cf-result-badge{font-size:10px;padding:3px 10px;border-radius:20px;background:rgba(255,200,50,.15);color:#ffd84d;border:1px solid rgba(255,200,50,.25)}
+    .cf-fee{font-size:12px;color:#7a8398;margin-top:4px}
+    .cf-fee strong{color:#ffd84d}
+    .cf-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+    .cf-btn{cursor:pointer;border:none;padding:12px 28px;border-radius:14px;font-weight:800;font-size:14px;letter-spacing:.5px;transition:transform .15s,box-shadow .2s}
+    .cf-btn:hover{transform:translateY(-2px)}
+    .cf-btn:active{transform:translateY(0)}
+    .cf-btn-fuse{background:linear-gradient(90deg,#ffd84d,#ff9a3d);color:#1a1205;box-shadow:0 4px 20px rgba(255,150,50,.3)}
+    .cf-btn-fuse:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+    .cf-btn-ghost{background:rgba(255,255,255,.06);color:#e0e4ec;border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(12px)}
+    .cf-empty{text-align:center;padding:40px 20px;color:#5a6078;font-size:14px}
+    .cf-stage{position:fixed;inset:0;z-index:1000;background:rgba(5,6,10,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;transition:opacity .4s}
+    .cf-stage.show{opacity:1}
+    .cf-swirl-cards{display:flex;gap:40px;align-items:center;justify-content:center;margin-bottom:40px;position:relative}
+    .cf-swirl-card{width:160px;height:224px;position:relative;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.34,1.4,.4,1)}
+    @keyframes cf-swirl-1{0%{transform:translate(0,0) rotate(0)}30%{transform:translate(30px,-20px) rotate(15deg)}60%{transform:translate(-20px,10px) rotate(-10deg)}100%{transform:translate(0,0) rotate(0) scale(.8)}}
+    @keyframes cf-swirl-2{0%{transform:translate(0,0) rotate(0)}30%{transform:translate(-30px,-20px) rotate(-15deg)}60%{transform:translate(20px,10px) rotate(10deg)}100%{transform:translate(0,0) rotate(0) scale(.8)}}
+    @keyframes cf-swirl-3{0%{transform:translate(0,0) rotate(0)}30%{transform:translate(0,-30px) rotate(5deg)}60%{transform:translate(0,20px) rotate(-5deg)}100%{transform:translate(0,0) rotate(0) scale(.8)}}
+    .cf-swirl-1{animation:cf-swirl-1 1.2s ease-in-out 2}
+    .cf-swirl-2{animation:cf-swirl-2 1.2s ease-in-out 2}
+    .cf-swirl-3{animation:cf-swirl-3 1.2s ease-in-out 2}
+    @keyframes cf-merge-flash{0%{opacity:0}30%{opacity:.8}100%{opacity:0}}
+    .cf-merge-flash{position:fixed;inset:0;background:radial-gradient(circle,rgba(255,200,50,.5),transparent 60%);opacity:0;pointer-events:none;animation:cf-merge-flash .8s ease-out}
+    @keyframes cf-result-pop{0%{transform:scale(0) rotate(-10deg)}60%{transform:scale(1.1) rotate(3deg)}100%{transform:scale(1) rotate(0)}}
+    .cf-result-pop{animation:cf-result-pop .7s cubic-bezier(.34,1.4,.4,1)}
+    @keyframes cf-particle-orbit{0%{transform:rotate(0deg) translateX(80px) rotate(0deg)}100%{transform:rotate(360deg) translateX(80px) rotate(-360deg)}}
+    .cf-orbit-particle{position:absolute;width:6px;height:6px;border-radius:50%;background:#ffd84d;box-shadow:0 0 8px 2px rgba(255,200,50,.5);animation:cf-particle-orbit 1.5s linear infinite}
+    .cf-converge-canvas{position:fixed;inset:0;z-index:1001;pointer-events:none}
+    .cf-result-glow{position:absolute;inset:-30px;border-radius:30px;box-shadow:0 0 60px 20px rgba(255,200,50,.25),0 0 120px 40px rgba(255,150,50,.1);opacity:0;animation:cf-glow-in .8s ease-out .3s forwards}
+    @keyframes cf-glow-in{to{opacity:1}}
+    @media(max-width:640px){.cf-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}.cf-preview-area{flex-direction:column;align-items:center}.cf-swirl-cards{gap:16px}.cf-swirl-card{width:120px;height:168px}}
+  `;
+  document.head.appendChild(style);
+}
+
+// ---------------------------------------------------------------------------
+// Particle canvas for converge effect
+// ---------------------------------------------------------------------------
+
+class ConvergeParticles {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private running = false;
+  private rafId = 0;
+  private targets: Array<{ x: number; y: number; color: string; progress: number }> = [];
+
+  constructor() {
+    this.canvas = document.createElement("canvas");
+    this.canvas.className = "cf-converge-canvas";
+    this.ctx = this.canvas.getContext("2d")!;
+    this.resize();
+    window.addEventListener("resize", () => this.resize());
+  }
+
+  mount(): void { document.body.appendChild(this.canvas); }
+  unmount(): void { this.canvas.remove(); cancelAnimationFrame(this.rafId); }
+
+  private resize(): void {
+    this.canvas.width = window.innerWidth;
+    this.canvas.height = window.innerHeight;
+  }
+
+  convergeTo(cx: number, cy: number, cardColors: string[]): void {
+    this.targets = cardColors.map((color) => ({
+      x: cx + (Math.random() - 0.5) * 300,
+      y: cy + (Math.random() - 0.5) * 300,
+      color,
+      progress: 0,
+    }));
+    if (!this.running) this.loop(cx, cy);
+  }
+
+  private loop = (tcx: number, tcy: number): void => {
+    this.running = true;
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.globalCompositeOperation = "lighter";
+
+    let alive = false;
+    for (const t of this.targets) {
+      t.progress += 0.025;
+      if (t.progress >= 1) continue;
+      alive = true;
+      const x = t.x + (tcx - t.x) * t.progress;
+      const y = t.y + (tcy - t.y) * t.progress;
+      const a = 1 - t.progress;
+      const s = 3 * a;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = t.color;
+      ctx.beginPath();
+      ctx.arc(x, y, s, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowColor = t.color;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(x, y, s * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+
+    if (alive) {
+      this.rafId = requestAnimationFrame(() => this.loop(tcx, tcy));
+    } else {
+      this.running = false;
+    }
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -76,440 +237,352 @@ export class CardFusion {
   private container: HTMLElement;
   private selectedCards: FusionCard[] = [];
   private recipe: FusionRecipe | null = null;
-  private availableCards: FusionCard[] = [];
-  private isFusing = false;
+  private onComplete?: ((result: FusionRecipe, consumedIds: string[]) => void) | null;
 
-  constructor(container: HTMLElement) {
+  constructor(container: HTMLElement, opts?: { onComplete?: (result: FusionRecipe, consumedIds: string[]) => void }) {
     this.container = container;
+    this.onComplete = opts?.onComplete;
+    injectStyles();
   }
 
+  /** Render the fusion UI into the container. */
   render(availableCards: FusionCard[]): void {
-    this.availableCards = availableCards;
+    this.container.innerHTML = "";
     this.selectedCards = [];
     this.recipe = null;
-    this.container.innerHTML = this.buildHTML();
-    this.attachListeners();
+
+    // Panel
+    const panel = document.createElement("div");
+    panel.className = "cf-panel";
+
+    // Header
+    const header = document.createElement("div");
+    header.className = "cf-header";
+    header.innerHTML = `<div><div class="cf-title">Card Fusion</div><div class="cf-subtitle">Combine 3 duplicates into a higher-tier card</div></div>`;
+    panel.appendChild(header);
+
+    if (availableCards.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "cf-empty";
+      empty.textContent = "No duplicate cards available for fusion.";
+      panel.appendChild(empty);
+      this.container.appendChild(panel);
+      return;
+    }
+
+    // Card grid
+    const grid = document.createElement("div");
+    grid.className = "cf-grid";
+    grid.innerHTML = this.renderCardGrid(availableCards);
+    panel.appendChild(grid);
+
+    // Wire up card selection
+    grid.querySelectorAll<HTMLElement>(".cf-card").forEach((el) => {
+      el.addEventListener("click", () => {
+        const id = el.dataset.id!;
+        if (el.classList.contains("selected")) {
+          this.onCardDeselect(id);
+          el.classList.remove("selected");
+        } else if (this.selectedCards.length < 3) {
+          const card = availableCards.find((c) => c.instanceId === id);
+          if (card) {
+            this.onCardSelect(card);
+            el.classList.add("selected");
+          }
+        }
+        this.updatePreview(panel);
+      });
+    });
+
+    // Preview area
+    const previewArea = document.createElement("div");
+    previewArea.className = "cf-preview-area";
+    previewArea.id = "cf-preview";
+    previewArea.style.display = "none";
+    panel.appendChild(previewArea);
+
+    // Actions
+    const actions = document.createElement("div");
+    actions.className = "cf-actions";
+    actions.id = "cf-actions";
+    actions.style.display = "none";
+
+    const fuseBtn = document.createElement("button");
+    fuseBtn.className = "cf-btn cf-btn-fuse";
+    fuseBtn.textContent = "Fuse Cards";
+    fuseBtn.addEventListener("click", () => void this.confirmFusion());
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "cf-btn cf-btn-ghost";
+    cancelBtn.textContent = "Clear";
+    cancelBtn.addEventListener("click", () => {
+      this.selectedCards = [];
+      this.recipe = null;
+      grid.querySelectorAll(".cf-card.selected").forEach((el) => el.classList.remove("selected"));
+      this.updatePreview(panel);
+    });
+
+    actions.append(fuseBtn, cancelBtn);
+    panel.appendChild(actions);
+    this.container.appendChild(panel);
   }
 
-  // -----------------------------------------------------------------
-  // HTML builders
-  // -----------------------------------------------------------------
-
-  private buildHTML(): string {
-    return (
-      `<div class="card-fusion">` +
-      `<div class="fusion-header">` +
-      `<h3 class="fusion-title">Card Fusion</h3>` +
-      `<p class="fusion-subtitle">Select 3 identical cards to fuse them into an upgraded version.</p></div>` +
-      `<div class="fusion-selected-bar">` +
-      `<span class="fusion-selected-count">${this.selectedCards.length}/3 selected</span>` +
-      `<div class="fusion-selected-slots">` +
-      [0, 1, 2].map((i) => {
-        const card = this.selectedCards[i];
-        return (
-          `<div class="fusion-slot${card ? " filled" : ""}" data-slot="${i}">` +
-          (card
-            ? `<div class="fusion-slot-card">${card.characterName}</div>` +
-              `<button class="fusion-remove" data-slot="${i}" title="Remove">\u2715</button>`
-            : `<div class="fusion-slot-empty">+</div>`) +
-          `</div>`
-        );
-      }).join("") + `</div>` +
-      (this.recipe ? this.renderPreview(this.recipe) : "") +
-      `</div>` +
-      `<div class="fusion-grid">${this.renderCardGrid(this.availableCards)}</div>` +
-      `</div>`
-    );
-  }
+  // -------------------------------------------------------------------------
+  // Card grid rendering
+  // -------------------------------------------------------------------------
 
   private renderCardGrid(cards: FusionCard[]): string {
-    if (cards.length === 0) {
-      return `<div class="fusion-empty">No cards available for fusion.</div>`;
-    }
-    return cards.map((c) => {
-      const isSelected = this.selectedCards.some((s) => s.instanceId === c.instanceId);
-      const tierColor = TIER_COLORS[c.tier.toLowerCase()] ?? "#9aa3b2";
-      const foilClass = c.isFoil ? " fusion-card-foil" : "";
-      return (
-        `<div class="fusion-card${isSelected ? " selected" : ""}${foilClass}" ` +
-        `data-id="${c.instanceId}" style="--card-tier:${tierColor}">` +
-        `<div class="fusion-card-art" style="background:${this.tierGradient(c.tier)}"></div>` +
-        `<div class="fusion-card-info">` +
-        `<div class="fusion-card-name">${this.esc(c.characterName)}</div>` +
-        `<div class="fusion-card-meta">` +
-        `<span style="color:${tierColor}">${c.tier.toUpperCase()}</span>` +
-        `<span class="fusion-card-moment">${this.esc(c.momentId)}</span>` +
-        (c.isFoil ? `<span class="fusion-card-foil-badge">FOIL</span>` : "") +
-        `</div></div>` +
-        (isSelected ? `<div class="fusion-card-check">\u2713</div>` : "") +
-        `</div>`
-      );
-    }).join("");
+    return cards
+      .map((card) => {
+        const tierColor = TIER_COLORS[card.tier] ?? "#9aa3b2";
+        const foilTag = card.isFoil ? " <span style='color:#7fd8ff'>Foil</span>" : "";
+        return `
+          <div class="cf-card" data-id="${card.instanceId}" style="--tier-c:${tierColor}">
+            <div class="cf-card-thumb">${card.thumbnailHTML}</div>
+            <div class="cf-card-tier" style="--tier-c:${tierColor}">${card.tier}${foilTag}</div>
+            <div class="cf-card-name">${card.characterName}</div>
+            <div class="cf-card-meta">${card.momentId} · ${card.matchCount} matches</div>
+          </div>
+        `;
+      })
+      .join("");
   }
 
-  private renderPreview(recipe: FusionRecipe): string {
-    const outColor = TIER_COLORS[recipe.output.tier.toLowerCase()] ?? "#9aa3b2";
-    return (
-      `<div class="fusion-preview">` +
-      `<div class="fusion-preview-arrow">\u2192</div>` +
-      `<div class="fusion-preview-result" style="--result-tier:${outColor}">` +
-      `<div class="fusion-preview-img" style="background:${this.tierGradient(recipe.output.tier)}"></div>` +
-      `<div class="fusion-preview-tier" style="color:${outColor}">${recipe.output.tier.toUpperCase()}</div>` +
-      (recipe.output.isFoil ? `<div class="fusion-preview-badge">FOIL</div>` : "") +
-      (recipe.output.isGoldFrame ? `<div class="fusion-preview-badge gold">GOLD FRAME</div>` : "") +
-      `</div>` +
-      `<div class="fusion-preview-fee">${recipe.fee.toLocaleString()} BM</div>` +
-      `<button class="fusion-confirm-btn" ${this.isFusing ? "disabled" : ""}>` +
-      `${this.isFusing ? "Fusing..." : "Confirm Fusion"}</button>` +
-      `</div>`
-    );
-  }
-
-  // -----------------------------------------------------------------
+  // -------------------------------------------------------------------------
   // Selection logic
-  // -----------------------------------------------------------------
+  // -------------------------------------------------------------------------
 
   private onCardSelect(card: FusionCard): void {
-    if (this.isFusing) return;
-    const idx = this.selectedCards.findIndex((c) => c.instanceId === card.instanceId);
-    if (idx >= 0) {
-      this.selectedCards.splice(idx, 1);
-    } else if (this.selectedCards.length < 3) {
-      this.selectedCards.push(card);
-    }
+    if (this.selectedCards.length >= 3) return;
+    this.selectedCards.push(card);
     this.recipe = this.canFuse(this.selectedCards);
-    this.refresh();
   }
 
-  private onCardDeselect(slotIndex: number): void {
-    if (this.isFusing) return;
-    this.selectedCards.splice(slotIndex, 1);
+  private onCardDeselect(instanceId: string): void {
+    this.selectedCards = this.selectedCards.filter((c) => c.instanceId !== instanceId);
     this.recipe = this.canFuse(this.selectedCards);
-    this.refresh();
   }
+
+  // -------------------------------------------------------------------------
+  // Preview
+  // -------------------------------------------------------------------------
+
+  private updatePreview(panel: HTMLElement): void {
+    const previewArea = panel.querySelector<HTMLElement>("#cf-preview");
+    const actions = panel.querySelector<HTMLElement>("#cf-actions");
+    const fuseBtn = panel.querySelector<HTMLElement>(".cf-btn-fuse");
+    if (!previewArea || !actions || !fuseBtn) return;
+
+    if (this.selectedCards.length === 0) {
+      previewArea.style.display = "none";
+      actions.style.display = "none";
+      return;
+    }
+
+    previewArea.style.display = "flex";
+    actions.style.display = "flex";
+
+    // Build preview HTML
+    const inputCardsHtml = this.selectedCards
+      .map((c) => {
+        const col = TIER_COLORS[c.tier] ?? "#9aa3b2";
+        return `
+          <div class="cf-card" style="--tier-c:${col};cursor:default">
+            <div class="cf-card-thumb">${c.thumbnailHTML}</div>
+            <div class="cf-card-tier" style="--tier-c:${col}">${c.tier}${c.isFoil ? " Foil" : ""}</div>
+            <div class="cf-card-name">${c.characterName}</div>
+          </div>
+        `;
+      })
+      .join("");
+
+    const recipe = this.recipe;
+    const resultHtml = recipe
+      ? this.renderPreviewResult(recipe)
+      : `<div class="cf-empty" style="padding:20px">Select ${3 - this.selectedCards.length} more...</div>`;
+
+    const canFuse = recipe !== null && this.selectedCards.length === 3;
+    fuseBtn.classList.toggle("cf-btn-fuse", canFuse);
+    (fuseBtn as HTMLButtonElement).disabled = !canFuse;
+
+    previewArea.innerHTML = `
+      <div class="cf-preview-inputs">${inputCardsHtml}</div>
+      <div class="cf-preview-arrow">&#10132;</div>
+      <div class="cf-preview-result">${resultHtml}</div>
+    `;
+  }
+
+  private renderPreviewResult(recipe: FusionRecipe): string {
+    const outColor = TIER_COLORS[recipe.output.tier] ?? "#ffd84d";
+    const badges: string[] = [];
+    if (recipe.output.isFoil) badges.push("Foil");
+    if (recipe.output.isGoldFrame) badges.push("Gold Frame");
+
+    return `
+      <div class="cf-result-card" style="--tier-c:${outColor}">
+        <div class="cf-result-tier">${recipe.output.tier}</div>
+        ${badges.length ? `<div class="cf-result-badge">${badges.join(" · ")}</div>` : ""}
+        <div style="font-size:28px;margin-top:4px">&#9733;</div>
+      </div>
+      <div class="cf-fee">Fee: <strong>${recipe.fee} BM</strong></div>
+    `;
+  }
+
+  // -------------------------------------------------------------------------
+  // Fusion rules engine
+  // -------------------------------------------------------------------------
 
   private canFuse(selected: FusionCard[]): FusionRecipe | null {
     if (selected.length !== 3) return null;
-    const recipes = getRecipes();
-    for (const recipe of recipes) {
-      if (this.matchesRecipe(selected, recipe)) return recipe;
+
+    const [a, b, c] = selected;
+    const tierKey = a.isFoil && a.tier === "common" ? "foil_common" : a.tier;
+
+    for (const recipe of this.getRecipes()) {
+      const inputs = recipe.inputs;
+      if (inputs.count !== 3) continue;
+
+      // Check tier match
+      const matchTier = inputs.tier === tierKey;
+      if (!matchTier) continue;
+
+      // Check same character
+      if (inputs.sameCharacter && !(a.characterId === b.characterId && b.characterId === c.characterId)) continue;
+
+      // Check same moment
+      if (inputs.sameMoment && !(a.momentId === b.momentId && b.momentId === c.momentId)) continue;
+
+      return recipe;
     }
+
     return null;
   }
 
-  private matchesRecipe(selected: FusionCard[], recipe: FusionRecipe): boolean {
-    if (selected.length !== recipe.inputs.count) return false;
-    // Check all same tier
-    if (!selected.every((c) => c.tier.toLowerCase() === recipe.inputs.tier.toLowerCase())) return false;
-    // Check same character
-    if (recipe.inputs.sameCharacter) {
-      const first = selected[0]!.characterId;
-      if (!selected.every((c) => c.characterId === first)) return false;
-    }
-    // Check same moment
-    if (recipe.inputs.sameMoment) {
-      const first = selected[0]!.momentId;
-      if (!selected.every((c) => c.momentId === first)) return false;
-    }
-    // Check foil requirement
-    if (recipe.inputs.requireFoil && !selected.every((c) => c.isFoil)) return false;
-    return true;
+  private getRecipes(): FusionRecipe[] {
+    return RECIPES;
   }
 
-  private refresh(): void {
-    this.container.innerHTML = this.buildHTML();
-    this.attachListeners();
-  }
+  // -------------------------------------------------------------------------
+  // Fusion animation + confirmation
+  // -------------------------------------------------------------------------
 
-  // -----------------------------------------------------------------
-  // Fusion animation
-  // -----------------------------------------------------------------
-
-  private async animateFusion(): Promise<void> {
+  private async confirmFusion(): Promise<void> {
     if (!this.recipe || this.selectedCards.length !== 3) return;
-    this.isFusing = true;
 
-    const selectedEls = this.selectedCards.map((c) =>
-      this.container.querySelector(`.fusion-card[data-id="${c.instanceId}"]`) as HTMLElement | null
-    ).filter(Boolean) as HTMLElement[];
+    // Launch fusion stage
+    const stage = document.createElement("div");
+    stage.className = "cf-stage";
+    document.body.appendChild(stage);
+    requestAnimationFrame(() => stage.classList.add("show"));
 
-    // Highlight selected
-    selectedEls.forEach((el) => el.classList.add("fusion-highlight"));
+    // Swirl cards
+    const swirlWrap = document.createElement("div");
+    swirlWrap.className = "cf-swirl-cards";
 
-    // Disable confirm button
-    const confirmBtn = this.container.querySelector(".fusion-confirm-btn") as HTMLButtonElement | null;
-    if (confirmBtn) confirmBtn.disabled = true;
-
-    await this.animateSwirl(selectedEls);
-    await this.animateMerge(selectedEls);
-    await this.animateResultAppear();
-
-    this.isFusing = false;
-    this.emit("fused", {
-      recipe: this.recipe,
-      inputCards: this.selectedCards.map((c) => c.instanceId),
+    this.selectedCards.forEach((card, i) => {
+      const el = document.createElement("div");
+      el.className = `cf-swirl-card cf-swirl-${i + 1}`;
+      const col = TIER_COLORS[card.tier] ?? "#9aa3b2";
+      el.innerHTML = `
+        <div style="width:100%;height:100%;background:linear-gradient(145deg,#1a1f2e,#131824);border:2px solid ${col}44;border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px">
+          <div style="font-size:36px">&#9733;</div>
+          <div style="font-size:11px;font-weight:800;color:${col};text-transform:uppercase">${card.tier}</div>
+          <div style="font-size:12px;color:#e0e4ec">${card.characterName}</div>
+        </div>
+      `;
+      swirlWrap.appendChild(el);
     });
-  }
+    stage.appendChild(swirlWrap);
 
-  private animateSwirl(cardEls: HTMLElement[]): Promise<void> {
-    return new Promise((resolve) => {
-      const container = this.container.querySelector(".fusion-grid") as HTMLElement;
-      const containerRect = container.getBoundingClientRect();
-      const centerX = containerRect.left + containerRect.width / 2;
-      const centerY = containerRect.top + containerRect.height / 2;
+    // Orbiting particles
+    for (let i = 0; i < 8; i++) {
+      const p = document.createElement("div");
+      p.className = "cf-orbit-particle";
+      p.style.animationDelay = `${i * 0.2}s`;
+      p.style.animationDuration = `${1.2 + Math.random() * 0.6}s`;
+      swirlWrap.appendChild(p);
+    }
 
-      cardEls.forEach((el, i) => {
-        const rect = el.getBoundingClientRect();
-        const elCenterX = rect.left + rect.width / 2;
-        const elCenterY = rect.top + rect.height / 2;
+    // Phase 1: Swirl
+    await this.animateSwirl();
 
-        // Orbit animation
-        el.style.transition = "none";
-        el.style.position = "fixed";
-        el.style.left = `${elCenterX - rect.width / 2}px`;
-        el.style.top = `${elCenterY - rect.height / 2}px`;
-        el.style.zIndex = "100";
+    // Phase 2: Converge particles
+    const converge = new ConvergeParticles();
+    converge.mount();
+    const rect = swirlWrap.getBoundingClientRect();
+    converge.convergeTo(
+      rect.left + rect.width / 2,
+      rect.top + rect.height / 2,
+      this.selectedCards.map((c) => TIER_COLORS[c.tier] ?? "#ffd84d"),
+    );
 
-        const angleOffset = (i * 120 * Math.PI) / 180;
-        const startTime = performance.now();
-        const duration = 1200;
+    await new Promise((r) => setTimeout(r, 800));
 
-        const step = (now: number): void => {
-          const progress = Math.min(1, (now - startTime) / duration);
-          const eased = 1 - Math.pow(1 - progress, 3);
-          const angle = angleOffset + eased * Math.PI * 4; // 2 full rotations
-          const radius = 80 * (1 - eased * 0.5); // spiral inward
-          const tx = centerX + Math.cos(angle) * radius - rect.width / 2;
-          const ty = centerY + Math.sin(angle) * radius - rect.height / 2;
-          el.style.left = `${tx}px`;
-          el.style.top = `${ty}px`;
+    // Phase 3: Merge flash + disappear cards
+    const flash = document.createElement("div");
+    flash.className = "cf-merge-flash";
+    stage.appendChild(flash);
 
-          if (progress < 1) {
-            requestAnimationFrame(step);
-          } else {
-            resolve();
-          }
-        };
-        requestAnimationFrame(step);
-      });
-    });
-  }
+    swirlWrap.style.transition = "opacity .4s, transform .4s";
+    swirlWrap.style.opacity = "0";
+    swirlWrap.style.transform = "scale(0.5)";
 
-  private animateMerge(cardEls: HTMLElement[]): Promise<void> {
-    return new Promise((resolve) => {
-      const container = this.container.querySelector(".fusion-grid") as HTMLElement;
-      const containerRect = container.getBoundingClientRect();
-      const centerX = containerRect.left + containerRect.width / 2;
-      const centerY = containerRect.top + containerRect.height / 2;
+    await new Promise((r) => setTimeout(r, 600));
+    converge.unmount();
 
-      // Particles converge
-      for (let i = 0; i < 30; i++) {
-        const p = document.createElement("div");
-        p.style.cssText =
-          `position:fixed;width:4px;height:4px;border-radius:50%;` +
-          `background:#ffcc33;box-shadow:0 0 6px #ffcc33;z-index:150;pointer-events:none;`;
-        const startAngle = Math.random() * Math.PI * 2;
-        const startDist = 150 + Math.random() * 100;
-        const sx = centerX + Math.cos(startAngle) * startDist;
-        const sy = centerY + Math.sin(startAngle) * startDist;
-        p.style.left = `${sx}px`;
-        p.style.top = `${sy}px`;
-        document.body.appendChild(p);
+    // Phase 4: Result card appears
+    const resultWrap = document.createElement("div");
+    resultWrap.style.display = "flex";
+    resultWrap.style.flexDirection = "column";
+    resultWrap.style.alignItems = "center";
+    resultWrap.style.gap = "16px";
 
-        p.animate(
-          [
-            { transform: "translate(-50%,-50%) scale(1)", opacity: 0.8 },
-            { transform: `translate(calc(-50% + ${centerX - sx}px), calc(-50% + ${centerY - sy}px)) scale(0.2)`, opacity: 0 },
-          ],
-          { duration: 600 + Math.random() * 300, easing: "ease-in", fill: "forwards" },
-        ).onfinish = () => p.remove();
+    const outColor = TIER_COLORS[this.recipe.output.tier] ?? "#ffd84d";
+    const badges = [this.recipe.output.isFoil ? "Foil" : "", this.recipe.output.isGoldFrame ? "Gold Frame" : ""].filter(Boolean);
+
+    resultWrap.innerHTML = `
+      <div class="cf-result-pop" style="position:relative">
+        <div style="width:200px;height:280px;background:linear-gradient(145deg,#2a2040,#1a1530);border:3px solid ${outColor}66;border-radius:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;box-shadow:0 0 60px 10px ${outColor}33">
+          <div style="font-size:56px;filter:drop-shadow(0 0 12px ${outColor})">&#9733;</div>
+          <div style="font-size:14px;font-weight:800;color:${outColor};text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 8px ${outColor}55">${this.recipe.output.tier}</div>
+          ${badges.length ? `<div style="font-size:11px;padding:4px 14px;border-radius:20px;background:${outColor}22;color:${outColor};border:1px solid ${outColor}44">${badges.join(" · ")}</div>` : ""}
+          <div class="cf-result-glow"></div>
+        </div>
+      </div>
+      <div style="font-size:18px;font-weight:800;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.5)">Fusion Complete!</div>
+      <div style="font-size:13px;color:#7a8398">${this.recipe.output.tier}${badges.length ? ` (${badges.join(", ")})` : ""} created</div>
+    `;
+    stage.appendChild(resultWrap);
+
+    await new Promise((r) => setTimeout(r, 200));
+
+    // Done button
+    const doneBtn = document.createElement("button");
+    doneBtn.className = "cf-btn cf-btn-fuse";
+    doneBtn.textContent = "Collect";
+    doneBtn.style.marginTop = "12px";
+    doneBtn.addEventListener("click", () => {
+      stage.classList.remove("show");
+      setTimeout(() => stage.remove(), 400);
+      // Callback
+      if (this.onComplete && this.recipe) {
+        this.onComplete(this.recipe, this.selectedCards.map((c) => c.instanceId));
       }
-
-      // Cards converge to center
-      cardEls.forEach((el, i) => {
-        setTimeout(() => {
-          el.style.transition = "all 0.4s cubic-bezier(.34,1.2,.5,1)";
-          el.style.left = `${centerX - 60}px`;
-          el.style.top = `${centerY - 80}px`;
-          el.style.transform = "scale(0.5)";
-          el.style.opacity = "0";
-        }, i * 80);
-      });
-
-      // Flash
-      setTimeout(() => {
-        const flash = document.createElement("div");
-        flash.style.cssText =
-          `position:fixed;left:${centerX - 50}px;top:${centerY - 50}px;` +
-          `width:100px;height:100px;border-radius:50%;` +
-          `background:radial-gradient(circle,#ffcc33,white);` +
-          `z-index:200;pointer-events:none;box-shadow:0 0 100px #ffcc33;`;
-        document.body.appendChild(flash);
-        flash.animate(
-          [{ transform: "translate(-50%,-50%) scale(0.5)", opacity: 1 }, { transform: "translate(-50%,-50%) scale(4)", opacity: 0 }],
-          { duration: 500, easing: "ease-out", fill: "forwards" },
-        ).onfinish = () => flash.remove();
-        resolve();
-      }, 500);
+      this.selectedCards = [];
+      this.recipe = null;
     });
+    resultWrap.appendChild(doneBtn);
+  }
+
+  private animateSwirl(): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, 2400));
+  }
+
+  private animateMerge(): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, 800));
   }
 
   private animateResultAppear(): Promise<void> {
-    return new Promise((resolve) => {
-      const outColor = TIER_COLORS[this.recipe!.output.tier.toLowerCase()] ?? "#ffcc33";
-
-      const resultEl = document.createElement("div");
-      resultEl.className = "fusion-result-popup";
-      resultEl.style.cssText =
-        `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);` +
-        `z-index:250;text-align:center;`;
-      resultEl.innerHTML = (
-        `<div class="fusion-result-card" style="--result-color:${outColor}">` +
-        `<div class="fusion-result-glow"></div>` +
-        `<div class="fusion-result-tier" style="color:${outColor}">${this.recipe!.output.tier.toUpperCase()}</div>` +
-        (this.recipe!.output.isFoil ? `<div class="fusion-result-badge">FOIL</div>` : "") +
-        (this.recipe!.output.isGoldFrame ? `<div class="fusion-result-badge gold">GOLD FRAME</div>` : "") +
-        `</div>` +
-        `<div class="fusion-result-title">Fusion Complete!</div>` +
-        `<button class="fusion-result-close">Awesome</button>`
-      );
-
-      document.body.appendChild(resultEl);
-
-      // Entry animation
-      resultEl.animate(
-        [{ transform: "translate(-50%,-50%) scale(0.5)", opacity: 0 }, { transform: "translate(-50%,-50%) scale(1)", opacity: 1 }],
-        { duration: 500, easing: "cubic-bezier(.34,1.8,.5,1)", fill: "forwards" },
-      );
-
-      resultEl.querySelector(".fusion-result-close")?.addEventListener("click", () => {
-        resultEl.remove();
-        // Restore card positions
-        const grid = this.container.querySelector(".fusion-grid") as HTMLElement;
-        grid.querySelectorAll(".fusion-card").forEach((el) => {
-          const htmlEl = el as HTMLElement;
-          htmlEl.style.position = "";
-          htmlEl.style.left = "";
-          htmlEl.style.top = "";
-          htmlEl.style.zIndex = "";
-          htmlEl.style.transform = "";
-        });
-        this.selectedCards = [];
-        this.recipe = null;
-        this.refresh();
-        resolve();
-      });
-    });
+    return new Promise((resolve) => setTimeout(resolve, 700));
   }
-
-  // -----------------------------------------------------------------
-  // Event handling
-  // -----------------------------------------------------------------
-
-  private attachListeners(): void {
-    this.container.querySelectorAll(".fusion-card").forEach((el) => {
-      el.addEventListener("click", () => {
-        const id = (el as HTMLElement).dataset.id;
-        const card = this.availableCards.find((c) => c.instanceId === id);
-        if (card) this.onCardSelect(card);
-      });
-    });
-
-    this.container.querySelectorAll(".fusion-remove").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const slot = Number((btn as HTMLElement).dataset.slot);
-        this.onCardDeselect(slot);
-      });
-    });
-
-    this.container.querySelector(".fusion-confirm-btn")?.addEventListener("click", () => {
-      if (this.recipe && !this.isFusing) this.animateFusion();
-    });
-  }
-
-  private listeners: Record<string, Array<(payload: unknown) => void>> = {};
-
-  on(event: string, cb: (payload: unknown) => void): void {
-    (this.listeners[event] ??= []).push(cb);
-  }
-
-  private emit(event: string, payload: unknown): void {
-    (this.listeners[event] ?? []).forEach((cb) => cb(payload));
-  }
-
-  private esc(s: string): string {
-    const div = document.createElement("div");
-    div.textContent = s;
-    return div.innerHTML;
-  }
-
-  private tierGradient(tier: string): string {
-    const colors: Record<string, string> = {
-      common: "linear-gradient(135deg,#5a6370,#3a414d)",
-      rare: "linear-gradient(135deg,#3a6ea5,#1a3a5a)",
-      epic: "linear-gradient(135deg,#7a3ab0,#3a1a5a)",
-      legendary: "linear-gradient(135deg,#c8a030,#7a6010)",
-      mythic: "linear-gradient(135deg,#c03030,#601010)",
-    };
-    return colors[tier.toLowerCase()] ?? colors.common!;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// CardFusion CSS
-// ---------------------------------------------------------------------------
-
-export function getCardFusionCSS(): string {
-  return /* css */ `
-.card-fusion{padding:16px 20px;max-width:900px;margin:0 auto}
-.fusion-header{margin-bottom:20px}
-.fusion-title{font-size:20px;font-weight:700;color:rgba(255,255,255,.9);margin:0 0 6px}
-.fusion-subtitle{font-size:13px;color:rgba(255,255,255,.4);margin:0}
-.fusion-selected-bar{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px;margin-bottom:16px}
-.fusion-selected-count{font-size:12px;color:rgba(255,255,255,.5);margin-bottom:10px;display:block}
-.fusion-selected-slots{display:flex;gap:10px;margin-bottom:12px}
-.fusion-slot{width:80px;height:100px;border-radius:12px;border:2px dashed rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;position:relative;transition:all .2s}
-.fusion-slot.filled{border-style:solid;border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.04)}
-.fusion-slot-empty{font-size:24px;color:rgba(255,255,255,.15)}
-.fusion-slot-card{font-size:11px;color:rgba(255,255,255,.7);text-align:center;padding:4px}
-.fusion-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:rgba(255,90,90,.8);border:none;color:#fff;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .2s}
-.fusion-remove:hover{background:#ff5a5a}
-.fusion-preview{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)}
-.fusion-preview-arrow{font-size:20px;color:rgba(255,255,255,.3)}
-.fusion-preview-result{position:relative;width:90px;height:120px;border-radius:12px;background:rgba(255,255,255,.05);border:2px solid var(--result-tier,rgba(255,255,255,.15));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
-.fusion-preview-img{position:absolute;inset:0;border-radius:12px;opacity:.3}
-.fusion-preview-tier{font-size:11px;font-weight:700;letter-spacing:1px;position:relative;z-index:1}
-.fusion-preview-badge{font-size:8px;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.1);color:rgba(255,255,255,.7);position:relative;z-index:1}
-.fusion-preview-badge.gold{background:rgba(255,204,51,.15);color:#ffcc33}
-.fusion-preview-fee{font-size:13px;color:rgba(255,255,255,.5);font-family:var(--font-mono,monospace)}
-.fusion-confirm-btn{padding:10px 24px;border-radius:12px;background:rgba(255,204,51,.15);border:1px solid rgba(255,204,51,.3);color:#ffcc33;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
-.fusion-confirm-btn:hover:not(:disabled){background:rgba(255,204,51,.25)}
-.fusion-confirm-btn:disabled{opacity:.3;cursor:not-allowed}
-.fusion-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
-.fusion-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:10px;cursor:pointer;transition:all .2s;position:relative}
-.fusion-card:hover{border-color:rgba(255,255,255,.14);transform:translateY(-2px)}
-.fusion-card.selected{border-color:var(--card-tier,#4aa3ff);background:rgba(255,255,255,.06);box-shadow:0 0 12px var(--card-tier)22}
-.fusion-card-foil .fusion-card-art{box-shadow:inset 0 0 10px rgba(255,215,0,.2)}
-.fusion-highlight{box-shadow:0 0 20px #ffcc3366!important;border-color:#ffcc33!important}
-.fusion-card-art{width:100%;aspect-ratio:3/4;border-radius:8px;margin-bottom:8px;position:relative}
-.fusion-card-info{display:flex;flex-direction:column;gap:2px}
-.fusion-card-name{font-size:12px;font-weight:600;color:rgba(255,255,255,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.fusion-card-meta{display:flex;gap:6px;align-items:center;font-size:10px;flex-wrap:wrap}
-.fusion-card-moment{color:rgba(255,255,255,.35)}
-.fusion-card-foil-badge{font-size:8px;padding:1px 5px;border-radius:4px;background:rgba(255,215,0,.15);color:#ffd700;font-weight:600}
-.fusion-card-check{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--card-tier,#4aa3ff);color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
-.fusion-empty{text-align:center;padding:40px;color:rgba(255,255,255,.25);font-size:13px}
-.fusion-result-popup{pointer-events:auto}
-.fusion-result-card{width:160px;height:220px;margin:0 auto 20px;border-radius:16px;background:linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02));border:2px solid var(--result-color,rgba(255,255,255,.15));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative}
-.fusion-result-glow{position:absolute;inset:-20px;border-radius:24px;background:radial-gradient(circle at center,var(--result-color,transparent) 0%,transparent 70%);opacity:.3;animation:fusionGlow 2s infinite alternate;z-index:-1}
-@keyframes fusionGlow{0%{opacity:.2}100%{opacity:.4}}
-.fusion-result-tier{font-size:18px;font-weight:700;letter-spacing:2px}
-.fusion-result-badge{font-size:10px;padding:4px 12px;border-radius:8px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.8)}
-.fusion-result-badge.gold{background:rgba(255,204,51,.15);color:#ffcc33}
-.fusion-result-title{font-size:22px;font-weight:700;color:rgba(255,255,255,.9);margin-bottom:16px}
-.fusion-result-close{padding:10px 32px;border-radius:12px;background:rgba(95,217,106,.15);border:1px solid rgba(95,217,106,.3);color:#5fd96a;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s}
-.fusion-result-close:hover{background:rgba(95,217,106,.25)}
-@media(max-width:700px){.usion-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}}
-`;
 }

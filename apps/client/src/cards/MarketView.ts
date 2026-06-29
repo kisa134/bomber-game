@@ -1,11 +1,16 @@
 /**
- * MarketView.ts — BomberMeme CCG v2
+ * BomberMeme CCG v2 — Market View
  *
- * 4-tab marketplace UI:
- *   Primary   — featured drops, new releases, flash sales
- *   Secondary — P2P listings with filters, floor badges, sparklines
- *   My Listings — cards you're selling + sell button
- *   History   — your buy/sell transaction log
+ * Full market screen with 4 tabs:
+ *   Primary     — featured drops, new releases, flash-sale countdowns
+ *   Secondary   — P2P listings with tier/set/price filters + floor analytics
+ *   My Listings — player's active/expired/sold listings + sell-card CTA
+ *   History     — completed purchases & sales table
+ *
+ * Glass-morphism design language (matches existing .panel styles).
+ * All rendering is DOM-based HTML-string composition — zero external deps.
+ *
+ * ESM (.js suffix imports) | TypeScript strict
  */
 
 import {
@@ -14,554 +19,696 @@ import {
   type FloorData,
   type MyListing,
   type FeaturedDrop,
-  type NewRelease,
-  type FlashSale,
   type MarketTab,
+  type MarketFilters,
+  type SortOption,
   type Tier,
+  type SetId,
+  MARKET_TABS,
+  TIER_ORDER,
+  TIER_LABEL,
+  TIER_COLOR,
+  SET_ORDER,
+  SET_LABEL,
+  SORT_LABEL,
+  DEFAULT_FILTERS,
 } from "./MarketTypes.js";
 
 // ---------------------------------------------------------------------------
-// Constants
+// Helper: create a DOM element with class + HTML content
 // ---------------------------------------------------------------------------
-
-const TIER_COLORS: Record<Tier, string> = {
-  common: "#9aa3b2",
-  rare: "#4aa3ff",
-  epic: "#c879ff",
-  legendary: "#ffcc33",
-  mythic: "#ff5a5a",
-};
-
-const TIER_ORDER: Record<Tier, number> = {
-  common: 0,
-  rare: 1,
-  epic: 2,
-  legendary: 3,
-  mythic: 4,
-};
+function el(tag: string, cls: string, html: string): HTMLElement {
+  const e = document.createElement(tag);
+  e.className = cls;
+  e.innerHTML = html;
+  return e;
+}
 
 // ---------------------------------------------------------------------------
-// MarketView class
+/** Price-display helpers */
 // ---------------------------------------------------------------------------
+const BM_PER_USD = 0.0709; // approximate BM token → USD rate
 
+function fmtBM(n: number): string {
+  return n.toLocaleString("en-US") + " BM";
+}
+
+function fmtUsd(n: number): string {
+  const usd = n * BM_PER_USD;
+  return "~ $" + usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtChange(pct: number): { text: string; color: string; arrow: string } {
+  const up = pct >= 0;
+  return {
+    text: (up ? "+" : "") + pct.toFixed(1) + "%",
+    color: up ? "#5fe08a" : "#ff6b6b",
+    arrow: up ? "▲" : "▼",
+  };
+}
+
+function timeLeft(end: Date): string {
+  const ms = end.getTime() - Date.now();
+  if (ms <= 0) return "Ended";
+  const d = Math.floor(ms / 86_400_000);
+  const h = Math.floor((ms % 86_400_000) / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  if (d > 0) return `${d}d ${h}h left`;
+  if (h > 0) return `${h}h ${m}m left`;
+  return `${m}m left`;
+}
+
+// ---------------------------------------------------------------------------
+/** Simplified card thumbnail HTML (CSS-only, no tilt, no animation). */
+// ---------------------------------------------------------------------------
+function cardThumbnailHTML(
+  name: string,
+  tier: Tier,
+  momentId: string,
+  size: "sm" | "md" = "sm",
+): string {
+  const tierColor = TIER_COLOR[tier];
+  const w = size === "sm" ? 80 : 120;
+  const h = Math.round(w * 1.41);
+  return (
+    `<div class="mkt-thumb" style="` +
+    `width:${w}px;height:${h}px;` +
+    `background:radial-gradient(ellipse at 30% 20%,${tierColor}44 0%,transparent 70%),linear-gradient(135deg,rgba(13,16,26,0.9),rgba(8,10,16,0.95));` +
+    `border:1px solid ${tierColor}66;border-radius:10px;` +
+    `display:flex;flex-direction:column;align-items:center;justify-content:center;` +
+    `box-shadow:0 4px 12px rgba(0,0,0,0.4);position:relative;overflow:hidden;` +
+    `">` +
+    `<div style="font-size:${size === "sm" ? 24 : 36}px;opacity:0.9;">${characterEmoji(name)}</div>` +
+    `<div style="font-size:9px;color:${tierColor};margin-top:4px;font-weight:700;letter-spacing:0.5px;">${name}</div>` +
+    `<div style="font-size:7px;color:rgba(255,255,255,0.35);margin-top:1px;">${momentId}</div>` +
+    `</div>`
+  );
+}
+
+/** Emoji mapping for card thumbnails (fallback until sprites are ready). */
+function characterEmoji(name: string): string {
+  const map: Record<string, string> = {
+    Pepe: "🐸",
+    Trump: "🇺🇸",
+    Doge: "🐕",
+    Gigachad: "💪",
+    Wojak: "😢",
+    Elon: "🚀",
+    Shiba: "🦊",
+    Bogdanoff: "📈",
+    Milady: "👩‍🎤",
+    "Top G": "🥊",
+    Satoshi: "₿",
+    Brett: "🐸",
+  };
+  return map[name] || "🃏";
+}
+
+// ---------------------------------------------------------------------------
+// Sparkline SVG renderer (mini 7-day price chart)
+// ---------------------------------------------------------------------------
+function renderSparkline(
+  data: number[],
+  color: string,
+  width = 90,
+  height = 30,
+): string {
+  if (data.length < 2) return "";
+  const lo = Math.min(...data);
+  const hi = Math.max(...data);
+  const span = hi - lo || 1;
+  const pad = 2;
+  const px = (i: number) => pad + (i / (data.length - 1)) * (width - pad * 2);
+  const py = (v: number) => pad + (1 - (v - lo) / span) * (height - pad * 2);
+  const d = data.map((v, i) => `${i === 0 ? "M" : "L"}${px(i).toFixed(1)} ${py(v).toFixed(1)}`).join(" ");
+  const area = `${d} L${px(data.length - 1).toFixed(1)} ${height} L${pad} ${height} Z`;
+  return (
+    `<svg class="mkt-spark" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">` +
+    `<defs><linearGradient id="slg" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="${color}" stop-opacity="0.35"/>` +
+    `<stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>` +
+    `<path d="${area}" fill="url(#slg)"/>` +
+    `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>` +
+    `</svg>`
+  );
+}
+
+// ---------------------------------------------------------------------------
+/** Main Market View class */
+// ---------------------------------------------------------------------------
 export class MarketView {
   private container: HTMLElement;
   private activeTab: MarketTab = "primary";
+  private filters: MarketFilters = { ...DEFAULT_FILTERS };
+
+  // Data stores (populated via setters or mock data)
   private listings: MarketListing[] = [];
   private myListings: MyListing[] = [];
   private history: MarketSale[] = [];
   private floorData: FloorData[] = [];
   private featuredDrops: FeaturedDrop[] = [];
-  private newReleases: NewRelease[] = [];
-  private flashSales: FlashSale[] = [];
-  private tierFilter: Tier | "all" = "all";
-  private sortMode: "price_asc" | "price_desc" | "recent" = "recent";
+  private newReleases: FeaturedDrop[] = [];
+
+  // Countdown timer handle
+  private countdownTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** Callbacks — wire these up from main.ts */
+  public onBuy: ((listingId: string) => void) | null = null;
+  public onCancel: ((listingId: string) => void) | null = null;
+  public onListCard: (() => void) | null = null;
+  public onMintDrop: ((dropId: string) => void) | null = null;
 
   constructor(container: HTMLElement) {
     this.container = container;
   }
 
-  /** Render the full market view. */
+  // -------------------------------------------------------------------------
+  // Public data setters
+  // -------------------------------------------------------------------------
+  setListings(v: MarketListing[]) {
+    this.listings = v;
+    if (this.activeTab === "secondary") this.refresh();
+  }
+  setMyListings(v: MyListing[]) {
+    this.myListings = v;
+    if (this.activeTab === "my_listings") this.refresh();
+  }
+  setHistory(v: MarketSale[]) {
+    this.history = v;
+    if (this.activeTab === "history") this.refresh();
+  }
+  setFloorData(v: FloorData[]) {
+    this.floorData = v;
+    if (this.activeTab === "secondary") this.refresh();
+  }
+  setFeaturedDrops(v: FeaturedDrop[]) {
+    this.featuredDrops = v;
+    if (this.activeTab === "primary") this.refresh();
+  }
+  setNewReleases(v: FeaturedDrop[]) {
+    this.newReleases = v;
+    if (this.activeTab === "primary") this.refresh();
+  }
+
+  // -------------------------------------------------------------------------
+  // Render the full market screen
+  // -------------------------------------------------------------------------
   render(): void {
-    this.container.innerHTML = this.buildHTML();
-    this.attachListeners();
+    this.cleanup();
+    this.container.innerHTML = this.buildShell();
+    this.setupTabListeners();
+    this.setupFilterListeners();
+    this.setupActionListeners();
+    this.startCountdowns();
+    this.refresh();
   }
 
-  /** Update data and re-render the active tab. */
-  setData(opts: {
-    listings?: MarketListing[];
-    myListings?: MyListing[];
-    history?: MarketSale[];
-    floorData?: FloorData[];
-    featuredDrops?: FeaturedDrop[];
-    newReleases?: NewRelease[];
-    flashSales?: FlashSale[];
-  }): void {
-    if (opts.listings) this.listings = opts.listings;
-    if (opts.myListings) this.myListings = opts.myListings;
-    if (opts.history) this.history = opts.history;
-    if (opts.floorData) this.floorData = opts.floorData;
-    if (opts.featuredDrops) this.featuredDrops = opts.featuredDrops;
-    if (opts.newReleases) this.newReleases = opts.newReleases;
-    if (opts.flashSales) this.flashSales = opts.flashSales;
-    this.render();
-  }
-
-  // -----------------------------------------------------------------
-  // HTML builders
-  // -----------------------------------------------------------------
-
-  private buildHTML(): string {
-    return (
-      `<div class="market-view">` +
-      `<div class="market-tabs">` +
-      this.renderTabButton("primary", "Primary") +
-      this.renderTabButton("secondary", "Secondary") +
-      this.renderTabButton("my_listings", "My Listings") +
-      this.renderTabButton("history", "History") +
-      `</div>` +
-      `<div class="market-body">${this.renderActiveTab()}</div>` +
-      `</div>`
-    );
-  }
-
-  private renderTabButton(tab: MarketTab, label: string): string {
-    const active = tab === this.activeTab ? " active" : "";
-    return (
-      `<button class="market-tab${active}" data-tab="${tab}">${label}</button>`
-    );
-  }
-
-  private renderActiveTab(): string {
+  /** Full re-render of the active tab content only (preserves scroll). */
+  private refresh(): void {
+    const contentEl = this.container.querySelector(".mkt-tab-content") as HTMLElement | null;
+    if (!contentEl) return;
     switch (this.activeTab) {
-      case "primary": return this.renderPrimaryTab();
-      case "secondary": return this.renderSecondaryTab();
-      case "my_listings": return this.renderMyListingsTab();
-      case "history": return this.renderHistoryTab();
-      default: return "";
+      case "primary":
+        contentEl.innerHTML = this.renderPrimaryTab();
+        break;
+      case "secondary":
+        contentEl.innerHTML = this.renderSecondaryTab();
+        break;
+      case "my_listings":
+        contentEl.innerHTML = this.renderMyListingsTab();
+        break;
+      case "history":
+        contentEl.innerHTML = this.renderHistoryTab();
+        break;
     }
+    this.setupActionListeners();
+    this.startCountdowns();
   }
 
-  // ---- Primary Tab ----
+  // -------------------------------------------------------------------------
+  // Shell: header + tabs + content area
+  // -------------------------------------------------------------------------
+  private buildShell(): string {
+    const tabsHTML = MARKET_TABS.map(
+      (t) =>
+        `<button class="mkt-tab${t.id === this.activeTab ? " active" : ""}" data-tab="${t.id}">${t.label}</button>`,
+    ).join("");
 
+    return (
+      `<div class="mkt-view">` +
+      // Header
+      `<div class="mkt-header">` +
+      `<div class="mkt-title">🛒 Market</div>` +
+      `<div class="mkt-balance" title="Your BM token balance">💎 12,450 BM</div>` +
+      `</div>` +
+      // Tabs
+      `<div class="mkt-tabs">${tabsHTML}</div>` +
+      // Filter bar (Secondary tab only — injected dynamically)
+      `<div class="mkt-filter-bar" data-filter-bar></div>` +
+      // Tab content
+      `<div class="mkt-tab-content"></div>` +
+      `</div>`
+    );
+  }
+
+  // =========================================================================
+  // TAB 1 — PRIMARY (Featured drops, new releases, flash sales)
+  // =========================================================================
   private renderPrimaryTab(): string {
-    const drops = this.featuredDrops.length
-      ? this.renderFeaturedDrops()
-      : `<div class="market-empty">No featured drops right now.</div>`;
-
-    const releases = this.newReleases.length
-      ? this.renderNewReleases()
-      : "";
-
-    const flash = this.flashSales.length
-      ? this.renderFlashSales()
-      : "";
+    const featuredHTML = this.featuredDrops.map((d) => this.renderFeaturedCard(d)).join("");
+    const newHTML = this.newReleases.map((d) => this.renderNewReleaseCard(d)).join("");
 
     return (
-      `<div class="market-tab-content market-primary">` +
-      `<div class="market-section"><div class="market-section-title">Featured Drops</div>${drops}</div>` +
-      (releases ? `<div class="market-section"><div class="market-section-title">New Releases</div>${releases}</div>` : "") +
-      (flash ? `<div class="market-section"><div class="market-section-title">Flash Sales</div>${flash}</div>` : "") +
+      `<div class="mkt-primary">` +
+      // Featured drops
+      `<section class="mkt-section">` +
+      `<h2 class="mkt-section-h">🔥 Featured Drops</h2>` +
+      `<div class="mkt-featured-grid">${featuredHTML || "<div class='mkt-empty'>No featured drops right now</div>"}</div>` +
+      `</section>` +
+      // New releases
+      `<section class="mkt-section">` +
+      `<h2 class="mkt-section-h">🆕 New Releases</h2>` +
+      `<div class="mkt-new-grid">${newHTML || "<div class='mkt-empty'>No new releases</div>"}</div>` +
+      `</section>` +
       `</div>`
     );
   }
 
-  private renderFeaturedDrops(): string {
+  private renderFeaturedCard(d: FeaturedDrop): string {
+    const tierColor = TIER_COLOR[d.tier];
+    const pctSold = Math.round(((d.supplyTotal - d.supplyRemaining) / d.supplyTotal) * 100);
+    const hasDiscount = d.originalPrice && d.originalPrice > d.price;
+    const discountPct = hasDiscount ? Math.round((1 - d.price / d.originalPrice!) * 100) : 0;
+
     return (
-      `<div class="market-drops-grid">` +
-      this.featuredDrops.map((d) => {
-        const tierColor = TIER_COLORS[d.tier];
-        const discounted = Math.round(d.price * (1 - d.discount / 100));
-        return (
-          `<div class="market-drop-card" data-drop="${d.dropId}">` +
-          `<div class="market-drop-img" style="background:linear-gradient(135deg,${tierColor}33,${tierColor}11)">` +
-          `<span class="market-drop-tier" style="color:${tierColor}">${d.tier.toUpperCase()}</span>` +
-          `</div>` +
-          `<div class="market-drop-info">` +
-          `<div class="market-drop-name">${this.esc(d.name)}</div>` +
-          `<div class="market-drop-desc">${this.esc(d.description)}</div>` +
-          `<div class="market-drop-price-row">` +
-          `<span class="market-drop-price">${discounted.toLocaleString()} BM</span>` +
-          `<span class="market-drop-original">${d.price.toLocaleString()}</span>` +
-          `<span class="market-drop-discount">-${d.discount}%</span></div>` +
-          `<button class="market-buy-btn" data-drop="${d.dropId}">Buy Now</button>` +
-          `</div></div>`
-        );
-      }).join("") + `</div>`
+      `<div class="mkt-drop-card" style="--tier-color:${tierColor}">` +
+      `<div class="mkt-drop-badge" style="background:${tierColor}">${TIER_LABEL[d.tier]}</div>` +
+      `${hasDiscount ? `<div class="mkt-drop-discount">−${discountPct}%</div>` : ""}` +
+      `<div class="mkt-drop-thumb">${cardThumbnailHTML(d.characterName, d.tier, "", "md")}</div>` +
+      `<div class="mkt-drop-name">${d.characterName}</div>` +
+      `<div class="mkt-drop-set">${SET_LABEL[d.setId]}</div>` +
+      `<div class="mkt-drop-price-row">` +
+      `<span class="mkt-drop-price">${fmtBM(d.price)}</span>` +
+      `${hasDiscount ? `<span class="mkt-drop-original">${fmtBM(d.originalPrice!)}</span>` : ""}` +
+      `</div>` +
+      `<div class="mkt-drop-usd">${fmtUsd(d.price)}</div>` +
+      `<div class="mkt-drop-supply">` +
+      `<div class="mkt-drop-supply-bar"><div class="mkt-drop-supply-fill" style="width:${pctSold}%"></div></div>` +
+      `<span class="mkt-drop-supply-text">${d.supplyRemaining}/${d.supplyTotal} left</span>` +
+      `</div>` +
+      `<div class="mkt-drop-timer" data-countdown="${d.endsAt.toISOString()}">⏱ ${timeLeft(d.endsAt)}</div>` +
+      `<button class="mkt-btn mkt-btn-primary mkt-btn-buy" data-drop-id="${d.dropId}">Buy Now</button>` +
+      `</div>`
     );
   }
 
-  private renderNewReleases(): string {
+  private renderNewReleaseCard(d: FeaturedDrop): string {
+    const tierColor = TIER_COLOR[d.tier];
     return (
-      `<div class="market-releases-row">` +
-      this.newReleases.map((r) => {
-        const tierColor = TIER_COLORS[r.tier];
-        return (
-          `<div class="market-release-card" data-release="${r.releaseId}">` +
-          `<div class="market-release-img" style="background:linear-gradient(135deg,${tierColor}22,${tierColor}08)">` +
-          `<span class="market-release-tier" style="color:${tierColor}">${r.tier.toUpperCase()}</span>` +
-          `</div>` +
-          `<div class="market-release-name">${this.esc(r.characterName)}</div>` +
-          `<div class="market-release-price">${r.price.toLocaleString()} BM</div>` +
-          `<button class="market-buy-btn small" data-release="${r.releaseId}">Buy</button>` +
-          `</div>`
-        );
-      }).join("") + `</div>`
+      `<div class="mkt-release-card" style="--tier-color:${tierColor}">` +
+      `<div class="mkt-release-thumb">${cardThumbnailHTML(d.characterName, d.tier, "", "sm")}</div>` +
+      `<div class="mkt-release-info">` +
+      `<div class="mkt-release-name">${d.characterName} <span style="color:${tierColor}">●</span></div>` +
+      `<div class="mkt-release-set">${SET_LABEL[d.setId]}</div>` +
+      `<div class="mkt-release-price">${fmtBM(d.price)} <span class="mkt-release-usd">${fmtUsd(d.price)}</span></div>` +
+      `</div>` +
+      `<button class="mkt-btn mkt-btn-primary mkt-btn-sm" data-drop-id="${d.dropId}">Buy</button>` +
+      `</div>`
     );
   }
 
-  private renderFlashSales(): string {
-    return (
-      `<div class="market-flash-grid">` +
-      this.flashSales.map((s) => {
-        const tierColor = TIER_COLORS[s.tier];
-        const timeLeft = this.timeLeft(s.endsAt);
-        return (
-          `<div class="market-flash-card" data-sale="${s.saleId}">` +
-          `<div class="market-flash-img" style="background:linear-gradient(135deg,${tierColor}33,${tierColor}11)">` +
-          `<span class="market-flash-badge">FLASH</span>` +
-          `</div>` +
-          `<div class="market-flash-info">` +
-          `<div class="market-flash-name">${this.esc(s.name)}</div>` +
-          `<div class="market-flash-timer">${timeLeft}</div>` +
-          `<div class="market-flash-price-row">` +
-          `<span class="market-flash-price">${s.salePrice.toLocaleString()} BM</span>` +
-          `<span class="market-flash-original">${s.originalPrice.toLocaleString()}</span></div>` +
-          `<button class="market-buy-btn" data-sale="${s.saleId}">Buy Now</button>` +
-          `</div></div>`
-        );
-      }).join("") + `</div>`
-    );
-  }
-
-  // ---- Secondary Tab ----
-
+  // =========================================================================
+  // TAB 2 — SECONDARY (P2P listings with filters + floor badges)
+  // =========================================================================
   private renderSecondaryTab(): string {
-    let filtered = this.listings.filter((l) => l.status === "active");
-    if (this.tierFilter !== "all") {
-      filtered = filtered.filter((l) => l.tier === this.tierFilter);
-    }
-    filtered = this.sortListings(filtered);
+    // 1. Filter bar
+    const filterBarHTML = this.renderFilterBar();
+    const filterBarEl = this.container.querySelector("[data-filter-bar]") as HTMLElement | null;
+    if (filterBarEl) filterBarEl.innerHTML = filterBarHTML;
+
+    // 2. Floor analytics strip
+    const floorHTML = this.renderFloorStrip();
+
+    // 3. Filtered listings
+    const filtered = this.applyFilters(this.listings);
+    const listingsHTML = filtered.map((l) => this.renderListingCard(l)).join("");
 
     return (
-      `<div class="market-tab-content market-secondary">` +
-      this.renderSecondaryFilters() +
-      (filtered.length
-        ? `<div class="market-listings-grid">` +
-          filtered.map((l) => this.renderListingCard(l)).join("") + `</div>`
-        : `<div class="market-empty">No active listings.</div>`) +
+      `<div class="mkt-secondary">` +
+      floorHTML +
+      `<div class="mkt-listings">` +
+      (listingsHTML || `<div class="mkt-empty">No listings match your filters</div>`) +
+      `</div>` +
       `</div>`
     );
   }
 
-  private renderSecondaryFilters(): string {
-    const tiers: Array<Tier | "all"> = ["all", "legendary", "epic", "rare", "common", "mythic"];
+  // -------------------------------------------------------------------------
+  // Filter bar HTML
+  // -------------------------------------------------------------------------
+  private renderFilterBar(): string {
+    const tierOpts = `<option value="all">All Tiers</option>` +
+      TIER_ORDER.map((t) => `<option value="${t}"${this.filters.tier === t ? " selected" : ""}>${TIER_LABEL[t]}</option>`).join("");
+    const setOpts = `<option value="all">All Sets</option>` +
+      SET_ORDER.map((s) => `<option value="${s}"${this.filters.setId === s ? " selected" : ""}>${SET_LABEL[s]}</option>`).join("");
+    const sortOpts = Object.entries(SORT_LABEL).map(
+      ([k, v]) => `<option value="${k}"${this.filters.sort === k ? " selected" : ""}>${v}</option>`,
+    ).join("");
+
     return (
-      `<div class="market-sec-filters">` +
-      `<div class="market-tier-filters">` +
-      tiers.map((t) =>
-        `<button class="market-tier-btn${t === this.tierFilter ? " active" : ""}" ` +
-        `data-tier="${t}">${t === "all" ? "All" : t.charAt(0).toUpperCase() + t.slice(1)}</button>`
-      ).join("") + `</div>` +
-      `<select class="market-sort-select" data-sort>` +
-      `<option value="recent" ${this.sortMode === "recent" ? "selected" : ""}>Recent</option>` +
-      `<option value="price_asc" ${this.sortMode === "price_asc" ? "selected" : ""}>Price: Low</option>` +
-      `<option value="price_desc" ${this.sortMode === "price_desc" ? "selected" : ""}>Price: High</option>` +
-      `</select></div>`
+      `<div class="mkt-filters">` +
+      `<select class="mkt-select" data-filter="tier">${tierOpts}</select>` +
+      `<select class="mkt-select" data-filter="setId">${setOpts}</select>` +
+      `<input class="mkt-input" type="number" placeholder="Min price" data-filter="priceMin" value="${this.filters.priceMin || ""}">` +
+      `<input class="mkt-input" type="number" placeholder="Max price" data-filter="priceMax" value="${this.filters.priceMax === 1_000_000 ? "" : this.filters.priceMax}">` +
+      `<input class="mkt-input mkt-input-search" type="text" placeholder="Search character..." data-filter="search" value="${this.filters.search}">` +
+      `<select class="mkt-select" data-filter="sort">${sortOpts}</select>` +
+      `<button class="mkt-btn mkt-btn-ghost mkt-btn-sm" data-filter="reset">Reset</button>` +
+      `</div>`
     );
   }
 
-  private renderListingCard(listing: MarketListing): string {
-    const tierColor = TIER_COLORS[listing.tier];
-    const floor = this.floorData.find((f) => f.cardTemplateId === listing.cardTemplateId);
-    const change = floor?.change24h ?? 0;
-    const changeCls = change >= 0 ? "up" : "down";
-    const changeSign = change >= 0 ? "+" : "";
+  private applyFilters(listings: MarketListing[]): MarketListing[] {
+    let out = [...listings];
+    if (this.filters.tier !== "all") out = out.filter((l) => l.tier === this.filters.tier);
+    if (this.filters.setId !== "all") out = out.filter((l) => l.setId === this.filters.setId);
+    out = out.filter((l) => l.price >= this.filters.priceMin && l.price <= this.filters.priceMax);
+    if (this.filters.search) {
+      const q = this.filters.search.toLowerCase();
+      out = out.filter((l) => l.characterName.toLowerCase().includes(q));
+    }
+    // Sort
+    switch (this.filters.sort) {
+      case "price_asc":
+        out.sort((a, b) => a.price - b.price);
+        break;
+      case "price_desc":
+        out.sort((a, b) => b.price - a.price);
+        break;
+      case "newest":
+        out.sort((a, b) => b.listedAt.getTime() - a.listedAt.getTime());
+        break;
+      case "oldest":
+        out.sort((a, b) => a.listedAt.getTime() - b.listedAt.getTime());
+        break;
+      case "tier_desc":
+        out.sort((a, b) => TIER_ORDER.indexOf(b.tier) - TIER_ORDER.indexOf(a.tier));
+        break;
+      case "tier_asc":
+        out.sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier));
+        break;
+    }
+    return out;
+  }
+
+  // -------------------------------------------------------------------------
+  // Floor-price analytics strip
+  // -------------------------------------------------------------------------
+  private renderFloorStrip(): string {
+    if (!this.floorData.length) return "";
+    const items = this.floorData.map((f) => {
+      const ch = fmtChange(f.change24h);
+      const tierColor = TIER_COLOR[f.tier];
+      return (
+        `<div class="mkt-floor-item" title="${f.characterName} floor analytics">` +
+        `<div class="mkt-floor-name">${f.characterName} <span style="color:${tierColor}">●</span></div>` +
+        `<div class="mkt-floor-spark">${renderSparkline(f.sparkline, ch.color)}</div>` +
+        `<div class="mkt-floor-price">${fmtBM(f.floorPrice)}</div>` +
+        `<div class="mkt-floor-change" style="color:${ch.color}">${ch.arrow} ${ch.text}</div>` +
+        `<div class="mkt-floor-meta">Vol: ${(f.volume24h / 1e6).toFixed(1)}M · Holders: ${f.uniqueHolders}</div>` +
+        `</div>`
+      );
+    }).join("");
+
+    return `<div class="mkt-floor-strip">${items}</div>`;
+  }
+
+  // -------------------------------------------------------------------------
+  // Individual listing card
+  // -------------------------------------------------------------------------
+  private renderListingCard(l: MarketListing): string {
+    const tierColor = TIER_COLOR[l.tier];
+    // Find floor data for this card template
+    const floor = this.floorData.find((f) => f.cardTemplateId === l.cardTemplateId);
+    const ch = floor ? fmtChange(floor.change24h) : null;
+
     return (
-      `<div class="market-listing" data-listing="${listing.listingId}">` +
-      `<div class="market-listing-img" style="background:linear-gradient(135deg,${tierColor}28,${tierColor}0a)">` +
-      `<span class="market-listing-tier" style="color:${tierColor}">${listing.tier.charAt(0).toUpperCase()}</span>` +
+      `<div class="mkt-listing" style="--tier-color:${tierColor}">` +
+      // Left: card thumbnail
+      `<div class="mkt-listing-thumb">${cardThumbnailHTML(l.characterName, l.tier, l.momentId, "sm")}</div>` +
+      // Middle: info
+      `<div class="mkt-listing-info">` +
+      `<div class="mkt-listing-top">` +
+      `<span class="mkt-listing-name">${l.characterName}</span>` +
+      `<span class="mkt-listing-tier" style="background:${tierColor}22;color:${tierColor}">${TIER_LABEL[l.tier]}</span>` +
       `</div>` +
-      `<div class="market-listing-info">` +
-      `<div class="market-listing-name">${this.esc(listing.characterName)}</div>` +
-      `<div class="market-listing-moment">${this.esc(listing.momentId)}</div>` +
-      `<div class="market-listing-seller">by ${listing.seller}</div>` +
-      (listing.serial ? `<div class="market-listing-serial">${listing.serial}</div>` : "") +
+      `<div class="mkt-listing-moment">${l.momentId} · ${SET_LABEL[l.setId]}</div>` +
+      `<div class="mkt-listing-meta">` +
+      `<span class="mkt-listing-seller" title="${l.sellerFull || l.seller}">Seller: ${l.seller}</span>` +
+      `${l.serial ? `<span class="mkt-listing-serial">${l.serial}</span>` : ""}` +
       `</div>` +
-      `<div class="market-listing-right">` +
-      `<div class="market-listing-price">${listing.price.toLocaleString()} BM</div>` +
-      (floor
-        ? `<div class="market-listing-floor">Floor: ${floor.floorPrice.toLocaleString()} ` +
-          `<span class="market-listing-change ${changeCls}">${changeSign}${change}%</span></div>`
-        : "") +
-      (floor ? `<div class="market-sparkline">${this.renderSparkline(floor.sparkline, change >= 0 ? "#5fd96a" : "#ff6b6b", 72, 24)}</div>` : "") +
-      `<button class="market-buy-btn" data-listing="${listing.listingId}">Buy</button>` +
-      `</div></div>`
+      `</div>` +
+      // Right: price + actions
+      `<div class="mkt-listing-actions">` +
+      `<div class="mkt-listing-price-col">` +
+      `<div class="mkt-listing-price">${fmtBM(l.price)}</div>` +
+      `<div class="mkt-listing-usd">${fmtUsd(l.price)}</div>` +
+      `${ch ? `<div class="mkt-listing-change" style="color:${ch.color}">${ch.arrow} ${ch.text}</div>` : ""}` +
+      `${floor ? `<div class="mkt-listing-floor">Floor: ${fmtBM(floor.floorPrice)}</div>` : ""}` +
+      `</div>` +
+      `<button class="mkt-btn mkt-btn-primary" data-buy-id="${l.listingId}">Buy</button>` +
+      `</div>` +
+      `</div>`
     );
   }
 
-  private renderSparkline(data: number[], color: string, width: number, height: number): string {
-    if (!data.length) return "";
-    const min = Math.min(...data);
-    const max = Math.max(...data);
-    const range = max - min || 1;
-    const stepX = width / (data.length - 1);
-    let d = "";
-    data.forEach((v, i) => {
-      const x = i * stepX;
-      const y = height - ((v - min) / range) * height;
-      d += `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    });
-    return (
-      `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" class="sparkline">` +
-      `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>` +
-      `</svg>`
-    );
-  }
-
-  // ---- My Listings Tab ----
-
+  // =========================================================================
+  // TAB 3 — MY LISTINGS
+  // =========================================================================
   private renderMyListingsTab(): string {
+    const active = this.myListings.filter((l) => l.status === "active");
+    const expired = this.myListings.filter((l) => l.status === "expired");
+    const sold = this.myListings.filter((l) => l.status === "sold");
+
+    const renderGroup = (label: string, items: MyListing[], statusColor: string) => {
+      if (!items.length) return "";
+      return (
+        `<section class="mkt-my-group">` +
+        `<h3 class="mkt-my-group-h" style="color:${statusColor}">${label} (${items.length})</h3>` +
+        items.map((l) => this.renderMyListingCard(l)).join("") +
+        `</section>`
+      );
+    };
+
     return (
-      `<div class="market-tab-content market-my">` +
-      `<div class="market-my-header">` +
-      `<span class="market-my-count">${this.myListings.length} listing${this.myListings.length !== 1 ? "s" : ""}</span>` +
-      `<button class="market-sell-card-btn">+ List Card</button></div>` +
-      (this.myListings.length
-        ? `<div class="market-my-grid">` +
-          this.myListings.map((l) => this.renderMyListingCard(l)).join("") + `</div>`
-        : `<div class="market-empty">You have no active listings. Click "List Card" to sell.</div>`) +
+      `<div class="mkt-my">` +
+      // Sell Card CTA
+      `<div class="mkt-sell-cta">` +
+      `<span>Have cards to sell?</span>` +
+      `<button class="mkt-btn mkt-btn-primary" data-action="sell-card">+ Sell Card</button>` +
+      `</div>` +
+      // Groups
+      renderGroup("Active", active, "#5fe08a") +
+      renderGroup("Expired", expired, "#ffb347") +
+      renderGroup("Sold", sold, "#6ecfff") +
+      // Empty state
+      `${!this.myListings.length ? "<div class='mkt-empty'>You have no listings yet. Click <b>+ Sell Card</b> to get started.</div>" : ""}` +
       `</div>`
     );
   }
 
-  private renderMyListingCard(listing: MyListing): string {
-    const tierColor = TIER_COLORS[listing.tier];
-    const statusCls = `status-${listing.status}`;
-    const statusLabel = listing.status.charAt(0).toUpperCase() + listing.status.slice(1);
+  private renderMyListingCard(l: MyListing): string {
+    const tierColor = TIER_COLOR[l.tier];
+    const statusLabel = l.status.charAt(0).toUpperCase() + l.status.slice(1);
+    const isActive = l.status === "active";
+
     return (
-      `<div class="market-my-card ${statusCls}">` +
-      `<div class="market-my-img" style="background:linear-gradient(135deg,${tierColor}28,${tierColor}0a)">` +
-      `<span style="color:${tierColor}">${listing.tier.charAt(0).toUpperCase()}</span>` +
+      `<div class="mkt-my-card" style="--tier-color:${tierColor}">` +
+      `<div class="mkt-my-thumb">${cardThumbnailHTML(l.characterName, l.tier, l.momentId, "sm")}</div>` +
+      `<div class="mkt-my-info">` +
+      `<div class="mkt-my-top">` +
+      `<span class="mkt-my-name">${l.characterName}</span>` +
+      `<span class="mkt-my-tier" style="background:${tierColor}22;color:${tierColor}">${TIER_LABEL[l.tier]}</span>` +
+      `<span class="mkt-my-status mkt-my-status--${l.status}">${statusLabel}</span>` +
       `</div>` +
-      `<div class="market-my-info">` +
-      `<div class="market-my-name">${this.esc(listing.characterName)}</div>` +
-      `<div class="market-my-price">${listing.price.toLocaleString()} BM</div>` +
-      `<div class="market-my-status ${statusCls}">${statusLabel}</div>` +
+      `<div class="mkt-my-moment">${l.momentId}</div>` +
+      `<div class="mkt-my-price">${fmtBM(l.price)} <span class="mkt-my-usd">${fmtUsd(l.price)}</span></div>` +
+      `<div class="mkt-my-date">Listed: ${l.listedAt.toLocaleDateString()}</div>` +
       `</div>` +
-      (listing.status === "active"
-        ? `<button class="market-cancel-btn" data-listing="${listing.listingId}">Cancel</button>`
-        : `<button class="market-cancel-btn" disabled>${listing.status === "sold" ? "Sold" : "Expired"}</button>`) +
+      `<div class="mkt-my-actions">` +
+      `${isActive ? `<button class="mkt-btn mkt-btn-ghost mkt-btn-sm" data-cancel-id="${l.listingId}">Cancel</button>` : ""}` +
+      `</div>` +
       `</div>`
     );
   }
 
-  // ---- History Tab ----
-
+  // =========================================================================
+  // TAB 4 — HISTORY (completed sales table)
+  // =========================================================================
   private renderHistoryTab(): string {
-    return (
-      `<div class="market-tab-content market-history">` +
-      (this.history.length
-        ? `<div class="market-history-table">` +
-          `<div class="market-history-header">` +
-          `<span>Card</span><span>Tier</span><span>Price</span>` +
-          `<span>Buyer</span><span>Seller</span><span>Date</span></div>` +
-          this.history.map((s) => this.renderHistoryRow(s)).join("") + `</div>`
-        : `<div class="market-empty">No transaction history yet.</div>`) +
-      `</div>`
-    );
-  }
-
-  private renderHistoryRow(sale: MarketSale): string {
-    const tierColor = TIER_COLORS[sale.tier];
-    const date = sale.soldAt.toLocaleDateString();
-    const isBuyer = sale.buyer.startsWith("0x") && sale.buyer.length < 20; // simplified check
-    return (
-      `<div class="market-history-row">` +
-      `<span class="market-hist-name">${this.esc(sale.characterName)}</span>` +
-      `<span class="market-hist-tier" style="color:${tierColor}">${sale.tier.toUpperCase()}</span>` +
-      `<span class="market-hist-price">${sale.price.toLocaleString()} BM</span>` +
-      `<span class="market-hist-addr">${sale.buyer}</span>` +
-      `<span class="market-hist-addr">${sale.seller}</span>` +
-      `<span class="market-hist-date">${date}</span>` +
-      `</div>`
-    );
-  }
-
-  // -----------------------------------------------------------------
-  // Sorting
-  // -----------------------------------------------------------------
-
-  private sortListings(listings: MarketListing[]): MarketListing[] {
-    const arr = [...listings];
-    switch (this.sortMode) {
-      case "price_asc": arr.sort((a, b) => a.price - b.price); break;
-      case "price_desc": arr.sort((a, b) => b.price - a.price); break;
-      case "recent":
-      default: arr.sort((a, b) => b.listedAt.getTime() - a.listedAt.getTime()); break;
+    if (!this.history.length) {
+      return `<div class="mkt-empty">No trade history yet.</div>`;
     }
-    return arr;
+
+    const rows = this.history.map((s) => this.renderHistoryRow(s)).join("");
+
+    return (
+      `<div class="mkt-history">` +
+      `<table class="mkt-history-table">` +
+      `<thead>` +
+      `<tr>` +
+      `<th>Card</th><th>Tier</th><th>Price</th><th>Type</th><th>Counterparty</th><th>Date</th>` +
+      `</tr>` +
+      `</thead>` +
+      `<tbody>${rows}</tbody>` +
+      `</table>` +
+      `</div>`
+    );
   }
 
-  // -----------------------------------------------------------------
-  // Utilities
-  // -----------------------------------------------------------------
+  private renderHistoryRow(s: MarketSale): string {
+    const tierColor = TIER_COLOR[s.tier];
+    const isBuy = s.buyer === "You";
+    const typeLabel = isBuy ? "Buy" : "Sell";
+    const typeColor = isBuy ? "#5fe08a" : "#ff6b6b";
+    const counterparty = isBuy ? s.seller : s.buyer;
 
-  private timeLeft(end: Date): string {
-    const diff = end.getTime() - Date.now();
-    if (diff <= 0) return "Expired";
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    return `${h}h ${m}m ${s}s`;
+    return (
+      `<tr class="mkt-history-row">` +
+      `<td class="mkt-history-card">` +
+      `<span class="mkt-history-dot" style="background:${tierColor}"></span>` +
+      `${s.characterName} <span class="mkt-history-moment">${s.momentId}</span>` +
+      `</td>` +
+      `<td><span class="mkt-history-tier" style="color:${tierColor}">${TIER_LABEL[s.tier]}</span></td>` +
+      `<td class="mkt-history-price">${fmtBM(s.price)} <span class="mkt-history-usd">${fmtUsd(s.price)}</span></td>` +
+      `<td><span class="mkt-history-type" style="color:${typeColor}">${typeLabel}</span></td>` +
+      `<td class="mkt-history-party" title="${counterparty}">${counterparty}</td>` +
+      `<td class="mkt-history-date">${s.soldAt.toLocaleDateString()}</td>` +
+      `</tr>`
+    );
   }
 
-  private esc(s: string): string {
-    const div = document.createElement("div");
-    div.textContent = s;
-    return div.innerHTML;
+  // =========================================================================
+  // Event listeners
+  // =========================================================================
+  private setupTabListeners(): void {
+    const bar = this.container.querySelector(".mkt-tabs");
+    if (!bar) return;
+    bar.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest("[data-tab]") as HTMLElement | null;
+      if (!btn) return;
+      const tab = btn.dataset.tab as MarketTab;
+      this.switchTab(tab);
+    });
   }
 
-  // -----------------------------------------------------------------
-  // Event handling
-  // -----------------------------------------------------------------
+  private switchTab(tab: MarketTab): void {
+    this.activeTab = tab;
+    // Update tab buttons
+    this.container.querySelectorAll(".mkt-tab").forEach((b) => {
+      b.classList.toggle("active", (b as HTMLElement).dataset.tab === tab);
+    });
+    // Clear filter bar (only secondary uses it)
+    const filterBarEl = this.container.querySelector("[data-filter-bar]") as HTMLElement | null;
+    if (filterBarEl) filterBarEl.innerHTML = "";
+    this.refresh();
+  }
 
-  private attachListeners(): void {
-    this.container.querySelectorAll(".market-tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        this.activeTab = (tab as HTMLElement).dataset.tab as MarketTab;
-        this.render();
+  private setupFilterListeners(): void {
+    this.container.addEventListener("change", (e) => {
+      const el = e.target as HTMLElement;
+      const key = el.dataset.filter;
+      if (!key || key === "reset") return;
+      if (el instanceof HTMLSelectElement || el instanceof HTMLInputElement) {
+        (this.filters as unknown as Record<string, unknown>)[key] =
+          key.startsWith("price") ? Number(el.value) || 0 : el.value;
+        if (key === "search") this.debouncedRefresh();
+        else this.refresh();
+      }
+    });
+
+    this.container.addEventListener("click", (e) => {
+      const btn = (e.target as HTMLElement).closest("[data-filter=\"reset\"]") as HTMLElement | null;
+      if (!btn) return;
+      this.filters = { ...DEFAULT_FILTERS };
+      this.refresh();
+    });
+  }
+
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private debouncedRefresh(): void {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => this.refresh(), 250);
+  }
+
+  private setupActionListeners(): void {
+    this.container.addEventListener("click", (e) => {
+      const t = e.target as HTMLElement;
+
+      // Buy button
+      const buyBtn = t.closest("[data-buy-id]") as HTMLElement | null;
+      if (buyBtn) {
+        const id = buyBtn.dataset.buyId!;
+        this.onBuy?.(id);
+        return;
+      }
+
+      // Mint / buy drop button
+      const dropBtn = t.closest("[data-drop-id]") as HTMLElement | null;
+      if (dropBtn) {
+        const id = dropBtn.dataset.dropId!;
+        this.onMintDrop?.(id);
+        return;
+      }
+
+      // Cancel listing
+      const cancelBtn = t.closest("[data-cancel-id]") as HTMLElement | null;
+      if (cancelBtn) {
+        const id = cancelBtn.dataset.cancelId!;
+        this.onCancel?.(id);
+        return;
+      }
+
+      // Sell card CTA
+      const sellBtn = t.closest("[data-action=\"sell-card\"]") as HTMLElement | null;
+      if (sellBtn) {
+        this.onListCard?.();
+        return;
+      }
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Countdown timer for flash sales / drops
+  // -------------------------------------------------------------------------
+  private startCountdowns(): void {
+    if (this.countdownTimer) clearInterval(this.countdownTimer);
+    this.countdownTimer = setInterval(() => {
+      this.container.querySelectorAll<HTMLElement>("[data-countdown]").forEach((el) => {
+        const iso = el.dataset.countdown;
+        if (!iso) return;
+        el.textContent = "⏱ " + timeLeft(new Date(iso));
       });
-    });
-
-    this.container.querySelectorAll(".market-tier-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        this.tierFilter = (btn as HTMLElement).dataset.tier as Tier | "all";
-        this.render();
-      });
-    });
-
-    const sortSelect = this.container.querySelector("[data-sort]") as HTMLSelectElement | null;
-    sortSelect?.addEventListener("change", () => {
-      this.sortMode = sortSelect.value as typeof this.sortMode;
-      this.render();
-    });
-
-    this.container.querySelectorAll(".market-buy-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const el = btn as HTMLElement;
-        this.emit("buy", {
-          dropId: el.dataset.drop,
-          releaseId: el.dataset.release,
-          saleId: el.dataset.sale,
-          listingId: el.dataset.listing,
-        });
-      });
-    });
-
-    this.container.querySelectorAll(".market-cancel-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = (btn as HTMLElement).dataset.listing;
-        if (id) this.emit("cancelListing", id);
-      });
-    });
-
-    this.container.querySelector(".market-sell-card-btn")?.addEventListener("click", () => {
-      this.emit("listCard", null);
-    });
+    }, 30_000); // update every 30s (good enough for minute-level precision)
   }
 
-  private listeners: Record<string, Array<(payload: unknown) => void>> = {};
-
-  on(event: string, cb: (payload: unknown) => void): void {
-    (this.listeners[event] ??= []).push(cb);
+  // -------------------------------------------------------------------------
+  // Cleanup before re-render / dispose
+  // -------------------------------------------------------------------------
+  private cleanup(): void {
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
   }
 
-  private emit(event: string, payload: unknown): void {
-    (this.listeners[event] ?? []).forEach((cb) => cb(payload));
+  dispose(): void {
+    this.cleanup();
+    this.container.innerHTML = "";
   }
-}
-
-// ---------------------------------------------------------------------------
-// MarketView CSS
-// ---------------------------------------------------------------------------
-
-export function getMarketCSS(): string {
-  return /* css */ `
-.market-view{padding:16px 20px;max-width:1100px;margin:0 auto}
-.market-tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid rgba(255,255,255,.08);padding-bottom:8px}
-.market-tab{background:transparent;border:none;padding:8px 16px;font-size:13px;color:rgba(255,255,255,.4);cursor:pointer;border-radius:8px 8px 0 0;transition:all .2s;position:relative}
-.market-tab:hover{color:rgba(255,255,255,.7);background:rgba(255,255,255,.04)}
-.market-tab.active{color:rgba(255,255,255,.9);font-weight:600}
-.market-tab.active::after{content:"";position:absolute;bottom:-9px;left:16px;right:16px;height:2px;background:rgba(255,255,255,.5);border-radius:1px}
-.market-body{min-height:300px}
-.market-section{margin-bottom:24px}
-.market-section-title{font-size:12px;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.3);margin-bottom:10px}
-.market-drops-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
-.market-drop-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:14px;overflow:hidden;transition:border-color .2s,box-shadow .2s}
-.market-drop-card:hover{border-color:rgba(255,255,255,.14);box-shadow:0 6px 20px rgba(0,0,0,.25)}
-.market-drop-img{height:120px;display:flex;align-items:center;justify-content:center;position:relative}
-.market-drop-tier{font-size:12px;font-weight:700;letter-spacing:1px;opacity:.6}
-.market-drop-info{padding:12px}
-.market-drop-name{font-size:14px;font-weight:600;color:rgba(255,255,255,.85);margin-bottom:3px}
-.market-drop-desc{font-size:11px;color:rgba(255,255,255,.4);margin-bottom:8px;line-height:1.4}
-.market-drop-price-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.market-drop-price{font-size:16px;font-weight:700;color:#5fd96a}
-.market-drop-original{font-size:12px;color:rgba(255,255,255,.3);text-decoration:line-through}
-.market-drop-discount{font-size:10px;padding:2px 6px;border-radius:4px;background:rgba(255,90,90,.15);color:#ff8a8a;font-weight:600}
-.market-releases-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
-.market-releases-row::-webkit-scrollbar{height:3px}
-.market-releases-row::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}
-.market-release-card{flex-shrink:0;width:140px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:12px;overflow:hidden;text-align:center;padding:10px;transition:border-color .2s}
-.market-release-card:hover{border-color:rgba(255,255,255,.14)}
-.market-release-img{height:80px;display:flex;align-items:center;justify-content:center;border-radius:8px;margin-bottom:8px}
-.market-release-tier{font-size:10px;font-weight:700;letter-spacing:1px;opacity:.5}
-.market-release-name{font-size:12px;font-weight:600;color:rgba(255,255,255,.8);margin-bottom:4px}
-.market-release-price{font-size:12px;color:#5fd96a;margin-bottom:8px}
-.market-flash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
-.market-flash-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,204,51,.15);border-radius:14px;overflow:hidden;position:relative;transition:border-color .2s,box-shadow .2s}
-.market-flash-card:hover{border-color:rgba(255,204,51,.3);box-shadow:0 0 20px rgba(255,204,51,.08)}
-.market-flash-img{height:120px;display:flex;align-items:center;justify-content:center}
-.market-flash-badge{position:absolute;top:8px;left:8px;padding:3px 8px;border-radius:6px;background:rgba(255,204,51,.9);color:#1a1000;font-size:9px;font-weight:700;letter-spacing:1px}
-.market-flash-info{padding:12px}
-.market-flash-name{font-size:14px;font-weight:600;color:rgba(255,255,255,.85);margin-bottom:3px}
-.market-flash-timer{font-size:12px;color:#ffcc33;margin-bottom:8px;font-family:var(--font-mono,monospace)}
-.market-flash-price-row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.market-flash-price{font-size:16px;font-weight:700;color:#5fd96a}
-.market-flash-original{font-size:12px;color:rgba(255,255,255,.3);text-decoration:line-through}
-.market-sec-filters{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:10px;flex-wrap:wrap}
-.market-tier-filters{display:flex;gap:4px}
-.market-tier-btn{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:5px 12px;font-size:11px;color:rgba(255,255,255,.45);cursor:pointer;transition:all .2s}
-.market-tier-btn:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.7)}
-.market-tier-btn.active{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.18);color:rgba(255,255,255,.9);font-weight:600}
-.market-sort-select{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:5px 10px;font-size:11px;color:rgba(255,255,255,.6);outline:none}
-.market-listings-grid{display:flex;flex-direction:column;gap:8px}
-.market-listing{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:10px 14px;transition:border-color .2s}
-.market-listing:hover{border-color:rgba(255,255,255,.12)}
-.market-listing-img{width:52px;height:52px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.market-listing-tier{font-size:14px;font-weight:700}
-.market-listing-info{flex:1;min-width:0}
-.market-listing-name{font-size:13px;font-weight:600;color:rgba(255,255,255,.8);margin-bottom:1px}
-.market-listing-moment{font-size:10px;color:rgba(255,255,255,.35)}
-.market-listing-seller{font-size:10px;color:rgba(255,255,255,.25)}
-.market-listing-serial{font-size:9px;color:rgba(255,255,255,.25);font-family:var(--font-mono,monospace)}
-.market-listing-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
-.market-listing-price{font-size:15px;font-weight:700;color:rgba(255,255,255,.85)}
-.market-listing-floor{font-size:10px;color:rgba(255,255,255,.35)}
-.market-listing-change{font-size:10px;font-weight:600}
-.market-listing-change.up{color:#5fd96a}
-.market-listing-change.down{color:#ff6b6b}
-.sparkline{opacity:.7}
-.market-my-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.market-my-count{font-size:13px;color:rgba(255,255,255,.5)}
-.market-sell-card-btn{padding:8px 16px;border-radius:10px;background:rgba(95,217,106,.15);border:1px solid rgba(95,217,106,.3);color:#5fd96a;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
-.market-sell-card-btn:hover{background:rgba(95,217,106,.25)}
-.market-my-grid{display:flex;flex-direction:column;gap:8px}
-.market-my-card{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:10px 14px}
-.market-my-img{width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:700}
-.market-my-info{flex:1}
-.market-my-name{font-size:13px;font-weight:600;color:rgba(255,255,255,.8)}
-.market-my-price{font-size:12px;color:rgba(255,255,255,.55)}
-.market-my-status{font-size:10px;margin-top:1px}
-.market-my-status.status-active{color:#5fd96a}
-.market-my-status.status-expired{color:rgba(255,255,255,.35)}
-.market-my-status.status-sold{color:#4aa3ff}
-.market-cancel-btn{padding:6px 12px;border-radius:8px;background:rgba(255,90,90,.1);border:1px solid rgba(255,90,90,.2);color:#ff8a8a;font-size:11px;cursor:pointer;transition:all .2s}
-.market-cancel-btn:hover:not(:disabled){background:rgba(255,90,90,.2)}
-.market-cancel-btn:disabled{opacity:.3;cursor:not-allowed}
-.market-history-table{display:flex;flex-direction:column;gap:1px;background:rgba(255,255,255,.03);border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.05)}
-.market-history-header{display:grid;grid-template-columns:2fr 1fr 1.2fr 1fr 1fr 1fr;padding:10px 14px;background:rgba(255,255,255,.04);font-size:10px;text-transform:uppercase;letter-spacing:1px;color:rgba(255,255,255,.35)}
-.market-history-row{display:grid;grid-template-columns:2fr 1fr 1.2fr 1fr 1fr 1fr;padding:10px 14px;align-items:center;font-size:12px;color:rgba(255,255,255,.65);transition:background .15s}
-.market-history-row:hover{background:rgba(255,255,255,.03)}
-.market-hist-name{font-weight:600;color:rgba(255,255,255,.8)}
-.market-hist-tier{font-size:10px;font-weight:700;letter-spacing:.5px}
-.market-hist-price{font-weight:600;color:#5fd96a}
-.market-hist-addr{font-family:var(--font-mono,monospace);font-size:10px;color:rgba(255,255,255,.35)}
-.market-hist-date{font-size:10px;color:rgba(255,255,255,.3)}
-.market-empty{text-align:center;padding:40px;color:rgba(255,255,255,.25);font-size:13px}
-.market-buy-btn{padding:8px 18px;border-radius:10px;background:rgba(95,217,106,.15);border:1px solid rgba(95,217,106,.3);color:#5fd96a;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
-.market-buy-btn:hover{background:rgba(95,217,106,.25)}
-.market-buy-btn.small{padding:5px 12px;font-size:11px}
-@media(max-width:700px){.market-drops-grid,.market-flash-grid{grid-template-columns:1fr 1fr}.market-history-header,.market-history-row{grid-template-columns:2fr 1fr 1fr;font-size:10px}.market-history-header span:nth-child(4),.market-history-header span:nth-child(5),.market-history-header span:nth-child(6),.market-history-row span:nth-child(4),.market-history-row span:nth-child(5),.market-history-row span:nth-child(6){display:none}.market-listing{flex-wrap:wrap}}
-`;
 }

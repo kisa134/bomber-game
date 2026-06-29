@@ -172,7 +172,7 @@ export function editionMarkHTML(serial: string | undefined, tier: Tier): string 
     text = serial ? `${serial} / 500` : "LIMITED / 500";
   } else {
     // Common / Rare — unlimited edition, show nothing unless serial given
-    text = serial ? `${serial} / \u221e` : "";
+    text = serial ? `${serial} / ∞` : "";
   }
 
   if (!text) return ""; // No markup for unlimited cards without serial
@@ -200,7 +200,7 @@ const SET_ICONS: Record<SetId, { name: string; svg: string }> = {
     svg: `<circle cx="8" cy="8" r="6.5" fill="none" ` +
          `stroke="currentColor" stroke-width="1"/>` +
          `<text x="8" y="11.5" text-anchor="middle" ` +
-         `fill="currentColor" font-size="7" font-weight="700">\u20bf</text>`,
+         `fill="currentColor" font-size="7" font-weight="700">₿</text>`,
   },
   frog_dynasty: {
     name: "Frog Dynasty",
@@ -285,7 +285,7 @@ export function setBadgeSVG(setId: SetId): string {
 
 const RANK_TO_TIER: Tier[] = ["common", "rare", "epic", "legendary", "mythic"];
 
-/** Convert a numeric tier rank (0=common \u2026 4=mythic) to a Tier string. */
+/** Convert a numeric tier rank (0=common … 4=mythic) to a Tier string. */
 export function tierFromRank(rank: number): Tier {
   return RANK_TO_TIER[Math.max(0, Math.min(4, rank))] ?? "common";
 }
