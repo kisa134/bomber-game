@@ -88,6 +88,7 @@ import {
 import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setInviteSeatHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState, setActiveRoom, type ScreenName } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAdminMode } from "./ui/adminOverlay.js";
+import { openCardsHub } from "./ui/cardsHub.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram, getStartParam } from "./platform/telegram.js";
@@ -4457,6 +4458,7 @@ function wireMenuLinks(): void {
     inviteRoomCode = "";
     showScreen("menu");
   });
+  document.getElementById("hub-cards")?.addEventListener("click", () => openCardsHub());
   const doAddFriend = (): void => {
     const inp = document.getElementById("friend-add-name") as HTMLInputElement;
     const name = inp.value.trim();
