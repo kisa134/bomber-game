@@ -3,3 +3,4 @@ export * from "./types.js";
 export * from "./protocol.js";
 export * from "./random.js";
 export * from "./movement.js";
+export * from "./card-types.js";
