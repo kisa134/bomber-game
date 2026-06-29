@@ -191,6 +191,9 @@ export class Renderer {
   private dynLight = false; // Settings → Graphics: single slow-moving arena key light
   private bloomOn = false; // Settings → Graphics: soft bloom on bright areas
   private bloomCv: HTMLCanvasElement | null = null; // offscreen for the bloom blur pass
+  private shadowsOn = true; // Settings → Graphics: directional cast shadows from the key light
+  private lx = 0; // key-light screen position this frame (drives face shading + shadow direction)
+  private ly = 0;
   private fxScale = 1; // particle-count multiplier (0.5 in lowFx)
   private maxParticles = MAX_PARTICLES;
   // The grass floor is static, so render it once into an offscreen canvas and
@@ -417,6 +420,7 @@ export class Renderer {
   setBlockDepth(on: boolean): void { this.blockDepth = on; }
   setDynamicLight(on: boolean): void { this.dynLight = on; }
   setBloom(on: boolean): void { this.bloomOn = on; }
+  setShadows(on: boolean): void { this.shadowsOn = on; }
 
   /** Classic floor style: false = animated procedural grass, true = static texture. */
   setGrassTexture(on: boolean): void {
@@ -1759,6 +1763,11 @@ export class Renderer {
     this.lastTime = now;
     const W = t * GRID_W;
     const H = t * GRID_H;
+    // Single key-light screen position this frame: high above the arena (light from
+    // the top), slowly orbiting when Dynamic light is on. Drives block face-shading
+    // and the direction/length of cast shadows.
+    this.lx = this.dynLight ? W * (0.5 + 0.36 * Math.sin(now / 4300)) : W * 0.5;
+    this.ly = this.dynLight ? H * (0.04 + 0.16 * (0.5 + 0.5 * Math.cos(now / 5600))) : H * 0.04;
 
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -2309,6 +2318,17 @@ export class Renderer {
     if (this.lowFx) return; // phones: no shadows at all (max speed)
     const ctx = this.ctx;
     const t = this.tile;
+    // Directional cast: push the contact shadow AWAY from the key light and stretch it
+    // a touch, so shadows point opposite the sun and sweep as the dynamic light moves.
+    if (this.shadowsOn) {
+      let dx = cx - this.lx, dy = cy - this.ly;
+      const dm = Math.hypot(dx, dy) || 1;
+      const len = t * 0.3;
+      cx += (dx / dm) * len;
+      cy += (dy / dm) * len;
+      rx *= 1.16;
+      ry *= 1.16;
+    }
     const pu = Math.max(2, Math.round(t / 12));
     const sw = Math.sin(this.lastTime / 900 + cx * 0.05 + cy * 0.03);
     const ox = cx + sw * pu * 0.7; // drift sideways a touch
@@ -2615,7 +2635,10 @@ export class Renderer {
       }
       if (p.shape === "flash") {
         ctx.globalCompositeOperation = "lighter";
-        ctx.globalAlpha = a;
+        // Tiny flashes (ember sparks) twinkle so their bloom PULSES; big flashes
+        // (the hot blast core) stay steady.
+        const flick = p.size < t * 0.12 ? 0.6 + 0.4 * Math.sin(this.lastTime * 0.045 + p.x * 7.3 + p.y * 5.1) : 1;
+        ctx.globalAlpha = a * flick;
         const g = ctx.createRadialGradient(px, py, 0, px, py, p.size);
         g.addColorStop(0, p.color);
         g.addColorStop(1, "rgba(255,255,255,0)");
@@ -2864,23 +2887,24 @@ export class Renderer {
     return this.drawTileSprite(`${key}_${this.arenaTheme}`, px, py, flip);
   }
 
-  /** 3D-volume edge shading: a soft dark gradient on the bottom + right faces and a
-   *  thin light catch on the top edge, so every block reads as a carved cube. Cheap
-   *  per-tile rects; theme-independent. (Settings → Graphics → Block depth.) */
+  /** Light-directional face shading: the block face TOWARD the key light gets a faint
+   *  warm highlight, the face AWAY falls into shadow — across a gradient aimed at the
+   *  light. As the dynamic light orbits, the lit/dark sides rotate, so blocks read as
+   *  real lit volumes instead of flat tiles. Cheap (one gradient rect per block).
+   *  (Settings → Graphics → Block depth.) */
   private drawBlockDepth(px: number, py: number): void {
     const ctx = this.ctx, t = this.tile;
-    const bot = ctx.createLinearGradient(0, py + t * 0.62, 0, py + t);
-    bot.addColorStop(0, "rgba(0,0,0,0)");
-    bot.addColorStop(1, "rgba(0,0,0,0.32)");
-    ctx.fillStyle = bot;
-    ctx.fillRect(px, py + t * 0.62, t, t * 0.38);
-    const rt = ctx.createLinearGradient(px + t * 0.8, 0, px + t, 0);
-    rt.addColorStop(0, "rgba(0,0,0,0)");
-    rt.addColorStop(1, "rgba(0,0,0,0.22)");
-    ctx.fillStyle = rt;
-    ctx.fillRect(px + t * 0.8, py, t * 0.2, t);
-    ctx.fillStyle = "rgba(255,255,255,0.09)";
-    ctx.fillRect(px, py, t, Math.max(1, t * 0.045));
+    const cx = px + t / 2, cy = py + t / 2;
+    let ux = this.lx - cx, uy = this.ly - cy;
+    const m = Math.hypot(ux, uy) || 1;
+    ux /= m; uy /= m; // unit vector toward the light
+    const r = t * 0.62;
+    const g = ctx.createLinearGradient(cx + ux * r, cy + uy * r, cx - ux * r, cy - uy * r);
+    g.addColorStop(0, "rgba(255,248,228,0.12)"); // lit edge (toward light) — warm catch
+    g.addColorStop(0.45, "rgba(0,0,0,0)");
+    g.addColorStop(1, "rgba(0,0,0,0.36)"); // far edge — in shadow
+    ctx.fillStyle = g;
+    ctx.fillRect(px, py, t, t);
   }
 
   /** THRESHOLD bloom: isolate only the brightest pixels (explosions, glints, glowing
