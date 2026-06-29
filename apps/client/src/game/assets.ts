@@ -84,7 +84,7 @@ const IMG_EXTS = [".webp", ".png"];
 // Cache-buster for sprite URLs. The PWA caches sprites by URL (CacheFirst), so a
 // REPLACED file with the same name would otherwise be served stale forever.
 // BUMP THIS whenever you change any sprite art so clients fetch the new version.
-export const ASSET_VER = "67";
+export const ASSET_VER = "68";
 
 // Hard (indestructible) block damage: 6 accumulating stages × 2 visual variants
 // (so neighbouring blocks crack differently). Missing -> pristine block.
@@ -99,6 +99,20 @@ for (const b of ["hard", "soft"]) {
   for (let i = 1; i <= 2; i++) {
     for (let v = 1; v <= 2; v++) {
       SPRITE_FILES[`${b}_blood${i}_v${v}`] = `/sprites/${b}_blood${i}_v${v}`;
+    }
+  }
+}
+
+// Per-theme damaged + bloodied block sprites. The renderer tries the themed key
+// first (e.g. hard_dmg3_v1_vault) and falls back to the classic one above when a
+// theme's art isn't present yet. Classic uses the base (un-suffixed) sprites.
+for (const th of ["vault", "void", "industrial", "degen", "pepe"]) {
+  for (let s = 1; s <= 6; s++) {
+    for (let v = 1; v <= 2; v++) SPRITE_FILES[`hard_dmg${s}_v${v}_${th}`] = `/sprites/hard_dmg${s}_v${v}_${th}`;
+  }
+  for (const b of ["hard", "soft"]) {
+    for (let i = 1; i <= 2; i++) {
+      for (let v = 1; v <= 2; v++) SPRITE_FILES[`${b}_blood${i}_v${v}_${th}`] = `/sprites/${b}_blood${i}_v${v}_${th}`;
     }
   }
 }

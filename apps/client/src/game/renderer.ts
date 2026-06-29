@@ -2660,9 +2660,9 @@ export class Renderer {
         const bm = this.bloodBlocks.get(index);
         // Bloodied: a BAKED blood-on-block sprite (blood sits in the block's
         // perspective). Else damage-stage sprite, else pristine + procedural cracks.
-        const bloodDrawn = !!bm && !this.lowFx && this.drawTileSprite(`hard_blood${bm.n >= 2 ? 2 : 1}_v${variant}`, px, py, flip);
+        const bloodDrawn = !!bm && !this.lowFx && this.drawThemedTile(`hard_blood${bm.n >= 2 ? 2 : 1}_v${variant}`, px, py, flip);
         if (!bloodDrawn) {
-          if (!(dmg > 0 && this.drawTileSprite(`hard_dmg${dmg}_v${variant}`, px, py, flip))) {
+          if (!(dmg > 0 && this.drawThemedTile(`hard_dmg${dmg}_v${variant}`, px, py, flip))) {
             this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
             if (dmg > 0) this.drawCracks(px, py, index);
           }
@@ -2691,7 +2691,7 @@ export class Renderer {
         const sseed = (index * 2654435761) >>> 0;
         const svar = (sseed % 2) + 1;
         const sm = this.bloodBlocks.get(index);
-        const sBloodDrawn = !!sm && !this.lowFx && this.drawTileSprite(`soft_blood${sm.n >= 2 ? 2 : 1}_v${svar}`, px, py);
+        const sBloodDrawn = !!sm && !this.lowFx && this.drawThemedTile(`soft_blood${sm.n >= 2 ? 2 : 1}_v${svar}`, px, py);
         if (!sBloodDrawn) {
           const sv = ARENA_SOFT_VARIANTS[this.arenaTheme];
           if (sv) {
@@ -2834,6 +2834,16 @@ export class Renderer {
       this.ctx.drawImage(img, px, py, t, t);
     }
     return true;
+  }
+
+  /** Draw a block sprite using the current arena theme's variant (key_<theme>) when
+   *  it exists, else the base sprite. Classic (and any theme without themed damage/
+   *  blood art) falls back to the base classic sprites. */
+  private drawThemedTile(key: string, px: number, py: number, flip = false): boolean {
+    return (
+      (this.arenaTheme !== "classic" && this.drawTileSprite(`${key}_${this.arenaTheme}`, px, py, flip)) ||
+      this.drawTileSprite(key, px, py, flip)
+    );
   }
 
   /** Baked base ground (two-tone checker) — static, blitted from the floor cache.
