@@ -89,6 +89,7 @@ import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoo
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAdminMode } from "./ui/adminOverlay.js";
 import { openCardsHub } from "./ui/cardsHub.js";
+import { raritySealSVG, editionMarkHTML, tierFromRank } from "./cards/CardLayers.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram, getStartParam } from "./platform/telegram.js";
@@ -3070,10 +3071,12 @@ function fighterCardHTML(skin: number): string {
     `<img class="fc-hero" src="/sprites/skin_${skin}_down_1.webp?v=${ASSET_VER}" alt="" />` +
     '<div class="fc-light"></div>' +
     '<div class="fc-frame"></div>' +
+    raritySealSVG(tierFromRank(tierRank(skin))) + // CCG rarity seal (CardLayers L21)
     '<span class="fc-corner tl"></span><span class="fc-corner tr"></span><span class="fc-corner bl"></span><span class="fc-corner br"></span>' +
     `<div class="fc-toprow"><span class="fc-rarity">${r.name.toUpperCase()}</span><span class="fc-no">${padNo(skin + 1)} / ${padNo(SKIN_COUNT)}</span></div>` +
     `<div class="fc-namerow"><div class="fc-name">${SKIN_NAMES[skin] ?? `Skin ${skin}`}</div><div class="fc-gems">${"◆".repeat(GEM_COUNT(skin))}</div></div>` +
     '<div class="fc-stamp" aria-hidden="true"></div>' +
+    editionMarkHTML(padNo(skin + 1), tierFromRank(tierRank(skin))) + // serial plaque (CardLayers L22)
     '<div class="fc-edge" aria-hidden="true"></div>' +
     cardStarsHTML(skin) +
     `<div class="fc-lock${skinOwned(skin) ? " hidden" : ""}">🔒</div>` +
