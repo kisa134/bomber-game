@@ -46,7 +46,7 @@ const SKIN_NAMES: string[] = [
 ];
 
 // Map character IDs to skin indices (best-effort name matching)
-function skinIndexForCharacter(characterId: string): number {
+export function skinIndexForCharacter(characterId: string): number {
   const char = ALL_CHARACTERS.find((c) => c.characterId === characterId);
   if (!char) return 0;
   const idx = SKIN_NAMES.findIndex(

@@ -2610,7 +2610,18 @@ let shopIsAdmin = false; // admin wallet: owns + can equip every skin (bypasses 
 // Admins force-own all skins by default, but can toggle it OFF (🛡 overlay) to test the
 // real new-player locked/silhouette experience. localStorage "0" = off.
 const adminOwnsAll = (): boolean => shopIsAdmin && localStorage.getItem("bp_admin_ownall") !== "0";
-const skinOwned = (i: number): boolean => adminOwnsAll() || (shop.owned & (1 << i)) !== 0;
+// Skins unlocked by OWNING the matching character card (Cards↔Skins bridge). Bit i set
+// = card-unlocked. Persisted client-side for Phase 0 (backend will own this later).
+let cardSkinMask = Number(localStorage.getItem("bp_card_skins") || 0) | 0;
+/** Called from the cards hub when a card whose character maps to skin `idx` is acquired. */
+export function unlockSkinFromCard(idx: number): void {
+  if (idx < 0 || idx >= 31) return;
+  const next = cardSkinMask | (1 << idx);
+  if (next === cardSkinMask) return;
+  cardSkinMask = next;
+  try { localStorage.setItem("bp_card_skins", String(cardSkinMask)); } catch { /* ignore */ }
+}
+const skinOwned = (i: number): boolean => adminOwnsAll() || (shop.owned & (1 << i)) !== 0 || (cardSkinMask & (1 << i)) !== 0;
 const skinBuyableChips = (i: number): boolean =>
   !skinOwned(i) && shop.level >= (SKIN_UNLOCK_LEVEL[i] ?? 0) && shop.chips >= SKIN_PRICES[i];
 
