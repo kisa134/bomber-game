@@ -15,6 +15,8 @@
  *   6. Collect All + Share Pull buttons
  */
 
+import { getAllSetIds, getSetCharacters, type CardInSet } from "./SetDefinitions.js";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -146,32 +148,41 @@ export class PackOpening {
   private generateCards(packType: PackType): RevealedCard[] {
     const config = PACK_CONFIG[packType];
     const result: RevealedCard[] = [];
-    const names = [
-      ["Pepe", "Wojak", "Chad", "Doge", "Cheems", "Shiba", "Cat", "Frog"],
-      ["Trump", "Elon", "Bogdanoff", "Grumpy Cat", "Nyan Cat", "Keyboard Cat"],
-      ["Frog God", "Doge God", "Bitcoin Maxi", "ETH Whale", "OG Miner"],
-    ];
     const tiers: RarityReveal[] = ["common", "rare", "epic", "legendary", "mythic"];
-    const moments = ["Classic", "HODL", "Pump", "Smug", "Victory", "Rage"];
+    // Pull REAL characters from the set definitions (grouped by tier) so a pulled
+    // card actually exists in the collection — no more phantom names.
+    const byTier: Record<string, CardInSet[]> = {};
+    for (const setId of getAllSetIds()) for (const c of getSetCharacters(setId)) (byTier[c.tier] ??= []).push(c);
+    const all = Object.values(byTier).flat();
+    const pick = (tier: string): CardInSet | undefined => {
+      const pool = byTier[tier]?.length ? byTier[tier]! : all;
+      return pool[Math.floor(Math.random() * pool.length)];
+    };
 
     for (let i = 0; i < config.cardCount; i++) {
       const tierIdx = i === 0 ? Math.max(1, Math.floor(Math.random() * 3)) : Math.floor(Math.random() * 4);
       const tier = i === 0 ? config.guaranteedMinTier : tiers[tierIdx]!;
-      const nameList = TIER_ORDER[tier] >= 3 ? names[2] : TIER_ORDER[tier] >= 2 ? names[1] : names[0];
+      const ch = pick(tier);
+      const mom = ch?.moments[0];
       result.push({
         cardId: `card_${Date.now()}_${i}`,
-        characterName: nameList![Math.floor(Math.random() * nameList!.length)],
-        tier,
-        momentId: `moment_${i}`,
-        momentName: moments[Math.floor(Math.random() * moments.length)]!,
+        characterName: ch?.characterName ?? "Unknown",
+        tier: (ch?.tier as RarityReveal) ?? tier,
+        momentId: mom?.momentId ?? "classic",
+        momentName: mom?.name ?? "Classic",
         isNew: Math.random() > 0.5,
       });
     }
 
-    // Legendary pack: guarantee epic+ with legendary/mythic chance
+    // Legendary pack: bias the first card to a high-tier real character.
     if (packType === "legendary") {
       const roll = Math.random();
-      result[0]!.tier = roll > 0.95 ? "mythic" : roll > 0.7 ? "legendary" : "epic";
+      const want = roll > 0.95 ? "mythic" : roll > 0.7 ? "legendary" : "epic";
+      const ch = pick(want);
+      if (ch) {
+        const mom = ch.moments[0];
+        result[0] = { cardId: `card_${Date.now()}_0`, characterName: ch.characterName, tier: ch.tier as RarityReveal, momentId: mom?.momentId ?? "classic", momentName: mom?.name ?? "Classic", isNew: true };
+      }
     }
 
     return result;

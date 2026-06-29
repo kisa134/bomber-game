@@ -4,6 +4,7 @@
 // and lets packs grant new cards. This is the "подключение" the card modules needed.
 import { CollectionView, getCollectionCSS, type CollectionCard } from "../cards/CollectionView.js";
 import { MarketView, getMarketCSS } from "../cards/MarketView.js";
+import { MOCK_LISTINGS, MOCK_MY_LISTINGS, MOCK_HISTORY, MOCK_FLOOR_DATA, MOCK_FEATURED_DROPS, MOCK_NEW_RELEASES, MOCK_FLASH_SALES } from "../cards/MarketMockData.js";
 import { PackOpening, getPackOpeningCSS, type PackType } from "../cards/PackOpening.js";
 import { InspectView, getInspectCSS, type InspectCardData } from "../cards/InspectView.js";
 import { CardFusion, getCardFusionCSS, type FusionCard } from "../cards/CardFusion.js";
@@ -86,7 +87,7 @@ function openInspect(characterId: string): void {
     market: { floorPrice: 0, lastSale: 0, change24h: 0, volume: 0 },
   };
   if (!inspectView) inspectView = new InspectView();
-  inspectView.open(data, simpleCardHTML(card)); // moments default to [] for now
+  inspectView.open(data, simpleCardHTML(card), card.moments);
 }
 
 /** Owned cards as fusion candidates (group dupes later when ownership has instances). */
@@ -115,7 +116,16 @@ function renderTab(content: HTMLElement, owned: Set<string>): void {
   if (activeTab === "collection") {
     new CollectionView(content).render(buildCollection(owned));
   } else if (activeTab === "market") {
-    new MarketView(content).render();
+    // Demo marketplace populated from mock data (real listings come from Kimi's backend).
+    new MarketView(content).setData({
+      listings: MOCK_LISTINGS,
+      myListings: MOCK_MY_LISTINGS,
+      history: MOCK_HISTORY,
+      floorData: MOCK_FLOOR_DATA,
+      featuredDrops: MOCK_FEATURED_DROPS,
+      newReleases: MOCK_NEW_RELEASES,
+      flashSales: MOCK_FLASH_SALES,
+    });
   } else if (activeTab === "forge") {
     new CardFusion(content).render(buildFusionCards(owned));
   } else {
