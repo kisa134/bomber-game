@@ -224,7 +224,7 @@ function buildPnlChart(serverRows?: PnlPoint[]): HTMLElement | null {
   const W = 320, H = 110, pad = 7;
   const px = (i: number, n: number): number => pad + (i / Math.max(1, n - 1)) * (W - pad * 2);
   const py = (v: number): number => pad + (1 - (v - lo) / span) * (H - pad * 2);
-  const path = (ys: number[]): string => ys.map((v, i) => `${i ? "L" : "M"${px(i, ys.length).toFixed(1)} ${py(v).toFixed(1)}`).join(" ");
+  const path = (ys: number[]): string => ys.map((v, i) => `${i ? "L" : "M"}${px(i, ys.length).toFixed(1)} ${py(v).toFixed(1)}`).join(" ");
   const last = gs[gs.length - 1];
   const up = last >= 0;
   const gcol = up ? "#5fe08a" : "#ff6b6b";
@@ -301,7 +301,7 @@ async function main() {
     onSettings: () => showScreen("settings"),
     onTournaments: () => { showScreen("tournaments"); loadTournaments(); },
     onFriends: () => { showScreen("friends"); loadFriends(); },
-    onCampaign: () => startCampaign(),
+    onCampaign: () => startCampaignFromHub(),
     setStatus: (t) => setMenuStatus(t),
   });
 
@@ -656,15 +656,24 @@ function handleDeepLink(param: string) {
 
 // ── campaign ────────────────────────────────────────────────────────────────
 let campaignStarted = false;
-async function startCampaign() {
+
+/** Launches World / Campaign mode from the hub. */
+async function startCampaignFromHub(): Promise<void> {
   if (campaignStarted) return;
+  const container = document.getElementById("campaign-wrap");
+  if (!container) {
+    toast("Campaign container not found");
+    return;
+  }
   campaignStarted = true;
   try {
+    showScreen("campaign");
     const { startCampaign: sc } = await import("./campaign/main.js");
-    await sc();
+    await sc(container);
   } catch (e) {
     console.error("Campaign start failed:", e);
     toast("Campaign failed to start. Check console.");
+    campaignStarted = false;
   }
 }
 
@@ -759,8 +768,43 @@ if (!autoJoined) showScreen(returningVisitor ? "menu" : "splash");
 music("lobby");
 requestAnimationFrame(frame);
 
-// Campaign button handler — launches the world mode
-document.getElementById("open-campaign")?.addEventListener("click", async () => {
-  showScreen("campaign");
-  await startCampaign();
-});
+// ── Game mode dropdown handler ──────────────────────────────────────────────
+// World/Campaign mode is selected from the game-mode dropdown (alongside
+// Ranked Arena and Sandbox). The dropdown toggle + option clicks are wired
+// here so the lobby module stays agnostic of campaign internals.
+(() => {
+  const dropdownBtn = document.getElementById("hub-gamemode");
+  const dropdown = document.getElementById("gamemode-dropdown");
+  if (!dropdownBtn || !dropdown) return;
+
+  // Toggle dropdown visibility
+  dropdownBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    dropdown.classList.toggle("hidden");
+  });
+
+  // Close dropdown when clicking outside
+  document.addEventListener("click", (e) => {
+    if (!dropdown.contains(e.target as Node) && e.target !== dropdownBtn) {
+      dropdown.classList.add("hidden");
+    }
+  });
+
+  // Handle mode selection
+  dropdown.querySelectorAll<HTMLElement>(".gm-opt").forEach((opt) => {
+    opt.addEventListener("click", async () => {
+      const mode = opt.dataset.mode;
+      dropdown.classList.add("hidden");
+
+      // Update button label to reflect selected mode
+      const label = opt.textContent?.trim() ?? "";
+      dropdownBtn.innerHTML = `${label} <span class="hb-caret">▾</span>`;
+
+      if (mode === "world") {
+        // Launch World / Campaign mode
+        await startCampaignFromHub();
+      }
+      // arena / sandbox are handled by the existing PLAY button logic
+    });
+  });
+})();
