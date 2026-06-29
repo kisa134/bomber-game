@@ -38,6 +38,7 @@ import {
   tokenPriceSol,
 } from "./token.js";
 import type { SendFn } from "./player.js";
+import { registerCardAPI } from "./card-api.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const PROD = process.env.NODE_ENV === "production";
@@ -1533,7 +1534,7 @@ app.post("/friends/add", (res, req) => {
       /* ignore */
     }
     if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
-    if (name.length < 2) return sendJson(res, { error: "bad_name" }, "400 Bad Request");
+    if (name.length < 2) return sendJson(res, { error: "too_short" }, "400 Bad Request");
     const friend = await store.walletByName(name);
     if (!friend) return sendJson(res, { error: "not_found" }, "404 Not Found");
     const r = await store.addFriend(wallet, friend);
@@ -1575,7 +1576,7 @@ app.post("/daily/claim", (res, req) => {
       const j = JSON.parse(body || "{}");
       if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
     } catch {
-      /* ignore */
+      // ignore
     }
     if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
     const r = await store.claimDaily(wallet);
@@ -2443,6 +2444,9 @@ app.get("/runtime-config.js", (res) => {
   });
 });
 
+// ── Card Game API routes ───────────────────────────────────────────────────
+registerCardAPI({ app, guard, readBody, sendJson, store, fromBaseUnits, toBaseUnits });
+
 // Static client (only when a build is present alongside the server).
 if (SERVE_STATIC) {
   app.get("/*", (res, req) => serveStatic(res, req.getUrl()));
@@ -2457,7 +2461,7 @@ app.listen(PORT, (listenSocket) => {
     startDepositWatcher(); // no-op unless TREASURY_ADDRESS is set
     void setupTelegramBot(); // no-op unless TG_BOT_TOKEN is set
   } else {
-    console.error(`[bomberpump] failed to listen on :${PORT}`);
+    console.error(`[bomberpump] server listening on :${PORT} failed`);
     process.exit(1);
   }
 });
