@@ -691,6 +691,7 @@ function enterGame(): void {
     renderer.setDynamicLight(settings.dynamicLight);
     renderer.setBloom(settings.bloom);
     renderer.setShadows(settings.shadows);
+    renderer.setParticleDensity(settings.particleDensity);
   }
   renderer.resize();
   renderer.remeasure(); // re-fit after the game screen has actually laid out
@@ -1540,6 +1541,7 @@ function applySettings(): void {
   renderer?.setDynamicLight(settings.dynamicLight);
   renderer?.setBloom(settings.bloom);
   renderer?.setShadows(settings.shadows);
+  renderer?.setParticleDensity(settings.particleDensity);
   syncSettingsUI();
 }
 
@@ -1564,6 +1566,8 @@ function syncSettingsUI(): void {
     const el = document.getElementById(id) as HTMLButtonElement | null;
     if (el) { el.dataset.on = String(on); el.textContent = on ? "On" : "Off"; }
   }
+  const pd = document.getElementById("particle-density") as HTMLInputElement | null;
+  if (pd) pd.value = String(Math.round(settings.particleDensity * 100));
   for (const p of ["low", "medium", "high"]) {
     document.getElementById("gfx-" + p)?.classList.toggle("active", settings.gfxPreset === p);
   }
@@ -1684,6 +1688,7 @@ function wireSettings(): void {
   document.getElementById("set-dynlight")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("dynamicLight", !settings.dynamicLight); });
   document.getElementById("set-bloom")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("bloom", !settings.bloom); });
   document.getElementById("set-shadows")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("shadows", !settings.shadows); });
+  document.getElementById("particle-density")?.addEventListener("input", (e) => update("particleDensity", Number((e.target as HTMLInputElement).value) / 100));
   document.getElementById("floor-anim")?.addEventListener("click", () => update("grassTexture", false));
   document.getElementById("floor-tex")?.addEventListener("click", () => update("grassTexture", true));
   document.getElementById("set-lite")?.addEventListener("click", () => {

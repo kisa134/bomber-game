@@ -27,6 +27,7 @@ export interface Settings {
   dynamicLight: boolean; // single slow-moving arena key light
   bloom: boolean; // soft bloom / glow on bright areas
   shadows: boolean; // directional cast shadows from the key light
+  particleDensity: number; // 0.5..2.5 — physics-particle count multiplier (crank up on strong PCs)
 }
 
 export type GfxPreset = "low" | "medium" | "high" | "custom";
@@ -54,6 +55,7 @@ const DEFAULTS: Settings = {
   dynamicLight: false,
   bloom: false,
   shadows: true,
+  particleDensity: 1,
 };
 
 export function loadSettings(): Settings {

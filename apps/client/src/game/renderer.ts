@@ -48,6 +48,23 @@ const ARENA_SOFT_VARIANTS: Partial<Record<ArenaTheme, string[]>> = {
   // ["soft_void1".."soft_void4"] list here to restore the random combo field.
 };
 
+// Per-theme SHATTER debris — what flies out when a soft block breaks / a hard block
+// cracks, so a crate sprays wood, a crystal sprays glowing shards, a bush sprays
+// leaves, gold sprays metal, etc. colors = chunk palette; emissive = bright/additive
+// (glowing crystal shards that catch the bloom).
+const THEME_DEBRIS: Record<ArenaTheme, { colors: string[]; emissive?: boolean }> = {
+  classic: { colors: ["#8a5a3c", "#a06b48", "#6e4a30", "#b5743f"] }, // wood crate
+  vault: { colors: ["#ffd24a", "#c8941e", "#a0701a", "#e6b53c"] }, // gold/brass
+  cyber: { colors: ["#5bd6ff", "#3a8acc", "#2a5a8a", "#7ae0ff"], emissive: true }, // glass shard
+  void: { colors: ["#ff5bd0", "#b86bff", "#5be0ff", "#c060ff"], emissive: true }, // crystal shard
+  desert: { colors: ["#d8b878", "#b89858", "#8a6e40", "#e6ca90"] }, // sandstone
+  industrial: { colors: ["#9aa0a8", "#5e6068", "#ff8a30", "#c0c4cc"] }, // metal + spark
+  chappie: { colors: ["#ff8a30", "#e6e6e6", "#c8741e", "#ffb060"] }, // orange-white plastic/metal
+  meme: { colors: ["#64ff96", "#3a3a44", "#50e0c0", "#a0a0aa"] }, // screen/electronics
+  degen: { colors: ["#4a8a3a", "#2e5e24", "#6e4a30", "#5e9a44"] }, // leaves + twig
+  pepe: { colors: ["#4a7a3a", "#6e9a4a", "#3a5a2a", "#5e8a3a"] }, // green wood
+};
+
 // One unique colour per player slot — supports a full 8-player arena (1 human +
 // up to 7 bots) with no duplicates. Index is assigned in the lobby, independent
 // of the chosen skin. Ordered for max contrast between the first few entries.
@@ -194,7 +211,9 @@ export class Renderer {
   private shadowsOn = true; // Settings → Graphics: directional cast shadows from the key light
   private lx = 0; // key-light screen position this frame (drives face shading + shadow direction)
   private ly = 0;
-  private fxScale = 1; // particle-count multiplier (0.5 in lowFx)
+  private fxScale = 1; // effective particle-count multiplier = device base × user density
+  private fxBase = 1; // device base (0.5 on phones, 1 on desktop)
+  private fxUser = 1; // Settings → Graphics: user particle-density slider (0.5..2.5)
   private maxParticles = MAX_PARTICLES;
   // The grass floor is static, so render it once into an offscreen canvas and
   // blit it each frame instead of redrawing ~10k blades per frame.
@@ -323,7 +342,8 @@ export class Renderer {
     // Cap DPR lower on phones: fewer pixels to fill = far less GPU/CPU and heat.
     this.dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2);
     this.lowFx = mobile;
-    this.fxScale = mobile ? 0.5 : 1;
+    this.fxBase = mobile ? 0.5 : 1;
+    this.fxScale = this.fxBase * this.fxUser;
     this.maxParticles = mobile ? 240 : MAX_PARTICLES;
     const margin = mobile ? 0 : 22;
     const host = this.canvas.parentElement;
@@ -421,6 +441,8 @@ export class Renderer {
   setDynamicLight(on: boolean): void { this.dynLight = on; }
   setBloom(on: boolean): void { this.bloomOn = on; }
   setShadows(on: boolean): void { this.shadowsOn = on; }
+  /** Particle density multiplier (Settings → Graphics). Powerful PCs can crank it up. */
+  setParticleDensity(mult: number): void { this.fxUser = mult; this.fxScale = this.fxBase * mult; }
 
   /** Classic floor style: false = animated procedural grass, true = static texture. */
   setGrassTexture(on: boolean): void {
@@ -957,7 +979,7 @@ export class Renderer {
         vz: 4.5 + Math.random() * 5.5, // launched upward, then falls fast
         gz: 34, rest: 0.18, fric: 0.84, solid: true, // gore: heavy wet shlap, bounces off block sides
         life: 0.7 + Math.random() * 0.7, max: 1.4,
-        size: this.tile * (0.06 + Math.random() * 0.13),
+        size: this.tile * (0.035 + Math.random() * 0.08), // smaller, finer gibs (#3)
         color: reds[(Math.random() * reds.length) | 0],
         shape: "rect", rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 16,
       });
@@ -973,7 +995,7 @@ export class Renderer {
       this.push({
         x: cx + 0.5, y: cy + 0.5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
         vz: 5 + Math.random() * 5, gz: 33, rest: 0.22, fric: 0.82, solid: true,
-        life: 0.9 + Math.random() * 0.6, max: 1.5, size: this.tile * (0.1 + Math.random() * 0.1),
+        life: 0.9 + Math.random() * 0.6, max: 1.5, size: this.tile * (0.06 + Math.random() * 0.06), // smaller meat gobs (#3)
         color: meaty[(Math.random() * meaty.length) | 0], shape: "rect", rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 20,
       });
     }
@@ -2211,20 +2233,26 @@ export class Renderer {
     }
   }
 
-  /** Brown/orange chunks flung out when a soft block is destroyed. */
+  /** Theme-aware chunks flung out when a soft block is destroyed: wood for crates,
+   *  glowing shards for crystals, leaves for the bush, metal for gold, etc. Finer
+   *  pixels (#3). */
   private emitDebris(gx: number, gy: number): void {
     if (this.lowFx) return;
     const t = this.tile;
-    for (let i = 0; i < Math.round(10 * this.fxScale); i++) {
+    const d = THEME_DEBRIS[this.arenaTheme] ?? THEME_DEBRIS.classic;
+    const n = Math.round(13 * this.fxScale); // a few more, but smaller
+    for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = 1.2 + Math.random() * 2.4;
+      const emissive = d.emissive && Math.random() < 0.6;
       this.push({
         x: gx + 0.5, y: gy + 0.5, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
-        vz: 4 + Math.random() * 5, gz: 30, rest: 0.6, fric: 0.9, solid: true, // crate debris: crunchy bouncy, bounces off blocks
+        vz: 4 + Math.random() * 5, gz: 30, rest: 0.6, fric: 0.9, solid: true, // debris: crunchy bouncy, bounces off blocks
         life: 0.5 + Math.random() * 0.4, max: 0.9,
-        size: t * (0.06 + Math.random() * 0.07), shape: "rect",
+        size: t * (0.035 + Math.random() * 0.045), // SMALLER than before (was .06-.13)
+        shape: emissive ? "flash" : "rect",
         rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 14,
-        color: ["#8a5a3c", "#a06b48", "#6e4a30", "#b5743f"][i % 4],
+        color: d.colors[i % d.colors.length],
       });
     }
   }
