@@ -20,7 +20,7 @@
 //   POST /api/market/cancel          — cancel a listing
 // ============================================================================
 
-import * as uWS from "uwebsockets";
+import uWS from "uWebSockets.js";
 import type {
   OpenPackRequest,
   OpenPackResponse,
