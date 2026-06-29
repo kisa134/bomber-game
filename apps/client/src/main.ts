@@ -27,3 +27,12 @@ import {
   SKIN_TOKEN_PRICES,
   WHEEL_PRIZES,
 } from "./net/protocol.js";
+
+// Campaign button handler — launches the world mode
+import { showScreen } from "./ui/lobby.js";
+
+document.getElementById("open-campaign")?.addEventListener("click", async () => {
+  showScreen("campaign");
+  const { startCampaign } = await import("./campaign/main.js");
+  await startCampaign();
+});
