@@ -187,6 +187,10 @@ export class Renderer {
   private atmo: Array<{ x: number; y: number; vx: number; vy: number; s: number }> = []; // ambient motes
   private atmoOn = true; // Settings → Graphics: ambient atmosphere on/off
   private grassTexture = false; // Classic floor: false = animated procedural grass, true = static texture
+  private blockDepth = true; // Settings → Graphics: 3D edge shading on blocks
+  private dynLight = false; // Settings → Graphics: single slow-moving arena key light
+  private bloomOn = false; // Settings → Graphics: soft bloom on bright areas
+  private bloomCv: HTMLCanvasElement | null = null; // offscreen for the bloom blur pass
   private fxScale = 1; // particle-count multiplier (0.5 in lowFx)
   private maxParticles = MAX_PARTICLES;
   // The grass floor is static, so render it once into an offscreen canvas and
@@ -410,6 +414,9 @@ export class Renderer {
 
   /** Toggle ambient atmosphere (Settings → Graphics). */
   setAtmosphere(on: boolean): void { this.atmoOn = on; }
+  setBlockDepth(on: boolean): void { this.blockDepth = on; }
+  setDynamicLight(on: boolean): void { this.dynLight = on; }
+  setBloom(on: boolean): void { this.bloomOn = on; }
 
   /** Classic floor style: false = animated procedural grass, true = static texture. */
   setGrassTexture(on: boolean): void {
@@ -1892,7 +1899,8 @@ export class Renderer {
     this.drawFloaters(now); // upbeat reward/event popups (ease-out-back / elastic)
     ctx.restore();
 
-    if (!this.lowFx) this.drawAmbient(W, H); // warm key light + vignette for depth
+    if (!this.lowFx) this.drawAmbient(W, H, now); // warm key light (slowly orbits if dynamic light on) + vignette
+    if (this.bloomOn && !this.lowFx) this.drawBloom(W, H); // soft glow bleed on bright areas
     this.drawColorGrade(W, H); // cozy-warm early -> mortuary-cold by sudden death
     this.drawDangerVignette(W, H, now); // pulsing red threat vignette at low HP / sudden death
     this.drawFirstBlood(now); // screen-space announcement, above the world
@@ -2510,12 +2518,20 @@ export class Renderer {
 
   /** Warm ambient lighting (screen-space): a soft warm key light from above plus
    *  a gentle vignette — gives the flat top-down board a sense of depth / 3D. */
-  private drawAmbient(W: number, H: number): void {
+  private drawAmbient(W: number, H: number, now: number): void {
     const ctx = this.ctx;
+    // Key-light position: static near top-centre, or slowly orbiting when the
+    // dynamic-light option is on (a single moving "sun" over the arena).
+    let lx = W * 0.5, ly = H * 0.32;
+    if (this.dynLight) {
+      lx = W * (0.5 + 0.34 * Math.sin(now / 4300));
+      ly = H * (0.34 + 0.2 * Math.cos(now / 5600));
+    }
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    const warm = ctx.createRadialGradient(W * 0.5, H * 0.32, 0, W * 0.5, H * 0.32, Math.hypot(W, H) * 0.62);
-    warm.addColorStop(0, "rgba(255,196,120,0.11)");
+    const reach = Math.hypot(W, H) * (this.dynLight ? 0.52 : 0.62);
+    const warm = ctx.createRadialGradient(lx, ly, 0, lx, ly, reach);
+    warm.addColorStop(0, this.dynLight ? "rgba(255,210,140,0.16)" : "rgba(255,196,120,0.11)");
     warm.addColorStop(0.6, "rgba(255,170,90,0.045)");
     warm.addColorStop(1, "rgba(255,150,70,0)");
     ctx.fillStyle = warm;
@@ -2667,6 +2683,7 @@ export class Renderer {
             if (dmg > 0) this.drawCracks(px, py, index);
           }
         }
+        if (this.blockDepth && !this.lowFx) this.drawBlockDepth(px, py);
         // Living inner-glow: a soft orange light breathes through the block's window
         // (Chappie / Industrial). Per-block phase offset so they don't pulse in sync.
         const glow = !this.lowFx && this.atmoOn ? ARENA_GLOW[this.arenaTheme] : undefined;
@@ -2702,6 +2719,7 @@ export class Renderer {
               this.drawSoft(px, py));
           }
         }
+        if (this.blockDepth && !this.lowFx) this.drawBlockDepth(px, py);
         if (sm) this.drawBlockBlood(px, py, index); // dynamic splatter + drips ON TOP of the block
         if (!this.lowFx && this.lights.length) this.lightCatch(px, py, now);
         break;
@@ -2844,6 +2862,46 @@ export class Renderer {
   private drawThemedTile(key: string, px: number, py: number, flip = false): boolean {
     if (this.arenaTheme === "classic") return this.drawTileSprite(key, px, py, flip);
     return this.drawTileSprite(`${key}_${this.arenaTheme}`, px, py, flip);
+  }
+
+  /** 3D-volume edge shading: a soft dark gradient on the bottom + right faces and a
+   *  thin light catch on the top edge, so every block reads as a carved cube. Cheap
+   *  per-tile rects; theme-independent. (Settings → Graphics → Block depth.) */
+  private drawBlockDepth(px: number, py: number): void {
+    const ctx = this.ctx, t = this.tile;
+    const bot = ctx.createLinearGradient(0, py + t * 0.62, 0, py + t);
+    bot.addColorStop(0, "rgba(0,0,0,0)");
+    bot.addColorStop(1, "rgba(0,0,0,0.32)");
+    ctx.fillStyle = bot;
+    ctx.fillRect(px, py + t * 0.62, t, t * 0.38);
+    const rt = ctx.createLinearGradient(px + t * 0.8, 0, px + t, 0);
+    rt.addColorStop(0, "rgba(0,0,0,0)");
+    rt.addColorStop(1, "rgba(0,0,0,0.22)");
+    ctx.fillStyle = rt;
+    ctx.fillRect(px + t * 0.8, py, t * 0.2, t);
+    ctx.fillStyle = "rgba(255,255,255,0.09)";
+    ctx.fillRect(px, py, t, Math.max(1, t * 0.045));
+  }
+
+  /** Soft bloom: copy the frame, blur it, and add it back over itself so bright
+   *  areas glow and bleed. Off by default (perf). (Settings → Graphics → Bloom.) */
+  private drawBloom(W: number, H: number): void {
+    const ctx = this.ctx;
+    const src = ctx.canvas;
+    if (!this.bloomCv) this.bloomCv = document.createElement("canvas");
+    const bc = this.bloomCv;
+    if (bc.width !== W || bc.height !== H) { bc.width = W; bc.height = H; }
+    const bctx = bc.getContext("2d");
+    if (!bctx) return;
+    bctx.clearRect(0, 0, W, H);
+    bctx.drawImage(src, 0, 0, W, H);
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = 0.38;
+    ctx.filter = "blur(6px)";
+    ctx.drawImage(bc, 0, 0, W, H);
+    ctx.restore();
+    ctx.filter = "none";
   }
 
   /** Baked base ground (two-tone checker) — static, blitted from the floor cache.

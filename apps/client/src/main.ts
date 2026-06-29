@@ -687,6 +687,9 @@ function enterGame(): void {
     renderer.setArenaTheme(effectiveTheme());
     renderer.setAtmosphere(settings.ambientFx);
     renderer.setGrassTexture(settings.grassTexture);
+    renderer.setBlockDepth(settings.blockDepth);
+    renderer.setDynamicLight(settings.dynamicLight);
+    renderer.setBloom(settings.bloom);
   }
   renderer.resize();
   renderer.remeasure(); // re-fit after the game screen has actually laid out
@@ -1508,12 +1511,13 @@ const effectiveTheme = (): ArenaTheme => (themeLocked(settings.arenaTheme) ? "cl
 // graphics toggle flips the preset to "custom" (handled at the toggle handlers).
 function applyGfxPreset(p: Exclude<GfxPreset, "custom">): void {
   const map = {
-    low: { liteGfx: true, ambientFx: false },
-    medium: { liteGfx: false, ambientFx: false },
-    high: { liteGfx: false, ambientFx: true },
+    low: { liteGfx: true, ambientFx: false, blockDepth: false },
+    medium: { liteGfx: false, ambientFx: false, blockDepth: true },
+    high: { liteGfx: false, ambientFx: true, blockDepth: true },
   }[p];
   settings.liteGfx = map.liteGfx;
   settings.ambientFx = map.ambientFx;
+  settings.blockDepth = map.blockDepth;
   settings.gfxPreset = p;
   saveSettings(settings);
   applySettings();
@@ -1530,6 +1534,9 @@ function applySettings(): void {
   renderer?.setArenaTheme(effectiveTheme());
   renderer?.setAtmosphere(settings.ambientFx);
   renderer?.setGrassTexture(settings.grassTexture);
+  renderer?.setBlockDepth(settings.blockDepth);
+  renderer?.setDynamicLight(settings.dynamicLight);
+  renderer?.setBloom(settings.bloom);
   syncSettingsUI();
 }
 
@@ -1550,6 +1557,10 @@ function syncSettingsUI(): void {
   if (lt) { lt.dataset.on = String(settings.liteGfx); lt.textContent = settings.liteGfx ? "On" : "Off"; }
   const am = document.getElementById("set-ambient") as HTMLButtonElement | null;
   if (am) { am.dataset.on = String(settings.ambientFx); am.textContent = settings.ambientFx ? "On" : "Off"; }
+  for (const [id, on] of [["set-depth", settings.blockDepth], ["set-dynlight", settings.dynamicLight], ["set-bloom", settings.bloom]] as const) {
+    const el = document.getElementById(id) as HTMLButtonElement | null;
+    if (el) { el.dataset.on = String(on); el.textContent = on ? "On" : "Off"; }
+  }
   for (const p of ["low", "medium", "high"]) {
     document.getElementById("gfx-" + p)?.classList.toggle("active", settings.gfxPreset === p);
   }
@@ -1666,6 +1677,9 @@ function wireSettings(): void {
   document.getElementById("gfx-medium")?.addEventListener("click", () => applyGfxPreset("medium"));
   document.getElementById("gfx-high")?.addEventListener("click", () => applyGfxPreset("high"));
   document.getElementById("set-ambient")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("ambientFx", !settings.ambientFx); });
+  document.getElementById("set-depth")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("blockDepth", !settings.blockDepth); });
+  document.getElementById("set-dynlight")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("dynamicLight", !settings.dynamicLight); });
+  document.getElementById("set-bloom")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("bloom", !settings.bloom); });
   document.getElementById("floor-anim")?.addEventListener("click", () => update("grassTexture", false));
   document.getElementById("floor-tex")?.addEventListener("click", () => update("grassTexture", true));
   document.getElementById("set-lite")?.addEventListener("click", () => {

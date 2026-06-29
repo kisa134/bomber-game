@@ -23,6 +23,9 @@ export interface Settings {
   ambientFx: boolean; // per-arena ambient atmosphere motes
   grassTexture: boolean; // Classic floor: false = animated grass, true = static texture
   gfxPreset: GfxPreset; // graphics quality preset; "custom" once any graphics toggle is changed by hand
+  blockDepth: boolean; // 3D edge shading on blocks (carved volume)
+  dynamicLight: boolean; // single slow-moving arena key light
+  bloom: boolean; // soft bloom / glow on bright areas
 }
 
 export type GfxPreset = "low" | "medium" | "high" | "custom";
@@ -46,6 +49,9 @@ const DEFAULTS: Settings = {
   ambientFx: true,
   grassTexture: false,
   gfxPreset: "high",
+  blockDepth: true,
+  dynamicLight: false,
+  bloom: false,
 };
 
 export function loadSettings(): Settings {

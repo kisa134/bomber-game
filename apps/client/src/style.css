@@ -5352,12 +5352,18 @@ button.big {
   justify-content: space-between;
   flex-wrap: wrap; /* control drops below the label when it can't fit on one line */
   gap: 8px 12px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 12px 14px;
+  /* Flush rows inside a section card, split by hairlines — sleek, not boxed. */
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  padding: 14px 16px;
+  transition: background 0.12s ease;
 }
-.setting-row > span:first-child { flex: 1 1 auto; min-width: 0; }
+.setting-row:last-child { border-bottom: none; }
+.setting-row:hover { background: rgba(255, 255, 255, 0.025); }
+.setting-row > span:first-child { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+.setting-row > span:first-child small { font-weight: 400; }
 /* Settings as a FULL PAGE (header + grouped sections), mirroring Shop/Profile. */
 .set-wrap {
   width: min(820px, 100%);
@@ -5402,11 +5408,15 @@ button.big {
   color: var(--accent);
 }
 .set-group {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
-  gap: 10px;
+  /* One clean section card; rows sit flush inside it, divided by hairlines. */
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
 }
-.set-group .set-row-wide { grid-column: 1 / -1; }
 .set-block .bug-form { display: flex; flex-direction: column; gap: 8px; }
 /* Lighter glass toggle — subtle by default, accent-TINTED glass when on (not a loud
    gold fill, so a screen full of them doesn't shout). */
