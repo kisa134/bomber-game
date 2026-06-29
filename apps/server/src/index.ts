@@ -38,6 +38,7 @@ import {
   tokenPriceSol,
 } from "./token.js";
 import type { SendFn } from "./player.js";
+import { WorldServer } from "./world/index.js";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const PROD = process.env.NODE_ENV === "production";
@@ -1575,7 +1576,7 @@ app.post("/daily/claim", (res, req) => {
       const j = JSON.parse(body || "{}");
       if (typeof j.session === "string" && j.session) wallet = verifySession(j.session);
     } catch {
-      /* ignore */
+      // ignore
     }
     if (!wallet) return sendJson(res, { error: "wallet_required" }, "401 Unauthorized");
     const r = await store.claimDaily(wallet);
@@ -2461,3 +2462,7 @@ app.listen(PORT, (listenSocket) => {
     process.exit(1);
   }
 });
+
+// ─── BomberMeme World Server ────────────────────────────────────────────────
+const worldServer = new WorldServer();
+void worldServer.start();
