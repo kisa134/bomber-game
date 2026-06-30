@@ -95,6 +95,22 @@ const ARENA_SCENE: Partial<Record<ArenaTheme, SceneLight[]>> = {
   ],
 };
 
+// Per-arena FLOOR physics: how each surface chars under blasts. `char` = the deep-burn
+// RGB (its hue — grass burns warm brown, metal soots cool grey, sand fuses tan, void goes
+// purple-black); `max` = how fully it can blacken (sand/swamp never go pure black).
+const FLOOR_PHYSICS: Record<ArenaTheme, { char: [number, number, number]; max: number }> = {
+  classic: { char: [26, 18, 9], max: 1.0 }, // grass -> charred warm brown-black
+  vault: { char: [22, 20, 18], max: 0.92 }, // marble soot grey
+  cyber: { char: [16, 18, 24], max: 0.95 }, // metal grate scorches cool grey-blue
+  void: { char: [16, 8, 24], max: 1.0 }, // void purple-black
+  desert: { char: [46, 33, 18], max: 0.66 }, // sand fuses + darkens, never fully black
+  industrial: { char: [17, 15, 15], max: 1.0 }, // sooty metal black
+  chappie: { char: [24, 18, 12], max: 0.9 }, // warm interior floor
+  meme: { char: [20, 15, 18], max: 0.95 }, // studio floor
+  degen: { char: [16, 16, 17], max: 1.0 }, // asphalt char
+  pepe: { char: [12, 20, 12], max: 0.84 }, // swamp green-black
+};
+
 // Themes whose SOFT block is scattered RANDOMLY from a set of variants (per block seed)
 // — e.g. Void's glowing crystals in different colours for a beautiful random field.
 const ARENA_SOFT_VARIANTS: Partial<Record<ArenaTheme, string[]>> = {
@@ -2375,28 +2391,31 @@ export class Renderer {
     // Denser, finer pixels + higher coverage + calmer brightness so the burn
     // reads as a smooth scorched patch instead of grainy salt-and-pepper noise.
     const pu = Math.max(1, Math.round(t / 16));
+    // Per-arena floor reaction: char hue + how fully it blackens (sand fuses tan, metal
+    // soots cool grey, grass chars warm brown, void goes purple-black, etc.).
+    const fp = FLOOR_PHYSICS[this.arenaTheme] ?? FLOOR_PHYSICS.classic;
+    const [cr, cg, cb] = fp.char;
     for (const [idx, lvl] of this.burn) {
       const ox = (idx % GRID_W) * t, oy = ((idx / GRID_W) | 0) * t;
       // One blast already leaves a clearly dark scorch; repeated blasts deepen it to
       // near-black charcoal (the epicentre, hit most, ends up darkest).
       const p = Math.min(1, lvl / 6); // NO base offset -> a single light blast is faint; ~6 blasts -> black
-      // WHOLE-TILE base burn: tint the ENTIRE cell as one mass first (reads as a burnt block,
-      // not loose pixels), darker the deeper the burn. Detail texture goes on top.
-      const baseDk = Math.round(24 - p * 19); // 24 (faint) -> 5 (near black)
-      g.globalAlpha = Math.min(0.85, 0.12 + p * 0.66); // faint at low burn -> opaque when black
-      g.fillStyle = `rgb(${baseDk},${Math.max(0, baseDk - 2)},${Math.max(0, baseDk - 4)})`;
+      // WHOLE-TILE base burn in the floor's char hue; a faint burn lifts brighter.
+      const lift = Math.round((1 - p) * 18);
+      g.globalAlpha = Math.min(0.85, 0.12 + p * 0.66) * fp.max; // faint -> opaque when black, capped per surface
+      g.fillStyle = `rgb(${cr + lift},${cg + lift},${cb + lift})`;
       g.fillRect(ox, oy, t, t);
       const cover = 0.3 + p * 0.65; // sparse when faint -> full when black
-      const a = 0.2 + p * 0.6;
-      const base = Math.round(18 - p * 13);
+      const a = (0.2 + p * 0.6) * fp.max;
+      const dlift = Math.round((1 - p) * 14);
       let h = (idx * 2654435761) >>> 0;
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
           h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
           if ((h & 1023) / 1023 > cover) continue;
-          const d = base + (h & 7); // scorch shade for this stage + grain
+          const grain = (h & 7) + dlift; // scorch grain for this stage in the floor's hue
           g.globalAlpha = a;
-          g.fillStyle = `rgb(${d},${Math.max(0, d - 2)},${Math.max(0, d - 4)})`;
+          g.fillStyle = `rgb(${cr + grain},${cg + grain},${cb + grain})`;
           g.fillRect(ox + gx, oy + gy, pu, pu);
         }
       }
