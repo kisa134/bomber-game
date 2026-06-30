@@ -11,16 +11,14 @@ import {
   WorldClientMsg,
   WorldServerMsg,
   type WorldInputState,
-  type WorldStateDelta,
   type EntitySnapshot,
-  type Vec2,
   type WorldWelcomeMsg,
   type PartyUpdateMsg,
   type PartyErrorMsg,
 } from "@bomberpump/shared";
 import { EntitySync } from "./EntitySync.js";
 import { CoopManager } from "./CoopManager.js";
-import { type PlayerSession, incrIpConns, decrIpConns } from "./PlayerSession.js";
+import { type PlayerSession, incrIpConns, decrIpConns, sessionsByIp } from "./PlayerSession.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

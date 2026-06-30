@@ -211,8 +211,7 @@ export class CoopManager {
   }
 
   /** Clean up empty / stale parties. */
-  gc(maxAgeMs: number = 300_000): number {
-    const now = Date.now();
+  gc(_maxAgeMs: number = 300_000): number {
     let removed = 0;
     for (const [id, party] of this.parties) {
       const allOffline = party.members.every((m) => !m.online);
