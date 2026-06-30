@@ -5213,13 +5213,46 @@ function openLobby(): void {
   showScreen("lobby");
   void loadTables();
 }
-// PLAY ONLINE lands straight on the full-screen lobby browser.
-document.getElementById("open-play")!.addEventListener("click", openLobby);
-// Game-mode picker: only Ranked Arena exists today — flash a "soon" note so
-// the control isn't a dead button.
-document.getElementById("hub-gamemode")?.addEventListener("click", () => {
-  setMenuStatus("🌐 Ranked Arena — more modes coming soon");
-  window.setTimeout(() => setMenuStatus(""), 2400);
+// --- Game-mode picker: Arena (online), Sandbox (soon), World (campaign) ------
+// The GAME MODE button opens a dropdown; the picked mode is remembered so PLAY
+// runs it. World launches the single-player campaign engine.
+type HubMode = "arena" | "sandbox" | "world";
+let selectedHubMode: HubMode = "arena";
+function launchCampaign(): void {
+  showScreen("campaign");
+  const container = document.getElementById("campaign-container");
+  if (container) startCampaign(container);
+}
+function runHubMode(mode: HubMode): void {
+  if (mode === "world") launchCampaign();
+  else if (mode === "sandbox") {
+    setMenuStatus("🏖️ Sandbox — coming soon");
+    window.setTimeout(() => setMenuStatus(""), 2400);
+  } else openLobby();
+}
+// PLAY ONLINE runs whichever mode is selected (defaults to Arena).
+document.getElementById("open-play")!.addEventListener("click", () => runHubMode(selectedHubMode));
+// GAME MODE button toggles the dropdown.
+const gmDropdown = document.getElementById("gamemode-dropdown");
+document.getElementById("hub-gamemode")?.addEventListener("click", (e) => {
+  e.stopPropagation();
+  gmDropdown?.classList.toggle("hidden");
+});
+document.addEventListener("click", () => gmDropdown?.classList.add("hidden"));
+// Picking a mode: remember it, relabel the button, and launch it right away.
+document.querySelectorAll<HTMLElement>(".gm-item").forEach((item) => {
+  item.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const mode = (item.dataset.mode as HubMode) || "arena";
+    selectedHubMode = mode;
+    const btn = document.getElementById("hub-gamemode");
+    if (btn) {
+      const label = mode === "world" ? "🌍 World" : mode === "sandbox" ? "🏖️ Sandbox" : "🌐 Ranked Arena";
+      btn.innerHTML = `${label} <span class="hb-caret">▾</span>`;
+    }
+    gmDropdown?.classList.add("hidden");
+    runHubMode(mode);
+  });
 });
 // Train vs bots opens the full-screen Training Setup screen.
 document.getElementById("open-practice")!.addEventListener("click", () => showScreen("training"));
