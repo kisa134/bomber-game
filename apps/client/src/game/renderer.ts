@@ -1150,6 +1150,38 @@ export class Renderer {
     if (this.bloodCanvas) this.ctx.drawImage(this.bloodCanvas, 0, 0, W, H);
   }
 
+  /** Wet sheen on FRESH blood: a warm specular glint that sits on the side of each pool
+   *  facing the arena key light (this.lx/ly) and fades as the pool dries/chars. Additive,
+   *  drawn under blocks/players. This is what ties the blood into the lighting system —
+   *  fresh blood looks wet and reflective, old blood goes matte. (Gore-gated, skipped on lowFx.) */
+  private drawBloodSheen(now: number): void {
+    if (!this.goreEnabled || this.lowFx || !this.bloodGround.size) return;
+    const ctx = this.ctx, t = this.tile;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    for (const [idx, lvl] of this.bloodGround) {
+      if (lvl < 4) continue; // only real pools glint, not faint smears
+      const bake = this.bakedBlood.get(idx) ?? 0;
+      if (bake > 3) continue; // dried / charred -> matte, no wet glint
+      const wet = Math.min(1, (lvl - 4) / 5) * (1 - bake / 4); // 0..1 freshness
+      if (wet < 0.06) continue;
+      const ccx = ((idx % GRID_W) + 0.5) * t, ccy = (((idx / GRID_W) | 0) + 0.5) * t;
+      const dx = this.lx - ccx, dy = this.ly - ccy, L = Math.hypot(dx, dy) || 1;
+      const gx = ccx + (dx / L) * t * 0.18, gy = ccy + (dy / L) * t * 0.18; // glint toward the light
+      const pulse = 0.85 + 0.15 * Math.sin(now / 600 + idx); // faint living-wetness shimmer
+      const prox = 1 / (1 + L / (t * 8)); // closer light -> harder glint
+      const a = wet * pulse * 0.3 * (0.6 + 0.4 * prox);
+      const r = t * 0.42;
+      const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, r);
+      grad.addColorStop(0, `rgba(255,180,170,${a.toFixed(3)})`); // warm wet highlight (not white)
+      grad.addColorStop(0.5, `rgba(120,40,40,${(a * 0.33).toFixed(3)})`);
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.fillRect(ccx - t * 0.5, ccy - t * 0.5, t * 2, t * 2);
+    }
+    ctx.restore();
+  }
+
   private buildBloodGround(W: number, H: number): void {
     this.bloodDirty = false;
     const cv = this.bloodCanvas && this.bloodCanvas.width === W && this.bloodCanvas.height === H
@@ -1929,6 +1961,7 @@ export class Renderer {
     if (this.scorchDirty || (this.burn.size && !this.scorch)) this.buildScorch(W, H);
     if (this.scorch) ctx.drawImage(this.scorch, 0, 0, W, H);
     this.drawBloodGround(W, H); // persistent blood mush + smeared footprints (over the floor)
+    this.drawBloodSheen(now); // wet specular glint on fresh pools, biased toward the arena key light
 
     if (view.grid) {
       // Detect soft-block breaks (SOFT -> not SOFT) to spray debris.
