@@ -308,6 +308,8 @@ export class Renderer {
   // Reaction emojis burst out of the player's cell and scatter (spammable).
   private emotePops: Array<{ x0: number; y0: number; vx: number; vy: number; e: string; born: number }> = [];
   private placeBombUntil = new Map<number, number>(); // transient place-bomb pose
+  private bombSeen = new Map<string, number>(); // bomb cell key -> first-seen time (drop-anim t0)
+  private bombLanded = new Set<string>(); // bomb cells whose landing puff already fired
   private hurtUntil = new Map<number, number>(); // transient hurt pose
   private victorId = -1; // winner shows the victory pose after a match ends
   private matchStartMs = 0; // when PLAYING began — drives the start-of-match glow
@@ -621,6 +623,8 @@ export class Renderer {
   onMatchStart(): void {
     this.matchStartMs = performance.now();
     this.placeBombUntil.clear();
+    this.bombSeen.clear();
+    this.bombLanded.clear();
     this.hurtUntil.clear();
     this.victorId = -1;
     this.burn.clear();
@@ -1987,50 +1991,101 @@ export class Renderer {
     this.drawDecals(now);
     this.drawPowerups(view, now); // after blocks so their shadows never cover relics
 
+    const bombKeys = new Set<string>();
+    const DROP_MS = 300, LAND_MS = 64;
     for (const b of view.bombs) {
+      const key = b.x + "_" + b.y;
+      bombKeys.add(key);
+      // First-seen time = drop-anim start. A bomb already ticking when first seen (late
+      // join / spectate) skips the toss so it doesn't replay mid-fuse.
+      let t0 = this.bombSeen.get(key);
+      if (t0 === undefined) {
+        const fresh = b.fuseLeftMs > BOMB_TIMER_MS - 260;
+        t0 = fresh ? now : now - DROP_MS - 1;
+        this.bombSeen.set(key, t0);
+        if (!fresh) this.bombLanded.add(key);
+      }
+      const age = now - t0;
+
+      // Drop juice: the bomb is tossed to the floor with a decaying bounce + squash/stretch.
+      // h = height 0..1 (1 = peak), modelled as |cos| under a (1-u)^2 decay so it bounces a
+      // couple of times and settles. Squash spikes at ground contact, stretch when airborne.
+      let h = 0, squash = 0, stretch = 0;
+      if (age < DROP_MS) {
+        const u = age / DROP_MS;
+        h = Math.abs(Math.cos(u * Math.PI * 2.5)) * (1 - u) * (1 - u);
+        const contact = Math.pow(Math.max(0, 1 - h / 0.18), 2); // ~1 near ground, 0 airborne
+        squash = contact * (1 - u) * 0.5;
+        stretch = Math.min(0.18, Math.max(0, h - 0.15) * 0.3);
+      }
+      // One-shot landing puff + a brief glow flash (the satisfying "thunk").
+      if (!this.bombLanded.has(key) && age >= LAND_MS) {
+        this.bombLanded.add(key);
+        if (!this.lowFx) for (let d = 0; d < 8; d++) {
+          const aa = Math.random() * Math.PI * 2, ss = 1.2 + Math.random() * 1.8;
+          this.push({
+            x: b.x + 0.5, y: b.y + 0.8, vx: Math.cos(aa) * ss, vy: -0.25 - Math.random() * 0.5,
+            life: 0.3 + Math.random() * 0.25, max: 0.55, drag: 0.9, size: t * (0.05 + Math.random() * 0.05),
+            color: "rgba(150,140,120,0.55)",
+          });
+        }
+      }
+      const landFlash = age >= LAND_MS && age < LAND_MS + 160 ? 1 - (age - LAND_MS) / 160 : 0;
+
       const pulse = 1 - (b.fuseLeftMs / BOMB_TIMER_MS) * 0.25;
       const cx = (b.x + 0.5) * t;
-      const cy = (b.y + 0.5) * t;
+      const cyGround = (b.y + 0.5) * t;
+      const lift = h * t * 0.78;
       const color = PLAYER_COLORS[this.colorOf(b.ownerId) % PLAYER_COLORS.length];
-      this.drawShadow(cx, cy + t * 0.3, t * 0.34, t * 0.14, 0.28);
-      // Owner-colored glow under the bomb (kept even on phones so you can tell
-      // whose bombs are whose), pulsing faster as the fuse burns down.
+      // Contact shadow shrinks + fades while the bomb is in the air.
+      this.drawShadow(cx, cyGround + t * 0.3, t * 0.34 * (1 - h * 0.5), t * 0.14 * (1 - h * 0.4), 0.28 * (1 - h * 0.35));
       const urgency = 1 - b.fuseLeftMs / BOMB_TIMER_MS; // 0 -> 1
       const beat = Math.sin(now / (90 - urgency * 55));
       {
-        const glow = t * (0.5 + urgency * 0.25) * (0.8 + 0.2 * beat);
-        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glow);
-        grad.addColorStop(0, color + (urgency > 0.7 ? "ee" : "cc"));
+        const glow = t * (0.5 + urgency * 0.25) * (0.8 + 0.2 * beat) * (1 + landFlash * 0.5);
+        const grad = ctx.createRadialGradient(cx, cyGround, 0, cx, cyGround, glow);
+        grad.addColorStop(0, color + (urgency > 0.7 || landFlash > 0.3 ? "ee" : "cc"));
         grad.addColorStop(1, color + "00");
         ctx.fillStyle = grad;
         ctx.beginPath();
-        ctx.arc(cx, cy, glow, 0, Math.PI * 2);
+        ctx.arc(cx, cyGround, glow, 0, Math.PI * 2);
         ctx.fill();
       }
+      const baseS = t * 0.9 * (0.95 + 0.05 * beat) * pulse;
+      const sx = baseS * (1 + squash - stretch);
+      const sy = baseS * (1 - squash + stretch);
+      const bottom = cyGround + baseS * 0.42 - lift; // anchor the bomb's BASE so squash plants it
       const img = this.sprite("bomb");
       if (img) {
-        const s = t * 0.9 * (0.95 + 0.05 * beat) * pulse;
-        ctx.drawImage(img, cx - s / 2, cy - s / 2, s, s);
+        ctx.drawImage(img, cx - sx / 2, bottom - sy, sx, sy);
       } else {
-        const r = t * 0.34 * (0.9 + 0.1 * beat) * pulse;
+        ctx.save();
+        ctx.translate(cx, bottom - sy / 2);
+        ctx.scale(sx / baseS, sy / baseS);
+        const r = baseS * 0.38;
         ctx.fillStyle = "#15151a";
         ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
         ctx.fill();
         ctx.strokeStyle = color;
         ctx.lineWidth = 2;
         ctx.stroke();
         ctx.fillStyle = "#ff7043";
-        ctx.fillRect(cx - 1.5, cy - r - t * 0.12, 3, t * 0.12);
+        ctx.fillRect(-1.5, -r - t * 0.12, 3, t * 0.12);
+        ctx.restore();
       }
-      // Fuse sparks above the bomb.
-      if (!this.lowFx && Math.random() < 0.5) {
+      // Fuse sparks above the bomb (only once it has landed).
+      if (!this.lowFx && age >= LAND_MS && Math.random() < 0.5) {
         this.push({
-          x: b.x + 0.5 + (Math.random() - 0.5) * 0.18, y: b.y + 0.18, vx: (Math.random() - 0.5) * 0.8, vy: -1 - Math.random(),
+          x: b.x + 0.5 + (Math.random() - 0.5) * 0.18, y: b.y + 0.18 - h * 0.78, vx: (Math.random() - 0.5) * 0.8, vy: -1 - Math.random(),
           life: 0.22 + Math.random() * 0.2, max: 0.42, drag: 0.9, size: t * 0.04,
           color: Math.random() < 0.5 ? "#fff2a8" : "#ffae3a",
         });
       }
+    }
+    // Prune drop-anim state for bombs that have exploded/vanished.
+    if (this.bombSeen.size > bombKeys.size) {
+      for (const k of this.bombSeen.keys()) if (!bombKeys.has(k)) { this.bombSeen.delete(k); this.bombLanded.delete(k); }
     }
 
     this.drawPlayers(view, myId, now);
