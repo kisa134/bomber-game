@@ -57,6 +57,44 @@ const ARENA_LIGHT: Record<ArenaTheme, { key: string; vig: string }> = {
   pepe: { key: "150,230,130", vig: "6,14,6" }, // swamp green
 };
 
+// Per-arena THEATRICAL light scenario: a few accent light sources that compose with the
+// day/night cycle. Each gives the arena a signature mood and most INTENSIFY at night
+// (`night` boost) — e.g. industrial furnace lamps glow up after dark like a real plant.
+// x,y = fraction of the viewport; r = reach (fraction of the diagonal); a = base alpha;
+// night = extra-multiplier at full dark; flick = 0..1 flicker depth; spd = flicker period ms.
+type SceneLight = { x: number; y: number; r: number; col: string; a: number; night: number; flick: number; spd: number };
+const ARENA_SCENE: Partial<Record<ArenaTheme, SceneLight[]>> = {
+  industrial: [
+    { x: 0.1, y: 0.18, r: 0.5, col: "255,140,40", a: 0.10, night: 1.9, flick: 0.28, spd: 140 }, // furnace lamp L
+    { x: 0.9, y: 0.24, r: 0.5, col: "255,116,28", a: 0.10, night: 1.9, flick: 0.34, spd: 175 }, // furnace lamp R
+  ],
+  cyber: [
+    { x: 0.5, y: -0.02, r: 0.9, col: "80,200,255", a: 0.07, night: 1.5, flick: 0.1, spd: 95 }, // top neon wash
+    { x: 0.18, y: 0.92, r: 0.46, col: "255,60,200", a: 0.06, night: 1.7, flick: 0.16, spd: 125 }, // pink underglow
+  ],
+  void: [
+    { x: 0.5, y: 0.5, r: 0.82, col: "150,80,255", a: 0.06, night: 1.6, flick: 0.22, spd: 210 }, // central rift pulse
+  ],
+  vault: [
+    { x: 0.5, y: 0.08, r: 0.72, col: "255,200,90", a: 0.08, night: 1.3, flick: 0.06, spd: 300 }, // gold chandelier
+  ],
+  meme: [
+    { x: 0.5, y: 0.06, r: 0.82, col: "120,230,255", a: 0.08, night: 1.7, flick: 0.05, spd: 80 }, // studio LED ring
+  ],
+  desert: [
+    { x: 0.86, y: 0.86, r: 0.3, col: "255,150,60", a: 0.05, night: 2.4, flick: 0.42, spd: 95 }, // distant fire (shows at night)
+  ],
+  chappie: [
+    { x: 0.14, y: 0.14, r: 0.42, col: "255,150,40", a: 0.08, night: 1.7, flick: 0.22, spd: 130 }, // warm work lamp
+  ],
+  degen: [
+    { x: 0.5, y: 0.04, r: 0.6, col: "255,200,120", a: 0.06, night: 1.6, flick: 0.12, spd: 110 }, // sodium streetlight
+  ],
+  pepe: [
+    { x: 0.32, y: 0.7, r: 0.5, col: "120,220,90", a: 0.06, night: 1.5, flick: 0.2, spd: 165 }, // swamp glow
+  ],
+};
+
 // Themes whose SOFT block is scattered RANDOMLY from a set of variants (per block seed)
 // — e.g. Void's glowing crystals in different colours for a beautiful random field.
 const ARENA_SOFT_VARIANTS: Partial<Record<ArenaTheme, string[]>> = {
@@ -225,6 +263,8 @@ export class Renderer {
   private battleScars = true; // Settings → Graphics: blast-side charring on hard blocks
   private todMode: "day" | "dusk" | "night" | "auto" = "day"; // Settings → Graphics: time-of-day mood
   private tod = 1; // smoothed brightness factor 1=day .. 0=deep night (eased toward target)
+  private tension = 0; // 0..1 end-of-match "light pressure" swell (sudden death), eased
+  private tensionTarget = 0;
   private bloomOn = false; // Settings → Graphics: soft bloom on bright areas
   private bloomCv: HTMLCanvasElement | null = null; // offscreen for the bloom blur pass
   private shadowsOn = true; // Settings → Graphics: directional cast shadows from the key light
@@ -463,6 +503,8 @@ export class Renderer {
   setBlockDepth(on: boolean): void { this.blockDepth = on; }
   setDynamicLight(on: boolean): void { this.dynLight = on; }
   setTimeOfDay(mode: "day" | "dusk" | "night" | "auto"): void { this.todMode = mode; }
+  /** End-game "light pressure": 0..1, swells in softly (Nolan-style build, never a bang). */
+  setTension(v: number): void { this.tensionTarget = Math.max(0, Math.min(1, v)); }
   setBattleScars(on: boolean): void { this.battleScars = on; }
   setBloom(on: boolean): void { this.bloomOn = on; }
   setShadows(on: boolean): void { this.shadowsOn = on; }
@@ -1984,6 +2026,7 @@ export class Renderer {
     ctx.restore();
 
     if (!this.lowFx) this.drawAmbient(W, H, now); // warm key light (slowly orbits if dynamic light on) + vignette
+    if (!this.lowFx) this.drawArenaLights(W, H, now); // per-arena theatrical accent lights (night-boosted)
     if (this.bloomOn && !this.lowFx) this.drawBloom(W, H); // soft glow bleed on bright areas
     this.drawColorGrade(W, H); // cozy-warm early -> mortuary-cold by sudden death
     this.drawDangerVignette(W, H, now); // pulsing red threat vignette at low HP / sudden death
@@ -2698,6 +2741,7 @@ export class Renderer {
       default: target = 1; // day
     }
     this.tod += (target - this.tod) * 0.04;
+    this.tension += (this.tensionTarget - this.tension) * 0.012; // slow swell — builds, never bangs
     const tod = this.tod;
     const dusk = 1 - tod;
 
@@ -2740,6 +2784,44 @@ export class Renderer {
     vig.addColorStop(1, `rgba(${L.vig},${vigA.toFixed(3)})`);
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, W, H);
+
+    // End-game "light pressure": the edges close in with a soft warm-dark swell + a faint
+    // breathing pulse — dread that builds, never a jump-scare flash.
+    if (this.tension > 0.01) {
+      const T = this.tension;
+      const breathe = 0.85 + 0.15 * Math.sin(now / 900);
+      const sw = ctx.createRadialGradient(W * 0.5, H * 0.5, Math.min(W, H) * (0.34 - 0.12 * T), W * 0.5, H * 0.5, Math.hypot(W, H) * 0.62);
+      sw.addColorStop(0, "rgba(0,0,0,0)");
+      sw.addColorStop(0.7, `rgba(40,2,2,${(0.18 * T * breathe).toFixed(3)})`);
+      sw.addColorStop(1, `rgba(8,0,0,${(0.5 * T * breathe).toFixed(3)})`);
+      ctx.fillStyle = sw;
+      ctx.fillRect(0, 0, W, H);
+    }
+  }
+
+  /** Per-arena theatrical accent lights (additive), composed with the day/night cycle —
+   *  most sources glow UP at night (factory lamps, neon, swamp glow). Cheap radial fills. */
+  private drawArenaLights(W: number, H: number, now: number): void {
+    const scene = ARENA_SCENE[this.arenaTheme];
+    if (!scene || this.lowFx || !this.atmoOn) return;
+    const night = 1 - this.tod;
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    const diag = Math.hypot(W, H);
+    for (let i = 0; i < scene.length; i++) {
+      const s = scene[i];
+      const flick = 1 - s.flick + s.flick * (0.5 + 0.5 * Math.sin(now / s.spd + i * 1.7));
+      const inten = s.a * (1 + s.night * night) * flick;
+      if (inten < 0.003) continue;
+      const lx = W * s.x, ly = H * s.y, r = diag * s.r * 0.5;
+      const g = ctx.createRadialGradient(lx, ly, 0, lx, ly, r);
+      g.addColorStop(0, `rgba(${s.col},${inten.toFixed(3)})`);
+      g.addColorStop(1, `rgba(${s.col},0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.restore();
   }
 
   /** Subtle wind: a soft light band drifting diagonally across the field. */
@@ -2891,8 +2973,9 @@ export class Renderer {
         if (glow && !bloodDrawn && dmg === 0) {
           const pulse = 0.5 + 0.5 * Math.sin(now / 700 + index * 0.7);
           const cx = px + t / 2, cy = py + t * 0.56, r = t * 0.44;
+          const nightUp = 1 + 0.9 * (1 - this.tod); // windows glow brighter after dark (night-shift plant)
           const g2 = this.ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-          g2.addColorStop(0, `rgba(${glow},${0.10 + 0.22 * pulse})`);
+          g2.addColorStop(0, `rgba(${glow},${((0.10 + 0.22 * pulse) * nightUp).toFixed(3)})`);
           g2.addColorStop(1, `rgba(${glow},0)`);
           this.ctx.save();
           this.ctx.globalCompositeOperation = "lighter";

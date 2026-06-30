@@ -1266,6 +1266,7 @@ function updateHud(): void {
   }
   assets.shepard(shep);
   assets.setMusicScale(1 - shep * 0.8); // fade music under the Shepard tone so they don't clash
+  renderer?.setTension(shep); // light pressure swells in lockstep with the Shepard tone
 
   // Colour temperature over the match: cozy-warm early (safety), draining to a
   // mortuary cold through sudden death (cortisol).
