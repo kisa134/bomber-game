@@ -41,6 +41,22 @@ const ARENA_GLOW: Partial<Record<ArenaTheme, string>> = {
   meme: "120,230,255", // the LED broadcast screen breathes
 };
 
+// Per-arena KEY-LIGHT mood: the colour of the single overhead light + the colour the
+// vignette tints the edges toward. Gives every arena a distinct atmosphere instead of
+// the same warm sun everywhere. "r,g,b". (Day/night cycle modulates these at runtime.)
+const ARENA_LIGHT: Record<ArenaTheme, { key: string; vig: string }> = {
+  classic: { key: "255,196,120", vig: "18,10,4" }, // warm afternoon sun
+  vault: { key: "255,206,110", vig: "20,14,2" }, // gold vault glow
+  cyber: { key: "120,210,255", vig: "4,8,22" }, // cold neon city
+  void: { key: "182,132,255", vig: "10,4,22" }, // purple void
+  desert: { key: "255,224,150", vig: "26,18,6" }, // harsh white-gold sun
+  industrial: { key: "255,168,80", vig: "16,8,2" }, // furnace orange
+  chappie: { key: "255,200,150", vig: "14,10,6" }, // warm interior
+  meme: { key: "120,235,170", vig: "4,16,8" }, // green broadcast room
+  degen: { key: "232,212,170", vig: "14,12,8" }, // sodium streetlight
+  pepe: { key: "150,230,130", vig: "6,14,6" }, // swamp green
+};
+
 // Themes whose SOFT block is scattered RANDOMLY from a set of variants (per block seed)
 // — e.g. Void's glowing crystals in different colours for a beautiful random field.
 const ARENA_SOFT_VARIANTS: Partial<Record<ArenaTheme, string[]>> = {
@@ -206,6 +222,8 @@ export class Renderer {
   private grassTexture = false; // Classic floor: false = animated procedural grass, true = static texture
   private blockDepth = true; // Settings → Graphics: 3D edge shading on blocks
   private dynLight = false; // Settings → Graphics: single slow-moving arena key light
+  private todMode: "day" | "dusk" | "night" | "auto" = "day"; // Settings → Graphics: time-of-day mood
+  private tod = 1; // smoothed brightness factor 1=day .. 0=deep night (eased toward target)
   private bloomOn = false; // Settings → Graphics: soft bloom on bright areas
   private bloomCv: HTMLCanvasElement | null = null; // offscreen for the bloom blur pass
   private shadowsOn = true; // Settings → Graphics: directional cast shadows from the key light
@@ -439,6 +457,7 @@ export class Renderer {
   setAtmosphere(on: boolean): void { this.atmoOn = on; }
   setBlockDepth(on: boolean): void { this.blockDepth = on; }
   setDynamicLight(on: boolean): void { this.dynLight = on; }
+  setTimeOfDay(mode: "day" | "dusk" | "night" | "auto"): void { this.todMode = mode; }
   setBloom(on: boolean): void { this.bloomOn = on; }
   setShadows(on: boolean): void { this.shadowsOn = on; }
   /** Particle density multiplier (Settings → Graphics). Powerful PCs can crank it up. */
@@ -2574,6 +2593,26 @@ export class Renderer {
    *  a gentle vignette — gives the flat top-down board a sense of depth / 3D. */
   private drawAmbient(W: number, H: number, now: number): void {
     const ctx = this.ctx;
+
+    // Time-of-day target brightness (1 = day .. 0 = deep night), eased for smooth switches.
+    let target: number;
+    switch (this.todMode) {
+      case "night": target = 0.16; break;
+      case "dusk": target = 0.48; break;
+      case "auto": target = 0.18 + 0.82 * (0.5 + 0.5 * Math.sin(now / 28000)); break;
+      default: target = 1; // day
+    }
+    this.tod += (target - this.tod) * 0.04;
+    const tod = this.tod;
+    const dusk = 1 - tod;
+
+    // Per-arena key-light colour, blended toward cool moonlight as night falls.
+    const L = ARENA_LIGHT[this.arenaTheme] ?? ARENA_LIGHT.classic;
+    const day = L.key.split(",").map(Number);
+    const kr = Math.round(120 + (day[0] - 120) * tod);
+    const kg = Math.round(150 + (day[1] - 150) * tod);
+    const kb = Math.round(210 + (day[2] - 210) * tod);
+
     // Key-light position: static near top-centre, or slowly orbiting when the
     // dynamic-light option is on (a single moving "sun" over the arena).
     let lx = W * 0.5, ly = H * 0.32;
@@ -2584,16 +2623,26 @@ export class Renderer {
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     const reach = Math.hypot(W, H) * (this.dynLight ? 0.52 : 0.62);
+    const keyA = (0.05 + 0.12 * tod) * (this.dynLight ? 1.25 : 1);
     const warm = ctx.createRadialGradient(lx, ly, 0, lx, ly, reach);
-    warm.addColorStop(0, this.dynLight ? "rgba(255,210,140,0.16)" : "rgba(255,196,120,0.11)");
-    warm.addColorStop(0.6, "rgba(255,170,90,0.045)");
-    warm.addColorStop(1, "rgba(255,150,70,0)");
+    warm.addColorStop(0, `rgba(${kr},${kg},${kb},${keyA.toFixed(3)})`);
+    warm.addColorStop(0.6, `rgba(${kr},${kg},${kb},${(keyA * 0.4).toFixed(3)})`);
+    warm.addColorStop(1, `rgba(${kr},${kg},${kb},0)`);
     ctx.fillStyle = warm;
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
+
+    // Night cool wash over the whole field (darkens + cools toward dusk/night).
+    if (dusk > 0.01) {
+      ctx.fillStyle = `rgba(28,40,78,${(0.24 * dusk).toFixed(3)})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // Arena-tinted vignette, heavier at night.
+    const vigA = 0.20 + 0.30 * dusk;
     const vig = ctx.createRadialGradient(W * 0.5, H * 0.5, Math.min(W, H) * 0.38, W * 0.5, H * 0.5, Math.hypot(W, H) * 0.6);
     vig.addColorStop(0, "rgba(0,0,0,0)");
-    vig.addColorStop(1, "rgba(18,10,4,0.30)");
+    vig.addColorStop(1, `rgba(${L.vig},${vigA.toFixed(3)})`);
     ctx.fillStyle = vig;
     ctx.fillRect(0, 0, W, H);
   }

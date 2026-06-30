@@ -695,6 +695,7 @@ function enterGame(): void {
     renderer.setBloom(settings.bloom);
     renderer.setShadows(settings.shadows);
     renderer.setParticleDensity(settings.particleDensity);
+    renderer.setTimeOfDay(settings.timeOfDay);
   }
   renderer.resize();
   renderer.remeasure(); // re-fit after the game screen has actually laid out
@@ -1543,6 +1544,7 @@ function applySettings(): void {
   renderer?.setBloom(settings.bloom);
   renderer?.setShadows(settings.shadows);
   renderer?.setParticleDensity(settings.particleDensity);
+  renderer?.setTimeOfDay(settings.timeOfDay);
   syncSettingsUI();
 }
 
@@ -1592,6 +1594,9 @@ function syncSettingsUI(): void {
   }
   document.getElementById("floor-anim")?.classList.toggle("active", !settings.grassTexture);
   document.getElementById("floor-tex")?.classList.toggle("active", settings.grassTexture);
+  for (const b of document.querySelectorAll<HTMLElement>("#tod-seg .seg-btn")) {
+    b.classList.toggle("active", b.dataset.tod === settings.timeOfDay);
+  }
 }
 
 function update<K extends keyof Settings>(key: K, value: Settings[K]): void {
@@ -1692,6 +1697,9 @@ function wireSettings(): void {
   document.getElementById("particle-density")?.addEventListener("input", (e) => update("particleDensity", Number((e.target as HTMLInputElement).value) / 100));
   document.getElementById("floor-anim")?.addEventListener("click", () => update("grassTexture", false));
   document.getElementById("floor-tex")?.addEventListener("click", () => update("grassTexture", true));
+  for (const b of document.querySelectorAll<HTMLElement>("#tod-seg .seg-btn")) {
+    b.addEventListener("click", () => update("timeOfDay", b.dataset.tod as Settings["timeOfDay"]));
+  }
   document.getElementById("set-lite")?.addEventListener("click", () => {
     settings.gfxPreset = "custom";
     update("liteGfx", !settings.liteGfx);

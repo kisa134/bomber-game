@@ -28,9 +28,11 @@ export interface Settings {
   bloom: boolean; // soft bloom / glow on bright areas
   shadows: boolean; // directional cast shadows from the key light
   particleDensity: number; // 0.5..2.5 — physics-particle count multiplier (crank up on strong PCs)
+  timeOfDay: TimeOfDay; // arena time-of-day mood: fixed day/dusk/night or a slow auto cycle
 }
 
 export type GfxPreset = "low" | "medium" | "high" | "custom";
+export type TimeOfDay = "day" | "dusk" | "night" | "auto";
 
 const KEY = "bp_settings";
 
@@ -56,6 +58,7 @@ const DEFAULTS: Settings = {
   bloom: false,
   shadows: true,
   particleDensity: 1,
+  timeOfDay: "day",
 };
 
 export function loadSettings(): Settings {
