@@ -1505,10 +1505,8 @@ function frame(): void {
 
 // --- settings -------------------------------------------------------------
 
-// Arena themes hidden from normal players (work-in-progress) — locked with a padlock
-// in settings; only admin wallets can pick them. A non-admin on a locked theme falls
-// back to Classic so they never get stuck on a hidden arena.
-const LOCKED_THEMES = new Set<ArenaTheme>(["meme", "chappie", "cyber", "desert"]);
+// All arena visual themes are free for everyone — no admin-only locks.
+const LOCKED_THEMES = new Set<ArenaTheme>([]);
 const themeLocked = (t: string): boolean => LOCKED_THEMES.has(t as ArenaTheme) && !shopIsAdmin;
 const effectiveTheme = (): ArenaTheme => (themeLocked(settings.arenaTheme) ? "classic" : settings.arenaTheme);
 

@@ -16,6 +16,7 @@ import {
   MovementSystem,
   Camera,
   CampaignRenderer,
+  preloadCampaignSprites,
   InputManager,
   ChunkManager,
   CHUNK_SIZE_TILES,
@@ -270,6 +271,11 @@ async function initWorld(heroId: string): Promise<void> {
   renderer.resize();
   state.renderer = renderer;
 
+  // Load the shared arena sprites (floors, hard/soft blocks, skins) so the world
+  // renders with real art instead of flat fallback rectangles.
+  updateLoadingText("Loading sprites…");
+  await preloadCampaignSprites();
+
   const input = new InputManager();
   input.attach();
   state.input = input;
@@ -333,32 +339,14 @@ function gameLoop(timestamp: number): void {
   const dt = dtMs / 1000;
   state.lastTime = timestamp;
 
+  // Feed the keyboard into the player's InputComponent; MovementSystem owns
+  // velocity, position integration, sprite direction + walk/idle animation.
   const inputState = input.getState();
-  const moveX = inputState.moveDir.x;
-  const moveY = inputState.moveDir.y;
-
-  const physics = player.getComponent<PhysicsComponent>("physics");
-  const sprite = player.getComponent<SpriteComponent>("sprite");
-
-  if (physics) {
-    if (moveX !== 0 || moveY !== 0) {
-      physics.velocity.x = moveX * physics.speed;
-      physics.velocity.y = moveY * physics.speed;
-      physics.isMoving = true;
-      if (sprite) {
-        let dir: CampaignDirection;
-        if (Math.abs(moveX) > Math.abs(moveY)) {
-          dir = moveX > 0 ? "right" : "left";
-        } else {
-          dir = moveY > 0 ? "down" : "up";
-        }
-        sprite.setDirection(dir);
-        sprite.animation = "walk";
-      }
-    } else {
-      physics.stop();
-      if (sprite) sprite.animation = "idle";
-    }
+  const inputComp = player.getComponent<InputComponent>("input");
+  if (inputComp) {
+    inputComp.moveDir.x = inputState.moveDir.x;
+    inputComp.moveDir.y = inputState.moveDir.y;
+    inputComp.isRunning = inputState.run;
   }
 
   const transform = player.getComponent<TransformComponent>("transform");
@@ -366,7 +354,8 @@ function gameLoop(timestamp: number): void {
     chunkManager.update(transform.position.x, transform.position.y);
   }
 
-  world.update(dt);
+  // MovementSystem expects dt in milliseconds (it converts to seconds internally).
+  world.update(dtMs);
   renderer.updateAnimations(dtMs);
   camera.update(dt);
 
