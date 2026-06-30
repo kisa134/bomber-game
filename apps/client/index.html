@@ -190,6 +190,9 @@
             <button id="hub-cards" class="rail-chip">
               <span class="rc-k"><span class="rc-em em-gold">🃏</span> Cards</span><span class="rc-v">collect · trade</span>
             </button>
+            <button id="hub-campaign" class="rail-chip">
+              <span class="rc-k"><span class="rc-em em-gold">🌍</span> Campaign</span><span class="rc-v">BomberMeme World</span>
+            </button>
           </div>
 
           <!-- CENTER: holographic fighter carousel -->
@@ -569,6 +572,12 @@
           </div>
           <ol id="leaderboard-body" class="lb-list"></ol>
         </div>
+      </section>
+
+      <!-- Campaign / BomberMeme World — startCampaign() builds its canvas + HUD inside the container -->
+      <section id="campaign" class="screen hidden">
+        <button id="campaign-exit" class="ghost lobby-icon campaign-exit" title="Exit to hub">←</button>
+        <div id="campaign-container" class="campaign-container"></div>
       </section>
 
       <!-- Season / Tournaments -->

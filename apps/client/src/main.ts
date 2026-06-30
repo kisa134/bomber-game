@@ -90,6 +90,7 @@ import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js
 import { initAdminMode } from "./ui/adminOverlay.js";
 import { openCardsHub } from "./ui/cardsHub.js";
 import { raritySealSVG, editionMarkHTML, tierFromRank } from "./cards/CardLayers.js";
+import { startCampaign, stopCampaign } from "./campaign/main.js";
 import { initAnalytics, captureAttribution, track, identifyWallet, initErrorTracking } from "./analytics.js";
 import { Predictor } from "./game/prediction.js";
 import { initTelegram, isTelegram, getStartParam } from "./platform/telegram.js";
@@ -4473,6 +4474,15 @@ function wireMenuLinks(): void {
     showScreen("menu");
   });
   document.getElementById("hub-cards")?.addEventListener("click", () => openCardsHub());
+  document.getElementById("hub-campaign")?.addEventListener("click", () => {
+    showScreen("campaign");
+    const container = document.getElementById("campaign-container");
+    if (container) startCampaign(container);
+  });
+  document.getElementById("campaign-exit")?.addEventListener("click", () => {
+    stopCampaign();
+    showScreen("menu");
+  });
   const doAddFriend = (): void => {
     const inp = document.getElementById("friend-add-name") as HTMLInputElement;
     const name = inp.value.trim();
