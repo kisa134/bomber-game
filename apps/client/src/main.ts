@@ -696,6 +696,7 @@ function enterGame(): void {
     renderer.setShadows(settings.shadows);
     renderer.setParticleDensity(settings.particleDensity);
     renderer.setTimeOfDay(settings.timeOfDay);
+    renderer.setBattleScars(settings.battleScars);
   }
   renderer.resize();
   renderer.remeasure(); // re-fit after the game screen has actually laid out
@@ -1545,6 +1546,7 @@ function applySettings(): void {
   renderer?.setShadows(settings.shadows);
   renderer?.setParticleDensity(settings.particleDensity);
   renderer?.setTimeOfDay(settings.timeOfDay);
+  renderer?.setBattleScars(settings.battleScars);
   syncSettingsUI();
 }
 
@@ -1565,7 +1567,7 @@ function syncSettingsUI(): void {
   if (lt) { lt.dataset.on = String(settings.liteGfx); lt.textContent = settings.liteGfx ? "On" : "Off"; }
   const am = document.getElementById("set-ambient") as HTMLButtonElement | null;
   if (am) { am.dataset.on = String(settings.ambientFx); am.textContent = settings.ambientFx ? "On" : "Off"; }
-  for (const [id, on] of [["set-depth", settings.blockDepth], ["set-dynlight", settings.dynamicLight], ["set-bloom", settings.bloom], ["set-shadows", settings.shadows]] as const) {
+  for (const [id, on] of [["set-depth", settings.blockDepth], ["set-dynlight", settings.dynamicLight], ["set-bloom", settings.bloom], ["set-shadows", settings.shadows], ["set-scars", settings.battleScars]] as const) {
     const el = document.getElementById(id) as HTMLButtonElement | null;
     if (el) { el.dataset.on = String(on); el.textContent = on ? "On" : "Off"; }
   }
@@ -1694,6 +1696,7 @@ function wireSettings(): void {
   document.getElementById("set-dynlight")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("dynamicLight", !settings.dynamicLight); });
   document.getElementById("set-bloom")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("bloom", !settings.bloom); });
   document.getElementById("set-shadows")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("shadows", !settings.shadows); });
+  document.getElementById("set-scars")?.addEventListener("click", () => { settings.gfxPreset = "custom"; update("battleScars", !settings.battleScars); });
   document.getElementById("particle-density")?.addEventListener("input", (e) => update("particleDensity", Number((e.target as HTMLInputElement).value) / 100));
   document.getElementById("floor-anim")?.addEventListener("click", () => update("grassTexture", false));
   document.getElementById("floor-tex")?.addEventListener("click", () => update("grassTexture", true));

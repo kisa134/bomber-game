@@ -29,6 +29,7 @@ export interface Settings {
   shadows: boolean; // directional cast shadows from the key light
   particleDensity: number; // 0.5..2.5 — physics-particle count multiplier (crank up on strong PCs)
   timeOfDay: TimeOfDay; // arena time-of-day mood: fixed day/dusk/night or a slow auto cycle
+  battleScars: boolean; // hard blocks char from the blast-hit sides as they take damage
 }
 
 export type GfxPreset = "low" | "medium" | "high" | "custom";
@@ -59,6 +60,7 @@ const DEFAULTS: Settings = {
   shadows: true,
   particleDensity: 1,
   timeOfDay: "day",
+  battleScars: true,
 };
 
 export function loadSettings(): Settings {

@@ -222,6 +222,7 @@ export class Renderer {
   private grassTexture = false; // Classic floor: false = animated procedural grass, true = static texture
   private blockDepth = true; // Settings → Graphics: 3D edge shading on blocks
   private dynLight = false; // Settings → Graphics: single slow-moving arena key light
+  private battleScars = true; // Settings → Graphics: blast-side charring on hard blocks
   private todMode: "day" | "dusk" | "night" | "auto" = "day"; // Settings → Graphics: time-of-day mood
   private tod = 1; // smoothed brightness factor 1=day .. 0=deep night (eased toward target)
   private bloomOn = false; // Settings → Graphics: soft bloom on bright areas
@@ -263,6 +264,7 @@ export class Renderer {
   private prevGrid: Uint8Array | null = null;
   private burn = new Map<number, number>(); // cell index -> scorch intensity (accumulates with blasts)
   private hardDmg = new Map<number, number>(); // hard-block cell index -> crack level 0..3
+  private hardDmgSide = new Map<number, number>(); // cell index -> blast-hit side bitmask (1=L 2=R 4=up 8=down)
   // Blood splattered on a block: which faces were hit (N/S/E/W bitmask), a stable
   // seed for the pattern, and an intensity count. Top face = splatter, front = drips.
   private bloodBlocks = new Map<number, { dirs: number; seed: number; n: number; born: number; nextDrip: number }>();
@@ -458,6 +460,7 @@ export class Renderer {
   setBlockDepth(on: boolean): void { this.blockDepth = on; }
   setDynamicLight(on: boolean): void { this.dynLight = on; }
   setTimeOfDay(mode: "day" | "dusk" | "night" | "auto"): void { this.todMode = mode; }
+  setBattleScars(on: boolean): void { this.battleScars = on; }
   setBloom(on: boolean): void { this.bloomOn = on; }
   setShadows(on: boolean): void { this.shadowsOn = on; }
   /** Particle density multiplier (Settings → Graphics). Powerful PCs can crank it up. */
@@ -561,6 +564,7 @@ export class Renderer {
     this.victorId = -1;
     this.burn.clear();
     this.hardDmg.clear();
+    this.hardDmgSide.clear();
     this.bloodBlocks.clear();
     this.bloodGround.clear();
     this.bakedBlood.clear();
@@ -839,6 +843,10 @@ export class Renderer {
           if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
           const ni = ny * GRID_W + nx;
           if (this.prevGrid[ni] === TileType.HARD) {
+            // Remember which SIDE the blast struck (block faces the blast at -[dx,dy]),
+            // so the char creeps in from the hit edges, never the roof.
+            const sideBit = dx === 1 ? 1 : dx === -1 ? 2 : dy === 1 ? 4 : 8;
+            this.hardDmgSide.set(ni, (this.hardDmgSide.get(ni) ?? 0) | sideBit);
             const cur = this.hardDmg.get(ni) ?? 0;
             // Per-block toughness: each block plateaus at a seeded max stage (3..6),
             // so the field stays visually VARIED late game instead of every block
@@ -2323,30 +2331,30 @@ export class Renderer {
 
   /** Procedural crack overlay for a damaged hard block (level 1..3): jagged dark
    *  pixel cracks plus a few knocked-off chips at higher damage. */
-  private drawCracks(px: number, py: number, index: number): void {
+  /** Battle scars: blast damage chars the hard block GRADUALLY (like shadow) creeping
+   *  IN from the SIDES the blast actually struck. The roof (top face) is never blackened
+   *  — a blast hits the walls, not the ceiling — so only a thin band just under the roof
+   *  darkens from an overhead hit. Replaces the old pixel cracks for a premium look. */
+  private drawSideScorch(px: number, py: number, index: number): void {
     const lvl = this.hardDmg.get(index);
     if (!lvl) return;
     const ctx = this.ctx, t = this.tile;
-    const pu = Math.max(2, Math.round(t / 12));
-    let h = (index * 2654435761) >>> 0;
-    const rnd = (): number => {
-      h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0;
-      return (h & 0xffff) / 0xffff;
+    const sides = this.hardDmgSide.get(index) ?? 15; // default: all sides if unknown
+    const roof = t * 0.26; // top band = block roof, stays clean
+    const fy = py + roof, fh = t - roof; // front-face region
+    const a = Math.min(0.66, 0.22 + 0.15 * lvl); // deeper char as damage stacks
+    const reach = t * 0.58; // how far the char creeps inward
+    const char = (a2: number): string => `rgba(9,7,6,${a2.toFixed(3)})`;
+    ctx.save();
+    const band = (g: CanvasGradient, x: number, y: number, w: number, hh: number, a2: number): void => {
+      g.addColorStop(0, char(a2)); g.addColorStop(1, "rgba(9,7,6,0)");
+      ctx.fillStyle = g; ctx.fillRect(x, y, w, hh);
     };
-    ctx.fillStyle = "rgba(14,11,9,0.85)";
-    for (let c = 0; c < lvl + 1; c++) {
-      let x = px + rnd() * t, y = py + rnd() * t;
-      const steps = 3 + Math.floor(rnd() * 3);
-      for (let s = 0; s < steps; s++) {
-        ctx.fillRect(Math.round(x / pu) * pu, Math.round(y / pu) * pu, pu, pu);
-        x = Math.max(px, Math.min(px + t - pu, x + (rnd() - 0.5) * t * 0.45));
-        y = Math.max(py, Math.min(py + t - pu, y + (rnd() - 0.5) * t * 0.45));
-      }
-    }
-    if (lvl >= 2) {
-      ctx.fillStyle = "rgba(190,180,168,0.45)"; // chipped highlights
-      for (let k = 0; k < lvl; k++) ctx.fillRect(px + rnd() * (t - pu), py + rnd() * (t - pu), pu, pu);
-    }
+    if (sides & 1) band(ctx.createLinearGradient(px, 0, px + reach, 0), px, fy, reach, fh, a); // left wall
+    if (sides & 2) band(ctx.createLinearGradient(px + t, 0, px + t - reach, 0), px + t - reach, fy, reach, fh, a); // right wall
+    if (sides & 8) band(ctx.createLinearGradient(0, py + t, 0, py + t - reach), px, py + t - reach, t, reach, a); // front (below) wall
+    if (sides & 4) band(ctx.createLinearGradient(0, fy, 0, fy + roof * 1.3), px, fy, t, roof * 1.3, a * 0.55); // overhead hit: only a thin band under the roof
+    ctx.restore();
   }
 
   /** Fast crate-shatter: the soft sprite splits into four quarters that fly to
@@ -2786,7 +2794,7 @@ export class Renderer {
         if (!bloodDrawn) {
           if (!(dmg > 0 && this.drawThemedTile(`hard_dmg${dmg}_v${variant}`, px, py, flip))) {
             this.drawTileSprite("hard", px, py) || this.drawHard(px, py);
-            if (dmg > 0) this.drawCracks(px, py, index);
+            if (dmg > 0 && this.battleScars) this.drawSideScorch(px, py, index);
           }
         }
         if (this.blockDepth && !this.lowFx) this.drawBlockDepth(px, py);
