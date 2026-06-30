@@ -276,7 +276,9 @@ export class Renderer {
   private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
   private chips: Array<{ x: number; y: number; seed: number }> = []; // wood splinters from broken crates (x,y in cells)
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
-  private playerGore = new Map<number, number>(); // player id -> 0..1 persistent blood/singe stain on the body
+  private playerGore = new Map<number, { blood: number; burn: number }>(); // per player: persistent 0..1 leg-blood + body-char
+  private skinTint: HTMLCanvasElement | null = null; // reused offscreen for masking blood/burn to the sprite silhouette
+  private lastSmoke = new Map<number, number>(); // player id -> last char-smoke emit time
   private lastCell = new Map<number, number>(); // player id -> last grid cell (footprint stepping)
   // Foot-shaped blood prints left while walking with bloody feet (x,y in cells; dx,dy = facing).
   private footprints: Array<{ x: number; y: number; dx: number; dy: number; a: number; seed: number }> = [];
@@ -614,8 +616,11 @@ export class Renderer {
   }
   setHurt(playerId: number): void {
     this.hurtUntil.set(playerId, performance.now() + 450);
-    // Taking a blast singes + bloodies the body a little more each time (persists).
-    this.playerGore.set(playerId, Math.min(1, (this.playerGore.get(playerId) ?? 0) + 0.22));
+    // Taking a blast chars the body (and adds a little blood) — accumulates, persists.
+    const g = this.playerGore.get(playerId) ?? { blood: 0, burn: 0 };
+    g.burn = Math.min(1, g.burn + 0.28);
+    g.blood = Math.min(1, g.blood + 0.1);
+    this.playerGore.set(playerId, g);
   }
   setVictory(playerId: number): void {
     this.victorId = playerId;
@@ -2161,7 +2166,9 @@ export class Renderer {
           if (prevCi !== undefined) { mdx = (ci % GRID_W) - (prevCi % GRID_W); mdy = ((ci / GRID_W) | 0) - ((prevCi / GRID_W) | 0); }
           if ((this.bloodGround.get(ci) ?? 0) >= 6) { // stepped in the GORE pile -> drag it out ~5 tiles
             this.bloodyFeet.set(p.id, 6);
-            this.playerGore.set(p.id, Math.min(1, (this.playerGore.get(p.id) ?? 0) + 0.4)); // wades through gore -> body stains, and STAYS bloodied
+            const g = this.playerGore.get(p.id) ?? { blood: 0, burn: 0 };
+            g.blood = Math.min(1, g.blood + 0.5); // wades through gore -> legs stain, and STAY bloodied
+            this.playerGore.set(p.id, g);
           }
           const feet = this.bloodyFeet.get(p.id) ?? 0;
           if (feet > 0 && (mdx || mdy)) {
@@ -2209,35 +2216,30 @@ export class Renderer {
 
       if (img) {
         const s = t * 0.92 * scale;
+        // Blood on legs + blast char on the body. Masked to the sprite silhouette by
+        // tinting in an OFFSCREEN buffer (source-atop there is isolated to the sprite's
+        // own alpha), then blitting — so it never bleeds onto the floor/scene.
+        let drawSrc: CanvasImageSource = img;
+        if (this.goreEnabled && !this.lowFx && p.alive) {
+          const g = this.playerGore.get(p.id) ?? { blood: 0, burn: 0 };
+          const feet = (this.bloodyFeet.get(p.id) ?? 0) / 6;
+          const blood = Math.min(1, Math.max(g.blood, feet * 0.75));
+          const burn = g.burn;
+          if (blood > 0.03 || burn > 0.03) drawSrc = this.tintSkin(img, blood, burn, p.id, now);
+          if (burn > 0.5 && now - (this.lastSmoke.get(p.id) ?? 0) > 150) { // charred body wisps smoke
+            this.lastSmoke.set(p.id, now);
+            this.push({
+              x: rp.x + 0.5 + (Math.random() - 0.5) * 0.3, y: rp.y + 0.25, vx: (Math.random() - 0.5) * 0.5, vy: -1.2 - Math.random(),
+              life: 0.7 + Math.random() * 0.4, max: 1.1, drag: 0.95, gravity: -1.4,
+              size: t * (0.06 + Math.random() * 0.05), color: "rgba(58,52,48,0.45)",
+            });
+          }
+        }
         ctx.save();
         ctx.translate(cx, cy);
         if (!p.alive) ctx.rotate((1 - scale) * 1.2);
         if (flip) ctx.scale(-1, 1);
-        ctx.drawImage(img, -s / 2, -s / 2, s, s);
-        // Blood/singe on the body: painted with source-atop so it tints ONLY the sprite's
-        // own pixels (never a box around it). Legs get the most (waded through gore); a
-        // fresh blast adds a brief dark singe over the whole body.
-        if (this.goreEnabled && !this.lowFx && p.alive) {
-          const gore = this.playerGore.get(p.id) ?? 0;
-          const feet = (this.bloodyFeet.get(p.id) ?? 0) / 6;
-          const legBlood = Math.min(0.7, Math.max(gore, feet) * 0.7);
-          if (legBlood > 0.02) {
-            ctx.globalCompositeOperation = "source-atop";
-            const lg = ctx.createLinearGradient(0, s / 2, 0, -s * 0.05);
-            lg.addColorStop(0, `rgba(112,8,8,${legBlood.toFixed(3)})`);
-            lg.addColorStop(0.5, `rgba(120,10,10,${(legBlood * 0.4).toFixed(3)})`);
-            lg.addColorStop(1, "rgba(120,10,10,0)");
-            ctx.fillStyle = lg;
-            ctx.fillRect(-s / 2, 0, s, s / 2);
-          }
-          const hurt = (this.hurtUntil.get(p.id) ?? 0) - now;
-          if (hurt > 0) { // fresh blast -> smoky char flash over the whole body
-            ctx.globalCompositeOperation = "source-atop";
-            ctx.fillStyle = `rgba(22,16,12,${(0.4 * (hurt / 450)).toFixed(3)})`;
-            ctx.fillRect(-s / 2, -s / 2, s, s);
-          }
-          ctx.globalCompositeOperation = "source-over";
-        }
+        ctx.drawImage(drawSrc, -s / 2, -s / 2, s, s);
         ctx.restore();
       } else {
         ctx.fillStyle = PLAYER_COLORS[this.colorOf(p.id) % PLAYER_COLORS.length];
@@ -2386,6 +2388,60 @@ export class Renderer {
     if (sides & 8) band(ctx.createLinearGradient(0, py + t, 0, py + t - reach), px, py + t - reach, t, reach, a); // front (below) wall
     if (sides & 4) band(ctx.createLinearGradient(0, fy, 0, fy + roof * 1.3), px, fy, t, roof * 1.3, a * 0.55); // overhead hit: only a thin band under the roof
     ctx.restore();
+  }
+
+  /** Return the player sprite tinted with leg-blood + blast-char, masked to the sprite's
+   *  own silhouette. We tint in a REUSED offscreen buffer where `source-atop` is isolated
+   *  to the sprite alpha (the previous in-place version bled onto the whole scene). Layers:
+   *  char darkens the body (heaviest up top) + stable soot blotches; blood pools on the
+   *  lower body with drip streaks + a wet sheen biased toward the arena key light. */
+  private tintSkin(img: HTMLImageElement, blood: number, burn: number, id: number, now: number): CanvasImageSource {
+    const iw = img.width || 64, ih = img.height || 64;
+    const c = (this.skinTint ??= document.createElement("canvas"));
+    if (c.width !== iw || c.height !== ih) { c.width = iw; c.height = ih; }
+    const g = c.getContext("2d");
+    if (!g) return img;
+    g.clearRect(0, 0, iw, ih);
+    g.drawImage(img, 0, 0, iw, ih);
+    g.save();
+    g.globalCompositeOperation = "source-atop"; // everything below tints ONLY the sprite pixels
+    if (burn > 0.03) {
+      const bA = Math.min(0.9, 0.32 + burn * 0.66);
+      const bg = g.createLinearGradient(0, 0, 0, ih);
+      bg.addColorStop(0, `rgba(14,10,9,${bA.toFixed(3)})`);
+      bg.addColorStop(0.5, `rgba(20,14,11,${(bA * 0.72).toFixed(3)})`);
+      bg.addColorStop(1, `rgba(28,17,12,${(bA * 0.5).toFixed(3)})`);
+      g.fillStyle = bg; g.fillRect(0, 0, iw, ih);
+      let h = ((id + 1) * 2654435761) >>> 0;
+      const rnd = (): number => { h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0; return (h & 0xffff) / 0xffff; };
+      const blots = Math.round(burn * 6);
+      g.fillStyle = `rgba(7,5,4,${Math.min(0.85, 0.42 + burn * 0.45).toFixed(3)})`;
+      for (let i = 0; i < blots; i++) {
+        g.beginPath(); g.arc(rnd() * iw, rnd() * ih * 0.72, ih * (0.05 + rnd() * 0.07), 0, Math.PI * 2); g.fill();
+      }
+    }
+    if (blood > 0.03) {
+      const a = Math.min(0.92, 0.46 + blood * 0.5);
+      const top = ih * 0.45;
+      const lg = g.createLinearGradient(0, ih, 0, top);
+      lg.addColorStop(0, `rgba(90,3,3,${a.toFixed(3)})`);
+      lg.addColorStop(0.45, `rgba(120,8,8,${(a * 0.6).toFixed(3)})`);
+      lg.addColorStop(1, "rgba(120,8,8,0)");
+      g.fillStyle = lg; g.fillRect(0, top, iw, ih - top);
+      let h2 = ((id + 7) * 2246822519) >>> 0;
+      const rnd2 = (): number => { h2 = (h2 ^ (h2 << 13)) >>> 0; h2 = (h2 ^ (h2 >>> 17)) >>> 0; h2 = (h2 ^ (h2 << 5)) >>> 0; return (h2 & 0xffff) / 0xffff; };
+      const drips = 2 + Math.round(blood * 3);
+      g.fillStyle = `rgba(78,2,2,${(a * 0.8).toFixed(3)})`;
+      for (let i = 0; i < drips; i++) {
+        g.fillRect(rnd2() * iw, top + rnd2() * ih * 0.2, iw * (0.035 + rnd2() * 0.05), ih * (0.12 + rnd2() * 0.24));
+      }
+      // wet sheen: a soft highlight on the side that faces the arena key light
+      const lightLeft = this.lx < (GRID_W * this.tile) * 0.5;
+      g.fillStyle = `rgba(255,140,140,${(blood * 0.26).toFixed(3)})`;
+      g.beginPath(); g.ellipse(lightLeft ? iw * 0.34 : iw * 0.66, ih * 0.82, iw * 0.13, ih * 0.05, 0, 0, Math.PI * 2); g.fill();
+    }
+    g.restore();
+    return c;
   }
 
   /** Fast crate-shatter: the soft sprite splits into four quarters that fly to
