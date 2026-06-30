@@ -276,6 +276,7 @@ export class Renderer {
   private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
   private chips: Array<{ x: number; y: number; seed: number }> = []; // wood splinters from broken crates (x,y in cells)
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
+  private playerGore = new Map<number, number>(); // player id -> 0..1 persistent blood/singe stain on the body
   private lastCell = new Map<number, number>(); // player id -> last grid cell (footprint stepping)
   // Foot-shaped blood prints left while walking with bloody feet (x,y in cells; dx,dy = facing).
   private footprints: Array<{ x: number; y: number; dx: number; dy: number; a: number; seed: number }> = [];
@@ -571,6 +572,7 @@ export class Renderer {
     this.bloodCanvas = null;
     this.bloodDirty = false;
     this.bloodyFeet.clear();
+    this.playerGore.clear();
     this.lastCell.clear();
     this.footprints = [];
     this.bones = [];
@@ -612,6 +614,8 @@ export class Renderer {
   }
   setHurt(playerId: number): void {
     this.hurtUntil.set(playerId, performance.now() + 450);
+    // Taking a blast singes + bloodies the body a little more each time (persists).
+    this.playerGore.set(playerId, Math.min(1, (this.playerGore.get(playerId) ?? 0) + 0.22));
   }
   setVictory(playerId: number): void {
     this.victorId = playerId;
@@ -2155,7 +2159,10 @@ export class Renderer {
           this.kickGibs(ci, rp.x, rp.y); // boot any bones/meat on this cell aside
           let mdx = 0, mdy = 0; // travel direction (from the previous cell)
           if (prevCi !== undefined) { mdx = (ci % GRID_W) - (prevCi % GRID_W); mdy = ((ci / GRID_W) | 0) - ((prevCi / GRID_W) | 0); }
-          if ((this.bloodGround.get(ci) ?? 0) >= 6) this.bloodyFeet.set(p.id, 6); // stepped in the GORE pile -> drag it out ~5 tiles
+          if ((this.bloodGround.get(ci) ?? 0) >= 6) { // stepped in the GORE pile -> drag it out ~5 tiles
+            this.bloodyFeet.set(p.id, 6);
+            this.playerGore.set(p.id, Math.min(1, (this.playerGore.get(p.id) ?? 0) + 0.4)); // wades through gore -> body stains, and STAYS bloodied
+          }
           const feet = this.bloodyFeet.get(p.id) ?? 0;
           if (feet > 0 && (mdx || mdy)) {
             this.bloodyFeet.set(p.id, feet - 1);
@@ -2207,6 +2214,30 @@ export class Renderer {
         if (!p.alive) ctx.rotate((1 - scale) * 1.2);
         if (flip) ctx.scale(-1, 1);
         ctx.drawImage(img, -s / 2, -s / 2, s, s);
+        // Blood/singe on the body: painted with source-atop so it tints ONLY the sprite's
+        // own pixels (never a box around it). Legs get the most (waded through gore); a
+        // fresh blast adds a brief dark singe over the whole body.
+        if (this.goreEnabled && !this.lowFx && p.alive) {
+          const gore = this.playerGore.get(p.id) ?? 0;
+          const feet = (this.bloodyFeet.get(p.id) ?? 0) / 6;
+          const legBlood = Math.min(0.7, Math.max(gore, feet) * 0.7);
+          if (legBlood > 0.02) {
+            ctx.globalCompositeOperation = "source-atop";
+            const lg = ctx.createLinearGradient(0, s / 2, 0, -s * 0.05);
+            lg.addColorStop(0, `rgba(112,8,8,${legBlood.toFixed(3)})`);
+            lg.addColorStop(0.5, `rgba(120,10,10,${(legBlood * 0.4).toFixed(3)})`);
+            lg.addColorStop(1, "rgba(120,10,10,0)");
+            ctx.fillStyle = lg;
+            ctx.fillRect(-s / 2, 0, s, s / 2);
+          }
+          const hurt = (this.hurtUntil.get(p.id) ?? 0) - now;
+          if (hurt > 0) { // fresh blast -> smoky char flash over the whole body
+            ctx.globalCompositeOperation = "source-atop";
+            ctx.fillStyle = `rgba(22,16,12,${(0.4 * (hurt / 450)).toFixed(3)})`;
+            ctx.fillRect(-s / 2, -s / 2, s, s);
+          }
+          ctx.globalCompositeOperation = "source-over";
+        }
         ctx.restore();
       } else {
         ctx.fillStyle = PLAYER_COLORS[this.colorOf(p.id) % PLAYER_COLORS.length];
