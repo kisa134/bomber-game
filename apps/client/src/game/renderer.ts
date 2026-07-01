@@ -1217,7 +1217,8 @@ export class Renderer {
     const phase = (now / 130) | 0;
     const wet: number[] = [];
     for (const [idx, lvl] of this.bloodGround) if (lvl > SETTLE && (this.bakedBlood.get(idx) ?? 0) < 4) wet.push(idx);
-    const dirs: Array<[number, number, number]> = [[0, 1, 1.6], [-1, 0, 1.0], [1, 0, 1.0], [0, -1, 0.4]]; // down-biased
+    // Flat floor seen top-down -> blood spreads EVENLY in every direction (no screen-down bias).
+    const dirs: Array<[number, number, number]> = [[0, 1, 1.0], [0, -1, 1.0], [-1, 0, 1.0], [1, 0, 1.0]];
     for (const idx of wet) {
       const lvl = this.bloodGround.get(idx) ?? 0;
       if (lvl <= SETTLE) continue;
@@ -1332,12 +1333,16 @@ export class Renderer {
       const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh .. 12 charcoal (12 smooth stages)
       const baked = bakeLvl > 0;
       const bp = Math.min(1, bakeLvl / 12); // 0..1 char progress
+      // C2 — blood x scorch: a charred crust barely soaks blood, so fresh blood on burnt
+      // ground POOLS wetter/brighter + spreads a touch more (the unified ground interaction).
+      const scorched = Math.min(1, (this.burn.get(idx) ?? 0) / 4);
+      const absorbEff = surf.absorb * (1 - scorched * 0.7);
       // Drying speed depends on the surface (sand dry<1 fast, metal dry>1 slow); an absorbent
       // floor also makes blood look pre-soaked (browner) from the start.
       const dryAge = (nowB - (this.bloodBorn.get(idx) ?? nowB)) / (40000 * surf.dry);
-      const dry = Math.min(1, Math.max(dryAge, surf.absorb * 0.3)); // soak floors never look fully fresh-wet
-      // Absorbent floors soak blood into a tighter matte stain (less coverage spread).
-      const cover = (lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14)) * (1 - surf.absorb * 0.28);
+      const dry = Math.min(1, Math.max(dryAge, absorbEff * 0.3)); // soak floors never look fully fresh-wet
+      // Absorbent floors soak blood into a tighter matte stain; charred crust lets it pool.
+      const cover = (lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14)) * (1 - absorbEff * 0.28) * (1 + scorched * 0.15);
       g.globalAlpha = Math.min(0.95, (baked ? 0.52 + bp * 0.38 : 0.5) + lvl * 0.07);
       const NB = pu * 4; // coarse noise block -> irregular outline/holes
       for (let gy = 0; gy < t; gy += pu) {
