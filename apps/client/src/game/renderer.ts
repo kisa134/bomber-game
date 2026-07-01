@@ -346,6 +346,7 @@ export class Renderer {
   private bloodDryTick = 0; // last time we forced a rebuild so drying re-renders
   private lastBloodBuild = 0; // throttle the heavy blood/gore cache rebuild (kill-storm anti-stutter)
   private lastScorchBuild = 0; // throttle the heavy scorch cache rebuild (multi-blast anti-stutter)
+  private bloodSpreadTick = 0; // last fluid-spread tick (High only)
   private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
   private chips: Array<{ x: number; y: number; seed: number }> = []; // wood splinters from broken crates (x,y in cells)
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
@@ -1203,11 +1204,49 @@ export class Renderer {
       this.coins.length > 0 || this.bile.length > 0 || this.chips.length > 0 || this.footprints.length > 0;
   }
 
+  /** C1 — fluid blood spread: dense fresh pools physically CREEP to lower/adjacent cells,
+   *  driven by the surface material (metal spreads, sand barely) + a down-screen gravity
+   *  bias + noise for ragged fingers. Conservative (source −1, neighbour +1), respects the
+   *  110-cell cap, spread blood inherits its drying age. High-only, ~8Hz. */
+  private spreadBlood(now: number): void {
+    const surf = FLOOR_PHYSICS[this.arenaTheme] ?? FLOOR_PHYSICS.classic;
+    const spreadF = 1 - surf.absorb; // metal high, sand ~0
+    if (spreadF < 0.15) return; // absorbent floor -> blood soaks in place, doesn't flow
+    const SETTLE = 4; // only dense pools creep; thin specks stay
+    const grid = this.prevGrid;
+    const phase = (now / 130) | 0;
+    const wet: number[] = [];
+    for (const [idx, lvl] of this.bloodGround) if (lvl > SETTLE && (this.bakedBlood.get(idx) ?? 0) < 4) wet.push(idx);
+    const dirs: Array<[number, number, number]> = [[0, 1, 1.6], [-1, 0, 1.0], [1, 0, 1.0], [0, -1, 0.4]]; // down-biased
+    for (const idx of wet) {
+      const lvl = this.bloodGround.get(idx) ?? 0;
+      if (lvl <= SETTLE) continue;
+      const cx = idx % GRID_W, cy = (idx / GRID_W) | 0;
+      for (const [dx, dy, w] of dirs) {
+        const nx = cx + dx, ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= GRID_W || ny >= GRID_H) continue;
+        const ni = ny * GRID_W + nx;
+        if (grid && (grid[ni] === TileType.HARD || grid[ni] === TileType.SOFT)) continue; // no flow into blocks
+        const nlvl = this.bloodGround.get(ni) ?? 0;
+        if (nlvl >= lvl - 1) continue; // only flow to clearly-lower cells
+        if (!this.bloodGround.has(ni) && this.bloodGround.size >= 110) continue; // respect the coverage cap
+        const nz = (((idx * 2654435761 + ni * 40503 + phase * 97) >>> 0) & 255) / 255;
+        if (nz > 0.35 * w * spreadF) continue; // noise-gated ragged front (most ticks an edge doesn't advance)
+        this.bloodGround.set(idx, lvl - 1);
+        if (!this.bloodBorn.has(ni)) this.bloodBorn.set(ni, this.bloodBorn.get(idx) ?? now); // inherit age (same blood)
+        this.bloodGround.set(ni, Math.min(9, nlvl + 1));
+        this.bloodDirty = true;
+        break; // one finger per pool per tick
+      }
+    }
+  }
+
   private drawBloodGround(W: number, H: number): void {
     if (!this.bloodGround.size && !this.hasGore() && !this.goreCanvas) return;
     // Re-bake every ~1.5s even without new blood so the drying (bright red -> maroon ->
     // brown) actually progresses on screen. Cheap: one pass over ≤110 cells.
     const now = performance.now();
+    if (!this.lowFx && now - this.bloodSpreadTick > 130) { this.bloodSpreadTick = now; this.spreadBlood(now); } // C1: fluid spread, High only
     if (now - this.bloodDryTick > 1500) { this.bloodDryTick = now; this.bloodDirty = true; }
     // The rebuild is the single most expensive spike (per-cell pixel loops + every gore
     // decal). During a kill, gore lands continuously and would trigger it EVERY frame.
