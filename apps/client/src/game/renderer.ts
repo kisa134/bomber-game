@@ -1056,8 +1056,8 @@ export class Renderer {
     const flavour = (["burst", "disembowel", "decap", "pulp", "shatter"] as const)[rid(5)];
     this.lastGoreFlavour = flavour; // read by the mist/gob spawns below for matching intensity
     // Baseline counts (already richer than before), then the flavour piles on its speciality.
-    let nBone = 5 + rid(5), nMeat = 6 + rid(5), nOrgan = 3 + rid(3);
-    let nSkull = Math.random() < 0.5 ? 1 : 0, nBrain = 1 + rid(2), nLimb = 1 + rid(2), nEye = 1 + rid(2), nTooth = 5 + rid(6);
+    let nBone = 7 + rid(5), nMeat = 8 + rid(6), nOrgan = 4 + rid(4);
+    let nSkull = 1 + (Math.random() < 0.5 ? 1 : 0), nBrain = 2 + rid(2), nLimb = 1 + rid(2), nEye = 2 + rid(2), nTooth = 6 + rid(6);
     let bilePools = Math.random() < 0.5 ? 1 : 0;
     switch (flavour) {
       case "disembowel": nOrgan += 5 + rid(4); nMeat += 3; nEye += 1; bilePools += 2; break; // guts everywhere
@@ -1427,15 +1427,46 @@ export class Renderer {
    *  epicentre (strength scales with blast power; soft kinds still don't go far). */
   private blastGore(cells: Array<{ x: number; y: number }>, ecx: number, ecy: number, power: number): void {
     const set = new Set(cells.map((c) => c.y * GRID_W + c.x));
+    const soft = new Set<GoreKind>(["meat", "organ", "brain", "limb"]);
     for (const kind of Renderer.GORE_KINDS) {
       const arr = this.goreArr(kind);
       for (let j = arr.length - 1; j >= 0; j--) {
         const o = arr[j];
         if (!set.has((o.y | 0) * GRID_W + (o.x | 0))) continue;
         arr.splice(j, 1);
-        this.spawnGore(kind, o.x, o.y, o.x - ecx + 0.001, o.y - ecy + 0.001, 1.6 + power * 1.6);
+        // A piece caught in the fireball either CHARS to embers (burns up) or gets blown
+        // apart — the stronger the blast, the more chars + the farther/more the shards fly.
+        if (Math.random() < 0.3 + power * 0.45) {
+          this.emberBurst(o.x, o.y); // ash + ember + smoke where it burned (no piece left)
+          if (kind !== "coin") this.markGround((o.y | 0) * GRID_W + (o.x | 0), 1); // a small scorch/char stain
+        } else {
+          const s = 1.6 + power * 2;
+          this.spawnGore(kind, o.x, o.y, o.x - ecx + 0.001, o.y - ecy + 0.001, s);
+          if (soft.has(kind) && !this.lowFx) { // soft tissue SHATTERS into extra smaller bits
+            const extra = 1 + (Math.random() < power ? 1 : 0);
+            for (let k = 0; k < extra; k++) this.spawnGore(kind, o.x, o.y, o.x - ecx + 0.001, o.y - ecy + 0.001, s * 1.25);
+          }
+        }
       }
     }
+    this.bloodDirty = true;
+  }
+
+  /** Ash + embers + a smoke wisp where a gore piece burned up in a blast. */
+  private emberBurst(x: number, y: number): void {
+    if (this.lowFx) return;
+    for (let i = 0; i < 5; i++) {
+      const a = Math.random() * Math.PI * 2, s = 0.6 + Math.random() * 1.6;
+      this.push({
+        x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.6, vz: 1 + Math.random() * 2.5, gz: 8,
+        life: 0.5 + Math.random() * 0.5, max: 1, size: this.tile * (0.03 + Math.random() * 0.03),
+        color: Math.random() < 0.5 ? "#ff8a2a" : "#ffcf5a", solid: false,
+      });
+    }
+    this.push({
+      x, y, vx: (Math.random() - 0.5) * 0.4, vy: -1 - Math.random(), life: 0.6 + Math.random() * 0.4, max: 1,
+      drag: 0.95, gravity: -1.2, size: this.tile * 0.07, color: "rgba(50,44,40,0.5)",
+    });
   }
 
   /** Blow chips lying on the blast cells outward from the epicentre (z-physics + relocate). */
