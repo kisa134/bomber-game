@@ -332,6 +332,7 @@ export class Renderer {
   private puBuf: HTMLCanvasElement | null = null; // scratch buffer for powerup sheen masked to the icon
   private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
   private bloodDirty = false;
+  private lastGoreFlavour: "burst" | "disembowel" | "decap" | "pulp" | "shatter" = "burst"; // last death archetype
   private bloodBorn = new Map<number, number>(); // blood cell -> first-blood timestamp (drives time drying)
   private bloodDryTick = 0; // last time we forced a rebuild so drying re-renders
   private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
@@ -1049,18 +1050,27 @@ export class Renderer {
     // (soft guts barely move + stick, hard bone/teeth fly far + bounce), bounces off blocks,
     // then settles as a persistent decal (see spawnGore / landGore).
     const C = cx + 0.5, Cy = cy + 0.5;
+    const rid = (n: number): number => (Math.random() * n) | 0;
     const fling = (kind: GoreKind, n: number): void => { for (let i = 0; i < n; i++) this.spawnGore(kind, C, Cy); };
-    fling("bone", 6 + ((Math.random() * 6) | 0));
-    fling("meat", 5 + ((Math.random() * 5) | 0));
-    fling("organ", 2 + ((Math.random() * 3) | 0));
-    fling("skull", 1 + (Math.random() < 0.4 ? 1 : 0));
-    fling("brain", 1 + ((Math.random() * 2) | 0));
-    fling("limb", 1 + ((Math.random() * 2) | 0));
-    fling("eye", 1 + ((Math.random() * 2) | 0));
-    fling("tooth", 4 + ((Math.random() * 6) | 0));
-    // Bile is liquid -> it just pools where the body fell (doesn't fly).
-    if (Math.random() < 0.5) {
-      const bx = cx + 0.5 + (Math.random() - 0.5) * 1.6, by = cy + 0.5 + (Math.random() - 0.5) * 1.6;
+    // Each death rolls a FLAVOUR so no two look alike — it biases which viscera dominate.
+    const flavour = (["burst", "disembowel", "decap", "pulp", "shatter"] as const)[rid(5)];
+    this.lastGoreFlavour = flavour; // read by the mist/gob spawns below for matching intensity
+    // Baseline counts (already richer than before), then the flavour piles on its speciality.
+    let nBone = 5 + rid(5), nMeat = 6 + rid(5), nOrgan = 3 + rid(3);
+    let nSkull = Math.random() < 0.5 ? 1 : 0, nBrain = 1 + rid(2), nLimb = 1 + rid(2), nEye = 1 + rid(2), nTooth = 5 + rid(6);
+    let bilePools = Math.random() < 0.5 ? 1 : 0;
+    switch (flavour) {
+      case "disembowel": nOrgan += 5 + rid(4); nMeat += 3; nEye += 1; bilePools += 2; break; // guts everywhere
+      case "decap": nSkull += 1; nBrain += 2 + rid(2); nTooth += 7; nEye += 2; break; // head pops
+      case "pulp": nMeat += 7 + rid(4); nOrgan += 2; nBone = 2 + rid(2); bilePools += 1; break; // fine mince
+      case "shatter": nBone += 7 + rid(5); nSkull += 1; nTooth += 7; nLimb += 1; break; // bones blown apart
+      // "burst" = balanced carnage (baseline)
+    }
+    fling("bone", nBone); fling("meat", nMeat); fling("organ", nOrgan); fling("skull", nSkull);
+    fling("brain", nBrain); fling("limb", nLimb); fling("eye", nEye); fling("tooth", nTooth);
+    // Bile is liquid -> it just pools near where the body fell (doesn't fly).
+    for (let b = 0; b < bilePools; b++) {
+      const bx = cx + 0.5 + (Math.random() - 0.5) * 1.8, by = cy + 0.5 + (Math.random() - 0.5) * 1.8;
       const g = this.prevGrid, tt = g ? g[(by | 0) * GRID_W + (bx | 0)] : 0;
       if (bx >= 0.2 && by >= 0.2 && bx <= GRID_W - 0.2 && by <= GRID_H - 0.2 && tt !== TileType.HARD && tt !== TileType.SOFT) {
         this.bile.push({ x: bx, y: by, seed: (Math.random() * 0xffffffff) >>> 0 });
@@ -1072,7 +1082,8 @@ export class Renderer {
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
     const reds = ["#8a0000", "#a30000", "#c81e1e", "#6a0000"];
-    for (let i = 0; i < Math.round(72 * this.fxScale); i++) {
+    const mist = this.lastGoreFlavour === "pulp" ? 1.45 : this.lastGoreFlavour === "shatter" ? 0.8 : 1; // pulp = fine mince mist, shatter = drier
+    for (let i = 0; i < Math.round(72 * this.fxScale * mist); i++) {
       const a = Math.random() * Math.PI * 2;
       const s = 2 + Math.random() * 4.5; // ground-plane spray speed
       this.push({
@@ -2585,18 +2596,29 @@ export class Renderer {
     g.save();
     g.globalCompositeOperation = "source-atop"; // everything below tints ONLY the sprite pixels
     if (burn > 0.03) {
-      const bA = Math.min(0.9, 0.32 + burn * 0.66);
-      const bg = g.createLinearGradient(0, 0, 0, ih);
-      bg.addColorStop(0, `rgba(14,10,9,${bA.toFixed(3)})`);
-      bg.addColorStop(0.5, `rgba(20,14,11,${(bA * 0.72).toFixed(3)})`);
-      bg.addColorStop(1, `rgba(28,17,12,${(bA * 0.5).toFixed(3)})`);
-      g.fillStyle = bg; g.fillRect(0, 0, iw, ih);
       let h = ((id + 1) * 2654435761) >>> 0;
       const rnd = (): number => { h = (h ^ (h << 13)) >>> 0; h = (h ^ (h >>> 17)) >>> 0; h = (h ^ (h << 5)) >>> 0; return (h & 0xffff) / 0xffff; };
-      const blots = Math.round(burn * 6);
-      g.fillStyle = `rgba(7,5,4,${Math.min(0.85, 0.42 + burn * 0.45).toFixed(3)})`;
+      // Faint overall singe only — kept low so it never reads as a flat film over the skin.
+      g.fillStyle = `rgba(22,15,11,${(0.14 * burn).toFixed(3)})`;
+      g.fillRect(0, 0, iw, ih);
+      // Charred TEXTURE: many irregular soot patches, biased to the lower body + the left/right
+      // edges (where char catches), each with its own darkness -> reads as burnt material.
+      const blots = 8 + Math.round(burn * 22);
       for (let i = 0; i < blots; i++) {
-        g.beginPath(); g.arc(rnd() * iw, rnd() * ih * 0.72, ih * (0.05 + rnd() * 0.07), 0, Math.PI * 2); g.fill();
+        const bx = rnd() * iw, by = ih * (0.15 + rnd() * 0.8);
+        const edgeBias = 0.55 + Math.abs(bx / iw - 0.5); // stronger toward the silhouette edges
+        const dark = Math.min(0.9, (0.25 + burn * 0.55) * edgeBias);
+        g.fillStyle = `rgba(${8 + (rnd() * 8 | 0)},${6 + (rnd() * 5 | 0)},5,${dark.toFixed(3)})`;
+        g.beginPath(); g.arc(bx, by, ih * (0.03 + rnd() * 0.09), 0, Math.PI * 2); g.fill();
+      }
+      // Heavy char: a few burnt-through near-black cores + dull ember flecks glowing in it.
+      if (burn > 0.5) {
+        g.fillStyle = "rgba(3,2,2,0.9)";
+        for (let i = 0; i < 2 + Math.round((burn - 0.5) * 6); i++) {
+          g.beginPath(); g.arc(rnd() * iw, ih * (0.4 + rnd() * 0.55), ih * (0.03 + rnd() * 0.04), 0, Math.PI * 2); g.fill();
+        }
+        g.fillStyle = `rgba(200,80,20,${((burn - 0.5) * 0.5).toFixed(3)})`;
+        for (let i = 0; i < Math.round((burn - 0.5) * 8); i++) g.fillRect(rnd() * iw, ih * (0.3 + rnd() * 0.6), 2, 2);
       }
     }
     if (blood > 0.03) {
