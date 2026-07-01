@@ -38,10 +38,10 @@ export function EconomyScene() {
       <div className="mx-auto grid max-w-[1200px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
         <div>
           <div style={{ fontFamily: "var(--font-pixel)", fontSize: "0.6rem", color: "#f5c842", marginBottom: "1rem", letterSpacing: "0.04em" }}>
-            THE ECONOMY
+            THE MONEY MACHINE
           </div>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, textTransform: "uppercase", fontSize: "var(--text-3xl, clamp(2.5rem,5vw,5rem))", lineHeight: 0.9, letterSpacing: "-0.01em", color: "#fff", margin: "0 0 1.5rem" }}>
-            Every token<br />has a job.
+            Every token<br />pulls weight.
           </h2>
 
           <div className="flex flex-col gap-4" style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-base,1rem)", lineHeight: 1.7, color: "rgba(255,255,255,0.5)", maxWidth: "48ch" }}>
@@ -64,8 +64,8 @@ export function EconomyScene() {
 
           <Link href="/tokenomics" className="group mt-8 inline-flex items-center gap-2"
             style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(245,200,66,0.85)", textDecoration: "none" }}>
-            Tokenomics deep dive
-            <span style={{ transition: "transform 0.2s ease" }} className="group-hover:translate-x-1">→</span>
+            Follow the money →
+            <span style={{ transition: "transform 0.2s ease" }} className="group-hover:translate-x-1"></span>
           </Link>
         </div>
 
