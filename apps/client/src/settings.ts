@@ -51,13 +51,17 @@ const DEFAULTS: Settings = {
   arenaTheme: "classic",
   musicVolume: 0.7,
   sfxVolume: 1,
-  ambientFx: true,
+  // Default to MEDIUM — a safe mid-tier that runs on phones and mid PCs. Only
+  // block-depth shading is on; the heavy effects (cast shadows, bloom, ambient
+  // motes, moving key light) are HIGH-only and opt-in. This is the biggest lever
+  // against the lag reports; strong PCs can bump to High in Settings → Graphics.
+  ambientFx: false,
   grassTexture: false,
-  gfxPreset: "high",
+  gfxPreset: "medium",
   blockDepth: true,
   dynamicLight: false,
   bloom: false,
-  shadows: true,
+  shadows: false,
   particleDensity: 1,
   timeOfDay: "day",
   battleScars: true,

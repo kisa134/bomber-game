@@ -255,6 +255,60 @@ function buildPnlChart(serverRows?: PnlPoint[]): HTMLElement | null {
 }
 // Ping samples collected during the live match → averaged on the result screen.
 let matchPings: number[] = [];
+// --- In-match FPS telemetry + watchdog --------------------------------------
+// We sample the render frame-rate DURING a live match (not the menu) so we get a
+// real per-device picture of lag — sent to PostHog as `perf_fps` on match end —
+// and can auto-drop to lite graphics if the frame-rate craters mid-fight.
+let fpsFrameTimes: number[] = []; // per-frame dt (ms) during PLAYING/SUDDEN_DEATH
+let fpsLastFrame = 0; // timestamp of the previous sampled frame (0 = not sampling)
+let matchLowFpsMs = 0; // consecutive ms spent under the auto-lite threshold
+let matchAutoLited = false; // the in-match watchdog fired this match (fire once)
+const AUTO_LITE_FPS = 35; // sustained below this ⇒ drop to lite
+const AUTO_LITE_HOLD_MS = 3000; // …for this long
+
+/** Reset the FPS sampler at the start of each live match. */
+function resetMatchFps(): void {
+  fpsFrameTimes = [];
+  fpsLastFrame = 0;
+  matchLowFpsMs = 0;
+  matchAutoLited = false;
+}
+
+/** Flush the collected match FPS to PostHog with device + graphics context, so
+ *  we can see the lag distribution by device/GPU and preset. Best-effort. */
+function flushMatchFps(): void {
+  const n = fpsFrameTimes.length;
+  if (n < 30) { resetMatchFps(); return; } // too short to be meaningful
+  const dts = fpsFrameTimes.slice().sort((a, b) => a - b);
+  const mean = dts.reduce((a, b) => a + b, 0) / n;
+  const avgFps = Math.round(1000 / mean);
+  // 99th-percentile frame time = the worst 1% of frames → the "feels laggy" number.
+  const p99dt = dts[Math.min(n - 1, Math.floor(n * 0.99))];
+  const lowFps = Math.round(1000 / p99dt);
+  const minFps = Math.round(1000 / dts[n - 1]);
+  try {
+    track("perf_fps", {
+      avg_fps: avgFps,
+      low_fps: lowFps, // p99 frame-time → 1% low
+      min_fps: minFps,
+      frames: n,
+      gfx_preset: settings.gfxPreset,
+      lite: liteMode,
+      shadows: settings.shadows,
+      block_depth: settings.blockDepth,
+      ambient_fx: settings.ambientFx,
+      bloom: settings.bloom,
+      dynamic_light: settings.dynamicLight,
+      arena: settings.arenaTheme,
+      auto_lited: matchAutoLited,
+      cores: navigator.hardwareConcurrency || 0,
+      mem_gb: (navigator as { deviceMemory?: number }).deviceMemory ?? 0,
+      dpr: Math.round((window.devicePixelRatio || 1) * 100) / 100,
+      touch: /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent),
+    });
+  } catch { /* never let telemetry break the game */ }
+  resetMatchFps();
+}
 // Handle for the 3s "result screen" timer, so a new match starting within that
 // window can cancel the previous match's deferred result (no overlay/stale data).
 let announceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -545,6 +599,7 @@ net.onMessage = (msg) => {
         goUntil = performance.now() + 800;
         renderer?.setCountdown(false);
         renderer?.onMatchStart(); // start the 30s "find yourself" glow
+        resetMatchFps(); // begin a fresh FPS sample for this match
         track("match_started", { players: state.roomPlayers.length });
       } else if (msg.phase === MatchPhase.SUDDEN_DEATH) {
         assets.stopMusic(); // stop the battle loop so it doesn't overlap the last-minute track
@@ -1085,6 +1140,8 @@ function renderResultScreen(winnerId: number, finalPlayers: { id: number; alive:
     pingEl.textContent = avg > 0 ? `Avg ping · ${avg} ms` : "";
     matchPings = [];
   }
+  // Flush this match's FPS distribution to PostHog (device + graphics context).
+  flushMatchFps();
 
   // Mode-specific actions: bots = replay/setup; PvP = lobby/invite/share.
   const lobbyBtn = document.getElementById("result-lobby")!;
@@ -1483,6 +1540,27 @@ function frame(): void {
       }
     }
     renderer.render(view, state.myId);
+    // FPS sampling (live match only) → telemetry + in-match auto-lite watchdog.
+    if (state.phase === MatchPhase.PLAYING || state.phase === MatchPhase.SUDDEN_DEATH) {
+      if (fpsLastFrame) {
+        const dt = now - fpsLastFrame;
+        if (dt > 0 && dt < 500) { // ignore stalls / hit-stop / tab throttle
+          fpsFrameTimes.push(dt);
+          // Watchdog: sustained frame-time above the threshold ⇒ drop to lite ONCE.
+          if (!liteMode && !matchAutoLited) {
+            matchLowFpsMs = dt > 1000 / AUTO_LITE_FPS ? matchLowFpsMs + dt : 0;
+            if (matchLowFpsMs >= AUTO_LITE_HOLD_MS) {
+              matchAutoLited = true;
+              goLite();
+              try { track("perf_autolite", { arena: settings.arenaTheme, gfx_preset: settings.gfxPreset }); } catch { /* ignore */ }
+            }
+          }
+        }
+      }
+      fpsLastFrame = now;
+    } else {
+      fpsLastFrame = 0;
+    }
     updateHud();
     updateBottomHud();
     updateFeedback();
@@ -1516,15 +1594,20 @@ const effectiveTheme = (): ArenaTheme => (themeLocked(settings.arenaTheme) ? "cl
 // Graphics quality presets map to the underlying granular flags. Hand-tweaking any
 // graphics toggle flips the preset to "custom" (handled at the toggle handlers).
 function applyGfxPreset(p: Exclude<GfxPreset, "custom">): void {
+  // Heavy effects (cast shadows, bloom, moving key light, ambient motes) are
+  // HIGH-only — they're the main lag drivers on a 2D canvas. Medium keeps only
+  // the cheap block-depth shading so it runs on phones and mid PCs.
   const map = {
-    low: { liteGfx: true, ambientFx: false, blockDepth: false, shadows: false },
-    medium: { liteGfx: false, ambientFx: false, blockDepth: true, shadows: true },
-    high: { liteGfx: false, ambientFx: true, blockDepth: true, shadows: true },
+    low: { liteGfx: true, ambientFx: false, blockDepth: false, shadows: false, dynamicLight: false, bloom: false },
+    medium: { liteGfx: false, ambientFx: false, blockDepth: true, shadows: false, dynamicLight: false, bloom: false },
+    high: { liteGfx: false, ambientFx: true, blockDepth: true, shadows: true, dynamicLight: true, bloom: true },
   }[p];
   settings.liteGfx = map.liteGfx;
   settings.ambientFx = map.ambientFx;
   settings.blockDepth = map.blockDepth;
   settings.shadows = map.shadows;
+  settings.dynamicLight = map.dynamicLight;
+  settings.bloom = map.bloom;
   settings.gfxPreset = p;
   saveSettings(settings);
   applySettings();

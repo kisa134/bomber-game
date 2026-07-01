@@ -31,6 +31,9 @@ export function initAnalytics(extra: Record<string, unknown> = {}): void {
       capture_pageview: true,
       capture_pageleave: true,
       autocapture: true,
+      // Capture Web Vitals (LCP/INP/CLS/FCP) so we get real page-load + input
+      // responsiveness numbers per device — our first performance signal.
+      capture_performance: { web_vitals: true },
       session_recording: { maskAllInputs: true },
       // Persist the same anon id we used before so history lines up.
       bootstrap: { distinctID: localStorage.getItem("bp_aid") ?? undefined },
