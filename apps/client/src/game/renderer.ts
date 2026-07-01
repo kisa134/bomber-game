@@ -337,6 +337,7 @@ export class Renderer {
   private bloodGround = new Map<number, number>();
   private puBuf: HTMLCanvasElement | null = null; // scratch buffer for powerup sheen masked to the icon
   private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
+  private lightSprites: HTMLCanvasElement[] | null = null; // baked explosion-light radial sprites (perf: drawImage vs per-frame gradients)
   private bloodDirty = false;
   private lastGoreFlavour: "burst" | "disembowel" | "decap" | "pulp" | "shatter" = "burst"; // last death archetype
   private bloodBorn = new Map<number, number>(); // blood cell -> first-blood timestamp (drives time drying)
@@ -2832,9 +2833,30 @@ export class Renderer {
   /** Volumetric explosion light: per blast cell, stack 3 additive radial layers
    *  (hot core -> amber -> red) that fade and bloom over ~320ms. Additive blend
    *  makes overlapping cells build up brightness, giving a sense of volume. */
+  /** Bake the 3 explosion-light layers (outer/mid/core) into radial sprites ONCE, so
+   *  drawLights blits them instead of allocating 3 gradients per light every frame. */
+  private buildLightSprites(): HTMLCanvasElement[] {
+    const cols: Array<[number, number, number]> = [[255, 110, 35], [255, 180, 70], [255, 248, 220]];
+    const R = 64;
+    return cols.map(([r, gg, b]) => {
+      const c = document.createElement("canvas"); c.width = R * 2; c.height = R * 2;
+      const cx = c.getContext("2d");
+      if (cx) {
+        const grad = cx.createRadialGradient(R, R, 0, R, R, R);
+        grad.addColorStop(0, `rgba(${r},${gg},${b},1)`);
+        grad.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+        cx.fillStyle = grad; cx.fillRect(0, 0, R * 2, R * 2);
+      }
+      return c;
+    });
+  }
+
+  private static readonly LIGHT_A = [0.34, 0.5, 0.78]; // per-layer base alpha (was baked into the gradient stops)
+  private static readonly LIGHT_R = [1.9, 1.15, 0.6]; // per-layer radius (×tile)
   private drawLights(now: number): void {
     const ctx = this.ctx;
     const t = this.tile;
+    const sp = (this.lightSprites ??= this.buildLightSprites());
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     for (let i = this.lights.length - 1; i >= 0; i--) {
@@ -2848,21 +2870,13 @@ export class Renderer {
       const grow = 0.7 + k * 0.7; // expands outward as it fades
       const cx = L.x * t;
       const cy = L.y * t;
-      const layers: Array<[number, string]> = [
-        [t * 1.9 * grow, `rgba(255,110,35,${0.34 * fade})`], // outer red-orange
-        [t * 1.15 * grow, `rgba(255,180,70,${0.5 * fade})`], // mid amber
-        [t * 0.6 * grow, `rgba(255,248,220,${0.78 * fade})`], // hot core
-      ];
-      for (const [rad, col] of layers) {
-        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rad);
-        g.addColorStop(0, col);
-        g.addColorStop(1, "rgba(255,255,255,0)");
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.arc(cx, cy, rad, 0, Math.PI * 2);
-        ctx.fill();
+      for (let l = 0; l < 3; l++) {
+        const rad = t * Renderer.LIGHT_R[l] * grow;
+        ctx.globalAlpha = Renderer.LIGHT_A[l] * fade;
+        ctx.drawImage(sp[l], cx - rad, cy - rad, rad * 2, rad * 2);
       }
     }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 
