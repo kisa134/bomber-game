@@ -345,6 +345,7 @@ export class Renderer {
   private bloodBorn = new Map<number, number>(); // blood cell -> first-blood timestamp (drives time drying)
   private bloodDryTick = 0; // last time we forced a rebuild so drying re-renders
   private lastBloodBuild = 0; // throttle the heavy blood/gore cache rebuild (kill-storm anti-stutter)
+  private lastScorchBuild = 0; // throttle the heavy scorch cache rebuild (multi-blast anti-stutter)
   private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
   private chips: Array<{ x: number; y: number; seed: number }> = []; // wood splinters from broken crates (x,y in cells)
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
@@ -2114,8 +2115,11 @@ export class Renderer {
     // the floor sprite has finished loading (preload is async).
     if (this.lowFx && !this.floorSpriteBaked && this.assets?.img("floor")) this.buildFloor();
     if (this.floor) ctx.drawImage(this.floor, 0, 0, W, H);
-    // Scorched ground: burnt patches that build up where blasts happened.
-    if (this.scorchDirty || (this.burn.size && !this.scorch)) this.buildScorch(W, H);
+    // Scorched ground: burnt patches that build up where blasts happened. The rebuild is a
+    // per-cell pixel pass (like blood) — coalesce dirty rebuilds to ~18Hz so a chain of
+    // blasts can't spike it every frame; first build is immediate. Zero visual change.
+    const scFirst = this.burn.size && !this.scorch;
+    if (scFirst || (this.scorchDirty && now - this.lastScorchBuild >= 55)) { this.buildScorch(W, H); this.lastScorchBuild = now; }
     if (this.scorch) ctx.drawImage(this.scorch, 0, 0, W, H);
     this.drawBloodGround(W, H); // persistent blood mush + smeared footprints (over the floor)
     this.drawBloodSheen(now); // wet specular glint on fresh pools, biased toward the arena key light
