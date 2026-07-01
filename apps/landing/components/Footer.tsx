@@ -42,7 +42,7 @@ export function Footer() {
             BOMBER<span style={{ color: "#f5c842" }}>MEME</span>
           </span>
           <p style={{ fontFamily: "var(--font-body)", fontSize: "0.8rem", lineHeight: 1.6, color: "rgba(255,255,255,0.4)", maxWidth: "26ch" }}>
-            A real-time PvP bomber arena on Solana. Pure skill, provably fair, winner takes the pot.
+            PvP bomber deathmatch on Solana. Skill only. Winner takes all.
           </p>
           <div className="mt-2 flex flex-col gap-1">
             <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.56rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(245,200,66,0.7)" }}>
