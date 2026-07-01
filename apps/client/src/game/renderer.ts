@@ -341,6 +341,7 @@ export class Renderer {
   private lastGoreFlavour: "burst" | "disembowel" | "decap" | "pulp" | "shatter" = "burst"; // last death archetype
   private bloodBorn = new Map<number, number>(); // blood cell -> first-blood timestamp (drives time drying)
   private bloodDryTick = 0; // last time we forced a rebuild so drying re-renders
+  private lastBloodBuild = 0; // throttle the heavy blood/gore cache rebuild (kill-storm anti-stutter)
   private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
   private chips: Array<{ x: number; y: number; seed: number }> = []; // wood splinters from broken crates (x,y in cells)
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
@@ -1193,8 +1194,14 @@ export class Renderer {
     // brown) actually progresses on screen. Cheap: one pass over ≤110 cells.
     const now = performance.now();
     if (now - this.bloodDryTick > 1500) { this.bloodDryTick = now; this.bloodDirty = true; }
-    if (this.bloodDirty || !this.bloodCanvas || this.bloodCanvas.width !== W || this.bloodCanvas.height !== H) {
+    // The rebuild is the single most expensive spike (per-cell pixel loops + every gore
+    // decal). During a kill, gore lands continuously and would trigger it EVERY frame.
+    // A resize/first build must happen now; otherwise coalesce dirty rebuilds to ~18 Hz —
+    // pending blood/gore just appears up to ~55ms later (imperceptible), killing the stutter.
+    const mustBuild = !this.bloodCanvas || this.bloodCanvas.width !== W || this.bloodCanvas.height !== H;
+    if (mustBuild || (this.bloodDirty && now - this.lastBloodBuild >= 55)) {
       this.buildBloodGround(W, H);
+      this.lastBloodBuild = now;
     }
     if (this.bloodCanvas) this.ctx.drawImage(this.bloodCanvas, 0, 0, W, H);
   }
