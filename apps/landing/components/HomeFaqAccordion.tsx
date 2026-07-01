@@ -112,12 +112,10 @@ function FaqItem({
     <motion.div
       variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      className="overflow-hidden rounded-2xl"
+      className="overflow-hidden pixel-panel pixel-inset"
       style={{
-        background: isOpen ? "rgba(255,204,51,0.04)" : "rgba(255,255,255,0.02)",
-        border: `1px solid ${isOpen ? "rgba(255,204,51,0.20)" : "rgba(255,255,255,0.07)"}`,
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
+        background: isOpen ? "rgba(245,200,66,0.04)" : "rgba(11,10,16,0.85)",
+        border: `2px solid ${isOpen ? "rgba(245,200,66,0.28)" : "rgba(245,200,66,0.12)"}`,
         transition: "background 0.3s ease, border-color 0.3s ease",
       }}
     >
@@ -145,7 +143,7 @@ function FaqItem({
         <motion.span
           animate={{ rotate: isOpen ? 45 : 0 }}
           transition={{ duration: 0.25, ease: "easeInOut" }}
-          className="shrink-0 flex h-6 w-6 items-center justify-center rounded-full"
+          className="shrink-0 flex h-6 w-6 items-center justify-center pixel-inset"
           style={{
             background: isOpen ? "rgba(255,204,51,0.15)" : "rgba(255,255,255,0.06)",
             border: `1px solid ${isOpen ? "rgba(255,204,51,0.35)" : "rgba(255,255,255,0.10)"}`,

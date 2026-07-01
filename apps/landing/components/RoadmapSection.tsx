@@ -22,7 +22,7 @@ const PHASES = [
     title: "THE SWARM",
     category: "Community & Creators",
     text: "Spectator mode & Twitch/Kick integration. Streamer lobbies, live betting, and creator rev-share. The community takes over.",
-    accent: "#38bdf8",
+    accent: "#3a9e9e",
     side: "right" as const,
     icon: "📡",
   },
@@ -42,7 +42,7 @@ const PHASES = [
     title: "GLOBAL WAR",
     category: "Esports",
     text: "Massive prize pool tournaments, Clan Wars, and Ranked Seasons. Bombermeme enters the competitive esports tier.",
-    accent: "#a855f7",
+    accent: "#d44030",
     side: "right" as const,
     icon: "🏆",
   },
@@ -87,9 +87,9 @@ export function RoadmapSection() {
     [0, 0.38, 0.68, 1],
     [
       "0 0 8px 3px rgba(255,204,51,0.75)",
-      "0 0 10px 3px rgba(56,189,248,0.75)",
+      "0 0 10px 3px rgba(58,158,158,0.75)",
       "0 0 10px 3px rgba(249,115,22,0.75)",
-      "0 0 12px 4px rgba(168,85,247,0.80)",
+      "0 0 12px 4px rgba(212,64,48,0.80)",
     ]
   );
 
@@ -121,8 +121,7 @@ export function RoadmapSection() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-80px" }}
           transition={{ duration: 0.5, ease }}
-          className="mb-4 flex items-center gap-2.5 rounded-full border border-white/10 bg-white/5 px-4 py-1.5"
-          style={{ backdropFilter: "blur(12px)" }}
+          className="mb-4 flex items-center gap-2.5 pixel-badge px-4 py-1.5"
         >
           <span className="relative flex h-2 w-2 shrink-0">
             <span
@@ -321,20 +320,16 @@ function PhaseCard({ phase, index, progress, litAt }: { phase: Phase; index: num
       whileInView={{ opacity: 1, y: 0, scale: 1 }}
       viewport={{ once: true, margin: "-100px" }}
       transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: index * 0.04 }}
-      className="relative w-full overflow-hidden rounded-3xl p-8"
+      className="relative w-full overflow-hidden pixel-panel p-8"
       style={{
-        background: "rgba(255,255,255,0.018)",
-        border: "1px solid rgba(255,255,255,0.07)",
-        borderTop: `2px solid ${phase.accent}66`,
-        backdropFilter: "blur(24px)",
-        WebkitBackdropFilter: "blur(24px)",
-        boxShadow: `0 0 24px ${phase.accent}0a, inset 0 1px 0 rgba(255,255,255,0.04)`,
+        borderTop: `3px solid ${phase.accent}`,
+        boxShadow: `4px 4px 0 rgba(0,0,0,0.45), 0 0 16px ${phase.accent}12`,
       }}
     >
       {/* Lit overlay — brightens as the fuse reaches this phase's dot */}
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-3xl"
+        className="pointer-events-none absolute inset-0"
         style={{
           opacity: lit,
           borderTop: `2px solid ${phase.accent}`,
@@ -359,7 +354,7 @@ function PhaseCard({ phase, index, progress, litAt }: { phase: Phase; index: num
           PHASE {phase.number}
         </span>
         <span
-          className="rounded-full px-3 py-0.5"
+          className="pixel-inset px-3 py-0.5"
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: "0.58rem",

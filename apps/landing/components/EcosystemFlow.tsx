@@ -26,11 +26,11 @@ interface Node {
  */
 const NODES: Record<string, Node> = {
   players:   { cx: 85,  cy: 190, w: 140, h: 66,  label: "PLAYERS",       sub: "Entry Pool",    color: "#f5c842", icon: "⚔",  phase2: false },
-  pot:       { cx: 480, cy: 190, w: 160, h: 72,  label: "MATCH POT",     sub: "Smart Escrow",  color: "#7fd8ff", icon: "💰",  phase2: false },
+  pot:       { cx: 480, cy: 190, w: 160, h: 72,  label: "MATCH POT",     sub: "Smart Escrow",  color: "#3a9e9e", icon: "💰",  phase2: false },
   winner:    { cx: 240, cy: 100, w: 150, h: 58,  label: "WINNER",        sub: "95% payout",    color: "#f5c842", icon: "🏆",  phase2: false },
   rake:      { cx: 720, cy: 290, w: 150, h: 58,  label: "5% RAKE",       sub: "Per match",     color: "#ff5a4d", icon: "⚡",  phase2: false },
   burn:      { cx: 480, cy: 390, w: 108, h: 52,  label: "BURN 🔥",       sub: "25% of rake",   color: "#ff5a4d", icon: "",    phase2: false },
-  yield:     { cx: 600, cy: 390, w: 108, h: 52,  label: "REAL YIELD",    sub: "🔒 Phase 2",    color: "#7fd8ff", icon: "",    phase2: true  },
+  yield:     { cx: 600, cy: 390, w: 108, h: 52,  label: "REAL YIELD",    sub: "🔒 Phase 2",    color: "#3a9e9e", icon: "",    phase2: true  },
   ecosystem: { cx: 720, cy: 390, w: 108, h: 52,  label: "ECOSYSTEM",     sub: "54% of rake",   color: "#f5c842", icon: "",    phase2: false },
   guild:     { cx: 840, cy: 390, w: 108, h: 52,  label: "GUILD YIELD",   sub: "21% of rake",   color: "#ffd700", icon: "",    phase2: false },
   dao:       { cx: 960, cy: 390, w: 108, h: 52,  label: "DAO IMPACT",    sub: "🔒 Phase 2",    color: "#a855f7", icon: "",    phase2: true  },
@@ -49,7 +49,7 @@ const PATHS: PathCfg[] = [
   // Rake → Burn (ACTIVE — glowing)
   { d: "M 720 319 L 720 350 L 480 350 L 480 364",     color: "#ff5a4d", delay: 0.85, width: 1.8, phase2: false },
   // Rake → Real Yield (PHASE 2 — dim, sparse dash)
-  { d: "M 720 319 L 720 350 L 600 350 L 600 364",     color: "#7fd8ff", delay: 0.92, width: 1.2, phase2: true  },
+  { d: "M 720 319 L 720 350 L 600 350 L 600 364",     color: "#3a9e9e", delay: 0.92, width: 1.2, phase2: true  },
   // Rake → Ecosystem (ACTIVE — glowing)
   { d: "M 720 319 L 720 364",                          color: "#f5c842", delay: 0.99, width: 1.8, phase2: false },
   // Rake → Guild Yield (ACTIVE — glowing)
@@ -62,7 +62,7 @@ const PATHS: PathCfg[] = [
 const MARKER_DEFS = [
   { id: "eco-arrow-green",  color: "#f5c842" },
   { id: "eco-arrow-pink",   color: "#ff5a4d" },
-  { id: "eco-arrow-blue",   color: "#7fd8ff" },
+  { id: "eco-arrow-blue",   color: "#3a9e9e" },
   { id: "eco-arrow-gold",   color: "#ffd700" },
   { id: "eco-arrow-purple", color: "#a855f7" },
 ];
@@ -70,7 +70,7 @@ const MARKER_DEFS = [
 function markerIdForColor(color: string): string {
   if (color === "#f5c842") return "url(#eco-arrow-green)";
   if (color === "#ff5a4d") return "url(#eco-arrow-pink)";
-  if (color === "#7fd8ff") return "url(#eco-arrow-blue)";
+  if (color === "#3a9e9e") return "url(#eco-arrow-blue)";
   if (color === "#ffd700") return "url(#eco-arrow-gold)";
   return "url(#eco-arrow-purple)";
 }

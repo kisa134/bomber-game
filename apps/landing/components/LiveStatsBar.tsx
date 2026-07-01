@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useMotionValue, useTransform, animate } from "framer-motion";
 import { fetchStats, type GameStats } from "@/lib/gameApi";
+import { announce } from "@/lib/announce";
 import { TOKEN_TICKER } from "@/lib/token";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -68,9 +69,17 @@ export function LiveStatsBar() {
   // Real data only — polled from the game server's public /stats (CORS-enabled).
   useEffect(() => {
     let alive = true;
+    let announced = false;
     const load = () => {
       void fetchStats().then((d) => {
-        if (alive && d) setStats(d);
+        if (!alive || !d) return;
+        setStats(d);
+        if (!announced) {
+          announced = true;
+          announce(
+            `Live stats: ${Math.round(d.online ?? 0)} players online, ${Math.round(d.matches ?? 0).toLocaleString("en-US")} matches played`,
+          );
+        }
       });
     };
     load();
@@ -129,7 +138,17 @@ export function LiveStatsBar() {
       />
 
       <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-5 px-5 sm:flex-row sm:justify-around">
-        {views.map((stat, i) => (
+        {!ready ? (
+          <>
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex flex-col items-center gap-2">
+                <div className="skeleton h-8 w-24" aria-hidden />
+                <div className="skeleton h-3 w-28" aria-hidden />
+              </div>
+            ))}
+          </>
+        ) : (
+          views.map((stat, i) => (
           <div key={stat.label} className="flex flex-col items-center gap-1.5">
             <AnimatedCounter {...stat} trigger={ready} />
             <span
@@ -161,7 +180,8 @@ export function LiveStatsBar() {
               />
             )}
           </div>
-        ))}
+        ))
+        )}
       </div>
 
       <div className="absolute left-4 top-1/2 hidden -translate-y-1/2 items-center gap-1.5 lg:flex">

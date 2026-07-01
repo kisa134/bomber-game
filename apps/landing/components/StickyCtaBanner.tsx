@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { PlayLink } from "@/components/ui/PlayLink";
 
 const SESSION_KEY = "bmb_sticky_dismissed";
 
@@ -10,7 +11,6 @@ export function StickyCtaBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    // Respect user dismissal within the session
     if (sessionStorage.getItem(SESSION_KEY)) {
       setDismissed(true);
       return;
@@ -19,11 +19,7 @@ export function StickyCtaBanner() {
     const threshold = typeof window !== "undefined" ? window.innerHeight * 0.9 : 600;
 
     const onScroll = () => {
-      if (window.scrollY > threshold) {
-        setVisible(true);
-      } else {
-        setVisible(false);
-      }
+      setVisible(window.scrollY > threshold);
     };
 
     onScroll();
@@ -38,95 +34,59 @@ export function StickyCtaBanner() {
   };
 
   return (
-    /* Mobile-only — hidden on md+ */
-    <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-50 block md:hidden">
+    <div
+      className="pointer-events-none fixed left-0 right-0 z-40 block md:hidden"
+      style={{ bottom: "calc(52px + env(safe-area-inset-bottom, 0px))" }}
+    >
       <AnimatePresence>
         {visible && !dismissed && (
           <motion.div
             key="sticky-cta"
-            initial={{ y: 100, opacity: 0 }}
+            initial={{ y: 80, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 100, opacity: 0 }}
+            exit={{ y: 80, opacity: 0 }}
             transition={{ type: "spring", stiffness: 340, damping: 32 }}
-            className="pointer-events-auto mx-3 mb-3 overflow-hidden rounded-2xl"
+            className="pointer-events-auto mx-3 overflow-hidden pixel-inset"
             style={{
-              background: "rgba(10,12,18,0.92)",
-              border: "1px solid rgba(255,204,51,0.22)",
-              backdropFilter: "blur(20px) saturate(1.5)",
-              WebkitBackdropFilter: "blur(20px) saturate(1.5)",
-              boxShadow:
-                "0 -4px 40px rgba(0,0,0,0.6), 0 0 60px rgba(255,204,51,0.08)",
-              /* iOS safe area bottom padding */
-              paddingBottom: "env(safe-area-inset-bottom, 0px)",
+              background: "rgba(10,12,18,0.96)",
+              border: "2px solid rgba(245,200,66,0.28)",
+              boxShadow: "0 -4px 32px rgba(0,0,0,0.55), 0 0 40px rgba(245,200,66,0.06)",
             }}
           >
-            {/* Top accent line */}
             <div
               style={{
                 height: "2px",
-                background: "linear-gradient(90deg, transparent, #ffcc33 30%, #ff9a3d 70%, transparent)",
+                background: "linear-gradient(90deg, transparent, #f5c842 30%, #ff9a3d 70%, transparent)",
               }}
             />
 
-            <div className="flex items-center gap-3 p-4">
-              {/* Icon */}
-              <span style={{ fontSize: "1.5rem", lineHeight: 1 }}>💣</span>
+            <div className="flex items-center gap-3 p-3">
+              <span style={{ fontSize: "1.35rem", lineHeight: 1 }}>💣</span>
 
-              {/* Text block */}
               <div className="flex flex-1 flex-col gap-0.5 min-w-0">
-                <span
-                  style={{
-                    fontFamily: "var(--font-display)",
-                    fontSize: "0.9rem",
-                    fontWeight: 700,
-                    color: "#fff",
-                    lineHeight: 1.2,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
+                <span style={{ fontFamily: "var(--font-display)", fontSize: "0.85rem", fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>
                   PLAY NOW
                 </span>
-                <span
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "0.58rem",
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    color: "rgba(255,255,255,0.38)",
-                  }}
-                >
-                  Free Entry · Win SOL · No Download
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.52rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.35)" }}>
+                  Free · Win SOL · No download
                 </span>
               </div>
 
-              {/* CTA button */}
-              <a
-                href="http://bombermeme.fun/play"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="cta-primary relative shrink-0 overflow-hidden rounded-xl px-5 py-2.5 text-center font-bold text-[#111] active:scale-95"
-                style={{
-                  fontFamily: "var(--font-display)",
-                  fontSize: "0.85rem",
-                  transition: "transform 0.08s ease",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <span className="relative z-10">⚡ Play</span>
-              </a>
+              <PlayLink className="cta-yellow shrink-0 px-4" style={{ height: 40, fontSize: "0.78rem", display: "inline-flex", alignItems: "center" }}>
+                ▶ Play
+              </PlayLink>
 
-              {/* Dismiss */}
               <button
+                type="button"
                 onClick={handleDismiss}
                 aria-label="Dismiss"
-                className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full"
+                className="shrink-0 flex h-7 w-7 items-center justify-center pixel-inset"
                 style={{
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  color: "rgba(255,255,255,0.35)",
-                  fontSize: "0.75rem",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  color: "rgba(255,255,255,0.4)",
+                  fontSize: "0.7rem",
                   cursor: "pointer",
-                  lineHeight: 1,
                 }}
               >
                 ✕

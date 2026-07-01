@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { TOKEN_TICKER, PUMP_URL } from "@/lib/token";
-import { GAME_URL } from "@/lib/gameApi";
+import { FooterPlayLink } from "@/components/FooterPlayLink";
 
-const GROUPS: Array<{ title: string; links: Array<{ label: string; href: string; ext?: boolean }> }> = [
+const GROUPS: Array<{ title: string; links: Array<{ label: string; href: string; ext?: boolean; play?: boolean }> }> = [
   {
     title: "Game",
     links: [
-      { label: "Play", href: `${GAME_URL}/play`, ext: true },
+      { label: "Play", href: "#", ext: true, play: true },
       { label: "Tournaments", href: "/tournaments" },
       { label: "FAQ", href: "/faq" },
     ],
@@ -61,7 +61,9 @@ export function Footer() {
               {g.title.toUpperCase()}
             </span>
             {g.links.map((l) =>
-              l.ext ? (
+              l.play ? (
+                <FooterPlayLink key={l.label}>{l.label}</FooterPlayLink>
+              ) : l.ext ? (
                 <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="footer-link">{l.label}</a>
               ) : (
                 <Link key={l.label} href={l.href} className="footer-link">{l.label}</Link>

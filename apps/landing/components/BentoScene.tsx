@@ -1,8 +1,8 @@
 "use client";
 
 import { LEAGUES, MAX_PLAYERS_PER_ROOM, ELO_K } from "@/lib/token";
+import { PlayLink } from "@/components/ui/PlayLink";
 
-/* Real power-ups (match shared gameplay constants). */
 const POWERUPS: Array<{ icon: string; name: string; effect: string }> = [
   { icon: "/sprites/powerup_bomb.png",  name: "Bomb Up",   effect: "+1 simultaneous bomb" },
   { icon: "/sprites/powerup_fire.png",  name: "Fire Up",   effect: "+1 blast radius" },
@@ -11,12 +11,6 @@ const POWERUPS: Array<{ icon: string; name: string; effect: string }> = [
   { icon: "/sprites/powerup_wall.png",  name: "Wall Pass", effect: "Phase through crates (temp)" },
   { icon: "/sprites/powerup_health.png",name: "Health",    effect: "Rare +1 HP · 2% drop" },
 ];
-
-const CARD = "relative overflow-hidden rounded-2xl p-6";
-const cardStyle: React.CSSProperties = {
-  background: "var(--color-bg-2, #0b0a10)",
-  border: "1px solid rgba(255,255,255,0.07)",
-};
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
   return <div style={{ fontFamily: "var(--font-pixel)", fontSize: "0.5rem", letterSpacing: "0.04em", color: "rgba(245,200,66,0.8)", marginBottom: "0.75rem" }}>{children}</div>;
@@ -37,10 +31,8 @@ export function BentoScene() {
           Not another bomber clone.
         </h2>
 
-        {/* Non-uniform grid: no two cards the same size */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:grid-rows-2">
-          {/* Power-up system — wide (2 cols), interactive */}
-          <div className={CARD + " sm:col-span-2"} style={cardStyle}>
+          <div className="bento-card sm:col-span-2 p-6">
             <Eyebrow>POWER-UP SYSTEM</Eyebrow>
             <Title>Six ways to dominate</Title>
             <Body>Blow up crates to grab power-ups. Stack them or deny your enemy. Hover to inspect.</Body>
@@ -58,14 +50,13 @@ export function BentoScene() {
             </div>
           </div>
 
-          {/* Ranked ladder — tall (spans both rows) */}
-          <div className={CARD + " lg:row-span-2"} style={cardStyle}>
+          <div className="bento-card lg:row-span-2 p-6">
             <Eyebrow>RANKED LADDER</Eyebrow>
             <Title>Climb the MMR</Title>
             <Body>Every ranked match moves your Elo (K={ELO_K}). Beat stronger players to rise faster.</Body>
             <div className="mt-5 flex flex-col gap-2.5">
               {[...LEAGUES].reverse().map((l) => (
-                <div key={l.name} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <div key={l.name} className="flex items-center justify-between pixel-inset px-3 py-2" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
                   <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, textTransform: "uppercase", fontSize: "0.85rem", color: "#fff" }}>{l.emoji} {l.name}</span>
                   <span className="tabular" style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", color: "rgba(255,255,255,0.35)" }}>{l.min}+ MMR</span>
                 </div>
@@ -73,19 +64,23 @@ export function BentoScene() {
             </div>
           </div>
 
-          {/* Browser native — small */}
-          <div className={CARD} style={cardStyle}>
+          <div className="bento-card p-6">
             <Eyebrow>ZERO FRICTION</Eyebrow>
             <Title>Play anywhere</Title>
             <Body>Browser-native. No download. Runs right inside Telegram. {MAX_PLAYERS_PER_ROOM} players per match.</Body>
           </div>
 
-          {/* Provably fair — small */}
-          <div className={CARD} style={cardStyle}>
+          <div className="bento-card p-6">
             <Eyebrow>NO LUCK</Eyebrow>
             <Title>Provably fair</Title>
             <Body>SHA-256 commit / reveal. Server-authoritative. Verify every match yourself — no house edge on the RNG.</Body>
           </div>
+        </div>
+
+        <div className="mt-8 flex justify-center">
+          <PlayLink className="cta-yellow inline-flex items-center px-10" style={{ height: 48, fontSize: "0.88rem" }}>
+            ▶ Jump into a match
+          </PlayLink>
         </div>
       </div>
     </section>

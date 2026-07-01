@@ -20,7 +20,7 @@ interface Row {
 /* League → badge colour (tier is derived from real rating via shared LEAGUES). */
 const LEAGUE_BADGE: Record<string, BadgeColor> = {
   Champion: "gold",
-  Pro: "blue",
+  Pro: "amber",
   Advanced: "amber",
   Beginner: "muted",
 };
@@ -42,15 +42,15 @@ function RankMedal({ rank }: { rank: number }) {
 }
 
 function WinRateBar({ pct, trigger }: { pct: number; trigger: boolean }) {
-  const barColor = pct >= 75 ? "#f5c842" : pct >= 65 ? "#7fd8ff" : pct >= 55 ? "#ffd700" : "#f0a92a";
+  const barColor = pct >= 75 ? "#f5c842" : pct >= 65 ? "#3a9e9e" : pct >= 55 ? "#f0a92a" : "#d44030";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: "80px" }}>
-      <div style={{ flex: 1, height: "4px", borderRadius: "999px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+      <div style={{ flex: 1, height: "4px", background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: trigger ? `${pct}%` : 0 }}
           transition={{ duration: 1, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-          style={{ height: "100%", borderRadius: "999px", background: barColor, boxShadow: `0 0 6px ${barColor}80` }}
+          style={{ height: "100%", background: barColor, boxShadow: `0 0 6px ${barColor}80` }}
         />
       </div>
       <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", fontWeight: 700, color: barColor, textShadow: `0 0 6px ${barColor}70`, minWidth: "30px" }}>
@@ -78,9 +78,8 @@ function LeaderboardRow({ entry, index, trigger }: { entry: Row; index: number; 
         alignItems: "center",
         gap: "12px",
         padding: "10px 16px",
-        borderRadius: "10px",
-        background: isTop3 ? "rgba(255,215,0,0.04)" : "transparent",
-        border: isTop3 ? "1px solid rgba(255,215,0,0.10)" : "1px solid transparent",
+        background: isTop3 ? "rgba(245,200,66,0.05)" : "transparent",
+        border: isTop3 ? "1px solid rgba(245,200,66,0.12)" : "1px solid transparent",
         transition: "background 0.2s ease, border-color 0.2s ease",
         cursor: "default",
       }}
@@ -125,7 +124,7 @@ function LeaderboardRow({ entry, index, trigger }: { entry: Row; index: number; 
       </span>
 
       {/* MMR */}
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.80rem", fontWeight: 700, color: "#7fd8ff", textShadow: "0 0 10px rgba(127,216,255,0.7)", minWidth: "48px", textAlign: "right", letterSpacing: "-0.02em" }}>
+      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.80rem", fontWeight: 700, color: "#3a9e9e", textShadow: "0 0 10px rgba(58,158,158,0.5)", minWidth: "48px", textAlign: "right", letterSpacing: "-0.02em" }}>
         {entry.mmr.toLocaleString("en-US")}
       </span>
     </motion.div>
@@ -166,7 +165,7 @@ export function LiveLeaderboard() {
         >
           <span style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", textTransform: "uppercase", letterSpacing: "-0.03em", fontSize: "clamp(1.5rem, 4vw, 2.2rem)", color: "#fff" }}>
             Global MMR{" "}
-            <span style={{ color: "#7fd8ff", textShadow: "0 0 20px rgba(127,216,255,0.7)" }}>Leaderboard</span>
+            <span style={{ color: "#f5c842", textShadow: "0 0 20px rgba(245,200,66,0.45)" }}>Leaderboard</span>
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span className="relative flex h-2 w-2 shrink-0">
@@ -179,8 +178,8 @@ export function LiveLeaderboard() {
           </div>
         </motion.div>
 
-        <GlassCard variant="blue" padding="0" radius="1.25rem" noHover>
-          <div style={{ display: "grid", gridTemplateColumns: "36px 1fr auto auto auto", gap: "12px", padding: "10px 16px", borderBottom: "1px solid rgba(127,216,255,0.10)" }}>
+        <GlassCard variant="gold" padding="0" radius="0" noHover>
+          <div style={{ display: "grid", gridTemplateColumns: "36px 1fr auto auto auto", gap: "12px", padding: "10px 16px", borderBottom: "1px solid rgba(245,200,66,0.12)" }}>
             {["RANK", "PLAYER", "WIN RATE", "EARNED", "MMR"].map((h, i) => (
               <span
                 key={h}
@@ -206,13 +205,13 @@ export function LiveLeaderboard() {
             initial={{ opacity: 0 }}
             animate={inView ? { opacity: 1 } : {}}
             transition={{ delay: 0.7, duration: 0.5 }}
-            style={{ borderTop: "1px solid rgba(127,216,255,0.10)", padding: "12px 16px", textAlign: "center" }}
+            style={{ borderTop: "1px solid rgba(245,200,66,0.12)", padding: "12px 16px", textAlign: "center" }}
           >
             <Link
               href="/tournaments"
-              style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(127,216,255,0.55)", textDecoration: "none", transition: "color 0.18s ease" }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#7fd8ff")}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(127,216,255,0.55)")}
+              style={{ fontFamily: "var(--font-mono)", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(245,200,66,0.55)", textDecoration: "none", transition: "color 0.18s ease" }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#f5c842")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(245,200,66,0.55)")}
             >
               View Full Leaderboard & Tournaments →
             </Link>

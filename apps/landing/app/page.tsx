@@ -1,71 +1,68 @@
 import dynamic from "next/dynamic";
 
-// Above-the-fold: load eagerly (Hero + light social proof + ticker).
 import { Hero } from "@/components/hero/Hero";
-import { LiveMatchFeed } from "@/components/arena/LiveMatchFeed";
-import { LiveStatsBar } from "@/components/LiveStatsBar";
+import { LivePulseStrip } from "@/components/LivePulseStrip";
+import { LiveArenaStage } from "@/components/arena/LiveArenaStage";
+import { SplitDescend } from "@/components/primitives/SplitDescend";
+import {
+  SplitDescendPinned,
+  SplitPanelRunner,
+} from "@/components/primitives/SplitDescendPinned";
+import { ArenaStoryReveal } from "@/components/story/ArenaStoryReveal";
 
-// Below-the-fold: code-split into separate chunks (still SSR'd for SEO),
-// so the initial payload stays light. Nothing removed — just deferred.
-const BentoScene         = dynamic(() => import("@/components/BentoScene").then((m) => m.BentoScene));
-const RosterSection      = dynamic(() => import("@/components/RosterSection").then((m) => m.RosterSection));
-const LiveLeaderboard    = dynamic(() => import("@/components/arena/LiveLeaderboard").then((m) => m.LiveLeaderboard));
-const VideoTrailerSection= dynamic(() => import("@/components/VideoTrailerSection").then((m) => m.VideoTrailerSection));
-const RoadmapScene       = dynamic(() => import("@/components/RoadmapScene").then((m) => m.RoadmapScene));
+const ArenaStoryChapters   = dynamic(() => import("@/components/story/ArenaStoryChapters").then((m) => m.ArenaStoryChapters));
+const BentoScene           = dynamic(() => import("@/components/BentoScene").then((m) => m.BentoScene));
+const RosterSection        = dynamic(() => import("@/components/RosterSection").then((m) => m.RosterSection));
+const LiveLeaderboard      = dynamic(() => import("@/components/arena/LiveLeaderboard").then((m) => m.LiveLeaderboard));
+const VideoTrailerSection  = dynamic(() => import("@/components/VideoTrailerSection").then((m) => m.VideoTrailerSection));
+const RoadmapScene         = dynamic(() => import("@/components/RoadmapSection").then((m) => m.RoadmapSection));
 const ProvablyFairTerminal = dynamic(() => import("@/components/ProvablyFairTerminal").then((m) => m.ProvablyFairTerminal));
-const EconomyScene       = dynamic(() => import("@/components/EconomyScene").then((m) => m.EconomyScene));
-const HomeFaqAccordion   = dynamic(() => import("@/components/HomeFaqAccordion").then((m) => m.HomeFaqAccordion));
-const FinalCta           = dynamic(() => import("@/components/FinalCta").then((m) => m.FinalCta));
-const Footer             = dynamic(() => import("@/components/Footer").then((m) => m.Footer));
+const EconomyScene         = dynamic(() => import("@/components/EconomyScene").then((m) => m.EconomyScene));
+const GuildsTeaser         = dynamic(() => import("@/components/GuildsTeaser").then((m) => m.GuildsTeaser));
+const HomeFaqAccordion     = dynamic(() => import("@/components/HomeFaqAccordion").then((m) => m.HomeFaqAccordion));
+const FinalCta             = dynamic(() => import("@/components/FinalCta").then((m) => m.FinalCta));
+const Footer               = dynamic(() => import("@/components/Footer").then((m) => m.Footer));
 
 export default function Home() {
   return (
     <main className="relative">
-      {/* ═══ HOOK ─ grab attention, prove it's alive ═══════════════════════ */}
       <Hero />
 
-      {/* light social proof right under the fold */}
-      <div className="mt-10">
-        <LiveStatsBar />
-      </div>
+      {/* SD-1: black shutters → blast → how-to-play reveal */}
+      <SplitDescendPinned
+        outerDepth={1}
+        innerDepth={1}
+        outerLeft={<SplitPanelRunner side="left" />}
+        outerRight={<SplitPanelRunner side="right" />}
+        innerContent={<ArenaStoryReveal />}
+      />
 
-      {/* running kill-feed ticker */}
-      <div className="mt-16">
-        <LiveMatchFeed />
-      </div>
+      <ArenaStoryChapters />
+      <LiveArenaStage />
 
-      {/* ═══ PRODUCT ─ what it is ══════════════════════════════════════════ */}
-      <BentoScene />
+      {/* Phase B: merged broadcast ticker (was LiveStatsBar + LiveMatchFeed) */}
+      <LivePulseStrip />
 
-      {/* the fighters — strongest visual hook */}
-      <div className="mt-28">
-        <RosterSection />
-      </div>
+      <SplitDescend bg="var(--color-bg-2)" debris>
+        <BentoScene />
+      </SplitDescend>
 
-      {/* ═══ PROOF ─ competition + gameplay ════════════════════════════════ */}
-      <section className="mt-28">
-        <LiveLeaderboard />
-      </section>
+      <RosterSection />
 
-      <div className="mt-28">
-        <VideoTrailerSection />
-      </div>
-
-      {/* ═══ VISION ─ where it's going ═════════════════════════════════════ */}
+      <LiveLeaderboard />
+      <VideoTrailerSection />
       <RoadmapScene />
 
-      {/* ═══ DETAILS ─ moved lower, spaced out (trust → token → faq) ════════ */}
-      <div className="mt-28">
+      <SplitDescend bg="var(--color-bg-4)" className="mt-28" debris>
         <ProvablyFairTerminal />
-      </div>
+      </SplitDescend>
 
-      <EconomyScene />
+      <SplitDescend bg="var(--color-bg-3)" debris>
+        <EconomyScene />
+      </SplitDescend>
 
-      <div className="mt-20">
-        <HomeFaqAccordion />
-      </div>
-
-      {/* ═══ CONVERT ═══════════════════════════════════════════════════════ */}
+      <GuildsTeaser />
+      <HomeFaqAccordion />
       <FinalCta />
       <Footer />
     </main>

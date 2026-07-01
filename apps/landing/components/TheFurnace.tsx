@@ -107,7 +107,7 @@ export function TheFurnace() {
           position: "relative",
           maxWidth: "820px",
           margin: "0 auto",
-          borderRadius: "24px",
+          borderRadius: 0,
           overflow: "hidden",
           background: "rgba(7,4,2,0.96)",
           border: "1px solid rgba(255,60,0,0.35)",

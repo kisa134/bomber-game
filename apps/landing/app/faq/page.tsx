@@ -149,7 +149,7 @@ export default function FaqPage() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search questions…"
             spellCheck={false}
-            style={{ height: 48, width: "100%", padding: "0 16px", background: "var(--color-inset, rgba(0,0,0,0.25))", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "var(--radius-md,0.5rem)", color: "#fff", outline: "none", fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}
+            style={{ height: 48, width: "100%", padding: "0 16px", background: "rgba(11,10,16,0.9)", border: "2px solid rgba(245,200,66,0.14)", borderRadius: 0, color: "#fff", outline: "none", fontFamily: "var(--font-mono)", fontSize: "0.85rem" }}
             onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(245,200,66,0.5)"; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
           />
@@ -183,11 +183,11 @@ export default function FaqPage() {
             )}
 
             {/* CTA */}
-            <div className="mt-6 flex flex-col items-start gap-4 rounded-xl p-8" style={{ background: "var(--color-inset, rgba(0,0,0,0.25))", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div className="mt-6 flex flex-col items-start gap-4 pixel-panel p-8">
               <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 800, textTransform: "uppercase", fontSize: "1.4rem", color: "#fff", margin: 0 }}>Still have questions?</h3>
               <div className="flex flex-wrap gap-3">
-                <a href="https://t.me/BombermemeFun" target="_blank" rel="noopener noreferrer" className="cta-ghost inline-flex items-center rounded-md px-6" style={{ height: 46, fontSize: "0.85rem" }}>Telegram</a>
-                <a href="https://x.com/BombermemeFun" target="_blank" rel="noopener noreferrer" className="cta-ghost inline-flex items-center rounded-md px-6" style={{ height: 46, fontSize: "0.85rem" }}>X / Twitter</a>
+                <a href="https://t.me/BombermemeFun" target="_blank" rel="noopener noreferrer" className="cta-ghost inline-flex items-center px-6" style={{ height: 46, fontSize: "0.85rem" }}>Telegram</a>
+                <a href="https://x.com/BombermemeFun" target="_blank" rel="noopener noreferrer" className="cta-ghost inline-flex items-center px-6" style={{ height: 46, fontSize: "0.85rem" }}>X / Twitter</a>
               </div>
             </div>
           </div>

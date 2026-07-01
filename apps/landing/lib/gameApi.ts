@@ -27,10 +27,24 @@ export interface LeaderRow {
   chips_won?: number;
 }
 
+/** Mirrors the game server's public Tournament shape (apps/server/src/tournament.ts). */
 export interface Tournament {
-  name?: string;
-  status?: string;
-  format?: string;
+  id: string;
+  name: string;
+  format: "points" | "bracket";
+  status: "reg_open" | "checkin" | "live" | "done"; // drafts/cancelled hidden by server
+  description?: string;
+  prizeUsd?: number;
+  entryType?: "free" | "buyin";
+  entryAmount?: number;
+  currency?: number; // 0 = chips, 1 = token
+  maxPlayers?: number;
+  podSize?: number;
+  registered?: number;
+  startAt?: number; // unix ms (0 = TBD)
+  startedAt?: number;
+  endedAt?: number;
+  winners?: string[];
 }
 
 async function getJson<T>(path: string): Promise<T | null> {
@@ -57,6 +71,21 @@ export async function fetchTournaments(): Promise<Tournament[]> {
   const d = await getJson<{ tournaments?: Tournament[] } | Tournament[]>("/tournaments");
   if (Array.isArray(d)) return d;
   return d?.tournaments ?? [];
+}
+
+export interface ReferralStats {
+  direct: number; // direct (tier-1) recruits
+  earned: number; // total referral earnings, whole tokens
+  levels: number[]; // payout % per tier, e.g. [10,5,3,2,1]
+  network: number[]; // headcount per tier (length 5)
+  rakePct: number; // house rake % (0 if not configured publicly)
+}
+
+/** Real referral stats for a wallet from /referral/stats?wallet=… (public). */
+export async function fetchReferralStats(wallet: string): Promise<ReferralStats | null> {
+  const w = wallet.trim();
+  if (!w) return null;
+  return getJson<ReferralStats>(`/referral/stats?wallet=${encodeURIComponent(w)}`);
 }
 
 /** Whole-token amount from base units (token uses 6 decimals). */

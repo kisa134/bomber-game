@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
+import { PixelGlassGlitch } from "@/components/effects/PixelGlassGlitch";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
 const TEAL = "#3a9e9e";
@@ -80,8 +81,9 @@ export function ProvablyFairTerminal() {
         <motion.div
           initial={{ opacity: 0, y: 30, scale: 0.98 }} whileInView={{ opacity: 1, y: 0, scale: 1 }}
           viewport={{ once: true, margin: "-60px" }} transition={{ duration: 0.75, ease, delay: 0.1 }}
-          style={{ background: "var(--color-inset, rgba(0,0,0,0.25))", border: "1px solid rgba(255,255,255,0.12)", borderRadius: "var(--radius-md,0.5rem)", overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}
         >
+          <PixelGlassGlitch variant="cyan" mode="pulse" intensity={0.85}>
+            <div style={{ background: "var(--color-inset, rgba(0,0,0,0.25))", overflow: "hidden" }}>
           {/* chrome */}
           <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.3)" }}>
             <span className="terminal-dot" style={{ background: RED }} />
@@ -119,6 +121,8 @@ export function ProvablyFairTerminal() {
               <Line k="// runs entirely in your browser" v="" dim />
             </div>
           </div>
+            </div>
+          </PixelGlassGlitch>
         </motion.div>
       </div>
     </section>

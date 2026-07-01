@@ -6,6 +6,7 @@ import { BentoRow1Arena } from "./BentoRow1Arena";
 import { BentoRow2Powerups } from "./BentoRow2Powerups";
 import { BentoRow3Skills } from "./BentoRow3Skills";
 import { BentoRow4Roi } from "./BentoRow4Roi";
+import { PlayLink } from "@/components/ui/PlayLink";
 
 export function BentoSection() {
   return (
@@ -77,17 +78,14 @@ export function BentoSection() {
           variants={{ hidden: {}, show: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } } }}
           className="mt-6 flex flex-col items-center gap-4"
         >
-          <motion.a
-            variants={iFade}
-            href="http://bombermeme.fun/play"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="cta-find-match group relative overflow-hidden rounded-2xl px-12 py-4 text-lg lg:px-14 lg:py-5 lg:text-xl"
-            style={{ fontFamily: "var(--font-display)" }}
-          >
-            <span className="relative z-10">▶ ENTER THE ARENA</span>
-            <span className="absolute inset-0 -translate-x-full skew-x-12 bg-white/20 transition-transform duration-500 group-hover:translate-x-[130%]" />
-          </motion.a>
+          <motion.div variants={iFade}>
+            <PlayLink
+              className="cta-yellow inline-flex items-center px-12 py-4 text-lg lg:px-14 lg:py-5 lg:text-xl"
+              style={{ fontFamily: "var(--font-display)" }}
+            >
+              ▶ ENTER THE ARENA
+            </PlayLink>
+          </motion.div>
           <motion.p
             variants={iFade}
             className="text-[11px] text-white/30"

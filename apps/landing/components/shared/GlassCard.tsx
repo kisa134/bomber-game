@@ -16,37 +16,37 @@ interface GlassCardProps extends Omit<HTMLMotionProps<"div">, "children"> {
 }
 
 const VARIANT_CLASSES: Record<GlassVariant, string> = {
-  default: "cyber-glass",
-  green:   "cyber-glass",
-  pink:    "cyber-glass cyber-glass-pink",
-  blue:    "cyber-glass cyber-glass-blue",
-  gold:    "cyber-glass",
-  amber:   "cyber-glass",
+  default: "pixel-panel",
+  green:   "pixel-panel",
+  pink:    "pixel-panel pixel-panel--red",
+  blue:    "pixel-panel pixel-panel--teal",
+  gold:    "pixel-panel pixel-panel--gold",
+  amber:   "pixel-panel",
 };
 
 const VARIANT_BORDER: Record<GlassVariant, string> = {
-  default: "rgba(245,200,66,0.12)",
-  green:   "rgba(245,200,66,0.12)",
-  pink:    "rgba(255,90,77,0.12)",
-  blue:    "rgba(127,216,255,0.12)",
-  gold:    "rgba(255,215,0,0.12)",
-  amber:   "rgba(255,140,0,0.12)",
+  default: "rgba(245,200,66,0.16)",
+  green:   "rgba(245,200,66,0.16)",
+  pink:    "rgba(212,64,48,0.28)",
+  blue:    "rgba(58,158,158,0.28)",
+  gold:    "rgba(245,200,66,0.28)",
+  amber:   "rgba(240,169,42,0.28)",
 };
 
 const VARIANT_GLOW: Record<GlassVariant, string> = {
   default: "rgba(245,200,66,0.08)",
   green:   "rgba(245,200,66,0.08)",
-  pink:    "rgba(255,90,77,0.10)",
-  blue:    "rgba(127,216,255,0.10)",
-  gold:    "rgba(255,215,0,0.10)",
-  amber:   "rgba(255,140,0,0.10)",
+  pink:    "rgba(212,64,48,0.10)",
+  blue:    "rgba(58,158,158,0.10)",
+  gold:    "rgba(245,200,66,0.10)",
+  amber:   "rgba(240,169,42,0.10)",
 };
 
 export function GlassCard({
   children,
   variant  = "default",
   padding  = "1.5rem",
-  radius   = "1rem",
+  radius   = "0",
   noHover  = false,
   className = "",
   style,
@@ -65,8 +65,8 @@ export function GlassCard({
         noHover
           ? undefined
           : {
-              borderColor: VARIANT_BORDER[variant].replace("0.12", "0.32"),
-              boxShadow: `0 24px 72px rgba(0,0,0,0.75), 0 0 32px ${VARIANT_GLOW[variant]}`,
+              borderColor: VARIANT_BORDER[variant].replace("0.16", "0.38").replace("0.28", "0.45"),
+              boxShadow: `4px 4px 0 rgba(0,0,0,0.55), 0 0 24px ${VARIANT_GLOW[variant]}`,
             }
       }
       transition={{ duration: 0.22, ease: "easeOut" }}

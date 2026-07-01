@@ -1,77 +1,83 @@
 "use client";
 
-import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
-import { useState, useEffect } from "react";
-import { fetchStats, type GameStats, GAME_URL } from "@/lib/gameApi";
-import { TOKEN_TICKER } from "@/lib/token";
+import { motion, AnimatePresence, useTransform, useScroll } from "framer-motion";
+import { useState, useRef } from "react";
+import { usePlayUrl } from "@/lib/playUrl";
+import { useMagnetic } from "@/lib/hooks/useMagnetic";
+import { PrizePoolCounter } from "@/components/hero/PrizePoolCounter";
+import { HeroBroadcastHud } from "@/components/hero/HeroArenaScene";
+import { HeroCrowdRun } from "@/components/hero/HeroCrowdRun";
 
 const ease: [number, number, number, number] = [0.16, 1, 0.3, 1];
-const PLAY_URL = `${GAME_URL}/play`;
-
-/* ── Real HUD chip (count-up to a real /stats value) ─────────────────────── */
-function HudChip({
-  value,
-  label,
-  suffix = "",
-  color,
-  trigger,
-}: {
-  value: number;
-  label: string;
-  suffix?: string;
-  color: string;
-  trigger: boolean;
-}) {
-  const mv = useMotionValue(0);
-  const display = useTransform(mv, (v) => `${Math.floor(v).toLocaleString("en-US")}${suffix}`);
-  useEffect(() => {
-    if (!trigger) return;
-    const ctrl = animate(mv, value, { duration: 1.4, ease });
-    return () => ctrl.stop();
-  }, [trigger, value, mv]);
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      <motion.span
-        className="tabular-nums"
-        style={{ fontFamily: "var(--font-display)", fontSize: "clamp(1.1rem,2.4vw,1.6rem)", fontWeight: 800, color, lineHeight: 1 }}
-      >
-        {display}
-      </motion.span>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.5rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.32)" }}>
-        {label}
-      </span>
-    </div>
-  );
-}
 
 export function Hero() {
-  const [stats, setStats] = useState<GameStats | null>(null);
-  const [ready, setReady] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
+  const playUrl = usePlayUrl();
+  const magneticRef = useMagnetic<HTMLAnchorElement>(0.32);
   const [flash, setFlash] = useState(false);
 
-  useEffect(() => {
-    let alive = true;
-    const load = () => void fetchStats().then((d) => { if (alive && d) setStats(d); });
-    load();
-    const id = setInterval(load, 30_000);
-    const t = setTimeout(() => setReady(true), 500);
-    return () => { alive = false; clearInterval(id); clearTimeout(t); };
-  }, []);
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"],
+  });
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.5], [1, 0]);
+  const heroY = useTransform(scrollYProgress, [0, 0.5], [0, -72]);
 
   const detonate = () => { setFlash(true); setTimeout(() => setFlash(false), 650); };
 
   return (
     <section
+      ref={sectionRef}
       className="hero-spec-bg relative flex min-h-[100svh] w-full items-center overflow-hidden"
       style={{ paddingTop: "88px", paddingBottom: "64px", paddingInline: "var(--section-px, 1.5rem)" }}
     >
-      {/* detonation flash easter egg */}
+      {/* ── z-0 · arena ENVIRONMENT — the whole hero lives inside one world (comp B) ── */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          zIndex: 0,
+          backgroundImage: "url(/bg/hero-bg-arena.webp)",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          opacity: 0.62,
+          filter: "blur(1.5px) brightness(0.58) saturate(1.05)",
+        }}
+      />
+      {/* left-side darken — keeps the headline the main typographic punch */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          zIndex: 0,
+          background: "linear-gradient(90deg, rgba(5,5,9,0.85) 0%, rgba(5,5,9,0.52) 30%, rgba(5,5,9,0.12) 56%, transparent 72%)",
+        }}
+      />
+      {/* ── the CROWD — our fighters stampede the camera; the living hero scene
+             (random crowd each load, runs in the arena environment) ── */}
+      <div className="absolute inset-0 hidden md:block" style={{ zIndex: 2 }} aria-hidden>
+        <HeroCrowdRun />
+      </div>
+
+      {/* directional key light rising from the match (lower-right) up into the text zone —
+          light/atmosphere is the ONLY thing that crosses left, never objects */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          zIndex: 3,
+          background:
+            "radial-gradient(95% 90% at 70% 72%, rgba(245,200,66,0.18) 0%, rgba(212,64,48,0.07) 28%, transparent 56%)",
+        }}
+      />
+
       <AnimatePresence>
         {flash && (
           <motion.div
-            key="flash" aria-hidden
-            initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0.6, 0] }}
+            key="flash"
+            aria-hidden
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 0.6, 0] }}
             transition={{ duration: 0.65, times: [0, 0.08, 0.35, 1], ease: "easeOut" }}
             className="pointer-events-none absolute inset-0"
             style={{ zIndex: 30, background: "radial-gradient(ellipse 120% 100% at 35% 55%, rgba(245,200,66,0.10) 0%, rgba(212,64,48,0.22) 55%, transparent 100%)" }}
@@ -79,19 +85,18 @@ export function Hero() {
         )}
       </AnimatePresence>
 
-      <div className="relative mx-auto grid w-full max-w-[1200px] grid-cols-1 items-center gap-8 lg:grid-cols-12" style={{ zIndex: 10 }}>
-        {/* ── LEFT: headline + CTAs (cols 1–7) ───────────────────────────── */}
+      <motion.div
+        className="relative mx-auto grid w-full max-w-[1200px] grid-cols-1 items-center gap-8 lg:grid-cols-12"
+        style={{ zIndex: 10, opacity: heroOpacity, y: heroY }}
+      >
         <div className="flex flex-col items-start gap-6 lg:col-span-7">
-          {/* status pill */}
           <motion.div
-            initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease }}
-            className="inline-flex items-center gap-2 rounded-full px-4 py-1.5"
-            style={{ border: "1px solid rgba(245,200,66,0.22)", background: "rgba(245,200,66,0.06)" }}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease }}
+            className="pixel-badge inline-flex items-center gap-2 px-3 py-1.5"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-80" style={{ background: "#f09020" }} />
-              <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: "#f09020" }} />
-            </span>
+            <span className="hero-live-dot" />
             <span style={{ fontFamily: "var(--font-pixel)", fontSize: "0.55rem", letterSpacing: "0.06em", color: "rgba(245,200,66,0.9)" }}>
               SEASON 01
             </span>
@@ -101,7 +106,6 @@ export function Hero() {
             </span>
           </motion.div>
 
-          {/* headline FIGHT / EXPLODE / GET PAID */}
           <h1
             onClick={detonate}
             title="detonate"
@@ -120,7 +124,8 @@ export function Hero() {
             {["FIGHT.", "EXPLODE."].map((line, i) => (
               <motion.span
                 key={line}
-                initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, ease, delay: 0.1 + i * 0.1 }}
                 style={{ display: "block" }}
               >
@@ -128,7 +133,8 @@ export function Hero() {
               </motion.span>
             ))}
             <motion.span
-              initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease, delay: 0.3 }}
               style={{ display: "block" }}
             >
@@ -136,69 +142,77 @@ export function Hero() {
             </motion.span>
           </h1>
 
-          {/* body line */}
           <motion.p
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.45 }}
-            style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-base, 1rem)", lineHeight: 1.6, color: "var(--color-text-secondary, rgba(255,255,255,0.6))", maxWidth: "44ch" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.45 }}
+            style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-base, 1rem)", lineHeight: 1.6, color: "rgba(255,255,255,0.6)", maxWidth: "44ch" }}
           >
-            A real-time PvP bomber arena on Solana. Pure skill, no luck —{" "}
-            <span style={{ color: "#d44030" }}>last bomber standing takes the pot.</span>
+            No teams. No luck. No mercy.{" "}
+            <span style={{ color: "#d44030" }}>Last meme standing takes the pot.</span>
           </motion.p>
 
-          {/* CTAs */}
           <motion.div
-            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease, delay: 0.55 }}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease, delay: 0.55 }}
             className="flex flex-wrap items-center gap-3"
           >
-            <a href={PLAY_URL} target="_blank" rel="noopener noreferrer"
-              className="cta-yellow inline-flex items-center justify-center rounded-md px-7"
-              style={{ height: "52px", fontSize: "0.95rem" }}>
+            <a
+              ref={magneticRef}
+              href={playUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="cta-yellow inline-flex items-center justify-center px-7 transition-transform"
+              style={{ height: "52px", fontSize: "0.95rem" }}
+            >
               ▶ Play Now
             </a>
-            <a href="/faq"
-              className="cta-ghost inline-flex items-center justify-center rounded-md px-7"
-              style={{ height: "52px", fontSize: "0.9rem" }}>
+            <a href="/faq" className="cta-ghost inline-flex items-center justify-center px-7" style={{ height: "52px", fontSize: "0.9rem" }}>
               How It Works
             </a>
           </motion.div>
 
-          {/* real HUD strip */}
           <motion.div
-            initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease, delay: 0.7 }}
-            className="mt-2 flex flex-wrap items-center gap-x-8 gap-y-4"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease, delay: 0.65 }}
+            className="w-full max-w-md"
           >
-            <HudChip value={Math.round(stats?.online ?? 0)}     label="Players Online" color="#f5c842" trigger={ready} />
-            <HudChip value={Math.round(stats?.matches ?? 0)}    label="Matches"        color="#7fd8ff" trigger={ready} />
-            <HudChip value={Math.round(stats?.prizePaid ?? 0)}  label="Paid Out"       suffix={` ${TOKEN_TICKER}`} color="#f5c842" trigger={ready} />
-            <HudChip value={Math.round(stats?.topMmr ?? 0)}     label="Top MMR"        color="#3a9e9e" trigger={ready} />
+            <PrizePoolCounter />
           </motion.div>
         </div>
 
-        {/* ── RIGHT: fighter (cols 8–12) ──────────────────────────────────── */}
-        <div className="relative flex justify-center lg:col-span-5 lg:justify-end">
-          {/* bomb glow halo behind the fighter */}
-          <div aria-hidden className="pointer-events-none absolute" style={{ right: "8%", bottom: "10%", width: "min(60vw,360px)", height: "min(60vw,360px)", background: "radial-gradient(circle, rgba(212,64,48,0.18) 0%, transparent 65%)", filter: "blur(8px)", animation: "neon-pulse 2.4s ease-in-out infinite" }} />
-          <motion.img
-            src="/sprites/skin_2.webp"
-            alt="BomberMeme fighter"
-            initial={{ opacity: 0, x: 60 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 1, ease, delay: 0.25 }}
-            className="hero-fighter relative"
-            style={{ height: "min(58vh, 520px)", width: "auto", objectFit: "contain", imageRendering: "pixelated", filter: "drop-shadow(0 24px 48px rgba(0,0,0,0.6))", animation: "hero-fighter-float 3s ease-in-out infinite", zIndex: 10 }}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-          />
+        <div className="relative hidden items-start justify-end lg:col-span-5 lg:flex">
+          <motion.div style={{ opacity: heroOpacity }}>
+            <HeroBroadcastHud />
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* scroll cue */}
       <motion.div
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1, duration: 1 }}
-        className="absolute bottom-7 left-1/2 -translate-x-1/2" style={{ zIndex: 10 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.1, duration: 1 }}
+        className="absolute bottom-7 left-1/2 -translate-x-1/2"
+        style={{ zIndex: 10, opacity: heroOpacity }}
       >
         <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut" }} className="flex flex-col items-center gap-1.5">
           <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.55rem", letterSpacing: "0.28em", color: "rgba(245,200,66,0.35)", textTransform: "uppercase" }}>scroll</span>
           <div style={{ width: "1px", height: "34px", background: "linear-gradient(to bottom, rgba(245,200,66,0.4), transparent)" }} />
         </motion.div>
       </motion.div>
+
+      {/* ── z-40 · foreground veil — thin cinematic glass over the WHOLE hero ── */}
+      <div aria-hidden className="bm-scanlines pointer-events-none absolute inset-0" style={{ zIndex: 40, opacity: 0.1 }} />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          zIndex: 40,
+          background: "radial-gradient(145% 125% at 50% 44%, transparent 62%, rgba(4,5,9,0.5) 100%)",
+        }}
+      />
     </section>
   );
 }

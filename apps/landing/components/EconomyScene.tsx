@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { TokenWidget } from "@/components/TokenWidget";
+import { TheFurnace } from "@/components/TheFurnace";
+import { RoiCalculator } from "@/components/RoiCalculator";
 import {
   TOKEN_TICKER,
   TOTAL_SUPPLY,
@@ -8,11 +10,10 @@ import {
   RAKE_SPLIT_BPS,
 } from "@/lib/token";
 
-/* Real, single-source numbers (no mocks). */
-const RAKE_PCT = HOUSE_RAKE_BP_DEFAULT / 100;          // 5
-const BURN_PCT = RAKE_SPLIT_BPS.burn / 100;            // 25
-const GUILD_PCT = RAKE_SPLIT_BPS.referral / 100;       // 21
-const ECO_PCT = RAKE_SPLIT_BPS.devTreasury / 100;      // 54
+const RAKE_PCT = HOUSE_RAKE_BP_DEFAULT / 100;
+const BURN_PCT = RAKE_SPLIT_BPS.burn / 100;
+const GUILD_PCT = RAKE_SPLIT_BPS.referral / 100;
+const ECO_PCT = RAKE_SPLIT_BPS.devTreasury / 100;
 
 function fmtSupply(n: number): string {
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(0)}B`;
@@ -35,7 +36,6 @@ export function EconomyScene() {
       style={{ background: "var(--color-bg-3, #090810)", paddingInline: "var(--section-px, 1.5rem)", paddingBlock: "clamp(4rem, 8vw, 7rem)" }}
     >
       <div className="mx-auto grid max-w-[1200px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
-        {/* Left — the economic argument, real numbers */}
         <div>
           <div style={{ fontFamily: "var(--font-pixel)", fontSize: "0.6rem", color: "#f5c842", marginBottom: "1rem", letterSpacing: "0.04em" }}>
             THE ECONOMY
@@ -49,11 +49,10 @@ export function EconomyScene() {
               Fair launch on Solana — <span style={{ color: "#fff" }}>{INITIAL_ALLOCATION_PCT.freeMarket}% to the open market</span>, {INITIAL_ALLOCATION_PCT.gameTreasury}% game treasury, {INITIAL_ALLOCATION_PCT.marketingCex}% growth, {INITIAL_ALLOCATION_PCT.devTeam}% team (vested). No private rounds, no presale.
             </p>
             <p>
-              Each staked match takes a <span style={{ color: "#fff" }}>{RAKE_PCT}% house rake</span>, split on-chain: <span style={{ color: "#d44030" }}>{BURN_PCT}% burned</span>, {GUILD_PCT}% to the guild network, {ECO_PCT}% to ecosystem &amp; infrastructure. The more the arena plays, the scarcer ${TOKEN_TICKER} gets.
+              Each staked match takes a <span style={{ color: "#fff" }}>{RAKE_PCT}% house rake</span>, split on-chain: <span style={{ color: "#d44030" }}>{BURN_PCT}% burned</span>, {GUILD_PCT}% to the guild network, {ECO_PCT}% to ecosystem &amp; infrastructure.
             </p>
           </div>
 
-          {/* stat chips */}
           <div className="mt-7 flex flex-wrap gap-x-8 gap-y-4">
             {CHIPS.map(([label, value]) => (
               <div key={label} className="flex flex-col gap-0.5">
@@ -70,9 +69,15 @@ export function EconomyScene() {
           </Link>
         </div>
 
-        {/* Right — live token card */}
         <div className="flex justify-center lg:justify-end">
           <TokenWidget />
+        </div>
+      </div>
+
+      <div className="mx-auto mt-16 max-w-[1200px] space-y-12">
+        <TheFurnace />
+        <div className="pixel-inset p-5 sm:p-8" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.35)" }}>
+          <RoiCalculator />
         </div>
       </div>
     </section>

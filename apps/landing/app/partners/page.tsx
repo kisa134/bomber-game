@@ -4,13 +4,15 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import { TOKEN_TICKER } from "@/lib/token";
+import { Footer } from "@/components/Footer";
 
 const GuildRevenueSimulator = dynamic(
   () => import("@/components/CreatorCalculator").then((m) => m.GuildRevenueSimulator),
   {
     ssr: false,
     loading: () => (
-      <div className="h-64 w-full animate-pulse rounded-2xl" style={{ background: "rgba(255,140,0,0.04)" }} />
+      <div className="h-64 w-full animate-pulse pixel-panel" style={{ background: "rgba(255,140,0,0.04)" }} />
     ),
   }
 );
@@ -189,7 +191,7 @@ export default function PartnersPage() {
         {/* HERO                                                              */}
         {/* ══════════════════════════════════════════════════════════════════ */}
         <motion.section initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.85, ease }} className="mb-28 text-center">
-          <div className="mx-auto mb-6 inline-flex items-center gap-2.5 rounded-full border px-4 py-1.5"
+          <div className="mx-auto mb-6 inline-flex items-center gap-2.5 pixel-badge px-4 py-1.5"
             style={{ background: "rgba(245,200,66,0.06)", borderColor: "rgba(245,200,66,0.22)", backdropFilter: "blur(12px)" }}
           >
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#f5c842", boxShadow: "0 0 8px rgba(245,200,66,0.9)", display: "inline-block", animation: "neon-pulse 2s ease-in-out infinite" }} />
@@ -204,7 +206,7 @@ export default function PartnersPage() {
             textTransform: "uppercase", marginBottom: "1.2rem",
           }}>
             <span style={{
-              background: "linear-gradient(170deg, #ffffff 0%, #f5c842 40%, #7fd8ff 90%)",
+              background: "linear-gradient(170deg, #ffffff 0%, #f5c842 55%, #3a9e9e 100%)",
               WebkitBackgroundClip: "text", backgroundClip: "text", WebkitTextFillColor: "transparent",
               filter: "drop-shadow(0 0 30px rgba(245,200,66,0.30))",
               display: "block",
@@ -231,7 +233,7 @@ export default function PartnersPage() {
             <span style={{ color: "rgba(255,255,255,0.65)" }}>Forever.</span>
           </p>
 
-          <a href="#found-guild" className="cta-find-match inline-block rounded-xl px-10 py-4 font-bold"
+          <a href="#found-guild" className="cta-yellow inline-flex items-center px-10 py-4 font-bold"
             style={{ fontFamily: "var(--font-display)", fontSize: "1rem", textDecoration: "none" }}
           >
             ⚔ Found a Guild ↓
@@ -248,10 +250,9 @@ export default function PartnersPage() {
           <div style={{
             background: "rgba(7,8,16,0.88)",
             border: "1px solid rgba(245,200,66,0.14)",
-            borderRadius: "24px",
+            borderRadius: 0,
             padding: "clamp(2rem, 5vw, 3rem)",
-            backdropFilter: "blur(24px)",
-            boxShadow: "0 32px 80px rgba(0,0,0,0.7), 0 0 60px rgba(245,200,66,0.04)",
+            boxShadow: "4px 4px 0 rgba(0,0,0,0.45), 0 0 40px rgba(245,200,66,0.04)",
           }}>
             <h2 style={{
               fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic",
@@ -310,7 +311,7 @@ export default function PartnersPage() {
               </h3>
               <p style={{ fontFamily: "var(--font-display)", fontSize: "0.98rem", color: "rgba(255,255,255,0.78)", lineHeight: 1.75, margin: 0 }}>
                 Top guild commanders on our global leaderboard won&apos;t just earn daily rake — they&apos;ll receive massive exclusive{" "}
-                <strong style={{ color: "#ffd700", textShadow: "0 0 12px rgba(255,215,0,0.5)" }}>$BMB Airdrops</strong>{" "}
+                <strong style={{ color: "#ffd700", textShadow: "0 0 12px rgba(255,215,0,0.5)" }}>${TOKEN_TICKER} Airdrops</strong>{" "}
                 directly from the Platform Treasury as official Web3 Grants. The map is wide open. Plant your flag now.
               </p>
             </div>
@@ -330,13 +331,10 @@ export default function PartnersPage() {
             </div>
 
             <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
-              <a href="#found-guild" style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", background: "linear-gradient(135deg, #f5c842, #7fd8ff)", color: "#111", padding: "14px 28px", borderRadius: "999px", textDecoration: "none", letterSpacing: "0.02em", boxShadow: "0 4px 24px rgba(245,200,66,0.35)", display: "inline-flex", alignItems: "center", gap: "8px", transition: "transform 0.18s ease, box-shadow 0.18s ease" }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(1.04)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 6px 32px rgba(245,200,66,0.55)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 24px rgba(245,200,66,0.35)"; }}
-              >
+              <a href="#found-guild" className="cta-yellow inline-flex items-center gap-2 px-7 py-3.5" style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "0.95rem", textDecoration: "none", letterSpacing: "0.02em" }}>
                 ⚔ FOUND MY GUILD
               </a>
-              <a href="#" style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "0.92rem", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.80)", padding: "14px 24px", borderRadius: "999px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "8px", transition: "all 0.18s ease" }}>
+              <a href="#" className="cta-ghost inline-flex items-center gap-2 px-6 py-3.5" style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "0.92rem", textDecoration: "none" }}>
                 📦 GUILD PROMO KIT
               </a>
             </div>
@@ -548,7 +546,7 @@ export default function PartnersPage() {
             Guild commanders get an institutional-grade analytics panel. Track every fighter, every match, every satoshi — across all 5 tiers.
           </p>
 
-          <div style={{ background: "rgba(7,8,16,0.90)", border: "1px solid rgba(255,140,0,0.16)", borderRadius: "24px", overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.7), 0 0 60px rgba(255,140,0,0.04)" }}>
+          <div className="pixel-panel" style={{ overflow: "hidden", boxShadow: "4px 4px 0 rgba(0,0,0,0.45), 0 0 40px rgba(255,140,0,0.04)" }}>
             {/* Mock chrome */}
             <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "14px 20px", display: "flex", alignItems: "center", gap: "8px", background: "rgba(0,0,0,0.30)" }}>
               {["#ff5a4d", "#ffd700", "#f5c842"].map((c) => (
@@ -675,7 +673,7 @@ export default function PartnersPage() {
                   <FormField label="Primary Region" placeholder="e.g. Asia, Europe, LatAm..." value={form.region} onChange={(v) => setForm((f) => ({ ...f, region: v }))} required />
                 </div>
                 <button type="submit"
-                  className="cta-find-match w-full rounded-xl py-5 font-bold cursor-pointer border-none"
+                  className="cta-yellow w-full py-5 font-bold cursor-pointer border-none"
                   style={{ fontFamily: "var(--font-display)", fontSize: "1.1rem", letterSpacing: "0.04em", marginTop: "8px" }}
                   onMouseDown={(e) => ((e.currentTarget as HTMLElement).style.transform = "scale(0.97)")}
                   onMouseUp={(e) => ((e.currentTarget as HTMLElement).style.transform = "scale(1)")}
@@ -688,11 +686,12 @@ export default function PartnersPage() {
         </motion.section>
 
         {/* Footer note */}
-        <motion.p {...fadeUp} style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.15)", textAlign: "center", paddingBottom: "3rem" }}>
+        <motion.p {...fadeUp} style={{ fontFamily: "var(--font-mono)", fontSize: "0.62rem", letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.15)", textAlign: "center", paddingBottom: "1.5rem" }}>
           Bombermeme Guild System · Solana · Provably Fair · All rewards on-chain
         </motion.p>
 
       </div>
+      <Footer />
     </main>
   );
 }

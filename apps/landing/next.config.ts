@@ -18,11 +18,15 @@ const nextConfig: NextConfig = {
   // The shared package's barrel re-exports siblings with ESM ".js" specifiers
   // (e.g. ./movement.js). Map ".js" -> ".ts" so webpack resolves the TS source;
   // unused exports (movement/protocol) are tree-shaken out of the bundle.
-  webpack: (config) => {
+  webpack: (config, { dev }) => {
     config.resolve.extensionAlias = {
       ".js": [".ts", ".tsx", ".js", ".jsx"],
       ".mjs": [".mts", ".mjs"],
     };
+    // Windows: the webpack filesystem pack-cache intermittently fails to rename
+    // (`.pack.gz_` -> `.pack.gz`, ENOENT), corrupting the dev build and serving 500s.
+    // Use the in-memory cache in dev so there are no pack files to rename.
+    if (dev) config.cache = { type: "memory" };
     return config;
   },
 };

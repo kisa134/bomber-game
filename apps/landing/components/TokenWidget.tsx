@@ -159,13 +159,7 @@ export function TokenWidget() {
 
   return (
     <div
-      className="relative flex w-72 flex-col gap-4 rounded-3xl border border-white/10 p-5"
-      style={{
-        background: "rgba(255,255,255,0.02)",
-        backdropFilter: "blur(24px)",
-        WebkitBackdropFilter: "blur(24px)",
-        boxShadow: "0 0 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
-      }}
+      className="relative flex w-72 flex-col gap-4 pixel-panel p-5"
     >
       <div>
 
@@ -193,7 +187,7 @@ export function TokenWidget() {
           </span>
         </div>
         <span
-          className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest"
+          className="pixel-inset px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest"
           style={{
             fontFamily: "var(--font-mono)",
             color:      error ? "#ff5a5f" : "#f5c842",
@@ -208,7 +202,7 @@ export function TokenWidget() {
 
       {/* ── SVG Sparkline ───────────────────────────────────────────── */}
       <div
-        className="overflow-hidden rounded-2xl"
+        className="overflow-hidden pixel-inset"
         style={{
           background: "rgba(245,200,66,0.03)",
           border: "1px solid rgba(245,200,66,0.08)",

@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { SmoothScroll } from "@/components/SmoothScroll";
+import SvgFilterDefs from "@/components/effects/SvgFilterDefs";
+import { GSAPProvider } from "@/components/providers/GSAPProvider";
+import { RefCapture } from "@/components/providers/RefCapture";
 import { TopNav } from "@/components/TopNav";
 import { StickyCtaBanner } from "@/components/StickyCtaBanner";
+import { MobileNav } from "@/components/layout/MobileNav";
 import { Providers } from "@/lib/providers";
 
 export const metadata: Metadata = {
@@ -38,12 +41,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body>
-        {/* Unified site background — the same blurred game art + vignette as the
-            in-game hub, fixed behind every page. */}
+        <SvgFilterDefs />
+
+        <div id="aria-live-polite" className="sr-only" role="status" aria-live="polite" aria-atomic="true" />
+        <div id="aria-live-assertive" className="sr-only" role="alert" aria-live="assertive" aria-atomic="true" />
+
         <div className="site-bg" aria-hidden="true" />
         <Providers>
+          <RefCapture />
           <TopNav />
-          <SmoothScroll>{children}</SmoothScroll>
+          <GSAPProvider>{children}</GSAPProvider>
+          <MobileNav />
           <StickyCtaBanner />
         </Providers>
       </body>

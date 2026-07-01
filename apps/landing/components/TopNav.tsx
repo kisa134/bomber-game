@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useWeb3Auth, fmtBalance, fmtMMR } from "@/lib/web3Auth";
 import { audioManager } from "@/lib/audioManager";
 import { TOKEN_TICKER } from "@/lib/token";
+import { PlayLink } from "@/components/ui/PlayLink";
 
 const NAV_LINKS = [
   { label: "Arena",       href: "/" },
@@ -118,16 +119,14 @@ function AuthWidget() {
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
               style={{
                 position:           "absolute",
-                top:                "calc(100% + 10px)",
+                top:                "calc(100% + 8px)",
                 right:              0,
                 zIndex:             99,
                 minWidth:           "180px",
-                background:         "rgba(10,12,20,0.96)",
-                border:             "1px solid rgba(245,200,66,0.20)",
-                borderRadius:       "12px",
-                backdropFilter:     "blur(20px)",
-                WebkitBackdropFilter: "blur(20px)",
-                boxShadow:          "0 16px 48px rgba(0,0,0,0.75), 0 0 24px rgba(245,200,66,0.06)",
+                background:         "rgba(10,12,20,0.98)",
+                border:             "2px solid rgba(245,200,66,0.22)",
+                borderRadius:       "0",
+                boxShadow:          "0 4px 0 rgba(0,0,0,0.5), 0 12px 40px rgba(0,0,0,0.75)",
                 overflow:           "hidden",
               }}
             >
@@ -223,28 +222,21 @@ export function TopNav() {
     <motion.nav
       role="navigation"
       aria-label="Site navigation"
-      className="fixed top-5 right-5 z-50 hidden md:flex"
+      className="pixel-topnav fixed top-4 right-4 z-50 hidden md:flex"
       animate={{
-        background: scrolled
-          ? "rgba(7,8,16,0.92)"
-          : "rgba(7,8,16,0.55)",
-        borderColor: scrolled
-          ? "rgba(245,200,66,0.18)"
-          : "rgba(245,200,66,0.10)",
+        background: scrolled ? "rgba(7,8,16,0.96)" : "rgba(7,8,16,0.78)",
+        borderColor: scrolled ? "rgba(245,200,66,0.28)" : "rgba(245,200,66,0.14)",
         boxShadow: scrolled
-          ? "0 4px 40px rgba(0,0,0,0.75), 0 0 24px rgba(245,200,66,0.06), inset 0 1px 0 rgba(255,255,255,0.04)"
-          : "0 4px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.03)",
+          ? "0 4px 0 rgba(0,0,0,0.5), 0 8px 32px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.05)"
+          : "0 3px 0 rgba(0,0,0,0.45), 0 6px 24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.04)",
       }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
       style={{
-        backdropFilter:       "blur(24px) saturate(1.5)",
-        WebkitBackdropFilter: "blur(24px) saturate(1.5)",
-        borderRadius:         "999px",
-        borderWidth:          "1px",
-        borderStyle:          "solid",
-        padding:              "8px 18px",
-        gap:                  "20px",
-        alignItems:           "center",
+        borderWidth: "2px",
+        borderStyle: "solid",
+        padding: "6px 14px",
+        gap: "16px",
+        alignItems: "center",
       }}
     >
       {/* Logo / Home */}
@@ -331,6 +323,14 @@ export function TopNav() {
         aria-hidden
         style={{ width: "1px", height: "14px", background: "rgba(245,200,66,0.12)", flexShrink: 0 }}
       />
+
+      <PlayLink
+        className="cta-yellow"
+        style={{ height: 32, paddingInline: 14, fontSize: "0.72rem", display: "inline-flex", alignItems: "center" }}
+        onClick={() => { audioManager.unlock(); audioManager.playClick(); }}
+      >
+        ▶ Play
+      </PlayLink>
 
       {/* Web3 Auth */}
       <AuthWidget />
