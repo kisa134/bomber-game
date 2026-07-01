@@ -88,6 +88,7 @@ import {
 import { setupMenu, setMenuStatus, showScreen, syncChrome, showResult, renderRoom, renderTables, setTokenUsd, setProfileHandler, setKickHandler, setInviteSeatHandler, setSkinSelectHandler, setShopHandler, setLobbySkins, resetCharacterBrowse, setWalletState, setActiveRoom, type ScreenName } from "./ui/lobby.js";
 import { renderShareCard, VARIANT_COUNT, type CardData } from "./ui/shareCard.js";
 import { initAdminMode } from "./ui/adminOverlay.js";
+import { openTestArena } from "./ui/devArena.js";
 import { openCardsHub } from "./ui/cardsHub.js";
 import { raritySealSVG, editionMarkHTML, tierFromRank } from "./cards/CardLayers.js";
 import { startCampaign, stopCampaign } from "./campaign/main.js";
@@ -1640,6 +1641,8 @@ function applySettings(): void {
 }
 
 function syncSettingsUI(): void {
+  const tb = document.getElementById("admin-test-arena") as HTMLElement | null;
+  if (tb) tb.style.display = shopIsAdmin ? "block" : "none"; // admin-only test-arena launcher
   const m = document.getElementById("set-music") as HTMLButtonElement;
   const s = document.getElementById("set-sfx") as HTMLButtonElement;
   const gr = document.getElementById("set-gore") as HTMLButtonElement | null;
@@ -1772,6 +1775,16 @@ function wireSettings(): void {
   });
   const buildEl = document.getElementById("set-build");
   if (buildEl) buildEl.textContent = `BomberMeme · build v${ASSET_VER}`; // freshness check (cache vs live)
+  // Admin-only: a 🧪 Test Arena launcher (created once, shown for admin in syncSettingsUI).
+  if (buildEl && !document.getElementById("admin-test-arena")) {
+    const tb = document.createElement("button");
+    tb.id = "admin-test-arena";
+    tb.textContent = "🧪 Test Arena (admin)";
+    tb.className = "toggle";
+    Object.assign(tb.style, { width: "100%", marginTop: "10px", display: "none" });
+    tb.addEventListener("click", () => openTestArena(assets));
+    buildEl.parentElement?.appendChild(tb);
+  }
   document.getElementById("set-music")!.addEventListener("click", () => update("music", !settings.music));
   document.getElementById("set-sfx")!.addEventListener("click", () => update("sfx", !settings.sfx));
   document.getElementById("vol-music")?.addEventListener("input", (e) => update("musicVolume", Number((e.target as HTMLInputElement).value) / 100));
