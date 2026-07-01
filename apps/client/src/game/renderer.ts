@@ -338,6 +338,7 @@ export class Renderer {
   private puBuf: HTMLCanvasElement | null = null; // scratch buffer for powerup sheen masked to the icon
   private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
   private lightSprites: HTMLCanvasElement[] | null = null; // baked explosion-light radial sprites (perf: drawImage vs per-frame gradients)
+  private sheenSprite: HTMLCanvasElement | null = null; // baked wet-blood sheen radial (perf)
   private bloodDirty = false;
   private lastGoreFlavour: "burst" | "disembowel" | "decap" | "pulp" | "shatter" = "burst"; // last death archetype
   private bloodBorn = new Map<number, number>(); // blood cell -> first-blood timestamp (drives time drying)
@@ -1211,11 +1212,26 @@ export class Renderer {
    *  facing the arena key light (this.lx/ly) and fades as the pool dries/chars. Additive,
    *  drawn under blocks/players. This is what ties the blood into the lighting system —
    *  fresh blood looks wet and reflective, old blood goes matte. (Gore-gated, skipped on lowFx.) */
+  /** Bake the wet-blood sheen radial ONCE (warm highlight -> mid dark-red -> transparent). */
+  private buildSheenSprite(): HTMLCanvasElement {
+    const R = 48; const c = document.createElement("canvas"); c.width = R * 2; c.height = R * 2;
+    const g = c.getContext("2d");
+    if (g) {
+      const grad = g.createRadialGradient(R, R, 0, R, R, R);
+      grad.addColorStop(0, "rgba(255,180,170,1)");
+      grad.addColorStop(0.5, "rgba(120,40,40,0.33)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = grad; g.fillRect(0, 0, R * 2, R * 2);
+    }
+    return c;
+  }
+
   private drawBloodSheen(now: number): void {
     if (!this.goreEnabled || this.lowFx || !this.bloodGround.size) return;
     const ctx = this.ctx, t = this.tile;
     const surf = FLOOR_PHYSICS[this.arenaTheme] ?? FLOOR_PHYSICS.classic;
     if (surf.gloss < 0.08) return; // absorbent matte floor (sand) -> no wet glint at all
+    const sheen = (this.sheenSprite ??= this.buildSheenSprite());
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     for (const [idx, lvl] of this.bloodGround) {
@@ -1231,12 +1247,8 @@ export class Renderer {
       const prox = 1 / (1 + L / (t * 8)); // closer light -> harder glint
       const a = wet * pulse * 0.3 * (0.6 + 0.4 * prox) * surf.gloss; // glossy metal glints hard, sand not at all
       const r = t * 0.42;
-      const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, r);
-      grad.addColorStop(0, `rgba(255,180,170,${a.toFixed(3)})`); // warm wet highlight (not white)
-      grad.addColorStop(0.5, `rgba(120,40,40,${(a * 0.33).toFixed(3)})`);
-      grad.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = grad;
-      ctx.fillRect(ccx - t * 0.5, ccy - t * 0.5, t * 2, t * 2);
+      ctx.globalAlpha = Math.min(1, a); // blit the baked sheen sprite (perf: no per-pool gradient alloc)
+      ctx.drawImage(sheen, gx - r, gy - r, r * 2, r * 2);
     }
     ctx.restore();
   }
