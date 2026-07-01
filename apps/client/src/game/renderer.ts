@@ -336,7 +336,9 @@ export class Renderer {
   // Persistent blood on the ground (death-cell mush + smeared footprints). cell -> intensity.
   private bloodGround = new Map<number, number>();
   private puBuf: HTMLCanvasElement | null = null; // scratch buffer for powerup sheen masked to the icon
-  private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
+  private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay (blood CELLS only now)
+  private goreCanvas: HTMLCanvasElement | null = null; // cached gore-DECAL layer (baked incrementally on land; full rebuild only when gore moves)
+  private goreDirty = false; // full gore-layer rebuild needed (a blast/kick MOVED landed gore)
   private sheenSprite: HTMLCanvasElement | null = null; // baked wet-blood sheen radial (perf)
   private bloodDirty = false;
   private lastGoreFlavour: "burst" | "disembowel" | "decap" | "pulp" | "shatter" = "burst"; // last death archetype
@@ -657,6 +659,8 @@ export class Renderer {
     this.bakedBlood.clear();
     this.bloodCanvas = null;
     this.bloodDirty = false;
+    this.goreCanvas = null;
+    this.goreDirty = false;
     this.bloodyFeet.clear();
     this.playerGore.clear();
     this.lastCell.clear();
@@ -1090,11 +1094,13 @@ export class Renderer {
       const bx = cx + 0.5 + (Math.random() - 0.5) * 1.8, by = cy + 0.5 + (Math.random() - 0.5) * 1.8;
       const g = this.prevGrid, tt = g ? g[(by | 0) * GRID_W + (bx | 0)] : 0;
       if (bx >= 0.2 && by >= 0.2 && bx <= GRID_W - 0.2 && by <= GRID_H - 0.2 && tt !== TileType.HARD && tt !== TileType.SOFT) {
-        this.bile.push({ x: bx, y: by, seed: (Math.random() * 0xffffffff) >>> 0 });
+        const item = { x: bx, y: by, seed: (Math.random() * 0xffffffff) >>> 0 };
+        this.bile.push(item);
         if (this.bile.length > 120) this.bile.splice(0, this.bile.length - 120);
+        const gc = this.goreInc(); if (gc) this.drawBile(gc.g, item, gc.pu); // bake the bile pool once
       }
     }
-    this.bloodDirty = true; // bones + meat + organs live in the cached blood overlay
+    this.bloodDirty = true; // the death cell's markGround blood (gore decals are baked on the gore layer)
     if (this.lowFx) return; // phones: keep the blood, skip the heavy gib particles
     // Gory blow-up: red gibs fly out and arc down into a mush, plus a fine
     // blood spray, a hint of the player's color, and a few bone-white bits.
@@ -1189,8 +1195,15 @@ export class Renderer {
   /** Persistent ground blood: thick gory mush where players died (fills the whole
    *  cell), pooled splatter around, faint smears where bloody feet tracked it.
    *  Dense grid-fill at grass-fine pixels, cached to a canvas and blitted. */
+  /** True if any gore decal exists (gore now lives on its own layer, independent of blood). */
+  private hasGore(): boolean {
+    return this.bones.length > 0 || this.meat.length > 0 || this.organs.length > 0 || this.skulls.length > 0 ||
+      this.brains.length > 0 || this.limbs.length > 0 || this.eyes.length > 0 || this.teeth.length > 0 ||
+      this.coins.length > 0 || this.bile.length > 0 || this.chips.length > 0 || this.footprints.length > 0;
+  }
+
   private drawBloodGround(W: number, H: number): void {
-    if (!this.bloodGround.size) return;
+    if (!this.bloodGround.size && !this.hasGore() && !this.goreCanvas) return;
     // Re-bake every ~1.5s even without new blood so the drying (bright red -> maroon ->
     // brown) actually progresses on screen. Cheap: one pass over ≤110 cells.
     const now = performance.now();
@@ -1204,7 +1217,13 @@ export class Renderer {
       this.buildBloodGround(W, H);
       this.lastBloodBuild = now;
     }
+    // Gore-decal layer: rebuilt fully only when gore moved (goreDirty) or on resize; landings
+    // are baked incrementally (goreInc), so this is NOT the per-frame cost it used to be.
+    if (this.goreDirty || !this.goreCanvas || this.goreCanvas.width !== W || this.goreCanvas.height !== H) {
+      this.buildGore();
+    }
     if (this.bloodCanvas) this.ctx.drawImage(this.bloodCanvas, 0, 0, W, H);
+    if (this.goreCanvas) this.ctx.drawImage(this.goreCanvas, 0, 0, W, H); // gore sits on top of blood
   }
 
   /** Wet sheen on FRESH blood: a warm specular glint that sits on the side of each pool
@@ -1316,20 +1335,44 @@ export class Renderer {
         }
       }
     }
+    g.globalAlpha = 1;
+    this.bloodCanvas = cv;
+  }
+
+  /** All gore decals live on a SEPARATE layer, baked ONCE as they land (goreInc) so a kill
+   *  no longer redraws hundreds of decals every frame. This full rebuild runs only when a
+   *  blast/kick MOVED landed gore (goreDirty), or on resize — not per frame, not per landing. */
+  private buildGore(): void {
+    this.goreDirty = false;
+    const W = this.tile * GRID_W, H = this.tile * GRID_H;
+    const cv = this.goreCanvas && this.goreCanvas.width === W && this.goreCanvas.height === H ? this.goreCanvas : document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d"); if (!g) return;
+    g.clearRect(0, 0, W, H);
+    const pu = Math.max(1, Math.round(this.tile / 24));
     for (const ch of this.chips) this.drawChip(g, ch, pu); // wood splinters (under gore)
-    for (const fp of this.footprints) this.drawFoot(g, fp, pu); // smears on top
-    for (const bl of this.bile) this.drawBile(g, bl, pu); // bile/slime puddles (under the gore)
-    for (const o of this.organs) this.drawOrgan(g, o, pu); // intestine coils / organs (under the chunks)
-    for (const br of this.brains) this.drawBrain(g, br, pu); // brains (soft tissue)
-    for (const lm of this.limbs) this.drawLimb(g, lm, pu); // torn arms/legs
+    for (const fp of this.footprints) this.drawFoot(g, fp, pu); // smears
+    for (const bl of this.bile) this.drawBile(g, bl, pu); // bile/slime puddles
+    for (const o of this.organs) this.drawOrgan(g, o, pu); // intestines / organs
+    for (const br of this.brains) this.drawBrain(g, br, pu); // brains
+    for (const lm of this.limbs) this.drawLimb(g, lm, pu); // torn limbs
     for (const mt of this.meat) this.drawMeat(g, mt, pu); // flesh chunks
-    for (const b of this.bones) this.drawBone(g, b, pu); // bone shards on top
-    for (const sk of this.skulls) this.drawSkull(g, sk, pu); // skulls on top
+    for (const b of this.bones) this.drawBone(g, b, pu); // bone shards
+    for (const sk of this.skulls) this.drawSkull(g, sk, pu); // skulls
     for (const ey of this.eyes) this.drawEye(g, ey, pu); // eyeballs
     for (const th of this.teeth) this.drawTooth(g, th, pu); // teeth
     for (const co of this.coins) this.drawCoin(g, co, pu); // gold coins (gore-off mode)
-    g.globalAlpha = 1;
-    this.bloodCanvas = cv;
+    this.goreCanvas = cv;
+  }
+
+  /** Context for an INCREMENTAL gore bake (draw one just-landed decal onto the layer).
+   *  Returns null + flags a full rebuild if the layer isn't ready yet / size changed. */
+  private goreInc(): { g: CanvasRenderingContext2D; pu: number } | null {
+    const W = this.tile * GRID_W, H = this.tile * GRID_H;
+    if (!this.goreCanvas || this.goreCanvas.width !== W || this.goreCanvas.height !== H) { this.goreDirty = true; return null; }
+    const g = this.goreCanvas.getContext("2d");
+    if (!g) return null;
+    return { g, pu: Math.max(1, Math.round(this.tile / 24)) };
   }
 
   /** A small wood splinter from a broken crate: a short brown shard with a lighter
@@ -1388,7 +1431,7 @@ export class Renderer {
   /** Fling a flying gore piece of `kind` from (cx,cy). With an aim (ax,ay) it's a directional
    *  KICK (softer); otherwise a random death-burst. Soft kinds barely fly (GORE_PHYS). */
   private spawnGore(kind: GoreKind, cx: number, cy: number, ax = 0, ay = 0, strength = 1): void {
-    if (this.lowFx) { this.goreArr(kind).push({ x: cx, y: cy, seed: (Math.random() * 0xffffffff) >>> 0 }); this.bloodDirty = true; return; }
+    if (this.lowFx) { const item = { x: cx, y: cy, seed: (Math.random() * 0xffffffff) >>> 0 }; this.goreArr(kind).push(item); const gc = this.goreInc(); if (gc) this.goreDraw(kind, gc.g, item, gc.pu); return; }
     const w = GORE_PHYS[kind];
     const aimed = ax !== 0 || ay !== 0;
     const a = aimed ? Math.atan2(ay, ax) + (Math.random() - 0.5) * 0.9 : Math.random() * Math.PI * 2;
@@ -1406,9 +1449,11 @@ export class Renderer {
     if (!p.gore) return;
     const k = p.gore.kind;
     const arr = this.goreArr(k);
-    arr.push({ x: p.x, y: p.y, seed: p.gore.seed });
+    const item = { x: p.x, y: p.y, seed: p.gore.seed };
+    arr.push(item);
     if (arr.length > 360) arr.splice(0, arr.length - 360);
-    this.bloodDirty = true;
+    const gc = this.goreInc(); // bake THIS decal once onto the gore layer (no full rebuild)
+    if (gc) this.goreDraw(k, gc.g, item, gc.pu);
     // Soft, wet kinds make a little SPLAT when they hit the ground (throttled so it never buzzes).
     if (!this.lowFx && this.assets && (k === "organ" || k === "brain" || k === "meat" || k === "limb")) {
       const now = performance.now();
@@ -1446,7 +1491,7 @@ export class Renderer {
       }
     }
     if (kicked) {
-      this.bloodDirty = true;
+      this.goreDirty = true; // gore was kicked to new cells -> rebuild the gore layer once
       const now = performance.now();
       if (this.assets && now - this.lastClatter > 110) { // throttle so it doesn't buzz
         this.lastClatter = now;
@@ -1490,7 +1535,7 @@ export class Renderer {
         }
       }
     }
-    this.bloodDirty = true;
+    this.goreDirty = true; // landed gore was re-flung -> rebuild the gore layer once
   }
 
   /** Ash + embers + a smoke wisp where a gore piece burned up in a blast. */
@@ -1543,7 +1588,7 @@ export class Renderer {
     };
     blast(this.chips, "#a06b48", 0.6); // wood splinters only (gore kinds go through blastGore)
     if (moved) {
-      this.bloodDirty = true;
+      this.goreDirty = true; // chips relocated by the blast -> rebuild the gore layer once
       if (this.assets) {
         const sd = this.soundAt(cxs, cys);
         this.assets.clatter(sd.vol, sd.pan, true); // gibs scattered by the blast
@@ -2090,10 +2135,11 @@ export class Renderer {
               const sx = bx + 0.5 + (Math.random() - 0.5) * 1.8;
               const sy = by + 0.5 + (Math.random() - 0.5) * 1.8;
               if (sx < 0.2 || sy < 0.2 || sx > GRID_W - 0.2 || sy > GRID_H - 0.2) continue;
-              this.chips.push({ x: sx, y: sy, seed: (Math.random() * 0xffffffff) >>> 0 });
+              const chip = { x: sx, y: sy, seed: (Math.random() * 0xffffffff) >>> 0 };
+              this.chips.push(chip);
+              const gc = this.goreInc(); if (gc) this.drawChip(gc.g, chip, gc.pu); // bake the splinter once
             }
             if (this.chips.length > 140) this.chips.splice(0, this.chips.length - 140);
-            this.bloodDirty = true; // chips live in the cached ground overlay
             // Burned cash bursts out when a soft block (the "loot crate") is destroyed.
             if (!this.lowFx) {
               for (let d = 0; d < 1 + (Math.random() < 0.5 ? 1 : 0); d++) {
@@ -2442,8 +2488,10 @@ export class Renderer {
             const horiz = Math.abs(mdx) > Math.abs(mdy);
             const off = horiz ? ((feet & 1) === 0 ? -1 : 1) * 0.08 : 0;
             const jx = (Math.random() - 0.5) * 0.16, jy = (Math.random() - 0.5) * 0.16;
-            this.footprints.push({ x: ccx + jx - uy * off, y: ccy + jy + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 });
+            const fp = { x: ccx + jx - uy * off, y: ccy + jy + ux * off, dx: ux, dy: uy, a, seed: (this.footprints.length * 2654435761) >>> 0 };
+            this.footprints.push(fp);
             if (this.footprints.length > 160) this.footprints.shift();
+            const gcf = this.goreInc(); if (gcf) this.drawFoot(gcf.g, fp, gcf.pu); // bake the smear once
             // DRAG the gore out: deposit REAL blood onto the trail, thinning each step (the
             // pile smears ~5 tiles with a gradual fade). The 44-cell cap stops any carpet,
             // and only the heavy pile (>=6) re-arms the feet, so it can't run away.
