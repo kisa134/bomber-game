@@ -164,8 +164,8 @@ export function LiveLeaderboard() {
           className="mb-6 flex items-center justify-between"
         >
           <span style={{ fontFamily: "var(--font-heading)", fontWeight: 900, fontStyle: "italic", textTransform: "uppercase", letterSpacing: "-0.03em", fontSize: "clamp(1.5rem, 4vw, 2.2rem)", color: "#fff" }}>
-            Global MMR{" "}
-            <span style={{ color: "#f5c842", textShadow: "0 0 20px rgba(245,200,66,0.45)" }}>Leaderboard</span>
+            Who's on{" "}
+            <span style={{ color: "#f5c842", textShadow: "0 0 20px rgba(245,200,66,0.45)" }}>top</span>
           </span>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span className="relative flex h-2 w-2 shrink-0">
@@ -173,7 +173,7 @@ export function LiveLeaderboard() {
               <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: "#ff5a4d", boxShadow: "0 0 6px rgba(255,90,77,0.9)" }} />
             </span>
             <span style={{ fontFamily: "var(--font-mono)", fontSize: "0.58rem", fontWeight: 700, letterSpacing: "0.16em", color: "rgba(255,255,255,0.35)", textTransform: "uppercase" }}>
-              Live Rankings
+              Live
             </span>
           </div>
         </motion.div>
@@ -195,7 +195,7 @@ export function LiveLeaderboard() {
             {rows === null ? (
               <p style={{ textAlign: "center", padding: "32px 0", fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "rgba(255,255,255,0.3)" }}>Loading…</p>
             ) : rows.length === 0 ? (
-              <p style={{ textAlign: "center", padding: "32px 0", fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "rgba(255,255,255,0.3)" }}>No ranked players yet — be the first.</p>
+              <p style={{ textAlign: "center", padding: "32px 0", fontFamily: "var(--font-mono)", fontSize: "0.72rem", color: "rgba(255,255,255,0.3)" }}>No carnage yet. Be the first.</p>
             ) : (
               rows.map((entry, i) => <LeaderboardRow key={`${entry.ign}-${entry.rank}`} entry={entry} index={i} trigger={inView} />)
             )}
@@ -213,7 +213,7 @@ export function LiveLeaderboard() {
               onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#f5c842")}
               onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "rgba(245,200,66,0.55)")}
             >
-              View Full Leaderboard & Tournaments →
+              See the full bloodshed →
             </Link>
           </motion.div>
         </GlassCard>
