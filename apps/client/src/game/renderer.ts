@@ -95,20 +95,22 @@ const ARENA_SCENE: Partial<Record<ArenaTheme, SceneLight[]>> = {
   ],
 };
 
-// Per-arena FLOOR physics: how each surface chars under blasts. `char` = the deep-burn
-// RGB (its hue — grass burns warm brown, metal soots cool grey, sand fuses tan, void goes
-// purple-black); `max` = how fully it can blacken (sand/swamp never go pure black).
-const FLOOR_PHYSICS: Record<ArenaTheme, { char: [number, number, number]; max: number }> = {
-  classic: { char: [26, 18, 9], max: 1.0 }, // grass -> charred warm brown-black
-  vault: { char: [22, 20, 18], max: 0.92 }, // marble soot grey
-  cyber: { char: [16, 18, 24], max: 0.95 }, // metal grate scorches cool grey-blue
-  void: { char: [16, 8, 24], max: 1.0 }, // void purple-black
-  desert: { char: [46, 33, 18], max: 0.66 }, // sand fuses + darkens, never fully black
-  industrial: { char: [17, 15, 15], max: 1.0 }, // sooty metal black
-  chappie: { char: [24, 18, 12], max: 0.9 }, // warm interior floor
-  meme: { char: [20, 15, 18], max: 0.95 }, // studio floor
-  degen: { char: [16, 16, 17], max: 1.0 }, // asphalt char
-  pepe: { char: [12, 20, 12], max: 0.84 }, // swamp green-black
+// Per-arena SURFACE material — the single profile that drives BOTH how the floor chars
+// under blasts AND how blood behaves on it (the unified system). `char`/`max` = burn hue +
+// how fully it blackens. `absorb` 0..1 = how much the floor soaks blood (sand high → matte
+// stain, metal low → wet pool). `gloss` = wet-sheen multiplier (metal glints, sand matte).
+// `dry` = drying-time multiplier (sand <1 dries fast, metal >1 stays wet long).
+const FLOOR_PHYSICS: Record<ArenaTheme, { char: [number, number, number]; max: number; absorb: number; gloss: number; dry: number }> = {
+  classic: { char: [26, 18, 9], max: 1.0, absorb: 0.5, gloss: 0.6, dry: 1.0 }, // grass: medium soak, dulls to dirt
+  vault: { char: [22, 20, 18], max: 0.92, absorb: 0.3, gloss: 0.9, dry: 1.3 }, // marble: pools, glossy
+  cyber: { char: [16, 18, 24], max: 0.95, absorb: 0.1, gloss: 1.3, dry: 2.0 }, // metal grate: no soak, wet + glossy long
+  void: { char: [16, 8, 24], max: 1.0, absorb: 0.2, gloss: 1.1, dry: 1.4 }, // void: otherworldly sheen
+  desert: { char: [46, 33, 18], max: 0.66, absorb: 0.95, gloss: 0.05, dry: 0.5 }, // sand: soaks hard, matte, dries fast
+  industrial: { char: [17, 15, 15], max: 1.0, absorb: 0.1, gloss: 1.2, dry: 1.8 }, // metal: pools, glossy
+  chappie: { char: [24, 18, 12], max: 0.9, absorb: 0.4, gloss: 0.7, dry: 1.1 }, // warm interior floor
+  meme: { char: [20, 15, 18], max: 0.95, absorb: 0.2, gloss: 1.0, dry: 1.3 }, // studio floor: pools
+  degen: { char: [16, 16, 17], max: 1.0, absorb: 0.35, gloss: 0.7, dry: 1.0 }, // asphalt
+  pepe: { char: [12, 20, 12], max: 0.84, absorb: 0.6, gloss: 0.5, dry: 1.6 }, // swamp: wet, spreads thin, slow
 };
 
 // Themes whose SOFT block is scattered RANDOMLY from a set of variants (per block seed)
@@ -1204,6 +1206,8 @@ export class Renderer {
   private drawBloodSheen(now: number): void {
     if (!this.goreEnabled || this.lowFx || !this.bloodGround.size) return;
     const ctx = this.ctx, t = this.tile;
+    const surf = FLOOR_PHYSICS[this.arenaTheme] ?? FLOOR_PHYSICS.classic;
+    if (surf.gloss < 0.08) return; // absorbent matte floor (sand) -> no wet glint at all
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     for (const [idx, lvl] of this.bloodGround) {
@@ -1217,7 +1221,7 @@ export class Renderer {
       const gx = ccx + (dx / L) * t * 0.18, gy = ccy + (dy / L) * t * 0.18; // glint toward the light
       const pulse = 0.85 + 0.15 * Math.sin(now / 600 + idx); // faint living-wetness shimmer
       const prox = 1 / (1 + L / (t * 8)); // closer light -> harder glint
-      const a = wet * pulse * 0.3 * (0.6 + 0.4 * prox);
+      const a = wet * pulse * 0.3 * (0.6 + 0.4 * prox) * surf.gloss; // glossy metal glints hard, sand not at all
       const r = t * 0.42;
       const grad = ctx.createRadialGradient(gx, gy, 0, gx, gy, r);
       grad.addColorStop(0, `rgba(255,180,170,${a.toFixed(3)})`); // warm wet highlight (not white)
@@ -1239,6 +1243,7 @@ export class Renderer {
     g.clearRect(0, 0, W, H);
     const t = this.tile;
     const nowB = performance.now();
+    const surf = FLOOR_PHYSICS[this.arenaTheme] ?? FLOOR_PHYSICS.classic; // drives soak + dry-rate per arena
     const pu = Math.max(1, Math.round(t / 24)); // grass-fine pixels
     // PER-CELL render (reverted from the continuous field): each blood cell is drawn
     // on its own, so empty cells stay clean — distinct pools, no map-wide red carpet.
@@ -1249,8 +1254,12 @@ export class Renderer {
       const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh .. 12 charcoal (12 smooth stages)
       const baked = bakeLvl > 0;
       const bp = Math.min(1, bakeLvl / 12); // 0..1 char progress
-      const dry = Math.min(1, (nowB - (this.bloodBorn.get(idx) ?? nowB)) / 40000); // 0 fresh red .. 1 dried brown (~40s)
-      const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14);
+      // Drying speed depends on the surface (sand dry<1 fast, metal dry>1 slow); an absorbent
+      // floor also makes blood look pre-soaked (browner) from the start.
+      const dryAge = (nowB - (this.bloodBorn.get(idx) ?? nowB)) / (40000 * surf.dry);
+      const dry = Math.min(1, Math.max(dryAge, surf.absorb * 0.3)); // soak floors never look fully fresh-wet
+      // Absorbent floors soak blood into a tighter matte stain (less coverage spread).
+      const cover = (lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14)) * (1 - surf.absorb * 0.28);
       g.globalAlpha = Math.min(0.95, (baked ? 0.52 + bp * 0.38 : 0.5) + lvl * 0.07);
       const NB = pu * 4; // coarse noise block -> irregular outline/holes
       for (let gy = 0; gy < t; gy += pu) {
