@@ -331,6 +331,8 @@ export class Renderer {
   private puBuf: HTMLCanvasElement | null = null; // scratch buffer for powerup sheen masked to the icon
   private bloodCanvas: HTMLCanvasElement | null = null; // cached dense blood-ground overlay
   private bloodDirty = false;
+  private bloodBorn = new Map<number, number>(); // blood cell -> first-blood timestamp (drives time drying)
+  private bloodDryTick = 0; // last time we forced a rebuild so drying re-renders
   private bakedBlood = new Map<number, number>(); // blood cell -> bake level (1 crust .. 3 charcoal)
   private chips: Array<{ x: number; y: number; seed: number }> = []; // wood splinters from broken crates (x,y in cells)
   private bloodyFeet = new Map<number, number>(); // player id -> bloody steps left (tracks blood around)
@@ -632,6 +634,7 @@ export class Renderer {
     this.hardDmgSide.clear();
     this.bloodBlocks.clear();
     this.bloodGround.clear();
+    this.bloodBorn.clear();
     this.bakedBlood.clear();
     this.bloodCanvas = null;
     this.bloodDirty = false;
@@ -1132,9 +1135,10 @@ export class Renderer {
         if ((this.bakedBlood.get(k) ?? 0) > 0) continue; // keep charred patches
         if (v < minLvl) { minLvl = v; minIdx = k; }
       }
-      if (minIdx >= 0) { this.bloodGround.delete(minIdx); this.bakedBlood.delete(minIdx); }
+      if (minIdx >= 0) { this.bloodGround.delete(minIdx); this.bakedBlood.delete(minIdx); this.bloodBorn.delete(minIdx); }
       else return;
     }
+    if (!this.bloodGround.has(index)) this.bloodBorn.set(index, performance.now()); // fresh pool -> start drying clock
     this.bloodGround.set(index, Math.min(9, (this.bloodGround.get(index) ?? 0) + amount));
     this.bloodDirty = true;
   }
@@ -1144,6 +1148,10 @@ export class Renderer {
    *  Dense grid-fill at grass-fine pixels, cached to a canvas and blitted. */
   private drawBloodGround(W: number, H: number): void {
     if (!this.bloodGround.size) return;
+    // Re-bake every ~1.5s even without new blood so the drying (bright red -> maroon ->
+    // brown) actually progresses on screen. Cheap: one pass over ≤110 cells.
+    const now = performance.now();
+    if (now - this.bloodDryTick > 1500) { this.bloodDryTick = now; this.bloodDirty = true; }
     if (this.bloodDirty || !this.bloodCanvas || this.bloodCanvas.width !== W || this.bloodCanvas.height !== H) {
       this.buildBloodGround(W, H);
     }
@@ -1191,6 +1199,7 @@ export class Renderer {
     if (!g) return;
     g.clearRect(0, 0, W, H);
     const t = this.tile;
+    const nowB = performance.now();
     const pu = Math.max(1, Math.round(t / 24)); // grass-fine pixels
     // PER-CELL render (reverted from the continuous field): each blood cell is drawn
     // on its own, so empty cells stay clean — distinct pools, no map-wide red carpet.
@@ -1201,6 +1210,7 @@ export class Renderer {
       const bakeLvl = this.bakedBlood.get(idx) ?? 0; // 0 fresh .. 12 charcoal (12 smooth stages)
       const baked = bakeLvl > 0;
       const bp = Math.min(1, bakeLvl / 12); // 0..1 char progress
+      const dry = Math.min(1, (nowB - (this.bloodBorn.get(idx) ?? nowB)) / 40000); // 0 fresh red .. 1 dried brown (~40s)
       const cover = lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14);
       g.globalAlpha = Math.min(0.95, (baked ? 0.52 + bp * 0.38 : 0.5) + lvl * 0.07);
       const NB = pu * 4; // coarse noise block -> irregular outline/holes
@@ -1224,11 +1234,15 @@ export class Renderer {
             const dc = Math.min(1, Math.sqrt(ndx * ndx + ndy * ndy));
             const tone = (f >> 7) & 7;
             if (tone >= 6 && (f & 7) < 2 && dc < 0.6 && lvl >= 4) {
-              g.fillStyle = `rgb(${190 + (f % 60)},${70 + (f % 40)},${68 + (f % 40)})`;
+              // bright fresh highlight -> darker maroon as it dries
+              const hb = (190 + (f % 60)) * (1 - dry * 0.5);
+              g.fillStyle = `rgb(${hb | 0},${(hb * (0.36 + dry * 0.14)) | 0},${(hb * (0.34 + dry * 0.05)) | 0})`;
             } else {
               let r = tone === 0 ? 26 + (f % 26) : tone >= 6 ? 130 + (f % 70) : 60 + (f % 70);
               r = (r * (0.5 + 0.5 * dc)) | 0;
-              g.fillStyle = `rgb(${r},${(r * 0.1) | 0},${(r * 0.08) | 0})`;
+              // Drying ramp: bright red (dry 0) darkens + browns (green/blue channels rise) toward maroon-brown (dry 1).
+              const rr = (r * (1 - dry * 0.42)) | 0;
+              g.fillStyle = `rgb(${rr},${(rr * (0.1 + dry * 0.13)) | 0},${(rr * (0.08 + dry * 0.07)) | 0})`;
             }
           }
           g.fillRect(ox + gx, oy + gy, pu, pu);
