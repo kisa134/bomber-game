@@ -250,7 +250,7 @@ const GORE_PHYS: Record<GoreKind, { vz: number; vzv: number; sp: number; spv: nu
   organ: { vz: 2.6, vzv: 2, sp: 1, spv: 1.4, gz: 37, rest: 0.1, fric: 0.68 },
   brain: { vz: 2.6, vzv: 2, sp: 1, spv: 1.3, gz: 37, rest: 0.1, fric: 0.68 },
   eye: { vz: 4.5, vzv: 4, sp: 2.5, spv: 3, gz: 30, rest: 0.45, fric: 0.9 },
-  coin: { vz: 6, vzv: 4, sp: 2.5, spv: 2.8, gz: 26, rest: 0.62, fric: 0.92 }, // light, bouncy, rolls (gore OFF mode)
+  coin: { vz: 6, vzv: 4, sp: 3, spv: 3.4, gz: 26, rest: 0.62, fric: 0.92 }, // light, bouncy, rolls + scatters wide (gore OFF mode)
 };
 
 interface Decal {
@@ -1032,7 +1032,7 @@ export class Renderer {
 
   onDeath(cx: number, cy: number, color: string): void {
     if (!this.goreEnabled) { // GORE OFF: a shower of kickable gold coins, no blood/guts at all
-      for (let i = 0; i < 10 + ((Math.random() * 8) | 0); i++) this.spawnGore("coin", cx + 0.5, cy + 0.5);
+      for (let i = 0; i < 16 + ((Math.random() * 11) | 0); i++) this.spawnGore("coin", cx + 0.5, cy + 0.5); // a fat spill that scatters + gets kicked around
       this.shake(11, 200);
       return;
     }
@@ -1790,7 +1790,7 @@ export class Renderer {
   private drawCoin(g: CanvasRenderingContext2D, c: { x: number; y: number; seed: number }, pu: number): void {
     const t = this.tile;
     const cx = c.x * t, cy = c.y * t;
-    const r = t * 0.07;
+    const r = t * 0.11; // fatter, chunkier coins
     g.globalAlpha = 0.3; g.fillStyle = "#000000"; // shadow
     for (let yy = -r; yy <= r; yy += pu) for (let xx = -r; xx <= r; xx += pu) {
       if (xx * xx + yy * yy > r * r) continue;
