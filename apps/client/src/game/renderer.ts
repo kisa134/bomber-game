@@ -231,6 +231,7 @@ interface Particle {
   gz?: number; // z-gravity (cells/s^2)
   rest?: number; // restitution on bounce (gore ~0.15, debris ~0.6)
   fric?: number; // horizontal friction multiplier applied on each ground contact
+  paint?: number; // blood droplet: markGround amount stamped once where it lands
   solid?: boolean; // gore/debris: bounce off the sides of hard/unbroken-soft blocks (near the ground)
   gore?: { kind: GoreKind; seed: number }; // a FLYING gore piece -> renders via its draw fn, becomes a decal on landing
 }
@@ -1099,6 +1100,20 @@ export class Renderer {
         life: 0.9 + Math.random() * 0.6, max: 1.5, size: this.tile * (0.06 + Math.random() * 0.06), // smaller meat gobs (#3)
         color: meaty[(Math.random() * meaty.length) | 0], shape: "rect", rot: Math.random() * Math.PI, spin: (Math.random() - 0.5) * 20,
       });
+    }
+    // Arcing blood droplets: fine specks fly out on ballistic arcs and PAINT the floor
+    // where they physically land — organic spray beyond the drenched kill cell (capped by
+    // the blood coverage limit, so it can't carpet the map).
+    if (!this.lowFx) {
+      for (let i = 0; i < Math.round(16 * this.fxScale); i++) {
+        const a = Math.random() * Math.PI * 2, sp = 3.5 + Math.random() * 6;
+        this.push({
+          x: cx + 0.5, y: cy + 0.5, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          vz: 3.5 + Math.random() * 5.5, gz: 30, rest: 0.15, fric: 0.8, solid: true,
+          life: 1.1, max: 1.1, size: this.tile * (0.03 + Math.random() * 0.035),
+          color: Math.random() < 0.5 ? "#a01212" : "#7a0505", shape: "circle", paint: 1,
+        });
+      }
     }
     this.shake(20, 300);
   }
@@ -2985,6 +3000,13 @@ export class Renderer {
         this.stepParticle(p, dt);
         if (p.z <= 0) {
           p.z = 0;
+          // Blood droplet hitting the ground: stamp a small splat where it physically lands
+          // (once), so spray paints the floor organically beyond the kill cell.
+          if (p.paint) {
+            const cx = Math.floor(p.x), cy = Math.floor(p.y);
+            if (cx >= 0 && cy >= 0 && cx < GRID_W && cy < GRID_H) this.markGround(cy * GRID_W + cx, p.paint);
+            p.paint = 0;
+          }
           if (Math.abs(p.vz) < 1.1) {
             p.vz = 0; p.vx *= 0.45; p.vy *= 0.45; // settle / friction-stick
             // A flying GORE piece that's basically stopped -> drop it as a persistent decal.
