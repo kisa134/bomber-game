@@ -38,18 +38,18 @@ export function GuildsTeaser() {
               margin: "0.75rem 0",
             }}
           >
-            Build a clan.<br />
-            <span style={{ color: "#f5c842" }}>Earn from every match.</span>
+            Build an army.<br />
+            <span style={{ color: "#f5c842" }}>Eat what they kill.</span>
           </h2>
           <p style={{ fontFamily: "var(--font-body)", fontSize: "0.95rem", lineHeight: 1.65, color: "rgba(255,255,255,0.5)" }}>
-            Referral yield flows through five tiers — from direct recruits to deep network effects.
+            Your recruits play, you get paid. Five tiers deep — from direct kills to network effects.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <a href="/partners" className="cta-yellow inline-flex items-center px-7" style={{ height: 48, fontSize: "0.88rem" }}>
-              Become a guild
+              Start a guild
             </a>
             <PlayLink className="cta-ghost inline-flex items-center px-7" style={{ height: 48, fontSize: "0.85rem" }}>
-              Play first match
+              Drop in first
             </PlayLink>
           </div>
         </motion.div>
