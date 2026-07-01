@@ -149,7 +149,7 @@ export function Hero() {
             style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-base, 1rem)", lineHeight: 1.6, color: "rgba(255,255,255,0.6)", maxWidth: "44ch" }}
           >
             No teams. No luck. No mercy.{" "}
-            <span style={{ color: "#d44030" }}>Last meme standing takes the pot.</span>
+            <span style={{ color: "#d44030" }}>Win or get wiped.</span>
           </motion.p>
 
           <motion.div
@@ -166,10 +166,10 @@ export function Hero() {
               className="cta-yellow inline-flex items-center justify-center px-7 transition-transform"
               style={{ height: "52px", fontSize: "0.95rem" }}
             >
-              ▶ Play Now
+              ▶ Drop In
             </a>
             <a href="/faq" className="cta-ghost inline-flex items-center justify-center px-7" style={{ height: "52px", fontSize: "0.9rem" }}>
-              How It Works
+              The Rules
             </a>
           </motion.div>
 

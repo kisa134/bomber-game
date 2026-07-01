@@ -46,7 +46,7 @@ export function FinalCta() {
             className="flex flex-col items-start"
           >
             <span style={{ fontFamily: "var(--font-pixel)", fontSize: "0.6rem", letterSpacing: "0.06em", color: "rgba(245,200,66,0.85)", marginBottom: "1.5rem" }}>
-              LAST CALL
+              FINAL ROUND
             </span>
 
             <h2
@@ -61,11 +61,11 @@ export function FinalCta() {
                 margin: 0,
               }}
             >
-              JOIN THE<br />ARENA.
+              GET IN<br />OR GET <span style={{ color: "#ff5a4d" }}>BURIED.</span>
             </h2>
 
             <p style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-base, 1rem)", lineHeight: 1.6, color: "rgba(255,255,255,0.6)", margin: "1.5rem 0 2rem", maxWidth: "42ch" }}>
-              Free to play, browser-native, provably fair. The next pot is already forming.
+              Winner takes all. The pot doesn't wait. Neither should you.
             </p>
 
             <div className="flex w-full flex-col items-stretch gap-3 sm:w-auto">
@@ -77,10 +77,10 @@ export function FinalCta() {
                 className="cta-yellow inline-flex items-center justify-center px-9 transition-transform"
                 style={{ height: "64px", fontSize: "1.05rem" }}
               >
-                ▶ Play Now
+                ▶ ENTER THE PIT
               </a>
               <a href="/tournaments" className="cta-ghost inline-flex items-center justify-center px-9" style={{ height: "52px", fontSize: "0.9rem" }}>
-                View Leaderboard
+                SEE WHO'S LEFT
               </a>
             </div>
           </motion.div>

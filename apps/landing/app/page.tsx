@@ -11,7 +11,6 @@ import {
 import { ArenaStoryReveal } from "@/components/story/ArenaStoryReveal";
 
 const ArenaStoryChapters   = dynamic(() => import("@/components/story/ArenaStoryChapters").then((m) => m.ArenaStoryChapters));
-const BentoScene           = dynamic(() => import("@/components/BentoScene").then((m) => m.BentoScene));
 const RosterSection        = dynamic(() => import("@/components/RosterSection").then((m) => m.RosterSection));
 const LiveLeaderboard      = dynamic(() => import("@/components/arena/LiveLeaderboard").then((m) => m.LiveLeaderboard));
 const VideoTrailerSection  = dynamic(() => import("@/components/VideoTrailerSection").then((m) => m.VideoTrailerSection));
@@ -42,10 +41,6 @@ export default function Home() {
 
       {/* Phase B: merged broadcast ticker (was LiveStatsBar + LiveMatchFeed) */}
       <LivePulseStrip />
-
-      <SplitDescend bg="var(--color-bg-2)" debris>
-        <BentoScene />
-      </SplitDescend>
 
       <RosterSection />
 

@@ -57,10 +57,10 @@ export function ProvablyFairTerminal() {
             PROVABLY FAIR
           </div>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, textTransform: "uppercase", fontSize: "var(--text-3xl, clamp(2.5rem,5vw,5rem))", lineHeight: 0.9, letterSpacing: "-0.01em", color: "#fff", margin: "0 0 1.5rem" }}>
-            Zero trust<br />required.
+            The chain<br />doesn't lie.
           </h2>
           <p style={{ fontFamily: "var(--font-body)", fontSize: "var(--text-base,1rem)", lineHeight: 1.7, color: "rgba(255,255,255,0.5)", maxWidth: "46ch", marginBottom: "2rem" }}>
-            No black boxes, no house edge on the RNG. The match outcome is committed before you play and revealed after — math you can run yourself, right here.
+            No black boxes. No house edge. Every match outcome is committed before you play and verified after — run the math yourself, right here.
           </p>
           <ol className="flex flex-col gap-5">
             {STEPS.map((s, i) => (

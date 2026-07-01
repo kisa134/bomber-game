@@ -88,8 +88,8 @@ export function ArenaStoryReveal() {
           className="arena-story-reveal-sub mx-auto mt-5 max-w-[48ch]"
           style={{ fontFamily: "var(--font-body)", fontSize: "1rem", lineHeight: 1.65, color: "rgba(255,255,255,0.55)" }}
         >
-          No teams. No luck. Just you, three rivals, and a shrinking pit of bombs —{" "}
-          <span style={{ color: "#d44030" }}>last one standing takes the whole pot.</span>
+          Pure skill. Zero luck. Maximum carnage.{" "}
+          <span style={{ color: "#d44030" }}>Only the last meme takes the pot.</span>
         </p>
 
         {/* diegetic broadcast spec-strip — reads like an arena lower-third, not feature cards */}
