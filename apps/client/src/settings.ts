@@ -56,7 +56,7 @@ const DEFAULTS: Settings = {
   // motes, moving key light) are HIGH-only and opt-in. This is the biggest lever
   // against the lag reports; strong PCs can bump to High in Settings → Graphics.
   ambientFx: false,
-  grassTexture: false,
+  grassTexture: true, // static classic floor by default (animated grass is a 🔴 effect → High)
   gfxPreset: "medium",
   blockDepth: true,
   dynamicLight: false,

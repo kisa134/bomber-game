@@ -1598,10 +1598,12 @@ function applyGfxPreset(p: Exclude<GfxPreset, "custom">): void {
   // Heavy effects (cast shadows, bloom, moving key light, ambient motes) are
   // HIGH-only — they're the main lag drivers on a 2D canvas. Medium keeps only
   // the cheap block-depth shading so it runs on phones and mid PCs.
+  // grassTexture=true ⇒ static (cheap) classic floor; false ⇒ animated swaying
+  // grass, a 🔴 per-tile-per-frame effect → HIGH only.
   const map = {
-    low: { liteGfx: true, ambientFx: false, blockDepth: false, shadows: false, dynamicLight: false, bloom: false },
-    medium: { liteGfx: false, ambientFx: false, blockDepth: true, shadows: false, dynamicLight: false, bloom: false },
-    high: { liteGfx: false, ambientFx: true, blockDepth: true, shadows: true, dynamicLight: true, bloom: true },
+    low: { liteGfx: true, ambientFx: false, blockDepth: false, shadows: false, dynamicLight: false, bloom: false, grassTexture: true },
+    medium: { liteGfx: false, ambientFx: false, blockDepth: true, shadows: false, dynamicLight: false, bloom: false, grassTexture: true },
+    high: { liteGfx: false, ambientFx: true, blockDepth: true, shadows: true, dynamicLight: true, bloom: true, grassTexture: false },
   }[p];
   settings.liteGfx = map.liteGfx;
   settings.ambientFx = map.ambientFx;
@@ -1609,6 +1611,7 @@ function applyGfxPreset(p: Exclude<GfxPreset, "custom">): void {
   settings.shadows = map.shadows;
   settings.dynamicLight = map.dynamicLight;
   settings.bloom = map.bloom;
+  settings.grassTexture = map.grassTexture;
   settings.gfxPreset = p;
   saveSettings(settings);
   applySettings();
