@@ -363,6 +363,9 @@ export class Renderer {
   private shakeDur = 0;
   private shakeMag = 0;
   private shakePh = 0;
+  private hitStopStart = -1e9; // micro-slowmo on kills: scales dt toward hitStopFloor for hitStopDur
+  private hitStopDur = 0;
+  private hitStopFloor = 1;
   private danger = 0; // 0..1 threat level -> pulsing red edge vignette (low HP / sudden death)
   private selfX = 0; private selfY = 0; private selfKnown = false; // local player pos (for distance shake)
   private lastClatter = 0; // throttle for bone/chip clatter sfx
@@ -741,6 +744,19 @@ export class Renderer {
     }
   }
 
+  /** Micro-slowmo on impact: dt is scaled toward `floor` (0 = full freeze-frame) for
+   *  `durMs`, held for 60% then a k² snap back to 1. Restarts on a stronger (lower floor)
+   *  or expired hit. Camera shake / decal timers read performance.now() directly, so they
+   *  ring out in REAL time over the frozen gibs — that contrast is the "тук" of the kill. */
+  hitStop(durMs: number, floor: number): void {
+    const now = performance.now();
+    if (now >= this.hitStopStart + this.hitStopDur || floor <= this.hitStopFloor) {
+      this.hitStopStart = now;
+      this.hitStopDur = durMs;
+      this.hitStopFloor = floor;
+    }
+  }
+
   /** Spawn a floating popup at a world cell (x,y in cells) that pops in with an
    *  ease-out-back overshoot (or elastic when `big`), rises, and fades. */
   popText(x: number, y: number, text: string, color: string, big = false): void {
@@ -1008,6 +1024,7 @@ export class Renderer {
     if (!this.goreEnabled) { // GORE OFF: a shower of kickable gold coins, no blood/guts at all
       for (let i = 0; i < 10 + ((Math.random() * 8) | 0); i++) this.spawnGore("coin", cx + 0.5, cy + 0.5);
       this.shake(11, 200);
+      this.hitStop(55, 0.18); // lighter punch stutter (time-juice stays on in coin mode)
       return;
     }
     // Persistent blood marks first (cheap, runs on phones too): a thick gory mush
@@ -1098,6 +1115,7 @@ export class Renderer {
       });
     }
     this.shake(20, 300);
+    this.hitStop(85, 0.05); // near-freeze slow-mo on the gib — the money beat (tunable)
   }
 
   /** Record blood on a block's face(s). (ddx,ddy) points from the block toward
@@ -1928,8 +1946,19 @@ export class Renderer {
     const ctx = this.ctx;
     const t = this.tile;
     const now = performance.now();
-    const dt = Math.min(0.05, (now - this.lastTime) / 1000);
+    const rawDt = (now - this.lastTime) / 1000;
     this.lastTime = now;
+    // Hit-stop: scale the simulation dt toward hitStopFloor (0 = freeze) then k²-snap back.
+    // Only dt is scaled — `now`/performance.now keeps running so shake + timed decals ring
+    // out in real time over the frozen gibs.
+    let tScale = 1;
+    const hs = now - this.hitStopStart;
+    if (hs >= 0 && hs < this.hitStopDur) {
+      const k = hs / this.hitStopDur;
+      const e = k < 0.6 ? 0 : ((k - 0.6) / 0.4) ** 2;
+      tScale = this.hitStopFloor + (1 - this.hitStopFloor) * e;
+    }
+    const dt = Math.min(0.05, rawDt * tScale);
     const W = t * GRID_W;
     const H = t * GRID_H;
     // Single key-light screen position this frame: high above the arena (light from
