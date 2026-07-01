@@ -752,6 +752,7 @@ function enterGame(): void {
     renderer.setParticleDensity(settings.particleDensity);
     renderer.setTimeOfDay(settings.timeOfDay);
     renderer.setBattleScars(settings.battleScars);
+    renderer.setLowFx(settings.liteGfx || liteMode);
   }
   renderer.resize();
   renderer.remeasure(); // re-fit after the game screen has actually laid out
@@ -1631,6 +1632,7 @@ function applySettings(): void {
   renderer?.setParticleDensity(settings.particleDensity);
   renderer?.setTimeOfDay(settings.timeOfDay);
   renderer?.setBattleScars(settings.battleScars);
+  renderer?.setLowFx(settings.liteGfx || liteMode); // trim arena VFX, not just the menu
   syncSettingsUI();
 }
 
@@ -3249,6 +3251,7 @@ function goLite(): void {
   document.documentElement.classList.add("lite");
   document.querySelectorAll<HTMLElement>(".glass-firefly").forEach((f) => f.remove());
   dustMotes.slice(44).forEach((m) => { m.el.style.display = "none"; });
+  renderer?.setLowFx(true); // ALSO trim the in-match arena VFX, not just the menu
 }
 function weakDevice(): boolean {
   const cores = navigator.hardwareConcurrency || 4;

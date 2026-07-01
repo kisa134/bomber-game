@@ -271,6 +271,10 @@ export class Renderer {
   // procedural shadows for cheap ellipses, skips ambient/wind/light-bounce and
   // thins out particles. Keeps the board smooth and the phone cool.
   private lowFx = false;
+  // Manually-forced lite path (Performance-mode setting + in-match FPS watchdog),
+  // so capable-but-struggling desktops also get the trimmed arena — not just
+  // touch devices. OR'd with the device check in resize() so it survives resizes.
+  private forcedLowFx = false;
   private arenaTheme: ArenaTheme = "classic"; // block/floor material set (Settings → Arena)
   private atmo: Array<{ x: number; y: number; vx: number; vy: number; s: number }> = []; // ambient motes
   private atmoOn = true; // Settings → Graphics: ambient atmosphere on/off
@@ -426,7 +430,7 @@ export class Renderer {
     const mobile = coarse || touch;
     // Cap DPR lower on phones: fewer pixels to fill = far less GPU/CPU and heat.
     this.dpr = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 2);
-    this.lowFx = mobile;
+    this.lowFx = mobile || this.forcedLowFx;
     this.fxBase = mobile ? 0.5 : 1;
     this.fxScale = this.fxBase * this.fxUser;
     this.maxParticles = mobile ? 240 : MAX_PARTICLES;
@@ -520,6 +524,15 @@ export class Renderer {
     }
   }
 
+  /** Force the lite (low-FX) arena path on capable devices too — driven by the
+   *  Performance-mode setting and the in-match FPS watchdog. Touch devices are
+   *  always lite regardless; turning this off falls back to the device check. */
+  setLowFx(on: boolean): void {
+    this.forcedLowFx = on;
+    const coarse = window.matchMedia("(pointer: coarse)").matches;
+    const mobile = coarse || "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    this.lowFx = on || mobile;
+  }
   /** Toggle ambient atmosphere (Settings → Graphics). */
   setAtmosphere(on: boolean): void { this.atmoOn = on; }
   setBlockDepth(on: boolean): void { this.blockDepth = on; }
