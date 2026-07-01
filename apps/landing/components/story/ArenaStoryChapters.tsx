@@ -38,35 +38,35 @@ const BG_PLATE = "/bg/hero-grid-blast.webp";
 const BEATS: Beat[] = [
   {
     id: "arena", tag: "THE ARENA", title: "Broadcast\nfrom the chain",
-    body: "Every match runs on Solana. Entry in, winner takes the pot — provably fair, skill only.",
+    body: "Every match runs on Solana. Entry in, winner out — no excuses, no refunds.",
     accent: "#f5c842", side: "left",
     plate: { type: "image", src: "/bg/hero-control-room.webp" },
     fg: { src: "/sprites/skin_2.webp", h: 150, pixel: true },
   },
   {
     id: "field", tag: "THE FIELD", title: "Crates,\ncorners, chaos",
-    body: "Classic bomber grid — break soft blocks, dodge blasts, trap three rivals at once.",
+    body: "Classic bomber grid — break blocks, dodge blasts, trap three suckers at once.",
     accent: "#3a9e9e", side: "right",
     plate: { type: "image", src: "/bg/hero-arena-a.webp" },
     fg: { src: "/sprites/skin_3.webp", h: 140, pixel: true },
   },
   {
     id: "match", tag: "MATCH FLOW", title: "4 players\n~3 minutes",
-    body: "Free-for-all from spawn to sudden death. No teams — every meme for themselves.",
+    body: "Free-for-all from spawn to sudden death. Every meme for themselves. No hand-holding.",
     accent: "#f5c842", side: "left",
     plate: { type: "video", src: "/sprites/demo2.mp4" },
     fg: { src: "/sprites/powerup_bomb.png", h: 66 },
   },
   {
     id: "powerups", tag: "POWER-UPS", title: "Bomb · fire\nspeed · kick",
-    body: "Stack upgrades from crate drops. Kick bombs through walls. Out-range the lobby.",
+    body: "Stack upgrades from crate drops. Kick bombs through walls. Out-range everyone.",
     accent: "#d44030", side: "right",
     plate: { type: "sprites", src: "", sprites: ["/sprites/powerup_bomb.png", "/sprites/powerup_fire.png", "/sprites/powerup_speed.png", "/sprites/powerup_kick.png"] },
     fg: null,
   },
   {
     id: "sudden", tag: "SUDDEN DEATH", title: "Last minute\nmap wipes",
-    body: "The arena shrinks. Nowhere to hide. One blast decides who gets paid.",
+    body: "The arena shrinks. Nowhere to hide. One blast decides who gets paid and who gets buried.",
     accent: "#d44030", side: "left",
     plate: { type: "image", src: "/bg/hero-grid-blast.webp" },
     fg: { src: "/sprites/powerup_fire.png", h: 64 },
@@ -166,7 +166,7 @@ export function ArenaStoryChapters() {
       <div className="relative z-10 -mt-[100vh]">
         {/* intro */}
         <div className="mx-auto max-w-[1200px] px-[var(--section-px,1.5rem)] pb-6 pt-28">
-          <p style={{ fontFamily: "var(--font-pixel)", fontSize: "0.55rem", letterSpacing: "0.06em", color: "rgba(245,200,66,0.7)" }}>SCROLL STORY</p>
+          <p style={{ fontFamily: "var(--font-pixel)", fontSize: "0.55rem", letterSpacing: "0.06em", color: "rgba(245,200,66,0.7)" }}>THE BREAKDOWN</p>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, textTransform: "uppercase", fontSize: "clamp(1.9rem,4.4vw,3rem)", color: "#fff", marginTop: 8, lineHeight: 0.95 }}>
             One match,<br />beat by beat
           </h2>
@@ -230,7 +230,7 @@ export function ArenaStoryChapters() {
         {/* outro CTA */}
         <div className="px-[var(--section-px,1.5rem)] pb-24 pt-10 text-center">
           <PlayLink className="cta-yellow inline-flex items-center px-8" style={{ height: 52, fontSize: "0.95rem" }}>
-            ▶ Jump into a match
+            ▶ Enter the pit
           </PlayLink>
         </div>
       </div>
