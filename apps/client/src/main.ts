@@ -1644,7 +1644,7 @@ function applySettings(): void {
 
 function syncSettingsUI(): void {
   const tb = document.getElementById("admin-test-arena") as HTMLElement | null;
-  if (tb) tb.style.display = shopIsAdmin ? "block" : "none"; // admin-only test-arena launcher
+  if (tb) tb.style.display = (shopIsAdmin || localStorage.getItem("bp_dev") === "1") ? "block" : "none"; // admin / dev-flag test-arena launcher
   const m = document.getElementById("set-music") as HTMLButtonElement;
   const s = document.getElementById("set-sfx") as HTMLButtonElement;
   const gr = document.getElementById("set-gore") as HTMLButtonElement | null;
@@ -1777,11 +1777,13 @@ function wireSettings(): void {
   });
   const buildEl = document.getElementById("set-build");
   if (buildEl) buildEl.textContent = `BomberMeme · build v${ASSET_VER}`; // freshness check (cache vs live)
-  // Admin-only: a 🧪 Test Arena launcher (created once, shown for admin in syncSettingsUI).
+  // 🧪 Test Arena launcher (created once, shown for admin / dev-flag in syncSettingsUI).
+  // Also exposed on window so the owner can always open it from the console: __testArena()
+  (window as unknown as { __testArena: () => void }).__testArena = () => openTestArena(assets);
   if (buildEl && !document.getElementById("admin-test-arena")) {
     const tb = document.createElement("button");
     tb.id = "admin-test-arena";
-    tb.textContent = "🧪 Test Arena (admin)";
+    tb.textContent = "🧪 Test Arena";
     tb.className = "toggle";
     Object.assign(tb.style, { width: "100%", marginTop: "10px", display: "none" });
     tb.addEventListener("click", () => openTestArena(assets));
