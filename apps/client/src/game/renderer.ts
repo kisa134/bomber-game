@@ -1344,6 +1344,24 @@ export class Renderer {
       // Absorbent floors soak blood into a tighter matte stain; charred crust lets it pool.
       const cover = (lvl >= 5 ? 0.6 + ((s & 1023) / 1023) * 0.4 : Math.min(0.72, 0.16 + lvl * 0.14)) * (1 - absorbEff * 0.28) * (1 + scorched * 0.15);
       g.globalAlpha = Math.min(0.95, (baked ? 0.52 + bp * 0.38 : 0.5) + lvl * 0.07);
+      // LIQUID body: under the pixel texture, lay a smooth feathered blob for fresh pools so
+      // neighbouring cells MERGE into an organic liquid pool instead of reading as a pixel grid.
+      // (Skipped on lowFx + on charred/baked cells; the pixel pass on top keeps a wet grain.)
+      if (!baked && lvl >= 4 && !this.lowFx) {
+        const R = 120 * (1 - dry * 0.42);
+        const br0 = R | 0, bg0 = (R * (0.1 + dry * 0.13)) | 0, bb0 = (R * (0.08 + dry * 0.07)) | 0;
+        const ccx = ox + t / 2, ccy = oy + t / 2;
+        const rad = t * (0.5 + Math.min(1, (lvl - 4) / 5) * 0.2); // denser pools spill a bit wider -> merge
+        const ba = Math.min(0.9, 0.5 + lvl * 0.06) * (1 - absorbEff * 0.35); // sand soaks -> weaker/tighter body
+        const bgr = g.createRadialGradient(ccx, ccy, rad * 0.12, ccx, ccy, rad);
+        bgr.addColorStop(0, `rgba(${br0},${bg0},${bb0},${ba.toFixed(3)})`);
+        bgr.addColorStop(0.62, `rgba(${br0},${bg0},${bb0},${(ba * 0.72).toFixed(3)})`);
+        bgr.addColorStop(1, `rgba(${br0},${bg0},${bb0},0)`);
+        g.globalAlpha = 1;
+        g.fillStyle = bgr;
+        g.beginPath(); g.arc(ccx, ccy, rad, 0, Math.PI * 2); g.fill();
+        g.globalAlpha = Math.min(0.85, 0.42 + lvl * 0.06); // lighter pixel grain OVER the smooth body
+      }
       const NB = pu * 4; // coarse noise block -> irregular outline/holes
       for (let gy = 0; gy < t; gy += pu) {
         for (let gx = 0; gx < t; gx += pu) {
