@@ -1602,9 +1602,9 @@ function applyGfxPreset(p: Exclude<GfxPreset, "custom">): void {
   // grassTexture=true ⇒ static (cheap) classic floor; false ⇒ animated swaying
   // grass, a 🔴 per-tile-per-frame effect → HIGH only.
   const map = {
-    low: { liteGfx: true, ambientFx: false, blockDepth: false, shadows: false, dynamicLight: false, bloom: false, grassTexture: true },
-    medium: { liteGfx: false, ambientFx: false, blockDepth: true, shadows: false, dynamicLight: false, bloom: false, grassTexture: true },
-    high: { liteGfx: false, ambientFx: true, blockDepth: true, shadows: true, dynamicLight: true, bloom: true, grassTexture: false },
+    low: { liteGfx: true, ambientFx: false, blockDepth: false, shadows: false, dynamicLight: false, bloom: false, grassTexture: true, battleScars: false, particleDensity: 0.6 },
+    medium: { liteGfx: false, ambientFx: false, blockDepth: true, shadows: false, dynamicLight: false, bloom: false, grassTexture: true, battleScars: true, particleDensity: 1.0 },
+    high: { liteGfx: false, ambientFx: true, blockDepth: true, shadows: true, dynamicLight: true, bloom: true, grassTexture: false, battleScars: true, particleDensity: 1.3 },
   }[p];
   settings.liteGfx = map.liteGfx;
   settings.ambientFx = map.ambientFx;
@@ -1613,6 +1613,8 @@ function applyGfxPreset(p: Exclude<GfxPreset, "custom">): void {
   settings.dynamicLight = map.dynamicLight;
   settings.bloom = map.bloom;
   settings.grassTexture = map.grassTexture;
+  settings.battleScars = map.battleScars; // battle scars: off on Low (cheaper)
+  settings.particleDensity = map.particleDensity; // scale physics debris by tier
   settings.gfxPreset = p;
   saveSettings(settings);
   applySettings();
